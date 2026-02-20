@@ -25,9 +25,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Dashboard/Index');
     })->name('dashboard');
 
-    Route::get('products', function () {
-        return Inertia::render('Products/Index');
-    })->name('products.index');
+    Route::get('products', [App\Http\Controllers\ProductsController::class, 'index'])->name('products.index');
+    Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');
+    Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
+    Route::delete('products/{id}', [App\Http\Controllers\ProductsController::class, 'destroy'])->name('products.destroy');
 
     Route::get('suppliers', function () {
         return Inertia::render('Suppliers/Index');
@@ -61,6 +62,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // POS Routes
     Route::get('pos', [PosController::class, 'index'])->name('pos.index');
+    Route::post('pos', [PosController::class, 'store'])->name('pos.store');
 
     Route::get('/categories', [CategoriesController::class, 'index'])->name('categories.index');
     Route::post('/categories', [CategoriesController::class, 'store'])->name('categories.store');

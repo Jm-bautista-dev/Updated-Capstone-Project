@@ -2,48 +2,54 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class CategoriesController extends Controller
 {
     public function index(Request $request)
     {
-        $query = DB::table('categories');
+        $query = Category::query()->withCount('products');
 
-        if ($request->filled('filter_category')) {
-            $query->where('id', $request->filter_category);
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $categories = $query->orderBy('name')->get()->map(function($category) {
-            return (object) [
-                'id' => $category->id,
-                'name' => $category->name,
-                'description' => $category->description,
-                'product_count' => 0, // placeholder, will count products later
-            ];
+        $categories = $query->orderBy('name')->get()->map(function ($category) {
+            $category->image_url = $category->image_path
+                ? Storage::disk('public')->url($category->image_path)
+                : null;
+            return $category;
         });
 
         return Inertia::render('Categories/Index', [
             'categories' => $categories,
-            'allCategories' => DB::table('categories')->orderBy('name')->get(), // for dropdown filter
-            'selectedCategory' => $request->filter_category ?? null,
+            'summary' => [
+                'total_categories' => Category::count(),
+            ],
+            'filters' => $request->only(['search']),
         ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
+        $validated = $request->validate([
+            'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
+            'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
         ]);
 
-        DB::table('categories')->insert([
-            'name' => $request->name,
-            'description' => $request->description,
-            'created_at' => now(),
-            'updated_at' => now(),
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('categories', 'public');
+        }
+
+        Category::create([
+            'name'        => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'image_path'  => $imagePath,
         ]);
 
         return redirect()->back();
@@ -51,15 +57,28 @@ class CategoriesController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
+        $category = Category::findOrFail($id);
+
+        $validated = $request->validate([
+            'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
+            'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
         ]);
 
-        DB::table('categories')->where('id', $id)->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'updated_at' => now(),
+        $imagePath = $category->image_path;
+
+        if ($request->hasFile('image')) {
+            // Delete old image
+            if ($category->image_path) {
+                Storage::disk('public')->delete($category->image_path);
+            }
+            $imagePath = $request->file('image')->store('categories', 'public');
+        }
+
+        $category->update([
+            'name'        => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'image_path'  => $imagePath,
         ]);
 
         return redirect()->back();
@@ -67,7 +86,13 @@ class CategoriesController extends Controller
 
     public function destroy($id)
     {
-        DB::table('categories')->where('id', $id)->delete();
+        $category = Category::findOrFail($id);
+
+        if ($category->image_path) {
+            Storage::disk('public')->delete($category->image_path);
+        }
+
+        $category->delete();
 
         return redirect()->back();
     }

@@ -12,6 +12,7 @@ import {
     BarChart2,
     Database,
     CarTaxiFront,
+    Truck,
 } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -32,7 +33,7 @@ import { dashboard } from '@/routes';
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard(),
+        href: '/dashboard',
         icon: LayoutGrid,
     },
     {
@@ -79,7 +80,7 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Delivery',
         href: '/delivery',
-        icon: CarTaxiFront,
+        icon: Truck,
     }
 ];
 
@@ -103,7 +104,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href="/dashboard" prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>

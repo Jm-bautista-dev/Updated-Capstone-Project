@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ingredient;
+use App\Models\IngredientLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -11,90 +13,82 @@ class InventoryController extends Controller
     // Show inventory
     public function index()
     {
-        $inventory = DB::table('products')
-            ->leftJoin('inventory_logs', 'products.id', '=', 'inventory_logs.product_id')
-            ->select(
-                'products.id',
-                'products.name',
-                'products.price',
-                DB::raw('COALESCE(SUM(inventory_logs.change_qty), 0) as stock')
-            )
-            ->groupBy('products.id', 'products.name', 'products.price')
-            ->get();
+        $inventory = Ingredient::orderBy('name')->get()->map(function($ingredient) {
+            return [
+                'id' => $ingredient->id,
+                'name' => $ingredient->name,
+                'stock' => (float) $ingredient->stock,
+                'unit' => $ingredient->unit,
+            ];
+        });
 
         return Inertia::render('Inventory/Index', [
             'inventory' => $inventory
         ]);
     }
 
-    // Store new product
+    // Store new ingredient
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'initial_stock' => 'nullable|integer|min:0',
+            'unit' => 'required|string|max:20',
+            'initial_stock' => 'nullable|numeric|min:0',
         ]);
 
-        $productId = DB::table('products')->insertGetId([
-            'name' => $request->name,
-            'price' => $request->price,
-            'sku' => 'SKU'.rand(1000,9999),
-            'created_at' => now(),
-            'updated_at' => now(),
+        $ingredient = Ingredient::create([
+            'name' => $validated['name'],
+            'unit' => $validated['unit'],
+            'stock' => $validated['initial_stock'] ?? 0,
         ]);
 
-        if ($request->initial_stock && $request->initial_stock > 0) {
-            DB::table('inventory_logs')->insert([
-                'product_id' => $productId,
-                'change_qty' => $request->initial_stock,
+        if ($ingredient->stock > 0) {
+            IngredientLog::create([
+                'ingredient_id' => $ingredient->id,
+                'change_qty' => $ingredient->stock,
                 'reason' => 'initial stock',
-                'created_at' => now(),
-                'updated_at' => now(),
             ]);
         }
 
         return redirect()->back();
     }
 
-    // Update product
+    // Update ingredient
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $ingredient = Ingredient::findOrFail($id);
+
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'stock' => 'nullable|integer|min:0',
+            'unit' => 'required|string|max:20',
+            'stock' => 'nullable|numeric|min:0',
         ]);
 
-        DB::table('products')->where('id', $id)->update([
-            'name' => $request->name,
-            'price' => $request->price,
-            'updated_at' => now(),
+        $oldStock = (float) $ingredient->stock;
+        $newStock = (float) ($validated['stock'] ?? $oldStock);
+
+        $ingredient->update([
+            'name' => $validated['name'],
+            'unit' => $validated['unit'],
+            'stock' => $newStock,
         ]);
 
-        if ($request->has('stock')) {
-            $currentStock = DB::table('inventory_logs')->where('product_id', $id)->sum('change_qty');
-            $difference = $request->stock - $currentStock;
-
-            if ($difference != 0) {
-                DB::table('inventory_logs')->insert([
-                    'product_id' => $id,
-                    'change_qty' => $difference,
-                    'reason' => 'manual adjustment',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+        if ($newStock != $oldStock) {
+            IngredientLog::create([
+                'ingredient_id' => $ingredient->id,
+                'change_qty' => $newStock - $oldStock,
+                'reason' => 'manual adjustment',
+            ]);
         }
 
         return redirect()->back();
     }
 
-    // Delete product
+    // Delete ingredient
     public function destroy($id)
     {
-        DB::table('inventory_logs')->where('product_id', $id)->delete();
-        DB::table('products')->where('id', $id)->delete();
+        $ingredient = Ingredient::findOrFail($id);
+        $ingredient->delete();
 
         return redirect()->back();
     }
