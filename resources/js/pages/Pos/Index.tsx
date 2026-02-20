@@ -9,6 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useForm } from '@inertiajs/react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { FiCheckCircle, FiPrinter, FiPlusCircle } from 'react-icons/fi';
+import { format } from 'date-fns';
 
 type Category = {
   id: number;
@@ -58,8 +68,21 @@ export default function PosIndex() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orderType, setOrderType] = useState('Dine-in');
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [orderType, setOrderType] = useState('dine-in');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+
+  // Modal States
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [cashReceived, setCashReceived] = useState('');
+  const [lastSale, setLastSale] = useState<any>(null);
+
+  const cartTotal = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
+
+  const changeDue = useMemo(() => {
+    const cash = parseFloat(cashReceived) || 0;
+    return Math.max(0, cash - cartTotal);
+  }, [cashReceived, cartTotal]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p: Product) => {
@@ -97,28 +120,49 @@ export default function PosIndex() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
 
   const { processing } = useForm();
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    setIsPaymentModalOpen(true);
+  };
+
+  const confirmPayment = () => {
+    const paid = paymentMethod === 'cash' ? parseFloat(cashReceived) : cartTotal;
+
+    if (paymentMethod === 'cash' && paid < cartTotal) {
+      alert('Insufficient cash received');
+      return;
+    }
+
     router.post('/pos', {
       type: orderType,
       items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
       total: cartTotal,
       payment_method: paymentMethod,
-      paid_amount: cartTotal,
+      paid_amount: paid,
+      change_amount: paymentMethod === 'cash' ? changeDue : 0,
     }, {
-      onSuccess: () => {
+      onSuccess: (page) => {
+        const sale = (page.props as any).recentOrders[0];
+        setLastSale(sale);
         setCart([]);
+        setCashReceived('');
+        setIsPaymentModalOpen(false);
+        setIsSuccessModalOpen(true);
         stateChannel.postMessage({ type: 'inventory-updated' });
-        alert('Order completed successfully!');
+        stateChannel.postMessage({ type: 'sales-updated' });
       },
       onError: (err: any) => {
         alert(err.error || 'Checkout failed');
       }
     });
+  };
+
+  const handleNewOrder = () => {
+    setIsSuccessModalOpen(false);
+    setLastSale(null);
   };
 
   const formatCurrency = (amount: number) => {
@@ -368,9 +412,9 @@ export default function PosIndex() {
                   value={orderType}
                   onChange={(e) => setOrderType(e.target.value)}
                 >
-                  <option>Dine-in</option>
-                  <option>Take-out</option>
-                  <option>Delivery</option>
+                  <option value="dine-in">Dine-in</option>
+                  <option value="take-out">Take-out</option>
+                  <option value="delivery">Delivery</option>
                 </select>
               </div>
               <div className="flex justify-between items-center text-sm">
@@ -380,9 +424,9 @@ export default function PosIndex() {
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
                 >
-                  <option>Cash</option>
-                  <option>Card</option>
-                  <option>G-Cash</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="e-wallet">E-Wallet</option>
                 </select>
               </div>
             </div>
@@ -403,6 +447,145 @@ export default function PosIndex() {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Payment Details</DialogTitle>
+            <DialogDescription>Select payment method and enter amount</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border border-primary/10">
+              <span className="text-muted-foreground font-medium">Total Payable</span>
+              <span className="text-3xl font-black text-primary">{formatCurrency(cartTotal)}</span>
+            </div>
+
+            {paymentMethod === 'cash' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Amount Received</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      className="pl-8 h-12 text-xl font-bold rounded-xl"
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center p-4 bg-muted/50 rounded-2xl border">
+                  <span className="text-muted-foreground font-medium">Change Due</span>
+                  <span className="text-2xl font-black text-amber-600">{formatCurrency(changeDue)}</span>
+                </div>
+              </div>
+            )}
+
+            {paymentMethod !== 'cash' && (
+              <div className="p-12 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <FiPackage className="size-8 opacity-20" />
+                <p className="text-sm font-medium">Process via external terminal</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" className="h-11 rounded-xl" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
+            <Button
+              className="h-11 rounded-xl px-8 font-bold"
+              disabled={processing || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
+              onClick={confirmPayment}
+            >
+              Confirm Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success & Receipt Modal */}
+      <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="flex flex-col items-center text-center py-4">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', damping: 12 }}
+              className="size-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4"
+            >
+              <FiCheckCircle className="size-8 text-green-500" />
+            </motion.div>
+            <DialogTitle className="text-2xl font-black">Transaction Complete</DialogTitle>
+            <DialogDescription>Order #{lastSale?.order_number} has been recorded</DialogDescription>
+          </div>
+
+          {/* Receipt Preview Area */}
+          <div className="bg-white text-black p-6 rounded-xl border-t-4 border-primary shadow-sm space-y-4 font-mono text-xs">
+            <div className="text-center border-b pb-4 space-y-1">
+              <h3 className="font-bold text-lg uppercase tracking-tight">Restaurant Name</h3>
+              <p className="text-muted-foreground">123 Street Address, City</p>
+              <p className="text-muted-foreground">TEL: (000) 123-4567</p>
+            </div>
+
+            <div className="flex justify-between">
+              <span>Date: {lastSale ? format(new Date(lastSale.created_at), 'MMM dd, yyyy HH:mm') : ''}</span>
+              <span className="font-bold uppercase">{lastSale?.type}</span>
+            </div>
+
+            <div className="border-y py-3 space-y-2">
+              <div className="flex justify-between font-bold border-b pb-1">
+                <span>Item</span>
+                <div className="flex gap-8">
+                  <span>Qty</span>
+                  <span>Price</span>
+                </div>
+              </div>
+              {lastSale?.items?.map((item: any) => (
+                <div key={item.id} className="flex justify-between">
+                  <span className="truncate max-w-[150px]">{item.product?.name}</span>
+                  <div className="flex gap-10">
+                    <span>{item.quantity}</span>
+                    <span>{formatCurrency(item.unit_price)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1 text-sm border-b pb-4">
+              <div className="flex justify-between font-black">
+                <span>TOTAL</span>
+                <span>{formatCurrency(lastSale?.total || 0)}</span>
+              </div>
+              <div className="flex justify-between text-xs pt-2">
+                <span className="capitalize">{lastSale?.payment_method} Received</span>
+                <span>{formatCurrency(lastSale?.paid_amount || 0)}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold">
+                <span>CHANGE</span>
+                <span>{formatCurrency(lastSale?.change_amount || 0)}</span>
+              </div>
+            </div>
+
+            <div className="text-center pt-2 italic text-[10px] space-y-1">
+              <p>Thank you for dining with us!</p>
+              <p>Cashier: {lastSale?.cashier?.name || 'Staff'}</p>
+            </div>
+          </div>
+
+          <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-0">
+            <Button variant="outline" className="h-11 rounded-xl gap-2 font-bold" onClick={() => window.print()}>
+              <FiPrinter className="size-4" /> Print Receipt
+            </Button>
+            <Button className="h-11 rounded-xl gap-2 font-bold" onClick={handleNewOrder}>
+              <FiPlusCircle className="size-4" /> New Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

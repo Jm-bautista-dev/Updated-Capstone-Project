@@ -11,9 +11,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use App\Services\SaleService;
+use App\Models\Sale;
+use Illuminate\Support\Facades\Auth;
 
 class PosController extends Controller
 {
+    protected $saleService;
+
+    public function __construct(SaleService $saleService)
+    {
+        $this->saleService = $saleService;
+    }
     public function index()
     {
         $products = Product::with(['category', 'ingredients'])->get()->map(function($product) {
@@ -31,7 +40,11 @@ class PosController extends Controller
             return $category;
         });
 
-        $recentOrders = PosOrder::latest()->limit(10)->get();
+        $recentOrders = Sale::with('items.product')
+            ->where('user_id', Auth::id())
+            ->latest()
+            ->limit(10)
+            ->get();
 
         return Inertia::render('Pos/Index', [
             'products'     => $products,
@@ -50,52 +63,19 @@ class PosController extends Controller
             'total' => 'required|numeric',
             'payment_method' => 'required|string',
             'paid_amount' => 'required|numeric',
+            'change_amount' => 'nullable|numeric',
         ]);
 
-        return DB::transaction(function() use ($validated) {
-            // 1. Validate all ingredients requirement across all items
-            $ingredientRequirements = [];
-            foreach ($validated['items'] as $item) {
-                $product = Product::with('ingredients')->findOrFail($item['id']);
-                foreach ($product->ingredients as $ingredient) {
-                    $id = $ingredient->id;
-                    $needed = (float) $ingredient->pivot->quantity_required * (float) $item['quantity'];
-                    $ingredientRequirements[$id] = ($ingredientRequirements[$id] ?? 0) + $needed;
-                }
-            }
-
-            // 2. Check availability
-            foreach ($ingredientRequirements as $id => $totalNeeded) {
-                $ingredient = Ingredient::findOrFail($id);
-                if ($ingredient->stock < $totalNeeded) {
-                    return back()->withErrors(['error' => "Insufficient stock for {$ingredient->name}. Needed {$totalNeeded}, available {$ingredient->stock}"]);
-                }
-            }
-
-            // 3. Deduct stock and log
-            foreach ($ingredientRequirements as $id => $totalNeeded) {
-                $ingredient = Ingredient::findOrFail($id);
-                $ingredient->decrement('stock', $totalNeeded);
-
-                IngredientLog::create([
-                    'ingredient_id' => $id,
-                    'change_qty' => -$totalNeeded,
-                    'reason' => "Sale: " . ($validated['order_number'] ?? 'POS Order'),
-                ]);
-            }
-
-            // 4. Create Order record
-            $order = PosOrder::create([
-                'order_number' => 'POS-' . strtoupper(uniqid()),
-                'type' => $validated['type'],
-                'items' => $validated['items'],
-                'total' => $validated['total'],
-                'status' => 'completed',
-                'payment_method' => $validated['payment_method'],
-                'paid_amount' => $validated['paid_amount'],
-            ]);
+        try {
+            $orderNumber = 'POS-' . strtoupper(uniqid());
+            $this->saleService->processSale(array_merge($validated, [
+                'order_number' => $orderNumber,
+                'status' => 'completed', // Or 'preparing' if real-time tracking is active
+            ]));
 
             return redirect()->back()->with('success', 'Order processed successfully');
-        });
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
     }
 }

@@ -1,11 +1,10 @@
-import { Link } from '@inertiajs/react';
 import {
     BookOpen,
     Folder,
     LayoutGrid,
     Box,
     Users,
-    User,
+    User as UserIcon,
     ShoppingCart,
     Archive,
     ClipboardList,
@@ -26,9 +25,12 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import type { NavItem } from '@/types';
+import type { NavItem, User } from '@/types';
 import AppLogo from './app-logo';
 import { dashboard } from '@/routes';
+import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
+import { Link } from '@inertiajs/react';
 
 const mainNavItems: NavItem[] = [
     {
@@ -60,7 +62,7 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Customers',
         href: '/customers',
-        icon: User,
+        icon: UserIcon,
     },
     {
         title: 'Sales',
@@ -98,6 +100,17 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { auth } = usePage().props as { auth: { user: User } };
+    const user = auth.user;
+
+    const filteredNavItems = useMemo(() => {
+        if (user.role === 'admin') return mainNavItems;
+
+        // Cashier restricted items
+        const restrictedTitles = ['Products', 'Suppliers', 'Categories', 'Inventory', 'Reports'];
+        return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
+    }, [user.role]);
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -113,7 +126,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={filteredNavItems} />
             </SidebarContent>
 
             <SidebarFooter>
