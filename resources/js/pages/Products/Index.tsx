@@ -2,6 +2,7 @@ import { Head, usePage, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
 import React, { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
+import { ResultModal } from '@/components/result-modal';
 import {
     FiEdit2,
     FiTrash2,
@@ -112,6 +113,8 @@ export default function ProductsIndex() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -198,7 +201,8 @@ export default function ProductsIndex() {
                 setIsAddModalOpen(false);
                 reset();
                 stateChannel.postMessage({ type: 'products-updated' });
-                alert('Product added successfully!');
+                setSuccessMessage({ title: 'Product Added!', message: 'The product has been registered successfully.' });
+                setIsSuccessModalOpen(true);
                 setImageFile(null);
                 setImagePreview(null);
             },
@@ -219,6 +223,8 @@ export default function ProductsIndex() {
                     reset();
                     setImageFile(null);
                     setImagePreview(null);
+                    setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
+                    setIsSuccessModalOpen(true);
                 },
             });
         }
@@ -351,9 +357,11 @@ export default function ProductsIndex() {
                                 <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
                                     <tr className="bg-muted/30">
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Product Information</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden md:table-cell">Category</th>
-                                        <th className="h-12 px-6 text-right align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Pricing</th>
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden lg:table-cell">Category</th>
+                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock</th>
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden sm:table-cell">Pricing</th>
                                         <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock Status</th>
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden md:table-cell">Created</th>
                                         <th className="h-12 px-6 text-right align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Actions</th>
                                     </tr>
                                 </thead>
@@ -405,8 +413,8 @@ export default function ProductsIndex() {
                                                             <span className="text-sm font-bold text-emerald-600">Sell: {formatCurrency(product.selling_price)}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 align-middle">
-                                                        <Badge variant="outline" className={cn("px-2 py-0.5", getStatusColor(product.status))}>
+                                                    <td className="p-4 align-middle text-center">
+                                                        <Badge variant="outline" className={cn("px-2 py-0.5 whitespace-nowrap", getStatusColor(product.status))}>
                                                             {product.status}
                                                         </Badge>
                                                     </td>
@@ -515,6 +523,15 @@ export default function ProductsIndex() {
                     </Card>
                 </div>
             </div>
+
+            {/* Success Modal */}
+            <ResultModal
+                open={isSuccessModalOpen}
+                onClose={() => setIsSuccessModalOpen(false)}
+                type="success"
+                title={successMessage.title}
+                message={successMessage.message}
+            />
 
             {/* Modals */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>

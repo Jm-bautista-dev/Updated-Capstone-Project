@@ -2,6 +2,7 @@ import { Head, usePage } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
 import { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
+import { ResultModal } from '@/components/result-modal';
 import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,10 @@ export default function PosIndex() {
   // Modal States
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ type: 'error' | 'warning'; title: string; message: string }>({
+    type: 'warning', title: '', message: '',
+  });
   const [cashReceived, setCashReceived] = useState('');
   const [lastSale, setLastSale] = useState<any>(null);
 
@@ -132,7 +137,8 @@ export default function PosIndex() {
     const paid = paymentMethod === 'cash' ? parseFloat(cashReceived) : cartTotal;
 
     if (paymentMethod === 'cash' && paid < cartTotal) {
-      alert('Insufficient cash received');
+      setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
+      setIsAlertModalOpen(true);
       return;
     }
 
@@ -155,7 +161,8 @@ export default function PosIndex() {
         stateChannel.postMessage({ type: 'sales-updated' });
       },
       onError: (err: any) => {
-        alert(err.error || 'Checkout failed');
+        setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });
+        setIsAlertModalOpen(true);
       }
     });
   };
@@ -586,6 +593,15 @@ export default function PosIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Result Modal (Errors/Warnings) */}
+      <ResultModal
+        open={isAlertModalOpen}
+        onClose={() => setIsAlertModalOpen(false)}
+        type={alertModal.type}
+        title={alertModal.title}
+        message={alertModal.message}
+      />
     </AppLayout>
   );
 }
+

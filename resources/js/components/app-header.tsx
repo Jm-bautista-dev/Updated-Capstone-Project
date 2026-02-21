@@ -1,5 +1,6 @@
+import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Menu, Search, Database } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ import { cn, toUrl } from '@/lib/utils';
 import type { BreadcrumbItem, NavItem } from '@/types';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
-import { dashboard } from '@/routes';
+
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];
@@ -46,6 +47,21 @@ const mainNavItems: NavItem[] = [
         href: '/dashboard',
         icon: LayoutGrid,
     },
+    {
+        title: 'Pos',
+        href: '/pos',
+        icon: Database,
+    },
+    {
+        title: 'Products',
+        href: '/products',
+        icon: LayoutGrid,
+    },
+    {
+        title: 'Sales',
+        href: '/sales',
+        icon: LayoutGrid,
+    }
 ];
 
 const rightNavItems: NavItem[] = [
@@ -69,6 +85,17 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const { auth } = page.props;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
+
+    const filteredNavItems = React.useMemo(() => {
+        if (auth.user.role === 'admin') {
+            return mainNavItems.filter(item => item.title !== 'Pos');
+        }
+
+        // Cashier restricted items (only hide: Dashboard, Suppliers, Employees)
+        const restrictedTitles = ['Dashboard', 'Suppliers', 'Employees'];
+        return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
+    }, [auth.user.role]);
+
     return (
         <>
             <div className="border-b border-sidebar-border/80">
@@ -98,7 +125,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                 <div className="flex h-full flex-1 flex-col space-y-4 p-4">
                                     <div className="flex h-full flex-col justify-between text-sm">
                                         <div className="flex flex-col space-y-4">
-                                            {mainNavItems.map((item) => (
+                                            {filteredNavItems.map((item) => (
                                                 <Link
                                                     key={item.title}
                                                     href={item.href}
@@ -135,8 +162,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     </div>
 
                     <Link
-                        href="/dashboard"
-                        prefetch
+                        href={auth.user.role === 'admin' ? '/dashboard' : '/pos'}
                         className="flex items-center space-x-2"
                     >
                         <AppLogo />
@@ -146,7 +172,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     <div className="ml-6 hidden h-full items-center space-x-6 lg:flex">
                         <NavigationMenu className="flex h-full items-stretch">
                             <NavigationMenuList className="flex h-full items-stretch space-x-2">
-                                {mainNavItems.map((item, index) => (
+                                {filteredNavItems.map((item, index) => (
                                     <NavigationMenuItem
                                         key={index}
                                         className="relative flex h-full items-center"

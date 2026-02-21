@@ -2,6 +2,7 @@ import { Head, usePage, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
 import AppLayout from '@/layouts/app-layout';
 import React, { useState, useMemo, useEffect } from 'react';
+import { ResultModal } from '@/components/result-modal';
 import type { BreadcrumbItem } from '@/types';
 import {
   FiPackage,
@@ -140,6 +141,10 @@ export default function InventoryIndex() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
+    type: 'success', title: '', message: '',
+  });
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
 
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
@@ -223,6 +228,8 @@ export default function InventoryIndex() {
         setIsAddModalOpen(false);
         reset();
         stateChannel.postMessage({ type: 'inventory-updated' });
+        setResultModal({ type: 'success', title: 'Material Added', message: 'The new ingredient has been added to inventory.' });
+        setIsResultModalOpen(true);
       }
     });
   };
@@ -238,6 +245,8 @@ export default function InventoryIndex() {
         setIsEditModalOpen(false);
         reset();
         stateChannel.postMessage({ type: 'inventory-updated' });
+        setResultModal({ type: 'success', title: 'Material Updated', message: 'Ingredient levels and details have been updated.' });
+        setIsResultModalOpen(true);
       }
     });
   };
@@ -247,6 +256,8 @@ export default function InventoryIndex() {
       onSuccess: () => {
         setIsDeleteModalOpen(false);
         stateChannel.postMessage({ type: 'inventory-updated' });
+        setResultModal({ type: 'success', title: 'Material Deleted', message: 'The ingredient record has been removed.' });
+        setIsResultModalOpen(true);
       }
     });
   };
@@ -572,6 +583,15 @@ export default function InventoryIndex() {
           </div>
         </div>
       </TooltipProvider>
+
+      {/* Result Modal */}
+      <ResultModal
+        open={isResultModalOpen}
+        onClose={() => setIsResultModalOpen(false)}
+        type={resultModal.type}
+        title={resultModal.title}
+        message={resultModal.message}
+      />
 
       {/* Synced Add/Edit Modal */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={(open) => {

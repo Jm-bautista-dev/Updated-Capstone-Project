@@ -2,6 +2,7 @@ import { Head, usePage, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
 import React, { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
+import { ResultModal } from '@/components/result-modal';
 import {
   FiEdit2,
   FiTrash2,
@@ -82,6 +83,10 @@ export default function CategoriesIndex() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
+    type: 'success', title: '', message: '',
+  });
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -157,6 +162,8 @@ export default function CategoriesIndex() {
         setImageFile(null);
         setImagePreview(null);
         stateChannel.postMessage({ type: 'categories-updated' });
+        setResultModal({ type: 'success', title: 'Category Created', message: 'The new category has been added successfully.' });
+        setIsResultModalOpen(true);
       },
     });
   };
@@ -164,7 +171,7 @@ export default function CategoriesIndex() {
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCategory) {
-      router.post(`/ categories / ${selectedCategory.id} `, {
+      router.post(`/categories/${selectedCategory.id}`, {
         _method: 'PUT',
         name: data.name,
         description: data.description,
@@ -177,6 +184,8 @@ export default function CategoriesIndex() {
           setImageFile(null);
           setImagePreview(null);
           stateChannel.postMessage({ type: 'categories-updated' });
+          setResultModal({ type: 'success', title: 'Category Updated', message: 'Category details have been updated.' });
+          setIsResultModalOpen(true);
         },
       });
     }
@@ -184,11 +193,13 @@ export default function CategoriesIndex() {
 
   const handleDeleteSubmit = () => {
     if (selectedCategory) {
-      destroy(`/ categories / ${selectedCategory.id} `, {
+      destroy(`/categories/${selectedCategory.id}`, {
         onSuccess: () => {
           setIsDeleteModalOpen(false);
           setSelectedCategory(null);
           stateChannel.postMessage({ type: 'categories-updated' });
+          setResultModal({ type: 'success', title: 'Category Deleted', message: 'The category has been removed.' });
+          setIsResultModalOpen(true);
         },
       });
     }
@@ -406,6 +417,15 @@ export default function CategoriesIndex() {
             </div>
           </Card>
         </div>
+
+        {/* Result Modal */}
+        <ResultModal
+          open={isResultModalOpen}
+          onClose={() => setIsResultModalOpen(false)}
+          type={resultModal.type}
+          title={resultModal.title}
+          message={resultModal.message}
+        />
 
         {/* Add Category Modal */}
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>

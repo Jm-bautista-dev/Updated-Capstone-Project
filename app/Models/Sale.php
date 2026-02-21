@@ -14,6 +14,8 @@ class Sale extends Model
         'user_id',
         'type',
         'total',
+        'cost_total',
+        'profit',
         'paid_amount',
         'change_amount',
         'payment_method',

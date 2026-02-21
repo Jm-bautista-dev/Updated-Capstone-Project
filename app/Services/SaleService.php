@@ -30,28 +30,48 @@ class SaleService
             // 3. Deduct stock and log changes
             $this->deductStock($ingredientRequirements, $data['order_number'] ?? 'POS Order');
 
-            // 4. Create Sale Record
+            // 4. Calculate Totals and Profit
+            $costTotal = 0;
+            $saleProfit = 0;
+            $saleItemsData = [];
+
+            foreach ($data['items'] as $item) {
+                $product = Product::findOrFail($item['id']);
+                $itemCost = $product->cost_price * $item['quantity'];
+                $itemSelling = $product->selling_price * $item['quantity'];
+                $itemProfit = $itemSelling - $itemCost;
+
+                $costTotal += $itemCost;
+                $saleProfit += $itemProfit;
+
+                $saleItemsData[] = [
+                    'product_id' => $product->id,
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $product->selling_price,
+                    'cost_price' => $product->cost_price,
+                    'subtotal' => $itemSelling,
+                    'profit' => $itemProfit,
+                ];
+            }
+
+            // 5. Create Sale Record
             $sale = Sale::create([
                 'order_number' => $data['order_number'] ?? 'SALE-' . strtoupper(uniqid()),
                 'user_id' => Auth::id(),
                 'type' => $data['type'] ?? 'dine-in',
                 'total' => $data['total'],
+                'cost_total' => $costTotal,
+                'profit' => $saleProfit,
                 'paid_amount' => $data['paid_amount'],
                 'change_amount' => $data['change_amount'] ?? 0,
                 'payment_method' => $data['payment_method'] ?? 'cash',
                 'status' => $data['status'] ?? 'completed',
             ]);
 
-            // 5. Create Sale Items
-            foreach ($data['items'] as $item) {
-                $product = Product::findOrFail($item['id']);
-                SaleItem::create([
-                    'sale_id' => $sale->id,
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $product->selling_price,
-                    'subtotal' => $product->selling_price * $item['quantity'],
-                ]);
+            // 6. Create Sale Items
+            foreach ($saleItemsData as $itemData) {
+                $itemData['sale_id'] = $sale->id;
+                SaleItem::create($itemData);
             }
 
             return $sale;

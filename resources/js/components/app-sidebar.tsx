@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/sidebar';
 import type { NavItem, User } from '@/types';
 import AppLogo from './app-logo';
-import { dashboard } from '@/routes';
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import { Link } from '@inertiajs/react';
@@ -83,6 +82,11 @@ const mainNavItems: NavItem[] = [
         title: 'Delivery',
         href: '/delivery',
         icon: Truck,
+    },
+    {
+        title: 'Employees',
+        href: '/employees',
+        icon: Users,
     }
 ];
 
@@ -104,10 +108,12 @@ export function AppSidebar() {
     const user = auth.user;
 
     const filteredNavItems = useMemo(() => {
-        if (user.role === 'admin') return mainNavItems;
+        if (user.role === 'admin') {
+            return mainNavItems.filter(item => item.title !== 'Pos');
+        }
 
-        // Cashier restricted items
-        const restrictedTitles = ['Products', 'Suppliers', 'Categories', 'Inventory', 'Reports'];
+        // Cashier restricted items (only hide: Dashboard, Suppliers, Delivery, Employees)
+        const restrictedTitles = ['Dashboard', 'Suppliers', 'Delivery', 'Employees'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 
@@ -117,7 +123,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/dashboard" prefetch>
+                            <Link href={user.role === 'admin' ? '/dashboard' : '/pos'}>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
