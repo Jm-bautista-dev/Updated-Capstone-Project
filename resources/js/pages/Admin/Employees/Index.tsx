@@ -3,8 +3,8 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FiPlus, FiEdit2, FiTrash2, FiUser, FiMail, FiLock, FiShield } from 'react-icons/fi';
+import { Card, CardContent } from '@/components/ui/card';
+import { FiPlus, FiEdit2, FiTrash2, FiUser, FiMail, FiMapPin } from 'react-icons/fi';
 import { useState } from 'react';
 import {
     Dialog,
@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function EmployeeIndex({ employees }: any) {
+export default function EmployeeIndex({ employees, branches }: any) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<any>(null);
 
@@ -25,6 +25,7 @@ export default function EmployeeIndex({ employees }: any) {
         email: '',
         password: '',
         role: 'cashier',
+        branch_id: '' as string | number,
     });
 
     const openCreateModal = () => {
@@ -40,6 +41,7 @@ export default function EmployeeIndex({ employees }: any) {
             email: employee.email,
             password: '',
             role: employee.role,
+            branch_id: employee.branch_id ?? '',
         });
         setIsModalOpen(true);
     };
@@ -92,9 +94,15 @@ export default function EmployeeIndex({ employees }: any) {
                                 </div>
 
                                 <h3 className="text-lg font-bold truncate">{employee.name}</h3>
-                                <p className="text-sm text-muted-foreground mb-6 flex items-center gap-2">
+                                <p className="text-sm text-muted-foreground flex items-center gap-2">
                                     <FiMail className="size-3" /> {employee.email}
                                 </p>
+                                {employee.branch && (
+                                    <p className="text-xs text-primary font-medium flex items-center gap-1 mt-1 mb-4">
+                                        <FiMapPin className="size-3" /> {employee.branch.name}
+                                    </p>
+                                )}
+                                {!employee.branch && <div className="mb-4" />}
 
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={() => openEditModal(employee)}>
@@ -169,6 +177,24 @@ export default function EmployeeIndex({ employees }: any) {
                                 </SelectContent>
                             </Select>
                             {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Branch</label>
+                            <Select
+                                value={data.branch_id ? String(data.branch_id) : ''}
+                                onValueChange={(val) => setData('branch_id', val ? Number(val) : '')}
+                            >
+                                <SelectTrigger className="h-11 rounded-xl">
+                                    <SelectValue placeholder="Select branch" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {branches.map((b: any) => (
+                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {(errors as any).branch_id && <p className="text-xs text-destructive">{(errors as any).branch_id}</p>}
                         </div>
 
                         <DialogFooter className="pt-4">

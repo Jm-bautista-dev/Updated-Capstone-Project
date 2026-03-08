@@ -50,8 +50,19 @@ type Summary = {
 };
 
 export default function CategoriesIndex() {
-  const { categories: rawCategories, summary, filters } = usePage().props as any;
+  const { categories: rawCategories, summary, filters, branches, currentBranchId, isAdmin } = usePage().props as any;
   const categories: Category[] = rawCategories || [];
+
+  // Branch filter handler
+  const handleBranchFilter = (value: string) => {
+    router.get('/categories', {
+      branch_id: value === 'all' ? '' : value,
+      search: search
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+    });
+  };
 
   // --- Sync Logic ---
   const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -94,6 +105,7 @@ export default function CategoriesIndex() {
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
     name: '',
     description: '',
+    branch_id: currentBranchId ? String(currentBranchId) : '',
   });
 
   // Reset pagination on search
@@ -217,6 +229,22 @@ export default function CategoriesIndex() {
             <p className="text-sm text-muted-foreground">Manage your product categories and descriptions.</p>
           </div>
           <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Select
+                value={currentBranchId ? String(currentBranchId) : 'all'}
+                onValueChange={handleBranchFilter}
+              >
+                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
+                  <SelectValue placeholder="All Branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches?.map((b: any) => (
+                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <div className="relative w-full sm:w-64">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input

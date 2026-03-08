@@ -40,7 +40,7 @@ type Product = {
 type CartItem = Product & { quantity: number };
 
 export default function PosIndex() {
-  const { products, categories } = usePage().props as any;
+  const { products, categories, branch } = usePage().props as any;
 
   // --- Sync Logic ---
   const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -184,9 +184,9 @@ export default function PosIndex() {
         {/* Left: Product Catalog */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          {/* Header: Search */}
-          <div className="p-4 bg-background border-b">
-            <div className="relative">
+          {/* Header: Search & Branch */}
+          <div className="p-4 bg-background border-b flex items-center justify-between gap-4">
+            <div className="flex-1 relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
               <Input
                 placeholder="Search products..."
@@ -195,6 +195,12 @@ export default function PosIndex() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            {branch && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 shrink-0">
+                <FiPackage className="size-3.5 text-primary" />
+                <span className="text-xs font-black text-primary uppercase tracking-tight">{branch.name}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -533,9 +539,8 @@ export default function PosIndex() {
           {/* Receipt Preview Area */}
           <div className="bg-white text-black p-6 rounded-xl border-t-4 border-primary shadow-sm space-y-4 font-mono text-xs">
             <div className="text-center border-b pb-4 space-y-1">
-              <h3 className="font-bold text-lg uppercase tracking-tight">Restaurant Name</h3>
-              <p className="text-muted-foreground">123 Street Address, City</p>
-              <p className="text-muted-foreground">TEL: (000) 123-4567</p>
+              <h3 className="font-bold text-lg uppercase tracking-tight">{branch?.name || 'Maki Desu'}</h3>
+              <p className="text-muted-foreground text-[10px]">{branch?.address || 'Restaurant POS System'}</p>
             </div>
 
             <div className="flex justify-between">

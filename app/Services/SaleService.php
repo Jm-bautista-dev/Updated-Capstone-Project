@@ -21,51 +21,54 @@ class SaleService
     public function processSale(array $data): Sale
     {
         return DB::transaction(function () use ($data) {
+            $branchId = Auth::user()->branch_id;
+
             // 1. Validate and calculate ingredient requirements
             $ingredientRequirements = $this->calculateIngredientRequirements($data['items']);
 
-            // 2. Verify stock availability
-            $this->verifyStockAvailability($ingredientRequirements);
+            // 2. Verify stock availability (branch-scoped)
+            $this->verifyStockAvailability($ingredientRequirements, $branchId);
 
-            // 3. Deduct stock and log changes
-            $this->deductStock($ingredientRequirements, $data['order_number'] ?? 'POS Order');
+            // 3. Deduct stock and log changes (branch-scoped)
+            $this->deductStock($ingredientRequirements, $data['order_number'] ?? 'POS Order', $branchId);
 
             // 4. Calculate Totals and Profit
-            $costTotal = 0;
-            $saleProfit = 0;
+            $costTotal     = 0;
+            $saleProfit    = 0;
             $saleItemsData = [];
 
             foreach ($data['items'] as $item) {
-                $product = Product::findOrFail($item['id']);
-                $itemCost = $product->cost_price * $item['quantity'];
+                $product     = Product::findOrFail($item['id']);
+                $itemCost    = $product->cost_price * $item['quantity'];
                 $itemSelling = $product->selling_price * $item['quantity'];
-                $itemProfit = $itemSelling - $itemCost;
+                $itemProfit  = $itemSelling - $itemCost;
 
-                $costTotal += $itemCost;
+                $costTotal  += $itemCost;
                 $saleProfit += $itemProfit;
 
                 $saleItemsData[] = [
                     'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
+                    'quantity'   => $item['quantity'],
                     'unit_price' => $product->selling_price,
                     'cost_price' => $product->cost_price,
-                    'subtotal' => $itemSelling,
-                    'profit' => $itemProfit,
+                    'subtotal'   => $itemSelling,
+                    'profit'     => $itemProfit,
                 ];
             }
 
-            // 5. Create Sale Record
+            // 5. Create Sale Record (with branch_id)
             $sale = Sale::create([
-                'order_number' => $data['order_number'] ?? 'SALE-' . strtoupper(uniqid()),
-                'user_id' => Auth::id(),
-                'type' => $data['type'] ?? 'dine-in',
-                'total' => $data['total'],
-                'cost_total' => $costTotal,
-                'profit' => $saleProfit,
-                'paid_amount' => $data['paid_amount'],
-                'change_amount' => $data['change_amount'] ?? 0,
+                'order_number'   => $data['order_number'] ?? 'SALE-' . strtoupper(uniqid()),
+                'user_id'        => Auth::id(),
+                'branch_id'      => $branchId,
+                'type'           => $data['type'] ?? 'dine-in',
+                'total'          => $data['total'],
+                'cost_total'     => $costTotal,
+                'profit'         => $saleProfit,
+                'paid_amount'    => $data['paid_amount'],
+                'change_amount'  => $data['change_amount'] ?? 0,
                 'payment_method' => $data['payment_method'] ?? 'cash',
-                'status' => $data['status'] ?? 'completed',
+                'status'         => $data['status'] ?? 'completed',
             ]);
 
             // 6. Create Sale Items
@@ -84,7 +87,7 @@ class SaleService
         foreach ($items as $item) {
             $product = Product::with('ingredients')->findOrFail($item['id']);
             foreach ($product->ingredients as $ingredient) {
-                $id = $ingredient->id;
+                $id     = $ingredient->id;
                 $needed = (float) $ingredient->pivot->quantity_required * (float) $item['quantity'];
                 $requirements[$id] = ($requirements[$id] ?? 0) + $needed;
             }
@@ -92,26 +95,46 @@ class SaleService
         return $requirements;
     }
 
-    protected function verifyStockAvailability(array $requirements): void
+    /**
+     * Verify stock availability — checks the ingredient in the correct branch.
+     */
+    protected function verifyStockAvailability(array $requirements, ?int $branchId): void
     {
         foreach ($requirements as $id => $totalNeeded) {
-            $ingredient = Ingredient::findOrFail($id);
+            // Find ingredient scoped to branch if branch_id is set
+            $ingredient = $branchId
+                ? Ingredient::where('id', $id)->where('branch_id', $branchId)->first()
+                : Ingredient::find($id);
+
+            if (!$ingredient) {
+                $fallback = Ingredient::findOrFail($id);
+                throw new \Exception("Ingredient '{$fallback->name}' not found in this branch's inventory.");
+            }
+
             if ($ingredient->stock < $totalNeeded) {
-                throw new \Exception("Insufficient stock for {$ingredient->name}. Needed {$totalNeeded}, available {$ingredient->stock}");
+                throw new \Exception(
+                    "Insufficient stock for {$ingredient->name}. Needed {$totalNeeded} {$ingredient->unit}, available {$ingredient->stock} {$ingredient->unit}."
+                );
             }
         }
     }
 
-    protected function deductStock(array $requirements, string $reference): void
+    /**
+     * Deduct stock — updates ingredient row for the correct branch.
+     */
+    protected function deductStock(array $requirements, string $reference, ?int $branchId): void
     {
         foreach ($requirements as $id => $totalNeeded) {
-            $ingredient = Ingredient::findOrFail($id);
+            $ingredient = $branchId
+                ? Ingredient::where('id', $id)->where('branch_id', $branchId)->firstOrFail()
+                : Ingredient::findOrFail($id);
+
             $ingredient->decrement('stock', $totalNeeded);
 
             IngredientLog::create([
-                'ingredient_id' => $id,
-                'change_qty' => -$totalNeeded,
-                'reason' => "Sale: {$reference}",
+                'ingredient_id' => $ingredient->id,
+                'change_qty'    => -$totalNeeded,
+                'reason'        => "Sale: {$reference}",
             ]);
         }
     }

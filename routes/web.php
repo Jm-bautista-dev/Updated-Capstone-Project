@@ -6,6 +6,7 @@ use Laravel\Fortify\Features;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\CategoriesController;
+use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\EmployeeController;
 
@@ -79,6 +80,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
         Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
+
+        // Branches (for dropdowns)
+        Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
     });
 });
 

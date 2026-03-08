@@ -3,6 +3,9 @@ import { CheckCircle, XCircle } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -65,6 +68,12 @@ export function ResultModal({
                 className="sm:max-w-[360px] p-0 overflow-hidden border-none shadow-2xl"
                 onInteractOutside={onClose}
             >
+                {/* Accessibility: Hidden Title for Screen Readers if you want to keep custom UI */}
+                <DialogHeader className="sr-only">
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{message || 'Action result'}</DialogDescription>
+                </DialogHeader>
+
                 {/* Auto-close progress bar */}
                 {autoClose > 0 && open && (
                     <div className="h-1 w-full bg-muted absolute top-0 left-0 z-10">

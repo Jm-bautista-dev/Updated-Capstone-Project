@@ -56,11 +56,12 @@ type Sale = {
 };
 
 export default function SalesIndex() {
-    const { sales: paginatedSales, filters, stats } = usePage().props as any;
+    const { sales: paginatedSales, filters, stats, branches, isAdmin } = usePage().props as any;
     const sales: Sale[] = paginatedSales.data;
 
     const [search, setSearch] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+    const [branchFilter, setBranchFilter] = useState(filters.branch_id || 'all');
 
     // --- Sync Logic ---
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -86,13 +87,18 @@ export default function SalesIndex() {
 
     const handleFilterChange = (value: string) => {
         setStatusFilter(value);
-        router.get('/sales', { status: value, search }, { preserveState: true, replace: true });
+        router.get('/sales', { status: value, search, branch_id: branchFilter !== 'all' ? branchFilter : '' }, { preserveState: true, replace: true });
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setSearch(val);
-        router.get('/sales', { status: statusFilter, search: val }, { preserveState: true, replace: true, preserveScroll: true });
+        router.get('/sales', { status: statusFilter, search: val, branch_id: branchFilter !== 'all' ? branchFilter : '' }, { preserveState: true, replace: true, preserveScroll: true });
+    };
+
+    const handleBranchFilter = (value: string) => {
+        setBranchFilter(value);
+        router.get('/sales', { status: statusFilter, search, branch_id: value !== 'all' ? value : '' }, { preserveState: true, replace: true });
     };
 
     const updateStatus = (saleId: number, newStatus: string) => {
@@ -152,6 +158,19 @@ export default function SalesIndex() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {isAdmin && (
+                            <Select value={branchFilter} onValueChange={handleBranchFilter}>
+                                <SelectTrigger className="w-44 h-9 bg-background/50 border-none ring-1 ring-black/5">
+                                    <SelectValue placeholder="All Branches" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Branches</SelectItem>
+                                    {branches?.map((b: any) => (
+                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                         <div className="relative">
                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
                             <Input

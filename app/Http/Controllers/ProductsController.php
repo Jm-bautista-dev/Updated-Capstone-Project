@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Ingredient;
 use App\Models\MenuItemIngredient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +17,21 @@ class ProductsController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::query()
-            ->with(['category', 'ingredients']);
+        $user     = Auth::user();
+        $branches = Branch::orderBy('name')->get();
+
+        // Determine branch filter
+        if ($user->isAdmin()) {
+            $branchId = $request->input('branch_id');
+        } else {
+            $branchId = $user->branch_id;
+        }
+
+        $query = Product::query()->with(['category', 'ingredients']);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
@@ -26,7 +41,7 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function($product) {
+        $products = $query->orderBy('name')->get()->map(function ($product) {
             $product->stock = $product->computed_stock;
             $product->status = $this->getStockStatus($product->stock);
             $product->image_url = $product->image_path
@@ -41,12 +56,27 @@ class ProductsController extends Controller
             'out_of_stock'   => $products->filter(fn($p) => $p->stock <= 0)->count(),
         ];
 
+        // Ingredients scoped to the selected branch for the recipe builder
+        $ingredientsQuery = Ingredient::orderBy('name');
+        if ($branchId) {
+            $ingredientsQuery->where('branch_id', $branchId);
+        }
+
+        // Categories scoped to the selected branch
+        $categoriesQuery = Category::orderBy('name');
+        if ($branchId) {
+            $categoriesQuery->where('branch_id', $branchId);
+        }
+
         return Inertia::render('Products/Index', [
-            'products'    => $products,
-            'categories'  => Category::orderBy('name')->get(),
-            'ingredients' => Ingredient::orderBy('name')->get(),
-            'summary'     => $summary,
-            'filters'     => $request->only(['search', 'filter_category']),
+            'products'        => $products,
+            'categories'      => $categoriesQuery->get(),
+            'ingredients'     => $ingredientsQuery->get(),
+            'summary'         => $summary,
+            'branches'        => $branches,
+            'currentBranchId' => $branchId,
+            'isAdmin'         => $user->isAdmin(),
+            'filters'         => $request->only(['search', 'filter_category', 'branch_id']),
         ]);
     }
 
@@ -59,27 +89,34 @@ class ProductsController extends Controller
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+
         $validated = $request->validate([
-            'name'         => 'required|string|max:255',
-            'sku'          => 'nullable|string|unique:products,sku',
-            'category_id'  => 'required|exists:categories,id',
-            'cost_price'   => 'required|numeric|min:0',
-            'selling_price'=> 'required|numeric|min:0',
-            'image'        => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'recipe'       => 'required|array|min:1',
+            'name'                        => 'required|string|max:255',
+            'sku'                         => 'nullable|string|unique:products,sku',
+            'category_id'                 => 'required|exists:categories,id',
+            'cost_price'                  => 'required|numeric|min:0',
+            'selling_price'               => 'required|numeric|min:0',
+            'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'recipe'                      => 'required|array|min:1',
             'recipe.*.ingredient_id'      => 'required|exists:ingredients,id',
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
+            'branch_id'                   => 'nullable|exists:branches,id',
         ], [
             'recipe.required' => 'At least one ingredient is required to create a product recipe.',
             'recipe.min'      => 'At least one ingredient is required to create a product recipe.',
         ]);
+
+        $branchId = $user->isAdmin()
+            ? ($validated['branch_id'] ?? $user->branch_id)
+            : $user->branch_id;
 
         $imagePath = null;
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('products', 'public');
         }
 
-        DB::transaction(function() use ($validated, $imagePath) {
+        DB::transaction(function () use ($validated, $imagePath, $branchId) {
             $product = Product::create([
                 'name'          => $validated['name'],
                 'sku'           => $validated['sku'] ?? null,
@@ -87,6 +124,7 @@ class ProductsController extends Controller
                 'cost_price'    => $validated['cost_price'],
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
+                'branch_id'     => $branchId,
             ]);
 
             foreach ($validated['recipe'] as $item) {
@@ -106,13 +144,13 @@ class ProductsController extends Controller
         $product = Product::findOrFail($id);
 
         $validated = $request->validate([
-            'name'         => 'required|string|max:255',
-            'sku'          => 'nullable|string|unique:products,sku,' . $id,
-            'category_id'  => 'required|exists:categories,id',
-            'cost_price'   => 'required|numeric|min:0',
-            'selling_price'=> 'required|numeric|min:0',
-            'image'        => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'recipe'       => 'required|array|min:1',
+            'name'                        => 'required|string|max:255',
+            'sku'                         => 'nullable|string|unique:products,sku,' . $id,
+            'category_id'                 => 'required|exists:categories,id',
+            'cost_price'                  => 'required|numeric|min:0',
+            'selling_price'               => 'required|numeric|min:0',
+            'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'recipe'                      => 'required|array|min:1',
             'recipe.*.ingredient_id'      => 'required|exists:ingredients,id',
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
         ], [
@@ -129,7 +167,7 @@ class ProductsController extends Controller
             $imagePath = $request->file('image')->store('products', 'public');
         }
 
-        DB::transaction(function() use ($product, $validated, $imagePath) {
+        DB::transaction(function () use ($product, $validated, $imagePath) {
             $product->update([
                 'name'          => $validated['name'],
                 'sku'           => $validated['sku'] ?? null,

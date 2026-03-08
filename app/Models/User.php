@@ -13,16 +13,12 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
         'role',
+        'branch_id',
     ];
 
     const ROLE_ADMIN = 'admin';
@@ -36,6 +32,11 @@ class User extends Authenticatable
     public function isCashier(): bool
     {
         return $this->role === self::ROLE_CASHIER;
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**

@@ -23,17 +23,33 @@ class PosController extends Controller
     {
         $this->saleService = $saleService;
     }
+
     public function index()
     {
-        $products = Product::with(['category', 'ingredients'])->get()->map(function($product) {
-            $product->stock = $product->computed_stock;
+        $user     = Auth::user();
+        $branchId = $user->branch_id;
+
+        // Load products scoped to the cashier's branch
+        $productsQuery = Product::with(['category', 'ingredients']);
+        if ($branchId) {
+            $productsQuery->where('branch_id', $branchId);
+        }
+
+        $products = $productsQuery->get()->map(function ($product) {
+            $product->stock    = $product->computed_stock;
             $product->image_url = $product->image_path
                 ? Storage::disk('public')->url($product->image_path)
                 : null;
             return $product;
         });
 
-        $categories = Category::orderBy('name')->get()->map(function($category) {
+        // Load categories scoped to the cashier's branch
+        $categoriesQuery = Category::orderBy('name');
+        if ($branchId) {
+            $categoriesQuery->where('branch_id', $branchId);
+        }
+
+        $categories = $categoriesQuery->get()->map(function ($category) {
             $category->image_url = $category->image_path
                 ? Storage::disk('public')->url($category->image_path)
                 : null;
@@ -50,19 +66,20 @@ class PosController extends Controller
             'products'     => $products,
             'categories'   => $categories,
             'recentOrders' => $recentOrders,
+            'branch'       => $user->branch,
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type' => 'required|string',
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'required|exists:products,id',
+            'type'          => 'required|string',
+            'items'         => 'required|array|min:1',
+            'items.*.id'    => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:1',
-            'total' => 'required|numeric',
-            'payment_method' => 'required|string',
-            'paid_amount' => 'required|numeric',
+            'total'         => 'required|numeric',
+            'payment_method'=> 'required|string',
+            'paid_amount'   => 'required|numeric',
             'change_amount' => 'nullable|numeric',
         ]);
 
@@ -70,7 +87,7 @@ class PosController extends Controller
             $orderNumber = 'POS-' . strtoupper(uniqid());
             $this->saleService->processSale(array_merge($validated, [
                 'order_number' => $orderNumber,
-                'status' => 'completed', // Or 'preparing' if real-time tracking is active
+                'status'       => 'completed',
             ]));
 
             return redirect()->back()->with('success', 'Order processed successfully');

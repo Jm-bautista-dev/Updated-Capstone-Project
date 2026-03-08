@@ -65,6 +65,9 @@ type Ingredient = {
   name: string;
   stock: number;
   unit: string;
+  branch_id?: number;
+  low_stock_level?: number;
+  is_low_stock?: boolean;
 };
 
 // --- Animated Counter Component ---
@@ -103,8 +106,16 @@ const AnimatedCounter = ({ value, color }: { value: number; color: string }) => 
 };
 
 export default function InventoryIndex() {
-  const { inventory: rawInventory } = usePage().props as any;
+  const { inventory: rawInventory, branches, currentBranchId, isAdmin } = usePage().props as any;
   const inventory: Ingredient[] = rawInventory || [];
+
+  // Branch filter handler
+  const handleBranchFilter = (value: string) => {
+    router.get('/inventory', { branch_id: value === 'all' ? '' : value }, {
+      preserveState: true,
+      preserveScroll: true,
+    });
+  };
 
   // --- Sync Channel ---
   const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -151,12 +162,14 @@ export default function InventoryIndex() {
     name: '',
     unit: 'pcs',
     stock: '0',
+    low_stock_level: '5',
+    branch_id: currentBranchId ? String(currentBranchId) : '',
   });
 
   // --- Stats Calculations ---
   const stats = useMemo(() => {
     const total = inventory.length;
-    const low = inventory.filter(i => i.stock > 0 && i.stock <= 5).length;
+    const low = inventory.filter(i => i.is_low_stock && i.stock > 0).length;
     const out = inventory.filter(i => i.stock <= 0).length;
     return { total, low, out };
   }, [inventory]);
@@ -208,6 +221,8 @@ export default function InventoryIndex() {
       name: item.name,
       unit: item.unit,
       stock: String(item.stock),
+      low_stock_level: String(item.low_stock_level ?? 5),
+      branch_id: item.branch_id ? String(item.branch_id) : '',
     });
     setIsEditModalOpen(true);
   };
@@ -223,6 +238,8 @@ export default function InventoryIndex() {
       name: data.name,
       unit: data.unit,
       initial_stock: Number(data.stock),
+      low_stock_level: Number(data.low_stock_level),
+      branch_id: data.branch_id ? Number(data.branch_id) : undefined,
     }, {
       onSuccess: () => {
         setIsAddModalOpen(false);
@@ -240,6 +257,7 @@ export default function InventoryIndex() {
       name: data.name,
       unit: data.unit,
       stock: Number(data.stock),
+      low_stock_level: Number(data.low_stock_level),
     }, {
       onSuccess: () => {
         setIsEditModalOpen(false);
@@ -287,6 +305,22 @@ export default function InventoryIndex() {
               <p className="text-sm text-muted-foreground">Manage raw ingredients and track stock levels in real-time.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              {isAdmin && (
+                  <Select
+                    value={currentBranchId ? String(currentBranchId) : 'all'}
+                    onValueChange={handleBranchFilter}
+                  >
+                    <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
+                      <SelectValue placeholder="All Branches" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branches?.map((b: any) => (
+                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               <div className="relative w-full sm:w-64">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
@@ -384,128 +418,126 @@ export default function InventoryIndex() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="[&_tr:last-child]:border-0 divide-y divide-muted/50">
-                    <AnimatePresence mode='popLayout'>
-                      {paginatedData.length === 0 ? (
-                        <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                          <td colSpan={6} className="p-20 text-center text-muted-foreground italic text-lg">
-                            No items matching your criteria.
-                          </td>
-                        </motion.tr>
-                      ) : (
-                        paginatedData.map((item) => (
-                          <React.Fragment key={item.id}>
-                            <motion.tr
-                              layout
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className={cn(
-                                "border-b transition-colors hover:bg-muted/40 group cursor-pointer",
-                                expandedRowId === item.id ? "bg-primary/5" : ""
-                              )}
-                              onClick={() => toggleExpand(item.id)}
-                            >
-                              <td className="p-4 align-middle text-center">
-                                {expandedRowId === item.id ? <FiChevronDown className="text-primary size-4" /> : <FiChevronRight className="text-muted-foreground/30 size-4" />}
-                              </td>
-                              <td className="p-4 align-middle">
-                                <div className="flex items-center gap-3">
-                                  <div className="size-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary font-bold text-xs shadow-inner">
-                                    {item.name.charAt(0)}
-                                  </div>
-                                  <span className="font-semibold">{item.name}</span>
-                                </div>
-                              </td>
-                              <td className="p-4 align-middle">
-                                <Badge variant="outline" className="bg-primary/5 border-primary/10 text-[10px] font-bold">
-                                  {item.unit}
-                                </Badge>
-                              </td>
-                              <td className="p-4 align-middle">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-sm">
-                                    {Number(item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground font-medium uppercase">{item.unit}</span>
-                                </div>
-                              </td>
-                              <td className="p-4 align-middle">
-                                <div className="flex justify-start">
-                                  {item.stock <= 0 ? (
-                                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] font-bold">
-                                      Out of Stock
-                                    </Badge>
-                                  ) : item.stock <= 5 ? (
-                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] font-bold">
-                                      Low Stock
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                                      In Stock
-                                    </Badge>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="p-4 align-middle text-right">
-                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleEdit(item)}
-                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  >
-                                    <FiEdit2 className="size-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDelete(item)}
-                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  >
-                                    <FiTrash2 className="size-4" />
-                                  </Button>
-                                </div>
-                              </td>
-                            </motion.tr>
-
-                            {/* --- Synced Expanded Info --- */}
-                            <AnimatePresence>
-                              {expandedRowId === item.id && (
-                                <motion.tr
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: 'auto' }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  className="bg-muted/30"
-                                >
-                                  <td colSpan={6} className="p-0 overflow-hidden">
-                                    <div className="px-12 py-6 grid grid-cols-1 md:grid-cols-3 gap-8 items-center border-b border-dashed border-primary/20">
-                                      <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Internal Designation</span>
-                                        <span className="font-mono text-xs font-semibold bg-background px-2 py-1 rounded border border-muted-foreground/10 w-fit">#ING-{item.id.toString().padStart(4, '0')}</span>
-                                      </div>
-                                      <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Stock Health</span>
-                                        <span className={cn("text-xs font-bold flex items-center gap-2", item.stock > 10 ? "text-emerald-600" : "text-amber-600")}>
-                                          <div className={cn("size-2 rounded-full", item.stock > 10 ? "bg-emerald-500" : "bg-amber-500")} />
-                                          {(item.stock / 100 * 100).toFixed(1)}% Measured Volume
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-end">
-                                        <Button variant="outline" size="sm" onClick={() => handleEdit(item)} className="h-8 font-bold text-xs gap-2">
-                                          <FiEdit2 className="size-3" /> Update Record
-                                        </Button>
-                                      </div>
+                    <tbody className="[&_tr:last-child]:border-0 divide-y divide-muted/50">
+                      <AnimatePresence>
+                        {paginatedData.length === 0 ? (
+                          <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <td colSpan={6} className="p-20 text-center text-muted-foreground italic text-lg">
+                              No items matching your criteria.
+                            </td>
+                          </motion.tr>
+                        ) : (
+                          paginatedData.flatMap((item) => {
+                            const mainRow = (
+                              <motion.tr
+                                key={`row-${item.id}`}
+                                layout
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className={cn(
+                                  "border-b transition-colors hover:bg-muted/40 group cursor-pointer",
+                                  expandedRowId === item.id ? "bg-primary/5" : ""
+                                )}
+                                onClick={() => toggleExpand(item.id)}
+                              >
+                                <td className="p-4 align-middle text-center">
+                                  {expandedRowId === item.id ? <FiChevronDown className="text-primary size-4" /> : <FiChevronRight className="text-muted-foreground/30 size-4" />}
+                                </td>
+                                <td className="p-4 align-middle">
+                                  <div className="flex items-center gap-3">
+                                    <div className="size-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary font-bold text-xs shadow-inner">
+                                      {item.name.charAt(0)}
                                     </div>
-                                  </td>
-                                </motion.tr>
-                              )}
-                            </AnimatePresence>
-                          </React.Fragment>
-                        ))
-                      )}
-                    </AnimatePresence>
-                  </tbody>
+                                    <span className="font-semibold">{item.name}</span>
+                                  </div>
+                                </td>
+                                <td className="p-4 align-middle">
+                                  <Badge variant="outline" className="bg-primary/5 border-primary/10 text-[10px] font-bold">
+                                    {item.unit}
+                                  </Badge>
+                                </td>
+                                <td className="p-4 align-middle">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-sm">
+                                      {Number(item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground font-medium uppercase">{item.unit}</span>
+                                  </div>
+                                </td>
+                                <td className="p-4 align-middle">
+                                  <div className="flex justify-start">
+                                    {item.stock <= 0 ? (
+                                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] font-bold">
+                                        Out of Stock
+                                      </Badge>
+                                    ) : item.is_low_stock ? (
+                                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] font-bold">
+                                        ⚠ Low Stock
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
+                                        In Stock
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-4 align-middle text-right">
+                                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => handleEdit(item)}
+                                      className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                    >
+                                      <FiEdit2 className="size-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(item)}
+                                      className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                                    >
+                                      <FiTrash2 className="size-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </motion.tr>
+                            );
+
+                            const expandedRow = expandedRowId === item.id && (
+                              <motion.tr
+                                key={`expand-${item.id}`}
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="bg-muted/30"
+                              >
+                                <td colSpan={6} className="p-0 overflow-hidden">
+                                  <div className="px-12 py-6 grid grid-cols-1 md:grid-cols-3 gap-8 items-center border-b border-dashed border-primary/20">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Internal Designation</span>
+                                      <span className="font-mono text-xs font-semibold bg-background px-2 py-1 rounded border border-muted-foreground/10 w-fit">#ING-{item.id.toString().padStart(4, '0')}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Stock Health</span>
+                                      <span className={cn("text-xs font-bold flex items-center gap-2", item.stock > 10 ? "text-emerald-600" : "text-amber-600")}>
+                                        <div className={cn("size-2 rounded-full", item.stock > 10 ? "bg-emerald-500" : "bg-amber-500")} />
+                                        {(item.stock / 100 * 100).toFixed(1)}% Measured Volume
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-end">
+                                      <Button variant="outline" size="sm" onClick={() => handleEdit(item)} className="h-8 font-bold text-xs gap-2">
+                                        <FiEdit2 className="size-3" /> Update Record
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </motion.tr>
+                            );
+
+                            return [mainRow, expandedRow].filter(Boolean);
+                          })
+                        )}
+                      </AnimatePresence>
+                    </tbody>
+
                 </table>
               </div>
               {/* --- Synced Pagination --- */}
@@ -601,7 +633,7 @@ export default function InventoryIndex() {
           <DialogHeader>
             <DialogTitle>{isEditModalOpen ? 'Edit Material' : 'Add New Material'}</DialogTitle>
             <DialogDescription>
-              {isEditModalOpen ? 'Update your ingredient specifications.' : 'Add a new raw ingredient to your inventory.'}
+              {isEditModalOpen ? 'Update material details and stock level.' : 'Register a new raw material into the inventory system.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={isEditModalOpen ? submitEdit : submitAdd} className="space-y-4 pt-4">
@@ -628,6 +660,7 @@ export default function InventoryIndex() {
                     <SelectItem value="g">g (Gram)</SelectItem>
                     <SelectItem value="pcs">pcs (Pieces)</SelectItem>
                     <SelectItem value="liters">liters (Liters)</SelectItem>
+                    <SelectItem value="ml">ml (Milliliter)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -641,6 +674,19 @@ export default function InventoryIndex() {
                   onChange={(e) => setData('stock', e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Low Stock Alert Level</label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0"
+                value={data.low_stock_level}
+                onChange={(e) => setData('low_stock_level', e.target.value)}
+                placeholder="e.g. 5"
+              />
+              <p className="text-[10px] text-muted-foreground">Send alert when stock falls at or below this level</p>
             </div>
 
             <DialogFooter className="pt-4">

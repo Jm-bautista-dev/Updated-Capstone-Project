@@ -14,7 +14,14 @@ class Ingredient extends Model
         'name',
         'stock',
         'unit',
+        'branch_id',
+        'low_stock_level',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     /**
      * The menu items (products) that use this ingredient.
@@ -32,5 +39,13 @@ class Ingredient extends Model
     public function logs()
     {
         return $this->hasMany(IngredientLog::class);
+    }
+
+    /**
+     * Check if ingredient is low stock.
+     */
+    public function isLowStock(): bool
+    {
+        return (float) $this->stock <= (float) $this->low_stock_level;
     }
 }

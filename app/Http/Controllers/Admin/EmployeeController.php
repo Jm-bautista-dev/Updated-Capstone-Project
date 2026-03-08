@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,24 +15,27 @@ class EmployeeController extends Controller
     public function index()
     {
         return Inertia::render('Admin/Employees/Index', [
-            'employees' => User::where('id', '!=', Auth::id())->latest()->get(),
+            'employees' => User::with('branch')->where('id', '!=', Auth::id())->latest()->get(),
+            'branches'  => Branch::orderBy('name')->get(),
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'role' => 'required|string|in:admin,cashier',
+            'name'      => 'required|string|max:255',
+            'email'     => 'required|string|email|max:255|unique:users',
+            'password'  => 'required|string|min:8',
+            'role'      => 'required|string|in:admin,cashier',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
+            'name'      => $validated['name'],
+            'email'     => $validated['email'],
+            'password'  => Hash::make($validated['password']),
+            'role'      => $validated['role'],
+            'branch_id' => $validated['branch_id'] ?? null,
         ]);
 
         return back()->with('success', 'Employee created successfully');
@@ -40,16 +44,18 @@ class EmployeeController extends Controller
     public function update(Request $request, User $employee)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $employee->id,
-            'password' => 'nullable|string|min:8',
-            'role' => 'required|string|in:admin,cashier',
+            'name'      => 'required|string|max:255',
+            'email'     => 'required|string|email|max:255|unique:users,email,' . $employee->id,
+            'password'  => 'nullable|string|min:8',
+            'role'      => 'required|string|in:admin,cashier',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         $employee->update([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'role' => $validated['role'],
+            'name'      => $validated['name'],
+            'email'     => $validated['email'],
+            'role'      => $validated['role'],
+            'branch_id' => $validated['branch_id'] ?? null,
         ]);
 
         if ($request->filled('password')) {

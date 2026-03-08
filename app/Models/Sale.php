@@ -12,6 +12,7 @@ class Sale extends Model
     protected $fillable = [
         'order_number',
         'user_id',
+        'branch_id',
         'type',
         'total',
         'cost_total',
@@ -21,6 +22,11 @@ class Sale extends Model
         'payment_method',
         'status',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function items()
     {

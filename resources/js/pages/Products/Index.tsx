@@ -79,10 +79,22 @@ type Summary = {
 };
 
 export default function ProductsIndex() {
-    const { products: rawProducts, categories, summary, filters } = usePage().props as any;
+    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin } = usePage().props as any;
     const products: Product[] = rawProducts || [];
     const [search, setSearch] = useState(filters.search || '');
     const [filterCategory, setFilterCategory] = useState(filters.filter_category || '');
+
+    // Branch filter handler
+    const handleBranchFilter = (value: string) => {
+        router.get('/products', {
+            branch_id: value === 'all' ? '' : value,
+            search,
+            filter_category: filterCategory
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     // --- Sync Logic ---
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -125,6 +137,7 @@ export default function ProductsIndex() {
         category_id: '',
         cost_price: '',
         selling_price: '',
+        branch_id: currentBranchId ? String(currentBranchId) : '',
         recipe: [] as { ingredient_id: string; quantity_required: string }[],
     });
 
@@ -283,6 +296,22 @@ export default function ProductsIndex() {
                         <p className="text-sm text-muted-foreground">Manage your product inventory and pricing.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                        {isAdmin && (
+                            <Select
+                                value={currentBranchId ? String(currentBranchId) : 'all'}
+                                onValueChange={handleBranchFilter}
+                            >
+                                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
+                                    <SelectValue placeholder="All Branches" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Branches</SelectItem>
+                                    {branches?.map((b: any) => (
+                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                         <div className="relative w-full sm:w-64">
                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                             <Input

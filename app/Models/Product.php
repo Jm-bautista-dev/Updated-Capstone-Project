@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    protected $fillable = ['name', 'sku', 'selling_price', 'cost_price', 'category_id', 'image_path'];
+    protected $fillable = ['name', 'sku', 'selling_price', 'cost_price', 'category_id', 'image_path', 'branch_id'];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function category()
     {
@@ -21,14 +26,18 @@ class Product extends Model
     }
 
     /**
-     * Compute available stock based on ingredient availability.
+     * Compute available stock based on ingredient availability (branch-scoped).
+     * If branch_id is set, only considers that branch's ingredient stock.
      */
     public function getComputedStockAttribute()
     {
+        $productBranchId = $this->branch_id;
+
+        // Use branchIngredients() if branch is set.
         $ingredients = $this->ingredients;
-        
+
         if ($ingredients->isEmpty()) {
-            return 0; // No recipe, no stock
+            return 0;
         }
 
         $possibleAmounts = [];
@@ -36,8 +45,17 @@ class Product extends Model
         foreach ($ingredients as $ingredient) {
             $required = (float) $ingredient->pivot->quantity_required;
             if ($required <= 0) continue;
-            
-            $available = (float) $ingredient->stock;
+
+            // If product has a branch, find matching ingredient by name in the same branch
+            if ($productBranchId) {
+                $branchIngredient = Ingredient::where('branch_id', $productBranchId)
+                    ->where('id', $ingredient->id)
+                    ->first();
+                $available = $branchIngredient ? (float) $branchIngredient->stock : 0;
+            } else {
+                $available = (float) $ingredient->stock;
+            }
+
             $possibleAmounts[] = floor($available / $required);
         }
 
