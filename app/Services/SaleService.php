@@ -130,9 +130,11 @@ class SaleService
                 : Ingredient::findOrFail($id);
 
             $ingredient->decrement('stock', $totalNeeded);
+            $ingredient->refresh()->checkStockAlerts();
 
             IngredientLog::create([
                 'ingredient_id' => $ingredient->id,
+                'user_id'       => Auth::id(),
                 'change_qty'    => -$totalNeeded,
                 'reason'        => "Sale: {$reference}",
             ]);

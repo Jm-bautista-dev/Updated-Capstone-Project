@@ -11,6 +11,7 @@ class IngredientLog extends Model
 
     protected $fillable = [
         'ingredient_id',
+        'user_id',
         'change_qty',
         'reason',
     ];
@@ -18,5 +19,10 @@ class IngredientLog extends Model
     public function ingredient()
     {
         return $this->belongsTo(Ingredient::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

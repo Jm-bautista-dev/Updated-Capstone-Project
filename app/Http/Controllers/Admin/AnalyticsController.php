@@ -58,7 +58,12 @@ class AnalyticsController extends Controller
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total) as revenue'), DB::raw('SUM(profit) as profit'))
             ->groupBy('date')
             ->orderBy('date')
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $item->revenue = (float) $item->revenue;
+                $item->profit = (float) $item->profit;
+                return $item;
+            });
 
         // ─── Bar Chart: Top 10 selling products ───────────────────────────────
         $salesPerProduct = DB::table('sale_items')
@@ -70,14 +75,24 @@ class AnalyticsController extends Controller
             ->groupBy('products.id', 'products.name')
             ->orderByDesc('total_sold')
             ->limit(10)
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $item->total_sold = (float) $item->total_sold;
+                $item->revenue = (float) $item->revenue;
+                return $item;
+            });
 
         // ─── Pie Chart: Sales by payment method ───────────────────────────────
         $salesByPaymentMethod = Sale::where('status', 'completed')
             ->where('created_at', '>=', $startDate)
             ->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as revenue'))
             ->groupBy('payment_method')
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                $item->count = (int) $item->count;
+                $item->revenue = (float) $item->revenue;
+                return $item;
+            });
 
         return Inertia::render('Admin/Dashboard', [
             'stats'                => $stats,

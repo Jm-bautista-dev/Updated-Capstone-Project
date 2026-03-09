@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -83,6 +84,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Branches (for dropdowns)
         Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
+
+        // Notifications
+        Route::get('api/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::post('api/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+        Route::get('inventory/activity', [NotificationController::class, 'activity'])->name('inventory.activity');
     });
 });
 

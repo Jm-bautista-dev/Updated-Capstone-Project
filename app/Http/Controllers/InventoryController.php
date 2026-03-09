@@ -79,10 +79,13 @@ class InventoryController extends Controller
         if ($ingredient->stock > 0) {
             IngredientLog::create([
                 'ingredient_id' => $ingredient->id,
+                'user_id'       => Auth::id(),
                 'change_qty'    => $ingredient->stock,
                 'reason'        => 'initial stock',
             ]);
         }
+
+        $ingredient->checkStockAlerts();
 
         return redirect()->back();
     }
@@ -112,10 +115,13 @@ class InventoryController extends Controller
         if ($newStock != $oldStock) {
             IngredientLog::create([
                 'ingredient_id' => $ingredient->id,
+                'user_id'       => Auth::id(),
                 'change_qty'    => $newStock - $oldStock,
                 'reason'        => 'manual adjustment',
             ]);
         }
+
+        $ingredient->checkStockAlerts();
 
         return redirect()->back();
     }

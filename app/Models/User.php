@@ -19,6 +19,7 @@ class User extends Authenticatable
         'password',
         'role',
         'branch_id',
+        'last_notifications_read_at',
     ];
 
     const ROLE_ADMIN = 'admin';
@@ -62,6 +63,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'last_notifications_read_at' => 'datetime',
         ];
     }
 }

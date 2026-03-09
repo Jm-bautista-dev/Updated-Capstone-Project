@@ -175,7 +175,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </CardHeader>
                         <CardContent>
                             <div className="h-[350px] w-full mt-4">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={100}>
+                                <ResponsiveContainer width="99%" height={350}>
                                     <LineChart data={salesOverTime} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                         <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -199,7 +199,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </CardHeader>
                         <CardContent>
                             <div className="h-[350px] w-full mt-4">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={100}>
+                                <ResponsiveContainer width="99%" height={350}>
                                     <BarChart data={salesPerProduct} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                                         <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -221,7 +221,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </CardHeader>
                         <CardContent>
                             <div className="h-[300px] w-full mt-4">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={100}>
+                                <ResponsiveContainer width="99%" height={300}>
                                     <PieChart>
                                         <Pie
                                             data={salesByPaymentMethod}
