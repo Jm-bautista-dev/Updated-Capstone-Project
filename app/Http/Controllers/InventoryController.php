@@ -94,6 +94,7 @@ class InventoryController extends Controller
     public function update(Request $request, $id)
     {
         $ingredient = Ingredient::findOrFail($id);
+        $this->authorize('update', $ingredient);
 
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
@@ -130,6 +131,8 @@ class InventoryController extends Controller
     public function destroy($id)
     {
         $ingredient = Ingredient::findOrFail($id);
+        $this->authorize('delete', $ingredient);
+        
         $ingredient->delete();
 
         return redirect()->back();

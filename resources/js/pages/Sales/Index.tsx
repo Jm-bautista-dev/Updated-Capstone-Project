@@ -103,7 +103,10 @@ export default function SalesIndex() {
 
     const updateStatus = (saleId: number, newStatus: string) => {
         router.put(`/sales/${saleId}/status`, { status: newStatus }, {
-            preserveScroll: true
+            preserveScroll: true,
+            onSuccess: () => {
+                stateChannel.postMessage({ type: 'sales-updated' });
+            }
         });
     };
 

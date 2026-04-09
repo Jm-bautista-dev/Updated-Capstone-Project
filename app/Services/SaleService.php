@@ -12,6 +12,13 @@ use Illuminate\Support\Facades\Auth;
 
 class SaleService
 {
+    protected $deliveryService;
+
+    public function __construct(DeliveryService $deliveryService)
+    {
+        $this->deliveryService = $deliveryService;
+    }
+
     /**
      * Process a new sale.
      *
@@ -23,24 +30,37 @@ class SaleService
         return DB::transaction(function () use ($data) {
             $branchId = Auth::user()->branch_id;
 
-            // 1. Validate and calculate ingredient requirements
-            $ingredientRequirements = $this->calculateIngredientRequirements($data['items']);
+            // 1. Batch fetch all products needed with their ingredients (Eager Loading)
+            $itemIds = array_column($data['items'], 'id');
+            $productsQuery = Product::with('ingredients')->whereIn('id', $itemIds);
+            
+            if ($branchId) {
+                $productsQuery->where('branch_id', $branchId);
+            }
+            
+            $products = $productsQuery->get()->keyBy('id');
 
-            // 2. Verify stock availability (branch-scoped)
-            $this->verifyStockAvailability($ingredientRequirements, $branchId);
-
-            // 3. Deduct stock and log changes (branch-scoped)
-            $this->deductStock($ingredientRequirements, $data['order_number'] ?? 'POS Order', $branchId);
-
-            // 4. Calculate Totals and Profit
+            // 2. Calculate ingredient requirements and totals using pre-fetched data
+            $ingredientRequirements = [];
             $costTotal     = 0;
             $saleProfit    = 0;
             $saleItemsData = [];
 
             foreach ($data['items'] as $item) {
-                $product     = Product::findOrFail($item['id']);
-                $itemCost    = $product->cost_price * $item['quantity'];
-                $itemSelling = $product->selling_price * $item['quantity'];
+                $product = $products->get($item['id']);
+                if (!$product) {
+                    throw new \Exception("Product with ID {$item['id']} not found.");
+                }
+
+                // Ingredient Calculation
+                foreach ($product->ingredients as $ingredient) {
+                    $needed = (float) $ingredient->pivot->quantity_required * (float) $item['quantity'];
+                    $ingredientRequirements[$ingredient->id] = ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
+                }
+
+                // Profit Calculation
+                $itemCost    = (float) $product->cost_price * $item['quantity'];
+                $itemSelling = (float) $product->selling_price * $item['quantity'];
                 $itemProfit  = $itemSelling - $itemCost;
 
                 $costTotal  += $itemCost;
@@ -56,7 +76,14 @@ class SaleService
                 ];
             }
 
-            // 5. Create Sale Record (with branch_id)
+            // 3. Verify stock availability (branch-scoped)
+            if (!empty($ingredientRequirements)) {
+                $this->verifyStockAvailability($ingredientRequirements, $branchId);
+                // 4. Deduct stock and log changes (branch-scoped)
+                $this->deductStock($ingredientRequirements, $data['order_number'] ?? 'POS Order', $branchId);
+            }
+
+            // 5. Create Sale Record
             $sale = Sale::create([
                 'order_number'   => $data['order_number'] ?? 'SALE-' . strtoupper(uniqid()),
                 'user_id'        => Auth::id(),
@@ -71,47 +98,51 @@ class SaleService
                 'status'         => $data['status'] ?? 'completed',
             ]);
 
-            // 6. Create Sale Items
+            // 6. Create Sale Items (Consider batch insert if performance is critical)
             foreach ($saleItemsData as $itemData) {
                 $itemData['sale_id'] = $sale->id;
                 SaleItem::create($itemData);
+            }
+
+            // 7. Create Delivery if applicable
+            if (($data['type'] ?? 'dine-in') === 'delivery' && !empty($data['delivery_info'])) {
+                $deliveryData = array_merge($data['delivery_info'], [
+                    'sale_id' => $sale->id,
+                    'delivery_fee' => $data['delivery_info']['delivery_fee'] ?? 0,
+                ]);
+                $this->deliveryService->createDelivery($deliveryData);
             }
 
             return $sale;
         });
     }
 
-    protected function calculateIngredientRequirements(array $items): array
-    {
-        $requirements = [];
-        foreach ($items as $item) {
-            $product = Product::with('ingredients')->findOrFail($item['id']);
-            foreach ($product->ingredients as $ingredient) {
-                $id     = $ingredient->id;
-                $needed = (float) $ingredient->pivot->quantity_required * (float) $item['quantity'];
-                $requirements[$id] = ($requirements[$id] ?? 0) + $needed;
-            }
-        }
-        return $requirements;
-    }
-
     /**
      * Verify stock availability — checks the ingredient in the correct branch.
+     * Rewritten to batch fetch ingredients.
      */
     protected function verifyStockAvailability(array $requirements, ?int $branchId): void
     {
+        $ingredientIds = array_keys($requirements);
+        $ingredientsQuery = Ingredient::whereIn('id', $ingredientIds);
+        
+        if ($branchId) {
+            $ingredientsQuery->where('branch_id', $branchId);
+        }
+        
+        $ingredients = $ingredientsQuery->get()->keyBy('id');
+
         foreach ($requirements as $id => $totalNeeded) {
-            // Find ingredient scoped to branch if branch_id is set
-            $ingredient = $branchId
-                ? Ingredient::where('id', $id)->where('branch_id', $branchId)->first()
-                : Ingredient::find($id);
+            $ingredient = $ingredients->get($id);
 
             if (!$ingredient) {
-                $fallback = Ingredient::findOrFail($id);
-                throw new \Exception("Ingredient '{$fallback->name}' not found in this branch's inventory.");
+                // Better error message
+                $fallback = Ingredient::find($id);
+                $name = $fallback ? $fallback->name : "ID: $id";
+                throw new \Exception("Ingredient '{$name}' not found in this branch's inventory.");
             }
 
-            if ($ingredient->stock < $totalNeeded) {
+            if ((float) $ingredient->stock < $totalNeeded) {
                 throw new \Exception(
                     "Insufficient stock for {$ingredient->name}. Needed {$totalNeeded} {$ingredient->unit}, available {$ingredient->stock} {$ingredient->unit}."
                 );
@@ -124,11 +155,19 @@ class SaleService
      */
     protected function deductStock(array $requirements, string $reference, ?int $branchId): void
     {
-        foreach ($requirements as $id => $totalNeeded) {
-            $ingredient = $branchId
-                ? Ingredient::where('id', $id)->where('branch_id', $branchId)->firstOrFail()
-                : Ingredient::findOrFail($id);
+        $ingredientIds = array_keys($requirements);
+        $ingredientsQuery = Ingredient::whereIn('id', $ingredientIds);
+        
+        if ($branchId) {
+            $ingredientsQuery->where('branch_id', $branchId);
+        }
+        
+        $ingredients = $ingredientsQuery->get();
 
+        foreach ($ingredients as $ingredient) {
+            /** @var \App\Models\Ingredient $ingredient */
+            $totalNeeded = $requirements[$ingredient->id];
+            
             $ingredient->decrement('stock', $totalNeeded);
             $ingredient->refresh()->checkStockAlerts();
 

@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ */
 class MenuItemIngredient extends Pivot
 {
     protected $table = 'menu_item_ingredients';

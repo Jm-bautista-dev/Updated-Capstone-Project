@@ -91,15 +91,25 @@ class ProductsController extends Controller
     {
         $user = Auth::user();
 
+        $branchId = $user->isAdmin()
+            ? ($request->input('branch_id') ?? $user->branch_id)
+            : $user->branch_id;
+
         $validated = $request->validate([
             'name'                        => 'required|string|max:255',
             'sku'                         => 'nullable|string|unique:products,sku',
-            'category_id'                 => 'required|exists:categories,id',
+            'category_id'                 => [
+                'required',
+                \Illuminate\Validation\Rule::exists('categories', 'id')->where('branch_id', $branchId)
+            ],
             'cost_price'                  => 'required|numeric|min:0',
             'selling_price'               => 'required|numeric|min:0',
             'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
             'recipe'                      => 'required|array|min:1',
-            'recipe.*.ingredient_id'      => 'required|exists:ingredients,id',
+            'recipe.*.ingredient_id'      => [
+                'required',
+                \Illuminate\Validation\Rule::exists('ingredients', 'id')->where('branch_id', $branchId)
+            ],
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
             'branch_id'                   => 'nullable|exists:branches,id',
         ], [
@@ -142,16 +152,24 @@ class ProductsController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
+        $this->authorize('update', $product);
+        $branchId = $product->branch_id;
 
         $validated = $request->validate([
             'name'                        => 'required|string|max:255',
             'sku'                         => 'nullable|string|unique:products,sku,' . $id,
-            'category_id'                 => 'required|exists:categories,id',
+            'category_id'                 => [
+                'required',
+                \Illuminate\Validation\Rule::exists('categories', 'id')->where('branch_id', $branchId)
+            ],
             'cost_price'                  => 'required|numeric|min:0',
             'selling_price'               => 'required|numeric|min:0',
             'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
             'recipe'                      => 'required|array|min:1',
-            'recipe.*.ingredient_id'      => 'required|exists:ingredients,id',
+            'recipe.*.ingredient_id'      => [
+                'required',
+                \Illuminate\Validation\Rule::exists('ingredients', 'id')->where('branch_id', $branchId)
+            ],
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
         ], [
             'recipe.required' => 'At least one ingredient is required.',
@@ -193,6 +211,7 @@ class ProductsController extends Controller
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
+        $this->authorize('delete', $product);
 
         if ($product->image_path) {
             Storage::disk('public')->delete($product->image_path);

@@ -1,0 +1,71 @@
+﻿node.exe : npm warn 
+Unknown project config 
+"public-hoist-pattern". 
+This will stop working in 
+the next major version of 
+npm.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (npm  
+   warn Unknow...version   
+  of npm.:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+
+> build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+[plugin @laravel/vite-plugin-wayfinder] Types generated for actions, routes, form variants
+transforming...
+[32mΓ£ô[39m 2427 modules transformed.
+[31mΓ£ù[39m Build failed 
+in 6.85s
+[31merror during build:
+[31m[vite:load-fallback] 
+Could not load C:\xampp\htd
+ocs\Capstone-Project\resour
+ces\js/routes/register 
+(imported by resources/js/p
+ages/auth/register.tsx): 
+ENOENT: no such file or 
+directory, open 'C:\xampp\h
+tdocs\Capstone-Project\reso
+urces\js\routes\register'[
+31m
+    at async open (node:int
+ernal/fs/promises:637:25)
+    at async 
+Object.readFile (node:inter
+nal/fs/promises:1269:14)
+    at async 
+Object.handler (file:///C:/
+xampp/htdocs/Capstone-Proje
+ct/node_modules/vite/dist/n
+ode/chunks/config.js:33169:
+21)
+    at async PluginDriver.h
+ookFirstAndGetPlugin (file:
+///C:/xampp/htdocs/Capstone
+-Project/node_modules/rollu
+p/dist/es/shared/node-entry
+.js:22453:28)
+    at async file:///C:/xam
+pp/htdocs/Capstone-Project/
+node_modules/rollup/dist/es
+/shared/node-entry.js:21445
+:33
+    at async Queue.work (fi
+le:///C:/xampp/htdocs/Capst
+one-Project/node_modules/ro
+llup/dist/es/shared/node-en
+try.js:22681:32)[39m

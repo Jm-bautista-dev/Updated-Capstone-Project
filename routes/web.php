@@ -9,6 +9,9 @@ use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\SupplierController;
+use App\Http\Controllers\Admin\DeliveryController;
+use App\Http\Controllers\Admin\RiderController;
 use App\Http\Controllers\NotificationController;
 
 /*
@@ -34,8 +37,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:admin'])->group(function () {
         Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
 
-        Route::get('suppliers', fn() => Inertia::render('Suppliers/Index'))->name('suppliers.index');
-        Route::get('delivery', fn() => Inertia::render('Delivery/Index'))->name('delivery.index');
+        // Supplier Management
+        Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+        Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+        Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
+        Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+        Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
+        Route::post('suppliers/{supplier}/restore', [SupplierController::class, 'restore'])->name('suppliers.restore');
+
+
+
+        Route::resource('riders', RiderController::class);
+
 
         // Employee Management (Admin only)
         Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
@@ -80,10 +93,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('sales', [App\Http\Controllers\SalesController::class, 'index'])->name('sales.index');
         Route::put('sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
+        // Deliveries
+        Route::get('delivery', [DeliveryController::class, 'index'])->name('delivery.index');
+        Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
+        Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+
+
         Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
 
         // Branches (for dropdowns)
         Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
+        Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');
+        Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
 
         // Notifications
         Route::get('api/notifications', [NotificationController::class, 'index'])->name('notifications.index');

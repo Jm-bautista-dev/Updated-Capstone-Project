@@ -40,7 +40,7 @@ type Product = {
 type CartItem = Product & { quantity: number };
 
 export default function PosIndex() {
-  const { products, categories, branch } = usePage().props as any;
+  const { products, categories, branch, availableRiders } = usePage().props as any;
 
   // --- Sync Logic ---
   const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -82,7 +82,83 @@ export default function PosIndex() {
   const [cashReceived, setCashReceived] = useState('');
   const [lastSale, setLastSale] = useState<any>(null);
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
+  // --- Delivery State ---
+  const [deliveryInfo, setDeliveryInfo] = useState({
+    customer_name: '',
+    customer_phone: '',
+    customer_address: '',
+    delivery_type: 'internal' as 'internal' | 'external',
+    external_service: 'grab' as 'grab' | 'lalamove',
+    rider_id: '' as string | number,
+    tracking_number: '',
+    distance_km: '' as string | number,
+    delivery_fee: 0,
+    delivery_notes: '',
+    external_notes: '',
+  });
+  const [deliveryRecommendation, setDeliveryRecommendation] = useState<null | {
+    type: 'internal' | 'external';
+    reason: string;
+    fee: number;
+    available_riders: number;
+    recommended_rider: { id: number; name: string; phone: string } | null;
+  }>(null);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+
+  const deliveryFee = useMemo(() => {
+    if (orderType !== 'delivery') return 0;
+    const distance = parseFloat(String(deliveryInfo.distance_km)) || 0;
+    const base = parseFloat(branch?.base_delivery_fee) || 49;
+    const perKm = parseFloat(branch?.per_km_fee) || 15;
+    const freeKm = 2.0;
+
+    if (distance === 0) return 0;
+    if (distance <= freeKm) return base;
+    return Math.round(base + (distance - freeKm) * perKm);
+  }, [orderType, deliveryInfo.distance_km, branch]);
+
+  useEffect(() => {
+    setDeliveryInfo(prev => ({ ...prev, delivery_fee: deliveryFee }));
+  }, [deliveryFee]);
+
+  useEffect(() => {
+    if (orderType !== 'delivery' || !branch) {
+      setDeliveryRecommendation(null);
+      return;
+    }
+
+    const distance = parseFloat(String(deliveryInfo.distance_km));
+    if (Number.isNaN(distance) || distance <= 0) {
+      setDeliveryRecommendation(null);
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setRecommendationLoading(true);
+      try {
+        const response = await fetch(`/deliveries/recommend?branch_id=${branch.id}&distance_km=${distance}`, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setDeliveryRecommendation(data.recommendation);
+        }
+      } finally {
+        setRecommendationLoading(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [orderType, deliveryInfo.distance_km, branch]);
+
+  const cartTotal = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0) + (orderType === 'delivery' ? deliveryFee : 0);
 
   const changeDue = useMemo(() => {
     const cash = parseFloat(cashReceived) || 0;
@@ -130,6 +206,30 @@ export default function PosIndex() {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+
+    if (orderType === 'delivery') {
+      if (!deliveryInfo.customer_name || !deliveryInfo.customer_address) {
+        setAlertModal({ type: 'warning', title: 'Missing Info', message: 'Customer name and address are required for delivery.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (!deliveryInfo.distance_km) {
+        setAlertModal({ type: 'warning', title: 'Missing Distance', message: 'Please enter delivery distance to calculate fees.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (deliveryInfo.delivery_type === 'internal' && !deliveryInfo.rider_id) {
+        setAlertModal({ type: 'warning', title: 'No Rider', message: 'Please assign an internal rider.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (deliveryInfo.delivery_type === 'external' && !deliveryInfo.tracking_number) {
+        setAlertModal({ type: 'warning', title: 'No Tracking', message: 'Tracking number is required for external delivery.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+    }
+
     setIsPaymentModalOpen(true);
   };
 
@@ -142,19 +242,48 @@ export default function PosIndex() {
       return;
     }
 
-    router.post('/pos', {
-      type: orderType,
-      items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
-      total: cartTotal,
-      payment_method: paymentMethod,
-      paid_amount: paid,
-      change_amount: paymentMethod === 'cash' ? changeDue : 0,
-    }, {
+    const formData = new FormData();
+    formData.append('type', orderType);
+    formData.append('items', JSON.stringify(cart.map(item => ({ id: item.id, quantity: item.quantity }))));
+    formData.append('total', String(cartTotal));
+    formData.append('payment_method', paymentMethod);
+    formData.append('paid_amount', String(paid));
+    formData.append('change_amount', String(paymentMethod === 'cash' ? changeDue : 0));
+
+    if (orderType === 'delivery') {
+      cart.forEach((item, index) => {
+        formData.append(`items[${index}][id]`, String(item.id));
+        formData.append(`items[${index}][quantity]`, String(item.quantity));
+      });
+
+      Object.entries(deliveryInfo).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '') {
+          return;
+        }
+
+        formData.append(`delivery_info[${key}]`, String(value));
+      });
+
+      if (proofFile) {
+        formData.append('delivery_info[proof_of_delivery]', proofFile);
+      }
+    } else {
+      cart.forEach((item, index) => {
+        formData.append(`items[${index}][id]`, String(item.id));
+        formData.append(`items[${index}][quantity]`, String(item.quantity));
+      });
+    }
+
+    router.post('/pos', formData, {
+      forceFormData: true,
       onSuccess: (page) => {
         const sale = (page.props as any).recentOrders[0];
         setLastSale(sale);
         setCart([]);
         setCashReceived('');
+        setProofFile(null);
+        setProofPreview(null);
+        setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
         setIsPaymentModalOpen(false);
         setIsSuccessModalOpen(true);
         stateChannel.postMessage({ type: 'inventory-updated' });
@@ -421,7 +550,7 @@ export default function PosIndex() {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Order Type</span>
                 <select
-                  className="bg-background border rounded px-2 py-1 text-xs"
+                  className="bg-background border rounded px-2 py-1 text-xs font-bold"
                   value={orderType}
                   onChange={(e) => setOrderType(e.target.value)}
                 >
@@ -430,6 +559,150 @@ export default function PosIndex() {
                   <option value="delivery">Delivery</option>
                 </select>
               </div>
+
+              {/* Delivery Details Panel */}
+              {orderType === 'delivery' && (
+                <div className="bg-primary/5 rounded-xl p-3 border border-primary/10 space-y-3 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Delivery Info</span>
+                      <Badge variant="outline" className="text-[9px] bg-white font-bold h-5">
+                        {parseFloat(String(deliveryInfo.distance_km)) <= (parseFloat(branch?.delivery_radius_km) || 5) ? 'Within Radius' : 'Outside Radius'}
+                      </Badge>
+                    </div>
+
+                    {deliveryRecommendation && (
+                      <div className="rounded-2xl border border-primary/20 bg-white/80 p-3 text-xs text-slate-700">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-bold uppercase tracking-widest text-primary">Recommended</span>
+                          <Badge className="text-[9px] uppercase bg-slate-100 text-slate-700">
+                            {deliveryRecommendation.type === 'internal' ? 'Internal' : 'External'}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 leading-5 text-[11px] text-slate-600">{deliveryRecommendation.reason}</p>
+                        <div className="mt-2 flex flex-col gap-1 text-[11px] text-slate-500">
+                          <span>Fee: {formatCurrency(deliveryRecommendation.fee)}</span>
+                          <span>Available riders: {deliveryRecommendation.available_riders}</span>
+                          {deliveryRecommendation.recommended_rider && (
+                            <span>Suggested rider: {deliveryRecommendation.recommended_rider.name} ({deliveryRecommendation.recommended_rider.phone})</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Input 
+                      placeholder="Customer Name" 
+                      className="h-8 text-xs rounded-lg bg-background border-none shadow-sm"
+                      value={deliveryInfo.customer_name}
+                      onChange={e => setDeliveryInfo(p => ({ ...p, customer_name: e.target.value }))}
+                    />
+                    <Input 
+                      placeholder="Address" 
+                      className="h-8 text-xs rounded-lg bg-background border-none shadow-sm"
+                      value={deliveryInfo.customer_address}
+                      onChange={e => setDeliveryInfo(p => ({ ...p, customer_address: e.target.value }))}
+                    />
+                    
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <Input 
+                          placeholder="Dist (km)" 
+                          type="number"
+                          step="0.1"
+                          className="h-8 text-xs rounded-lg bg-background border-none shadow-sm pr-6"
+                          value={deliveryInfo.distance_km}
+                          onChange={e => setDeliveryInfo(p => ({ ...p, distance_km: e.target.value }))}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground">KM</span>
+                      </div>
+                      <div className="flex-1">
+                         <select
+                            className="w-full h-8 bg-background border-none shadow-sm rounded-lg text-xs px-2"
+                            value={deliveryInfo.delivery_type}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, delivery_type: e.target.value as any }))}
+                          >
+                            <option value="internal">Internal</option>
+                            <option value="external">External</option>
+                          </select>
+                      </div>
+                    </div>
+
+                    {deliveryRecommendation && deliveryInfo.delivery_type === 'internal' && deliveryRecommendation.type === 'external' && (
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-700">
+                        The system recommends external delivery for the current distance, but you may override manually.
+                      </div>
+                    )}
+
+                    {deliveryInfo.delivery_type === 'internal' ? (
+                       <select
+                          className="h-8 bg-background border-none shadow-sm rounded-lg text-xs px-2"
+                          value={deliveryInfo.rider_id}
+                          onChange={e => setDeliveryInfo(p => ({ ...p, rider_id: e.target.value }))}
+                        >
+                          <option value="">Assign Rider</option>
+                          {availableRiders?.map((r: any) => (
+                            <option key={r.id} value={r.id}>{r.name} ({r.phone})</option>
+                          ))}
+                        </select>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <select
+                            className="flex-1 h-8 bg-background border-none shadow-sm rounded-lg text-xs px-2"
+                            value={deliveryInfo.external_service}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, external_service: e.target.value as any }))}
+                          >
+                            <option value="grab">Grab</option>
+                            <option value="lalamove">Lalamove</option>
+                          </select>
+                          <Input 
+                            placeholder="Tracking #" 
+                            className="flex-1 h-8 text-xs rounded-lg bg-background border-none shadow-sm"
+                            value={deliveryInfo.tracking_number}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, tracking_number: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Input
+                            placeholder="External notes (optional)"
+                            className="h-8 text-xs rounded-lg bg-background border-none shadow-sm"
+                            value={deliveryInfo.external_notes}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, external_notes: e.target.value }))}
+                          />
+                          <label className="block text-[10px] uppercase tracking-widest text-muted-foreground font-black">
+                            Proof of delivery (optional)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setProofFile(file);
+                              setProofPreview(file ? URL.createObjectURL(file) : null);
+                            }}
+                            className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer transition-all border border-input rounded-lg p-2 bg-background"
+                          />
+                          {proofPreview && (
+                            <div className="rounded-xl border border-primary/20 bg-white p-2 text-[11px] text-slate-700">
+                              <p className="font-semibold">Selected proof image</p>
+                              <p className="truncate">{proofFile?.name}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-1 flex justify-between items-center bg-white/50 rounded-lg p-2 border border-black/5">
+                    <span className="text-[10px] font-bold text-muted-foreground">Delivery Fee</span>
+                    <span className="text-sm font-black text-primary">{formatCurrency(deliveryFee)}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Payment</span>
                 <select

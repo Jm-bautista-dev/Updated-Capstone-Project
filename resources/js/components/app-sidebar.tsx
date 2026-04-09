@@ -12,6 +12,8 @@ import {
     Database,
     CarTaxiFront,
     Truck,
+    Navigation,
+    Bike,
 } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -51,7 +53,7 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Suppliers',
         href: '/suppliers',
-        icon: Users,
+        icon: Truck,
     },
     {
         title: 'Categories',
@@ -81,7 +83,12 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Delivery',
         href: '/delivery',
-        icon: Truck,
+        icon: Navigation,
+    },
+    {
+        title: 'Riders',
+        href: '/riders',
+        icon: Bike,
     },
     {
         title: 'Employees',
@@ -112,8 +119,8 @@ export function AppSidebar() {
             return mainNavItems.filter(item => item.title !== 'Pos');
         }
 
-        // Cashier restricted items (only hide: Dashboard, Suppliers, Delivery, Employees)
-        const restrictedTitles = ['Dashboard', 'Suppliers', 'Delivery', 'Employees'];
+        // Cashier restricted items (only hide: Dashboard, Suppliers, Riders, Employees)
+        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 

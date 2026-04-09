@@ -24,6 +24,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->registerPolicies();
+    }
+
+    protected function registerPolicies(): void
+    {
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Product::class, \App\Policies\ResourcePolicy::class);
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Category::class, \App\Policies\ResourcePolicy::class);
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Ingredient::class, \App\Policies\ResourcePolicy::class);
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Sale::class, \App\Policies\ResourcePolicy::class);
     }
 
     /**

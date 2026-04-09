@@ -3,9 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
+use App\Traits\BelongsToBranch;
+
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ */
 class Product extends Model
 {
+    use BelongsToBranch;
     protected $fillable = ['name', 'sku', 'selling_price', 'cost_price', 'category_id', 'image_path', 'branch_id'];
 
     public function branch()
@@ -31,9 +38,6 @@ class Product extends Model
      */
     public function getComputedStockAttribute()
     {
-        $productBranchId = $this->branch_id;
-
-        // Use branchIngredients() if branch is set.
         $ingredients = $this->ingredients;
 
         if ($ingredients->isEmpty()) {
@@ -46,16 +50,9 @@ class Product extends Model
             $required = (float) $ingredient->pivot->quantity_required;
             if ($required <= 0) continue;
 
-            // If product has a branch, find matching ingredient by name in the same branch
-            if ($productBranchId) {
-                $branchIngredient = Ingredient::where('branch_id', $productBranchId)
-                    ->where('id', $ingredient->id)
-                    ->first();
-                $available = $branchIngredient ? (float) $branchIngredient->stock : 0;
-            } else {
-                $available = (float) $ingredient->stock;
-            }
-
+            // Assumes the linked ingredients are already branch-scoped or are the master records
+            $available = (float) $ingredient->stock;
+            
             $possibleAmounts[] = floor($available / $required);
         }
 

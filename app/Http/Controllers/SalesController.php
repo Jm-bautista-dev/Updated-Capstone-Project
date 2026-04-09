@@ -16,6 +16,7 @@ class SalesController extends Controller
         $branches = Branch::orderBy('name')->get();
         $status   = $request->input('status', 'all');
         $search   = $request->input('search', '');
+        $branchId = $request->input('branch_id');
 
         $query = Sale::with(['items.product', 'cashier', 'branch'])
             ->when($status !== 'all', function ($q) use ($status) {
@@ -23,32 +24,33 @@ class SalesController extends Controller
             })
             ->when($search, function ($q) use ($search) {
                 return $q->where('order_number', 'like', "%{$search}%");
-            })
-            ->latest();
+            });
 
-        // Cashier: only their own branch sales
+        // Scope the main query
         if ($user->isCashier()) {
             $query->where('branch_id', $user->branch_id);
+            $statsScope = Sale::where('branch_id', $user->branch_id);
         } else {
             // Admin: optional branch filter
-            if ($request->filled('branch_id')) {
-                $query->where('branch_id', $request->branch_id);
+            if ($branchId && $branchId !== 'all') {
+                $query->where('branch_id', $branchId);
             }
+            $statsScope = new Sale(); // Global scope for admin
         }
 
         return Inertia::render('Sales/Index', [
-            'sales'    => $query->paginate(15)->withQueryString(),
+            'sales'    => $query->latest()->paginate(15)->withQueryString(),
             'branches' => $branches,
             'filters'  => [
                 'status'    => $status,
                 'search'    => $search,
-                'branch_id' => $request->input('branch_id'),
+                'branch_id' => $branchId,
             ],
             'isAdmin'  => $user->isAdmin(),
             'stats'    => [
-                'pending'         => Sale::where('status', 'pending')->count(),
-                'preparing'       => Sale::where('status', 'preparing')->count(),
-                'completed_today' => Sale::where('status', 'completed')->whereDate('created_at', today())->count(),
+                'pending'         => (clone $statsScope)->where('status', 'pending')->count(),
+                'preparing'       => (clone $statsScope)->where('status', 'preparing')->count(),
+                'completed_today' => (clone $statsScope)->where('status', 'completed')->whereDate('created_at', today())->count(),
             ],
         ]);
     }

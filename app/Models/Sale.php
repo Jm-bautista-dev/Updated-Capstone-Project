@@ -5,9 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\BelongsToBranch;
+
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ */
 class Sale extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToBranch;
 
     protected $fillable = [
         'order_number',
@@ -36,5 +41,10 @@ class Sale extends Model
     public function cashier()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function delivery()
+    {
+        return $this->hasOne(Delivery::class);
     }
 }

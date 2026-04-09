@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ingredient_logs', function (Blueprint $table) {
-            $table->index('ingredient_id');
+            // `foreignId()->constrained()` already creates an index for ingredient_id,
+            // so we avoid re-creating it here to prevent sqlite conflicts during tests.
             $table->index('user_id');
             $table->index('created_at');
         });
@@ -24,7 +25,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ingredient_logs', function (Blueprint $table) {
-            $table->dropIndex(['ingredient_id']);
+            // The index on ingredient_id is created by the foreign key constraint,
+            // so we don't drop it here.
             $table->dropIndex(['user_id']);
             $table->dropIndex(['created_at']);
         });

@@ -14,9 +14,8 @@ return new class extends Migration
         Schema::table('ingredient_logs', function (Blueprint $table) {
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null')->after('ingredient_id');
             
-            $table->index('ingredient_id');
-            $table->index('user_id');
-            $table->index('created_at');
+            // Foreign keys already create indexes for ingredient_id and user_id.
+            // The created_at index is added in a separate migration to avoid duplicates.
         });
     }
 

@@ -85,6 +85,7 @@ class CategoriesController extends Controller
     public function update(Request $request, $id)
     {
         $category = Category::findOrFail($id);
+        $this->authorize('update', $category);
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
@@ -113,6 +114,7 @@ class CategoriesController extends Controller
     public function destroy($id)
     {
         $category = Category::findOrFail($id);
+        $this->authorize('delete', $category);
 
         if ($category->image_path) {
             Storage::disk('public')->delete($category->image_path);

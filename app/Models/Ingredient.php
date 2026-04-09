@@ -6,14 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+use App\Traits\BelongsToBranch;
+
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ */
 class Ingredient extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToBranch;
 
     protected $fillable = [
         'name',
         'stock',
         'unit',
+        'cost_price',
         'branch_id',
         'low_stock_level',
         'is_low_stock_notified',
@@ -103,5 +109,13 @@ class Ingredient extends Model
                 ]);
             }
         }
+    }
+    /**
+     * The suppliers that provide this ingredient.
+     */
+    public function suppliers(): BelongsToMany
+    {
+        return $this->belongsToMany(Supplier::class, 'supplier_ingredient', 'ingredient_id', 'supplier_id')
+                    ->withTimestamps();
     }
 }

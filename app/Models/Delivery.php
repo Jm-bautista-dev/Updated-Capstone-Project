@@ -1,0 +1,165 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ */
+class Delivery extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    protected $fillable = [
+        'sale_id',
+        'delivery_type',
+        'external_service',
+        'tracking_number',
+        'rider_id',
+        'customer_name',
+        'customer_phone',
+        'customer_address',
+        'distance_km',
+        'delivery_fee',
+        'delivery_notes',
+        'external_notes',
+        'proof_of_delivery',
+        'status',
+        'created_by',
+        'updated_by',
+    ];
+
+    /* ── Status Constants ──────────────────────────── */
+
+    // Internal delivery flow
+    const STATUS_PENDING          = 'pending';
+    const STATUS_PREPARING        = 'preparing';
+    const STATUS_READY            = 'ready_for_pickup';
+    const STATUS_OUT_FOR_DELIVERY = 'out_for_delivery';
+    const STATUS_DELIVERED         = 'delivered';
+
+    // External delivery flow
+    const STATUS_BOOKED    = 'booked';
+    const STATUS_PICKED_UP = 'picked_up';
+
+    const INTERNAL_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_PREPARING,
+        self::STATUS_READY,
+        self::STATUS_OUT_FOR_DELIVERY,
+        self::STATUS_DELIVERED,
+    ];
+
+    const EXTERNAL_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_BOOKED,
+        self::STATUS_PICKED_UP,
+        self::STATUS_DELIVERED,
+    ];
+
+    /* ── Relationships ─────────────────────────────── */
+
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
+    }
+
+    public function rider(): BelongsTo
+    {
+        return $this->belongsTo(Rider::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /* ── Helpers ───────────────────────────────────── */
+
+    public function isInternal(): bool
+    {
+        return $this->delivery_type === 'internal';
+    }
+
+    public function isExternal(): bool
+    {
+        return $this->delivery_type === 'external';
+    }
+
+    public function isDelivered(): bool
+    {
+        return $this->status === self::STATUS_DELIVERED;
+    }
+
+    /**
+     * Get the next valid statuses for this delivery.
+     */
+    public function getNextStatuses(): array
+    {
+        $flow = $this->isInternal() ? self::INTERNAL_STATUSES : self::EXTERNAL_STATUSES;
+        $currentIndex = array_search($this->status, $flow);
+
+        if ($currentIndex === false || $currentIndex >= count($flow) - 1) {
+            return [];
+        }
+
+        return [
+            $flow[$currentIndex + 1],
+        ];
+    }
+
+    /**
+     * Get display-friendly attributes for status badges.
+     */
+    public function getStatusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING          => 'Pending',
+            self::STATUS_PREPARING        => 'Preparing',
+            self::STATUS_READY            => 'Ready for Pickup',
+            self::STATUS_OUT_FOR_DELIVERY => 'Out for Delivery',
+            self::STATUS_DELIVERED         => 'Delivered',
+            self::STATUS_BOOKED           => 'Booked',
+            self::STATUS_PICKED_UP        => 'Picked Up',
+            default                       => ucfirst($this->status),
+        };
+    }
+
+    protected $appends = [
+        'proof_of_delivery_url',
+    ];
+
+    public function getProofOfDeliveryUrlAttribute(): ?string
+    {
+        if (! $this->proof_of_delivery) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+        return $disk->url($this->proof_of_delivery);
+    }
+
+    public function getStatusColor(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING                        => 'bg-slate-100 text-slate-600',
+            self::STATUS_PREPARING                      => 'bg-blue-100 text-blue-700',
+            self::STATUS_READY                          => 'bg-amber-100 text-amber-700',
+            self::STATUS_OUT_FOR_DELIVERY, self::STATUS_PICKED_UP => 'bg-violet-100 text-violet-700',
+            self::STATUS_BOOKED                         => 'bg-sky-100 text-sky-700',
+            self::STATUS_DELIVERED                       => 'bg-emerald-100 text-emerald-700',
+            default                                     => 'bg-gray-100 text-gray-600',
+        };
+    }
+}

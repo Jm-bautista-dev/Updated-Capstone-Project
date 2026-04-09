@@ -50,7 +50,7 @@ class NotificationController extends Controller
 
         $unreadCount = $logs->where('is_unread', true)->count();
 
-        return response()->json([
+        return \response()->json([
             'notifications' => $logs,
             'unread_count' => $unreadCount,
         ]);
@@ -63,10 +63,10 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
         $user->update([
-            'last_notifications_read_at' => now(),
+            'last_notifications_read_at' => \now(),
         ]);
 
-        return response()->json(['success' => true]);
+        return \response()->json(['success' => true]);
     }
 
     /**
