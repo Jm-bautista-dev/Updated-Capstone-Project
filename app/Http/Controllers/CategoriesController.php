@@ -8,9 +8,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
 
 class CategoriesController extends Controller
 {
+    use AuthorizesRequests;
+
     public function index(Request $request)
     {
         $user     = Auth::user();
@@ -33,9 +37,11 @@ class CategoriesController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $categories = $query->orderBy('name')->get()->map(function ($category) {
+        $categories = $query->orderBy('name')->get()->map(function (Category $category) {
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('public');
             $category->image_url = $category->image_path
-                ? Storage::disk('public')->url($category->image_path)
+                ? $disk->url($category->image_path)
                 : null;
             return $category;
         });

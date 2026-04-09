@@ -69,6 +69,8 @@ type Product = {
     image_path: string | null;
     image_url: string | null;
     ingredients: (Ingredient & { pivot: { quantity_required: string } })[];
+    branches: { id: number; name: string }[];
+    branch_id: number;
     created_at: string;
 };
 
@@ -138,6 +140,7 @@ export default function ProductsIndex() {
         cost_price: '',
         selling_price: '',
         branch_id: currentBranchId ? String(currentBranchId) : '',
+        branch_ids: [] as string[],
         recipe: [] as { ingredient_id: string; quantity_required: string }[],
     });
 
@@ -187,6 +190,8 @@ export default function ProductsIndex() {
             category_id: product.category_id.toString(),
             cost_price: product.cost_price.toString(),
             selling_price: product.selling_price.toString(),
+            branch_id: product.branch_id?.toString() || '',
+            branch_ids: product.branches.map(b => b.id.toString()),
             recipe: product.ingredients.map(ing => ({
                 ingredient_id: ing.id.toString(),
                 quantity_required: ing.pivot.quantity_required.toString()
@@ -282,6 +287,17 @@ export default function ProductsIndex() {
         const newRecipe = [...data.recipe];
         newRecipe[index] = { ...newRecipe[index], [field]: value };
         setData('recipe', newRecipe);
+    };
+
+    const toggleBranch = (id: string) => {
+        const current = [...data.branch_ids];
+        const index = current.indexOf(id);
+        if (index > -1) {
+            current.splice(index, 1);
+        } else {
+            current.push(id);
+        }
+        setData('branch_ids', current);
     };
 
     return (
@@ -608,6 +624,36 @@ export default function ProductsIndex() {
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" />
                                 {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price}</p>}
                             </div>
+                            {/* Branch Visibility */}
+                            <div className="col-span-2 space-y-2 border-t pt-4">
+                                <label className="text-sm font-bold">Branch Visibility</label>
+                                <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this product (Default: All)</p>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {branches?.map((branch: any) => (
+                                        <div
+                                            key={branch.id}
+                                            onClick={() => toggleBranch(branch.id.toString())}
+                                            className={cn(
+                                                "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
+                                                data.branch_ids.includes(branch.id.toString())
+                                                    ? "bg-primary/10 border-primary text-primary shadow-sm"
+                                                    : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "size-2 rounded-full",
+                                                data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                                            )} />
+                                            {branch.name}
+                                        </div>
+                                    ))}
+                                    {data.branch_ids.length === 0 && (
+                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
+                                            VISIBLE TO ALL BRANCHES
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
                             {/* Product Image Upload */}
                             <div className="col-span-2 space-y-2">
                                 <label className="text-sm font-medium">Product Image <span className="text-muted-foreground text-xs">(Optional, max 2MB)</span></label>
@@ -772,6 +818,37 @@ export default function ProductsIndex() {
                             <div className="space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (PHP)</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600" />
+                            </div>
+
+                            {/* Branch Visibility */}
+                            <div className="col-span-2 space-y-2 border-t pt-4">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Branch Visibility</label>
+                                <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">Select branches that can see this product (Default: All)</p>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {branches?.map((branch: any) => (
+                                        <div
+                                            key={branch.id}
+                                            onClick={() => toggleBranch(branch.id.toString())}
+                                            className={cn(
+                                                "cursor-pointer px-4 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-2",
+                                                data.branch_ids.includes(branch.id.toString())
+                                                    ? "bg-primary/10 border-primary text-primary shadow-sm"
+                                                    : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "size-2 rounded-full",
+                                                data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                                            )} />
+                                            {branch.name}
+                                        </div>
+                                    ))}
+                                    {data.branch_ids.length === 0 && (
+                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                            VISIBLE TO ALL BRANCHES
+                                        </Badge>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Product Image Upload */}

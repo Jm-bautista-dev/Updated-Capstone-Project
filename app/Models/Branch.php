@@ -44,7 +44,7 @@ class Branch extends Model
 
     public function products()
     {
-        return $this->hasMany(Product::class);
+        return $this->belongsToMany(Product::class, 'branch_product');
     }
 
     public function ingredients()

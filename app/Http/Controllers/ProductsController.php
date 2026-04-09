@@ -12,9 +12,22 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use App\Services\ProductService;
+
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
 
 class ProductsController extends Controller
 {
+    use AuthorizesRequests;
+
+    protected ProductService $productService;
+
+    public function __construct(ProductService $productService)
+    {
+        $this->productService = $productService;
+    }
+
     public function index(Request $request)
     {
         $user     = Auth::user();
@@ -27,10 +40,12 @@ class ProductsController extends Controller
             $branchId = $user->branch_id;
         }
 
-        $query = Product::query()->with(['category', 'ingredients']);
+        $query = Product::query()->with(['category', 'ingredients', 'branches']);
 
         if ($branchId) {
-            $query->where('branch_id', $branchId);
+            $query->whereHas('branches', function ($q) use ($branchId) {
+                $q->where('branches.id', $branchId);
+            });
         }
 
         if ($request->filled('search')) {
@@ -41,12 +56,16 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function ($product) {
+        $products = $query->orderBy('name')->get()->map(function (Product $product) {
             $product->stock = $product->computed_stock;
             $product->status = $this->getStockStatus($product->stock);
+
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('public');
             $product->image_url = $product->image_path
-                ? Storage::disk('public')->url($product->image_path)
+                ? $disk->url($product->image_path)
                 : null;
+
             return $product;
         });
 
@@ -112,39 +131,14 @@ class ProductsController extends Controller
             ],
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
             'branch_id'                   => 'nullable|exists:branches,id',
+            'branch_ids'                  => 'nullable|array',
+            'branch_ids.*'                => 'exists:branches,id',
         ], [
             'recipe.required' => 'At least one ingredient is required to create a product recipe.',
             'recipe.min'      => 'At least one ingredient is required to create a product recipe.',
         ]);
 
-        $branchId = $user->isAdmin()
-            ? ($validated['branch_id'] ?? $user->branch_id)
-            : $user->branch_id;
-
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('products', 'public');
-        }
-
-        DB::transaction(function () use ($validated, $imagePath, $branchId) {
-            $product = Product::create([
-                'name'          => $validated['name'],
-                'sku'           => $validated['sku'] ?? null,
-                'category_id'   => $validated['category_id'],
-                'cost_price'    => $validated['cost_price'],
-                'selling_price' => $validated['selling_price'],
-                'image_path'    => $imagePath,
-                'branch_id'     => $branchId,
-            ]);
-
-            foreach ($validated['recipe'] as $item) {
-                MenuItemIngredient::create([
-                    'menu_item_id'      => $product->id,
-                    'ingredient_id'     => $item['ingredient_id'],
-                    'quantity_required' => $item['quantity_required'],
-                ]);
-            }
-        });
+        $this->productService->store($validated, $request->file('image'), $user->branch_id);
 
         return redirect()->back();
     }
@@ -171,39 +165,14 @@ class ProductsController extends Controller
                 \Illuminate\Validation\Rule::exists('ingredients', 'id')->where('branch_id', $branchId)
             ],
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
+            'branch_ids'                  => 'nullable|array',
+            'branch_ids.*'                => 'exists:branches,id',
         ], [
             'recipe.required' => 'At least one ingredient is required.',
             'recipe.min'      => 'At least one ingredient is required.',
         ]);
 
-        $imagePath = $product->image_path;
-
-        if ($request->hasFile('image')) {
-            if ($product->image_path) {
-                Storage::disk('public')->delete($product->image_path);
-            }
-            $imagePath = $request->file('image')->store('products', 'public');
-        }
-
-        DB::transaction(function () use ($product, $validated, $imagePath) {
-            $product->update([
-                'name'          => $validated['name'],
-                'sku'           => $validated['sku'] ?? null,
-                'category_id'   => $validated['category_id'],
-                'cost_price'    => $validated['cost_price'],
-                'selling_price' => $validated['selling_price'],
-                'image_path'    => $imagePath,
-            ]);
-
-            MenuItemIngredient::where('menu_item_id', $product->id)->delete();
-            foreach ($validated['recipe'] as $item) {
-                MenuItemIngredient::create([
-                    'menu_item_id'      => $product->id,
-                    'ingredient_id'     => $item['ingredient_id'],
-                    'quantity_required' => $item['quantity_required'],
-                ]);
-            }
-        });
+        $this->productService->update($product, $validated, $request->file('image'));
 
         return redirect()->back();
     }

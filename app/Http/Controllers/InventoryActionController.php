@@ -73,6 +73,7 @@ class InventoryActionController extends Controller
         );
 
         $item->increment('quantity', $validated['quantity']);
+        $item->refresh()->checkStockAlerts();
 
         return redirect()->back()->with('success', 'Stock updated successfully');
     }

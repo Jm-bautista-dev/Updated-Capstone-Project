@@ -8,9 +8,13 @@ use App\Models\IngredientLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
 
 class InventoryController extends Controller
 {
+    use AuthorizesRequests;
+
     // Show inventory
     public function index(Request $request)
     {
@@ -30,7 +34,7 @@ class InventoryController extends Controller
             $query->where('branch_id', $branchId);
         }
 
-        $inventory = $query->get()->map(function ($ingredient) {
+        $inventory = $query->get()->map(function (Ingredient $ingredient) {
             return [
                 'id'              => $ingredient->id,
                 'name'            => $ingredient->name,
