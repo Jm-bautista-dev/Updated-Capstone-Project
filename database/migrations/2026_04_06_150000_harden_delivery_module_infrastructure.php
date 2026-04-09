@@ -9,11 +9,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('riders', function (Blueprint $table) {
-            $table->timestamp('last_active_at')->nullable()->after('status');
+            if (!Schema::hasColumn('riders', 'last_active_at')) {
+                $table->timestamp('last_active_at')->nullable()->after('status');
+            }
         });
 
         Schema::table('deliveries', function (Blueprint $table) {
-            $table->index(['status', 'created_at']);
+            $indexExists = collect(DB::select("SHOW INDEX FROM deliveries"))->contains('Key_name', 'deliveries_status_created_at_index');
+            if (!$indexExists) {
+                $table->index(['status', 'created_at']);
+            }
         });
     }
 

@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\DeliveryController;
 use App\Http\Controllers\Admin\RiderController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\InventoryActionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -110,6 +111,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('api/notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('api/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
         Route::get('inventory/activity', [NotificationController::class, 'activity'])->name('inventory.activity');
+
+        // New Weight/Volume Inventory System
+        Route::get('/inventory-items', [InventoryActionController::class, 'index'])->name('inventory-items.index');
+        Route::post('/inventory-items', [InventoryActionController::class, 'store'])->name('inventory-items.store');
+        Route::get('/pos/weight', [InventoryActionController::class, 'pos'])->name('pos.weight');
+        Route::post('/pos/inventory-sale', [InventoryActionController::class, 'processSale'])->name('inventory-sale.store');
+        Route::get('/inventory-sales-history', [InventoryActionController::class, 'history'])->name('inventory-sale.history');
     });
 });
 
