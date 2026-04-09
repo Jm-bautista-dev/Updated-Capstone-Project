@@ -43,6 +43,7 @@ type Category = {
   image_url: string | null;
   products_count: number;
   created_at: string;
+  branches: { id: number; name: string }[];
 };
 
 type Summary = {
@@ -105,7 +106,7 @@ export default function CategoriesIndex() {
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
     name: '',
     description: '',
-    branch_id: currentBranchId ? String(currentBranchId) : '',
+    branch_ids: [] as string[],
   });
 
   // Reset pagination on search
@@ -137,6 +138,17 @@ export default function CategoriesIndex() {
   }, [search]);
   */
 
+  const toggleBranch = (id: string) => {
+    const current = [...data.branch_ids];
+    const index = current.indexOf(id);
+    if (index > -1) {
+      current.splice(index, 1);
+    } else {
+      current.push(id);
+    }
+    setData('branch_ids', current);
+  };
+
   const openAddModal = () => {
     reset();
     setImageFile(null);
@@ -149,6 +161,7 @@ export default function CategoriesIndex() {
     setData({
       name: category.name,
       description: category.description,
+      branch_ids: category.branches?.map(b => b.id.toString()) || [],
     });
     setImageFile(null);
     setImagePreview(category.image_url || null);
@@ -165,6 +178,7 @@ export default function CategoriesIndex() {
     router.post('/categories', {
       name: data.name,
       description: data.description,
+      branch_ids: data.branch_ids,
       image: imageFile,
     } as any, {
       forceFormData: true,
@@ -187,6 +201,7 @@ export default function CategoriesIndex() {
         _method: 'PUT',
         name: data.name,
         description: data.description,
+        branch_ids: data.branch_ids,
         image: imageFile,
       } as any, {
         forceFormData: true,
@@ -254,9 +269,11 @@ export default function CategoriesIndex() {
                 className="pl-9 h-10 bg-muted/50 focus:bg-background transition-colors"
               />
             </div>
-            <Button onClick={openAddModal} className="h-10 gap-2 shadow-lg shadow-primary/20">
-              <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Category</span>
-            </Button>
+            {isAdmin && (
+              <Button onClick={openAddModal} className="h-10 gap-2 shadow-lg shadow-primary/20">
+                <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Category</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -345,24 +362,26 @@ export default function CategoriesIndex() {
                             </span>
                           </td>
                           <td className="p-4 px-6 align-middle text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEditModal(category)}
-                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                              >
-                                <FiEdit2 className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openDeleteModal(category)}
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-                              >
-                                <FiTrash2 className="size-4" />
-                              </Button>
-                            </div>
+                            {isAdmin && (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openEditModal(category)}
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                >
+                                  <FiEdit2 className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openDeleteModal(category)}
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                                >
+                                  <FiTrash2 className="size-4" />
+                                </Button>
+                              </div>
+                            )}
                           </td>
                         </motion.tr>
                       ))
@@ -484,6 +503,39 @@ export default function CategoriesIndex() {
                 />
                 {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
               </div>
+
+              {/* Branch Visibility */}
+              <div className="space-y-2 border-t pt-4">
+                <label className="text-sm font-bold">Branch Visibility</label>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this category (Default: All)</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {branches?.map((branch: any) => (
+                    <div
+                      key={branch.id}
+                      onClick={() => toggleBranch(branch.id.toString())}
+                      className={cn(
+                        "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
+                        data.branch_ids.includes(branch.id.toString())
+                          ? "bg-primary/10 border-primary text-primary shadow-sm"
+                          : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "size-2 rounded-full",
+                        data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                      )} />
+                      {branch.name}
+                    </div>
+                  ))}
+                </div>
+                {errors.branch_ids && <p className="text-xs text-destructive">{errors.branch_ids}</p>}
+                {data.branch_ids.length === 0 && (
+                  <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
+                    <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[9px] font-bold uppercase tracking-tight">Visible in ALL branches (Default)</span>
+                  </div>
+                )}
+              </div>
               {/* Image Upload */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Category Image <span className="text-muted-foreground text-xs">(Optional, max 2MB)</span></label>
@@ -548,6 +600,39 @@ export default function CategoriesIndex() {
                   onChange={(e) => setData('description', e.target.value)}
                 />
                 {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
+              </div>
+
+              {/* Branch Visibility */}
+              <div className="space-y-2 border-t pt-4">
+                <label className="text-sm font-bold">Branch Visibility</label>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this category (Default: All)</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {branches?.map((branch: any) => (
+                    <div
+                      key={branch.id}
+                      onClick={() => toggleBranch(branch.id.toString())}
+                      className={cn(
+                        "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
+                        data.branch_ids.includes(branch.id.toString())
+                          ? "bg-primary/10 border-primary text-primary shadow-sm"
+                          : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "size-2 rounded-full",
+                        data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                      )} />
+                      {branch.name}
+                    </div>
+                  ))}
+                </div>
+                {errors.branch_ids && <p className="text-xs text-destructive">{errors.branch_ids}</p>}
+                {data.branch_ids.length === 0 && (
+                  <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-amber-50 text-amber-700 rounded-md border border-amber-100">
+                    <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[9px] font-bold uppercase tracking-tight">Visible in ALL branches (Default)</span>
+                  </div>
+                )}
               </div>
               {/* Image Upload */}
               <div className="space-y-2">

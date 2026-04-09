@@ -13,7 +13,7 @@ use App\Traits\BelongsToBranch;
 class Product extends Model
 {
     use BelongsToBranch;
-    protected $fillable = ['name', 'sku', 'selling_price', 'cost_price', 'category_id', 'image_path', 'branch_id'];
+    protected $fillable = ['name', 'sku', 'selling_price', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit'];
 
     public function branch()
     {
@@ -38,6 +38,22 @@ class Product extends Model
     }
 
     /**
+     * Polymorphic relation to StockLog.
+     */
+    public function stockLogs()
+    {
+        return $this->morphMany(StockLog::class, 'storable');
+    }
+
+    /**
+     * Strict check: Does this product have a recipe?
+     */
+    public function hasRecipe(): bool
+    {
+        return $this->ingredients()->exists();
+    }
+
+    /**
      * Compute available stock based on ingredient availability (branch-scoped).
      * If branch_id is set, only considers that branch's ingredient stock.
      */
@@ -45,8 +61,9 @@ class Product extends Model
     {
         $ingredients = $this->ingredients;
 
+        // Strict Separation: IF no ingredients, use direct stock column
         if ($ingredients->isEmpty()) {
-            return 0;
+            return (float) $this->stock;
         }
 
         $possibleAmounts = [];
@@ -55,9 +72,7 @@ class Product extends Model
             $required = (float) $ingredient->pivot->quantity_required;
             if ($required <= 0) continue;
 
-            // Assumes the linked ingredients are already branch-scoped or are the master records
             $available = (float) $ingredient->stock;
-            
             $possibleAmounts[] = floor($available / $required);
         }
 

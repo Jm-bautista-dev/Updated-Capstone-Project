@@ -11,12 +11,16 @@ use App\Traits\BelongsToBranch;
  */
 class Category extends Model
 {
-    use BelongsToBranch;
-    protected $fillable = ['name', 'description', 'image_path', 'branch_id'];
+    protected $fillable = ['name', 'description', 'image_path', 'branch_id', 'created_by'];
 
-    public function branch()
+    public function branches()
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsToMany(Branch::class, 'branch_category');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function products()

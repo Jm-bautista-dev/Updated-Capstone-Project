@@ -119,7 +119,7 @@ export function AppSidebar() {
             return mainNavItems.filter(item => item.title !== 'Pos');
         }
 
-        // Cashier restricted items (only hide: Dashboard, Suppliers, Riders, Employees)
+        // Cashier restricted items (manage only via POS, view-only in main nav)
         const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);

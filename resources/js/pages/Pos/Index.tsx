@@ -333,68 +333,67 @@ export default function PosIndex() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {/* Category Cards */}
-            <div>
-              <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mb-3">Sections</p>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {/* All Items Card */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setSelectedCategory(null)}
-                  className={cn(
-                    "relative flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all duration-300 cursor-pointer group",
-                    selectedCategory === null
-                      ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/30"
-                      : "border-transparent hover:border-primary/30 hover:shadow-md"
-                  )}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex flex-col items-center justify-center gap-1">
-                    <FiLayers className={cn("size-6 transition-colors", selectedCategory === null ? "text-primary" : "text-muted-foreground")} />
-                    <span className={cn("text-[9px] font-black uppercase tracking-wider leading-none text-center px-1", selectedCategory === null ? "text-primary" : "text-muted-foreground")}>
-                      All Items
-                    </span>
-                  </div>
-                </motion.button>
+            {/* Category Navigation (McDonald's Style) */}
+            <div className="bg-background/80 backdrop-blur-md border-b px-4 py-4 sticky top-0 z-10 shadow-sm overflow-hidden">
+                <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide px-2">
+                    {/* All Items Card */}
+                    <motion.button
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSelectedCategory(null)}
+                        className={cn(
+                            "flex-shrink-0 w-24 h-28 rounded-2xl flex flex-col items-center justify-between p-3 transition-all duration-300 border-2",
+                            selectedCategory === null
+                                ? "bg-primary/10 border-primary shadow-lg shadow-primary/20 ring-4 ring-primary/5"
+                                : "bg-muted/30 border-transparent hover:bg-muted/50 hover:border-muted-foreground/20"
+                        )}
+                    >
+                        <div className={cn(
+                            "size-12 rounded-full flex items-center justify-center transition-colors",
+                            selectedCategory === null ? "bg-primary text-white" : "bg-muted-foreground/10 text-muted-foreground/60"
+                        )}>
+                            <FiLayers className="size-6" />
+                        </div>
+                        <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest text-center leading-tight",
+                            selectedCategory === null ? "text-primary" : "text-muted-foreground/70 decoration-transparent"
+                        )}>
+                            All Items
+                        </span>
+                    </motion.button>
 
-                {categories.map((c: Category) => (
-                  <motion.button
-                    key={c.id}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setSelectedCategory(c.id)}
-                    className={cn(
-                      "relative flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all duration-300 cursor-pointer group",
-                      selectedCategory === c.id
-                        ? "border-primary shadow-lg shadow-primary/30 ring-2 ring-primary/30"
-                        : "border-transparent hover:border-primary/30 hover:shadow-md"
-                    )}
-                  >
-                    {c.image_url ? (
-                      <>
-                        <img
-                          src={c.image_url}
-                          alt={c.name}
-                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                      </>
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-                        <FiLayers className="size-6 text-muted-foreground/50" />
-                      </div>
-                    )}
-                    <div className="absolute bottom-1.5 left-0 right-0 px-1 text-center">
-                      <span className={cn(
-                        "text-[8px] font-black uppercase tracking-wider leading-none",
-                        c.image_url ? "text-white drop-shadow-md" : "text-muted-foreground"
-                      )}>
-                        {c.name}
-                      </span>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
+                    {/* Category Cards */}
+                    {categories.map((c: Category) => (
+                        <motion.button
+                            key={c.id}
+                            whileHover={{ scale: 1.05, y: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setSelectedCategory(c.id)}
+                            className={cn(
+                                "flex-shrink-0 w-24 h-28 rounded-2xl flex flex-col items-center justify-between p-3 transition-all duration-300 border-2 group",
+                                selectedCategory === c.id
+                                    ? "bg-primary/10 border-primary shadow-lg shadow-primary/20 ring-4 ring-primary/5"
+                                    : "bg-muted/30 border-transparent hover:bg-muted/50 hover:border-muted-foreground/20"
+                            )}
+                        >
+                            <div className="size-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-white/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                                {c.image_url ? (
+                                    <img src={c.image_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                                        <FiLayers className="size-6 text-muted-foreground/30" />
+                                    </div>
+                                )}
+                            </div>
+                            <span className={cn(
+                                "text-[10px] font-black uppercase tracking-widest text-center leading-tight truncate w-full",
+                                selectedCategory === c.id ? "text-primary" : "text-muted-foreground/70"
+                            )}>
+                                {c.name}
+                            </span>
+                        </motion.button>
+                    ))}
+                </div>
             </div>
 
             {/* Product Grid */}

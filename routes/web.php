@@ -56,6 +56,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('employees', [EmployeeController::class, 'store'])->name('employees.store');
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
         Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+
+        // Administrative Inventory & Product Management
+        Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');
+        Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
+        Route::delete('products/{id}', [App\Http\Controllers\ProductsController::class, 'destroy'])->name('products.destroy');
+
+        Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
+        Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
+        Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
     });
 
     // POS Routes (Cashier ONLY)
@@ -69,9 +78,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Products
         Route::get('products', [App\Http\Controllers\ProductsController::class, 'index'])->name('products.index');
-        Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');
-        Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
-        Route::delete('products/{id}', [App\Http\Controllers\ProductsController::class, 'destroy'])->name('products.destroy');
 
         // Categories
         Route::get('categories', [CategoriesController::class, 'index'])->name('categories.index');
@@ -81,9 +87,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Inventory
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-        Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
-        Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
-        Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
+        Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
 
         // Reports
         Route::get('reports', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('reports.index');

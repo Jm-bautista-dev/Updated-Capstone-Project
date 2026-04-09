@@ -58,6 +58,7 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
+        $this->authorize('create', Ingredient::class);
 
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
@@ -65,31 +66,45 @@ class InventoryController extends Controller
             'initial_stock'   => 'nullable|numeric|min:0',
             'low_stock_level' => 'nullable|numeric|min:0',
             'branch_id'       => 'nullable|exists:branches,id',
+            'branch_ids'      => 'nullable|array',
+            'branch_ids.*'    => 'exists:branches,id',
         ]);
 
-        // Cashiers use their own branch; admins can specify
-        $branchId = $user->isAdmin()
-            ? ($validated['branch_id'] ?? $user->branch_id)
-            : $user->branch_id;
-
-        $ingredient = Ingredient::create([
-            'name'            => $validated['name'],
-            'unit'            => $validated['unit'],
-            'stock'           => $validated['initial_stock'] ?? 0,
-            'low_stock_level' => $validated['low_stock_level'] ?? 5,
-            'branch_id'       => $branchId,
-        ]);
-
-        if ($ingredient->stock > 0) {
-            IngredientLog::create([
-                'ingredient_id' => $ingredient->id,
-                'user_id'       => Auth::id(),
-                'change_qty'    => $ingredient->stock,
-                'reason'        => 'initial stock',
-            ]);
+        // Determine target branches
+        $targetBranchIds = [];
+        if ($user->isAdmin()) {
+            if (!empty($validated['branch_ids'])) {
+                $targetBranchIds = $validated['branch_ids'];
+            } elseif (!empty($validated['branch_id'])) {
+                $targetBranchIds = [$validated['branch_id']];
+            } else {
+                // Default to ALL branches as requested
+                $targetBranchIds = Branch::pluck('id')->toArray();
+            }
+        } else {
+            $targetBranchIds = [$user->branch_id];
         }
 
-        $ingredient->checkStockAlerts();
+        foreach ($targetBranchIds as $branchId) {
+            $ingredient = Ingredient::create([
+                'name'            => $validated['name'],
+                'unit'            => $validated['unit'],
+                'stock'           => $validated['initial_stock'] ?? 0,
+                'low_stock_level' => $validated['low_stock_level'] ?? 5,
+                'branch_id'       => $branchId,
+            ]);
+
+            if ($ingredient->stock > 0) {
+                IngredientLog::create([
+                    'ingredient_id' => $ingredient->id,
+                    'user_id'       => Auth::id(),
+                    'change_qty'    => $ingredient->stock,
+                    'reason'        => 'initial stock',
+                ]);
+            }
+
+            $ingredient->checkStockAlerts();
+        }
 
         return redirect()->back();
     }

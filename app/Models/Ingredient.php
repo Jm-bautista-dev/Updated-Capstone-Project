@@ -50,6 +50,14 @@ class Ingredient extends Model
     }
 
     /**
+     * Polymorphic relation to StockLog.
+     */
+    public function stockLogs()
+    {
+        return $this->morphMany(StockLog::class, 'storable');
+    }
+
+    /**
      * Check if ingredient is low stock.
      */
     public function isLowStock(): bool

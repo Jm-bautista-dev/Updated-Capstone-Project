@@ -59,6 +59,7 @@ class ProductsController extends Controller
         $products = $query->orderBy('name')->get()->map(function (Product $product) {
             $product->stock = $product->computed_stock;
             $product->status = $this->getStockStatus($product->stock);
+            $product->is_direct = !$product->hasRecipe();
 
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('public');
@@ -124,18 +125,17 @@ class ProductsController extends Controller
             'cost_price'                  => 'required|numeric|min:0',
             'selling_price'               => 'required|numeric|min:0',
             'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'recipe'                      => 'required|array|min:1',
+            'recipe'                      => 'nullable|array', // Optional now
             'recipe.*.ingredient_id'      => [
-                'required',
+                'required_with:recipe',
                 \Illuminate\Validation\Rule::exists('ingredients', 'id')->where('branch_id', $branchId)
             ],
-            'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
+            'recipe.*.quantity_required'  => 'required_with:recipe|numeric|min:0.0001',
             'branch_id'                   => 'nullable|exists:branches,id',
             'branch_ids'                  => 'nullable|array',
             'branch_ids.*'                => 'exists:branches,id',
-        ], [
-            'recipe.required' => 'At least one ingredient is required to create a product recipe.',
-            'recipe.min'      => 'At least one ingredient is required to create a product recipe.',
+            'unit'                        => 'nullable|string',
+            'stock'                       => 'nullable|numeric|min:0',
         ]);
 
         $this->productService->store($validated, $request->file('image'), $user->branch_id);

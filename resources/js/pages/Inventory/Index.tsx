@@ -20,8 +20,10 @@ import {
   FiChevronRight,
   FiMoreHorizontal,
   FiChevronLeft,
-  FiEdit2
+  FiEdit2,
+  FiRefreshCw
 } from 'react-icons/fi';
+import { StockInModal } from '@/components/stock-in-modal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -153,10 +155,16 @@ export default function InventoryIndex() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
   const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
     type: 'success', title: '', message: '',
   });
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+
+  const openStockInModal = (ingredient: Ingredient) => {
+    setSelectedIngredient(ingredient);
+    setIsStockInModalOpen(true);
+  };
 
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
     name: '',
@@ -164,6 +172,7 @@ export default function InventoryIndex() {
     stock: '0',
     low_stock_level: '5',
     branch_id: currentBranchId ? String(currentBranchId) : '',
+    branch_ids: [] as string[],
   });
 
   // --- Stats Calculations ---
@@ -240,6 +249,7 @@ export default function InventoryIndex() {
       initial_stock: Number(data.stock),
       low_stock_level: Number(data.low_stock_level),
       branch_id: data.branch_id ? Number(data.branch_id) : undefined,
+      branch_ids: data.branch_ids.length > 0 ? data.branch_ids.map(Number) : undefined,
     }, {
       onSuccess: () => {
         setIsAddModalOpen(false);
@@ -342,9 +352,11 @@ export default function InventoryIndex() {
                   <SelectItem value="liters">liters</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={handleAdd} className="h-10 gap-2 shadow-lg shadow-primary/20">
-                <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Material</span>
-              </Button>
+              {isAdmin && (
+                <Button onClick={handleAdd} className="h-10 gap-2 shadow-lg shadow-primary/20">
+                  <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Material</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -485,17 +497,28 @@ export default function InventoryIndex() {
                                 <td className="p-4 align-middle text-right">
                                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                                     <button
-                                      onClick={() => handleEdit(item)}
-                                      className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                      onClick={() => openStockInModal(item)}
+                                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                      title="Restock"
                                     >
-                                      <FiEdit2 className="size-4" />
+                                      <FiRefreshCw className="size-4" />
                                     </button>
-                                    <button
-                                      onClick={() => handleDelete(item)}
-                                      className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                                    >
-                                      <FiTrash2 className="size-4" />
-                                    </button>
+                                    {isAdmin && (
+                                      <button
+                                        onClick={() => handleEdit(item)}
+                                        className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                      >
+                                        <FiEdit2 className="size-4" />
+                                      </button>
+                                    )}
+                                    {isAdmin && (
+                                      <button
+                                        onClick={() => handleDelete(item)}
+                                        className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                                      >
+                                        <FiTrash2 className="size-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </motion.tr>
@@ -625,6 +648,20 @@ export default function InventoryIndex() {
         message={resultModal.message}
       />
 
+      <StockInModal
+        open={isStockInModalOpen}
+        onOpenChange={setIsStockInModalOpen}
+        item={selectedIngredient}
+        type="ingredient"
+      />
+
+      <StockInModal
+        open={isStockInModalOpen}
+        onOpenChange={setIsStockInModalOpen}
+        item={selectedIngredient}
+        type="ingredient"
+      />
+
       {/* Synced Add/Edit Modal */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={(open) => {
         if (!open) { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }
@@ -688,6 +725,44 @@ export default function InventoryIndex() {
               />
               <p className="text-[10px] text-muted-foreground">Send alert when stock falls at or below this level</p>
             </div>
+
+            {isAdmin && !isEditModalOpen && (
+              <div className="space-y-2 border-t pt-4">
+                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Branch Availability</label>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">Select branches that will stock this material (Default: All)</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {branches?.map((branch: any) => (
+                    <div
+                      key={branch.id}
+                      onClick={() => {
+                        const ids = [...data.branch_ids];
+                        const idx = ids.indexOf(branch.id.toString());
+                        if (idx > -1) ids.splice(idx, 1);
+                        else ids.push(branch.id.toString());
+                        setData('branch_ids', ids);
+                      }}
+                      className={cn(
+                        "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
+                        data.branch_ids.includes(branch.id.toString())
+                          ? "bg-primary/10 border-primary text-primary shadow-sm"
+                          : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "size-2 rounded-full",
+                        data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                      )} />
+                      {branch.name}
+                    </div>
+                  ))}
+                  {data.branch_ids.length === 0 && (
+                    <Badge variant="outline" className="text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
+                      ASSIGNED TO ALL BRANCHES BY DEFAULT
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
 
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}>Cancel</Button>

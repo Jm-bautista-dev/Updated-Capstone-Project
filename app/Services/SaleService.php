@@ -35,13 +35,16 @@ class SaleService
             $productsQuery = Product::with('ingredients')->whereIn('id', $itemIds);
             
             if ($branchId) {
-                $productsQuery->where('branch_id', $branchId);
+                // Ensure the product is available in this branch
+                $productsQuery->whereHas('branches', function($q) use ($branchId) {
+                    $q->where('branches.id', $branchId);
+                });
             }
             
             $products = $productsQuery->get()->keyBy('id');
 
-            // 2. Calculate ingredient requirements and totals using pre-fetched data
-            $ingredientRequirements = [];
+            $ingredientRequirements = []; // [ingredient_id => amount]
+            $productDeductions = [];      // [product_id => quantity]
             $costTotal     = 0;
             $saleProfit    = 0;
             $saleItemsData = [];
@@ -49,13 +52,18 @@ class SaleService
             foreach ($data['items'] as $item) {
                 $product = $products->get($item['id']);
                 if (!$product) {
-                    throw new \Exception("Product with ID {$item['id']} not found.");
+                    throw new \Exception("Product with ID {$item['id']} not found or not available in this branch.");
                 }
 
-                // Ingredient Calculation
-                foreach ($product->ingredients as $ingredient) {
-                    $needed = (float) $ingredient->pivot->quantity_required * (float) $item['quantity'];
-                    $ingredientRequirements[$ingredient->id] = ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
+                // 2. Logic: IF Recipe exists ELSE Direct Stock
+                if ($product->ingredients->isNotEmpty()) {
+                    foreach ($product->ingredients as $ingredient) {
+                        $needed = (float) $ingredient->pivot->quantity_required * (float) $item['quantity'];
+                        $ingredientRequirements[$ingredient->id] = ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
+                    }
+                } else {
+                    // Direct Product Stock Deduction
+                    $productDeductions[$product->id] = ($productDeductions[$product->id] ?? 0) + (float) $item['quantity'];
                 }
 
                 // Profit Calculation
@@ -76,11 +84,16 @@ class SaleService
                 ];
             }
 
-            // 3. Verify stock availability (branch-scoped)
+            // 3. Verify and Deduct Ingredients
             if (!empty($ingredientRequirements)) {
-                $this->verifyStockAvailability($ingredientRequirements, $branchId);
-                // 4. Deduct stock and log changes (branch-scoped)
-                $this->deductStock($ingredientRequirements, $data['order_number'] ?? 'POS Order', $branchId);
+                $this->verifyIngredientAvailability($ingredientRequirements, $branchId);
+                $this->deductIngredients($ingredientRequirements, $data['order_number'] ?? 'POS Order', $branchId);
+            }
+
+            // 4. Verify and Deduct Direct Products
+            if (!empty($productDeductions)) {
+                $this->verifyProductAvailability($productDeductions, $branchId);
+                $this->deductProducts($productDeductions, $data['order_number'] ?? 'POS Order', $branchId);
             }
 
             // 5. Create Sale Record
@@ -98,84 +111,87 @@ class SaleService
                 'status'         => $data['status'] ?? 'completed',
             ]);
 
-            // 6. Create Sale Items (Consider batch insert if performance is critical)
+            // 6. Create Sale Items
             foreach ($saleItemsData as $itemData) {
                 $itemData['sale_id'] = $sale->id;
                 SaleItem::create($itemData);
             }
 
-            // 7. Create Delivery if applicable
+            // 7. Delivery Info (If applicable)
             if (($data['type'] ?? 'dine-in') === 'delivery' && !empty($data['delivery_info'])) {
-                $deliveryData = array_merge($data['delivery_info'], [
-                    'sale_id' => $sale->id,
-                    'delivery_fee' => $data['delivery_info']['delivery_fee'] ?? 0,
-                ]);
-                $this->deliveryService->createDelivery($deliveryData);
+                $this->deliveryService->createDelivery(array_merge($data['delivery_info'], ['sale_id' => $sale->id]));
             }
 
             return $sale;
         });
     }
 
-    /**
-     * Verify stock availability — checks the ingredient in the correct branch.
-     * Rewritten to batch fetch ingredients.
-     */
-    protected function verifyStockAvailability(array $requirements, ?int $branchId): void
+    protected function verifyIngredientAvailability(array $requirements, ?int $branchId): void
     {
-        $ingredientIds = array_keys($requirements);
-        $ingredientsQuery = Ingredient::whereIn('id', $ingredientIds);
-        
-        if ($branchId) {
-            $ingredientsQuery->where('branch_id', $branchId);
-        }
-        
-        $ingredients = $ingredientsQuery->get()->keyBy('id');
-
+        $ingredients = Ingredient::whereIn('id', array_keys($requirements))->get()->keyBy('id');
         foreach ($requirements as $id => $totalNeeded) {
             $ingredient = $ingredients->get($id);
-
-            if (!$ingredient) {
-                // Better error message
-                $fallback = Ingredient::find($id);
-                $name = $fallback ? $fallback->name : "ID: $id";
-                throw new \Exception("Ingredient '{$name}' not found in this branch's inventory.");
-            }
-
-            if ((float) $ingredient->stock < $totalNeeded) {
-                throw new \Exception(
-                    "Insufficient stock for {$ingredient->name}. Needed {$totalNeeded} {$ingredient->unit}, available {$ingredient->stock} {$ingredient->unit}."
-                );
+            if (!$ingredient || (float) $ingredient->stock < $totalNeeded) {
+                throw new \Exception("Insufficient ingredient stock: " . ($ingredient->name ?? "ID $id"));
             }
         }
     }
 
-    /**
-     * Deduct stock — updates ingredient row for the correct branch.
-     */
-    protected function deductStock(array $requirements, string $reference, ?int $branchId): void
+    protected function deductIngredients(array $requirements, string $ref, ?int $branchId): void
     {
-        $ingredientIds = array_keys($requirements);
-        $ingredientsQuery = Ingredient::whereIn('id', $ingredientIds);
-        
-        if ($branchId) {
-            $ingredientsQuery->where('branch_id', $branchId);
+        foreach ($requirements as $id => $qty) {
+            $ingredient = Ingredient::find($id);
+            $prev = $ingredient->stock;
+            $ingredient->decrement('stock', $qty);
+            $ingredient->refresh();
+
+            \App\Models\StockLog::create([
+                'storable_type' => Ingredient::class,
+                'storable_id' => $id,
+                'branch_id' => $branchId,
+                'user_id' => Auth::id(),
+                'action_type' => 'recipe_deduction',
+                'quantity' => $qty,
+                'quantity_base' => $qty,
+                'unit' => $ingredient->unit,
+                'previous_stock' => $prev,
+                'new_stock' => $ingredient->stock,
+                'reference' => "Sale: $ref"
+            ]);
         }
-        
-        $ingredients = $ingredientsQuery->get();
+    }
 
-        foreach ($ingredients as $ingredient) {
-            /** @var \App\Models\Ingredient $ingredient */
-            $totalNeeded = $requirements[$ingredient->id];
-            
-            $ingredient->decrement('stock', $totalNeeded);
-            $ingredient->refresh()->checkStockAlerts();
+    protected function verifyProductAvailability(array $deductions, ?int $branchId): void
+    {
+        $products = Product::whereIn('id', array_keys($deductions))->get()->keyBy('id');
+        foreach ($deductions as $id => $qty) {
+            $product = $products->get($id);
+            if (!$product || (float) $product->stock < $qty) {
+                throw new \Exception("Insufficient product stock: " . ($product->name ?? "ID $id"));
+            }
+        }
+    }
 
-            IngredientLog::create([
-                'ingredient_id' => $ingredient->id,
-                'user_id'       => Auth::id(),
-                'change_qty'    => -$totalNeeded,
-                'reason'        => "Sale: {$reference}",
+    protected function deductProducts(array $deductions, string $ref, ?int $branchId): void
+    {
+        foreach ($deductions as $id => $qty) {
+            $product = Product::find($id);
+            $prev = $product->stock;
+            $product->decrement('stock', $qty);
+            $product->refresh();
+
+            \App\Models\StockLog::create([
+                'storable_type' => Product::class,
+                'storable_id' => $id,
+                'branch_id' => $branchId,
+                'user_id' => Auth::id(),
+                'action_type' => 'sale_deduction',
+                'quantity' => $qty,
+                'quantity_base' => $qty,
+                'unit' => $product->unit ?? 'pcs',
+                'previous_stock' => $prev,
+                'new_stock' => $product->stock,
+                'reference' => "Sale: $ref"
             ]);
         }
     }

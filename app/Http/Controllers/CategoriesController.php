@@ -11,9 +11,18 @@ use Inertia\Inertia;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
+use App\Services\CategoryService;
+
 class CategoriesController extends Controller
 {
     use AuthorizesRequests;
+
+    protected $categoryService;
+
+    public function __construct(CategoryService $categoryService)
+    {
+        $this->categoryService = $categoryService;
+    }
 
     public function index(Request $request)
     {
@@ -27,10 +36,12 @@ class CategoriesController extends Controller
             $branchId = $user->branch_id;
         }
 
-        $query = Category::query()->withCount('products');
+        $query = Category::query()->with(['branches'])->withCount('products');
 
         if ($branchId) {
-            $query->where('branch_id', $branchId);
+            $query->whereHas('branches', function($q) use ($branchId) {
+                $q->where('branches.id', $branchId);
+            });
         }
 
         if ($request->filled('search')) {
@@ -60,30 +71,15 @@ class CategoriesController extends Controller
 
     public function store(Request $request)
     {
-        $user = Auth::user();
-
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
             'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'branch_id'   => 'nullable|exists:branches,id',
+            'branch_ids'  => 'nullable|array',
+            'branch_ids.*'=> 'exists:branches,id',
         ]);
 
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('categories', 'public');
-        }
-
-        $branchId = $user->isAdmin()
-            ? ($validated['branch_id'] ?? $user->branch_id)
-            : $user->branch_id;
-
-        Category::create([
-            'name'        => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'image_path'  => $imagePath,
-            'branch_id'   => $branchId,
-        ]);
+        $this->categoryService->store($validated, $request->file('image'), Auth::id());
 
         return redirect()->back();
     }
@@ -97,22 +93,11 @@ class CategoriesController extends Controller
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
             'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'branch_ids'  => 'nullable|array',
+            'branch_ids.*'=> 'exists:branches,id',
         ]);
 
-        $imagePath = $category->image_path;
-
-        if ($request->hasFile('image')) {
-            if ($category->image_path) {
-                Storage::disk('public')->delete($category->image_path);
-            }
-            $imagePath = $request->file('image')->store('categories', 'public');
-        }
-
-        $category->update([
-            'name'        => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'image_path'  => $imagePath,
-        ]);
+        $this->categoryService->update($category, $validated, $request->file('image'));
 
         return redirect()->back();
     }

@@ -13,8 +13,10 @@ import {
     FiSlash,
     FiFilter,
     FiChevronLeft,
-    FiChevronRight
+    FiChevronRight,
+    FiRefreshCw
 } from 'react-icons/fi';
+import { StockInModal } from '@/components/stock-in-modal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,11 +68,12 @@ type Product = {
     cost_price: number;
     selling_price: number;
     status: string;
-    image_path: string | null;
     image_url: string | null;
     ingredients: (Ingredient & { pivot: { quantity_required: string } })[];
     branches: { id: number; name: string }[];
     branch_id: number;
+    is_direct: boolean;
+    unit: string;
     created_at: string;
 };
 
@@ -128,6 +131,7 @@ export default function ProductsIndex() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+    const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -142,6 +146,8 @@ export default function ProductsIndex() {
         branch_id: currentBranchId ? String(currentBranchId) : '',
         branch_ids: [] as string[],
         recipe: [] as { ingredient_id: string; quantity_required: string }[],
+        unit: 'pcs',
+        stock: '0',
     });
 
     // Reset pagination on filter change
@@ -200,6 +206,11 @@ export default function ProductsIndex() {
         setImageFile(null);
         setImagePreview(product.image_url || null);
         setIsEditModalOpen(true);
+    };
+
+    const openStockInModal = (product: Product) => {
+        setSelectedProduct(product);
+        setIsStockInModalOpen(true);
     };
 
     const openDeleteModal = (product: Product) => {
@@ -351,9 +362,11 @@ export default function ProductsIndex() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Button onClick={openAddModal} className="h-10 gap-2 shadow-lg shadow-primary/20">
-                            <FiPlus className="size-4" /> <span className="hidden lg:inline">Add Product</span>
-                        </Button>
+                        {isAdmin && (
+                            <Button onClick={openAddModal} className="h-10 gap-2 shadow-lg shadow-primary/20">
+                                <FiPlus className="size-4" /> <span className="hidden lg:inline">Add Product</span>
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -468,22 +481,37 @@ export default function ProductsIndex() {
                                                     </td>
                                                     <td className="p-4 align-middle text-right">
                                                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => openEditModal(product)}
-                                                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                            >
-                                                                <FiEdit2 className="size-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => openDeleteModal(product)}
-                                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            >
-                                                                <FiTrash2 className="size-4" />
-                                                            </Button>
+                                                            {product.is_direct && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => openStockInModal(product)}
+                                                                    className="h-8 w-8 text-primary hover:bg-primary/10"
+                                                                    title="Restock"
+                                                                >
+                                                                    <FiRefreshCw className="size-4" />
+                                                                </Button>
+                                                            )}
+                                                            {isAdmin && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => openEditModal(product)}
+                                                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                >
+                                                                    <FiEdit2 className="size-4" />
+                                                                </Button>
+                                                            )}
+                                                            {isAdmin && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => openDeleteModal(product)}
+                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                >
+                                                                    <FiTrash2 className="size-4" />
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -578,6 +606,13 @@ export default function ProductsIndex() {
                 message={successMessage.message}
             />
 
+            <StockInModal
+                open={isStockInModalOpen}
+                onOpenChange={setIsStockInModalOpen}
+                item={selectedProduct}
+                type="product"
+            />
+
             {/* Modals */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
                 <DialogContent className="sm:max-w-[500px]">
@@ -623,6 +658,14 @@ export default function ProductsIndex() {
                                 <label className="text-sm font-medium">Selling Price</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" />
                                 {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price}</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Base Unit</label>
+                                <Input required value={data.unit} onChange={(e) => setData('unit', e.target.value)} placeholder="pcs, bottle, etc." />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Initial Stock</label>
+                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} placeholder="0" />
                             </div>
                             {/* Branch Visibility */}
                             <div className="col-span-2 space-y-2 border-t pt-4">
@@ -768,7 +811,7 @@ export default function ProductsIndex() {
                             <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
                             <Button
                                 type="submit"
-                                disabled={processing || data.recipe.length === 0}
+                                disabled={processing}
                                 className="rounded-xl h-12 flex-1 bg-primary shadow-lg shadow-primary/20 font-bold active:scale-95 transition-all"
                             >
                                 {processing ? 'Processing...' : 'Confirm Registration'}
@@ -818,6 +861,14 @@ export default function ProductsIndex() {
                             <div className="space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (PHP)</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Base Unit</label>
+                                <Input required value={data.unit} onChange={(e) => setData('unit', e.target.value)} className="h-12 rounded-xl bg-muted/30" placeholder="pcs, bottle, etc." />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Current Stock</label>
+                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} className="h-12 rounded-xl bg-muted/30" placeholder="0" />
                             </div>
 
                             {/* Branch Visibility */}
@@ -965,7 +1016,7 @@ export default function ProductsIndex() {
                             <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
                             <Button
                                 type="submit"
-                                disabled={processing || data.recipe.length === 0}
+                                disabled={processing}
                                 className="rounded-xl h-12 flex-1 bg-primary font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all"
                             >
                                 {processing ? 'Updating...' : 'Push Updates'}

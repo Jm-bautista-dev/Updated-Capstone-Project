@@ -29,18 +29,22 @@ class ProductService
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
                 'branch_id'     => $validated['branch_id'] ?? $creatorBranchId,
+                'unit'          => $validated['unit'] ?? 'pcs',
+                'stock'         => $validated['stock'] ?? 0,
             ]);
 
             // Sync branches
             $this->syncBranches($product, $validated['branch_ids'] ?? []);
 
-            // Create recipe
-            foreach ($validated['recipe'] as $item) {
-                MenuItemIngredient::create([
-                    'menu_item_id'      => $product->id,
-                    'ingredient_id'     => $item['ingredient_id'],
-                    'quantity_required' => $item['quantity_required'],
-                ]);
+            // Create recipe (Optional)
+            if (!empty($validated['recipe'])) {
+                foreach ($validated['recipe'] as $item) {
+                    MenuItemIngredient::create([
+                        'menu_item_id'      => $product->id,
+                        'ingredient_id'     => $item['ingredient_id'],
+                        'quantity_required' => $item['quantity_required'],
+                    ]);
+                }
             }
 
             return $product->load('branches');
@@ -69,19 +73,22 @@ class ProductService
                 'cost_price'    => $validated['cost_price'],
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
+                'unit'          => $validated['unit'] ?? $product->unit,
             ]);
 
             // Sync branches
             $this->syncBranches($product, $validated['branch_ids'] ?? []);
 
-            // Update recipe
+            // Update recipe (Optional)
             MenuItemIngredient::where('menu_item_id', $product->id)->delete();
-            foreach ($validated['recipe'] as $item) {
-                MenuItemIngredient::create([
-                    'menu_item_id'      => $product->id,
-                    'ingredient_id'     => $item['ingredient_id'],
-                    'quantity_required' => $item['quantity_required'],
-                ]);
+            if (!empty($validated['recipe'])) {
+                foreach ($validated['recipe'] as $item) {
+                    MenuItemIngredient::create([
+                        'menu_item_id'      => $product->id,
+                        'ingredient_id'     => $item['ingredient_id'],
+                        'quantity_required' => $item['quantity_required'],
+                    ]);
+                }
             }
 
             return $product->load('branches');
