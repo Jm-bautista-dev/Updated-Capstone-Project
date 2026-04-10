@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Utils\UnitConverter;
+use Illuminate\Validation\Rule;
 
 class StockInController extends Controller
 {
@@ -24,7 +26,7 @@ class StockInController extends Controller
             'type'      => 'required|in:ingredient,product',
             'id'        => 'required|integer',
             'quantity'  => 'required|numeric|min:0.0001',
-            'unit'      => 'required|string',
+            'unit'      => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'branch_id' => 'required|exists:branches,id',
         ]);
 

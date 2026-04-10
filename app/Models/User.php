@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -15,10 +16,13 @@ use Illuminate\Database\Eloquent\Builder;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, Notifiable, TwoFactorAuthenticatable;
 
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
+        'mobile_number',
         'email',
         'password',
         'role',
@@ -26,8 +30,9 @@ class User extends Authenticatable
         'last_notifications_read_at',
     ];
 
-    const ROLE_ADMIN = 'admin';
-    const ROLE_CASHIER = 'cashier';
+    const ROLE_ADMIN    = 'admin';
+    const ROLE_CASHIER  = 'cashier';
+    const ROLE_CUSTOMER = 'customer';
 
     public function isAdmin(): bool
     {

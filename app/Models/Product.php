@@ -13,7 +13,7 @@ use App\Traits\BelongsToBranch;
 class Product extends Model
 {
     use BelongsToBranch;
-    protected $fillable = ['name', 'sku', 'selling_price', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit'];
+    protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id'];
 
     public function branch()
     {
@@ -28,6 +28,16 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function unit_model()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
+
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class);
     }
 
     public function ingredients()
@@ -57,25 +67,30 @@ class Product extends Model
      * Compute available stock based on ingredient availability (branch-scoped).
      * If branch_id is set, only considers that branch's ingredient stock.
      */
+    /**
+     * Compute available stock based on ingredient availability or ledger movements.
+     */
     public function getComputedStockAttribute()
     {
         $ingredients = $this->ingredients;
 
-        // Strict Separation: IF no ingredients, use direct stock column
-        if ($ingredients->isEmpty()) {
-            return (float) $this->stock;
+        // If HAS ingredients, use recipe-based calculation
+        if ($ingredients->isNotEmpty()) {
+            $possibleAmounts = [];
+            foreach ($ingredients as $ingredient) {
+                $required = (float) $ingredient->pivot->quantity_required;
+                if ($required <= 0) continue;
+
+                $available = (float) $ingredient->stock;
+                $possibleAmounts[] = floor($available / $required);
+            }
+            return empty($possibleAmounts) ? 0 : (int) min($possibleAmounts);
         }
 
-        $possibleAmounts = [];
-
-        foreach ($ingredients as $ingredient) {
-            $required = (float) $ingredient->pivot->quantity_required;
-            if ($required <= 0) continue;
-
-            $available = (float) $ingredient->stock;
-            $possibleAmounts[] = floor($available / $required);
-        }
-
-        return empty($possibleAmounts) ? 0 : (int) min($possibleAmounts);
+        // Professional Fix: Dynamic Ledger-Based Stock Calculation
+        // stock = SUM(IN) - SUM(OUT) + SUM(ADJUSTMENT)
+        return (float) $this->stockMovements()
+            ->selectRaw("SUM(CASE WHEN type = 'IN' THEN quantity WHEN type = 'OUT' THEN -quantity ELSE quantity END) as balance")
+            ->value('balance') ?? 0;
     }
 }

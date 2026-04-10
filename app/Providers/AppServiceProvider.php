@@ -31,7 +31,7 @@ class AppServiceProvider extends ServiceProvider
     {
         \Illuminate\Support\Facades\Gate::policy(\App\Models\Product::class, \App\Policies\ResourcePolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\Category::class, \App\Policies\ResourcePolicy::class);
-        \Illuminate\Support\Facades\Gate::policy(\App\Models\Ingredient::class, \App\Policies\ResourcePolicy::class);
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Ingredient::class, \App\Policies\IngredientPolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\Sale::class, \App\Policies\ResourcePolicy::class);
     }
 

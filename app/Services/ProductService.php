@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\MenuItemIngredient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Utils\UnitConverter;
 
 class ProductService
 {
@@ -21,16 +22,18 @@ class ProductService
                 $imagePath = $image->store('products', 'public');
             }
 
+            // Professional Fix: Automatic branch assignment and transactional stock
             $product = Product::create([
                 'name'          => $validated['name'],
-                'sku'           => $validated['sku'] ?? null,
+                'sku'           => $this->generateSku($validated['sku'] ?? null),
                 'category_id'   => $validated['category_id'],
+                'description'   => $validated['description'] ?? null,
                 'cost_price'    => $validated['cost_price'],
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
-                'branch_id'     => $validated['branch_id'] ?? $creatorBranchId,
-                'unit'          => $validated['unit'] ?? 'pcs',
-                'stock'         => $validated['stock'] ?? 0,
+                'branch_id'     => $creatorBranchId ?? $validated['branch_id'] ?? 1,
+                'unit_id'       => $validated['unit_id'] ?? null,
+                'stock'         => 0, // Initial stock is always 0; managed via movements
             ]);
 
             // Sync branches
@@ -47,7 +50,7 @@ class ProductService
                 }
             }
 
-            return $product->load('branches');
+            return $product->load('branches', 'unit_model');
         });
     }
 
@@ -68,12 +71,13 @@ class ProductService
 
             $product->update([
                 'name'          => $validated['name'],
-                'sku'           => $validated['sku'] ?? null,
+                'sku'           => $validated['sku'] ?? $product->sku,
                 'category_id'   => $validated['category_id'],
+                'description'   => $validated['description'] ?? null,
                 'cost_price'    => $validated['cost_price'],
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
-                'unit'          => $validated['unit'] ?? $product->unit,
+                'unit_id'       => $validated['unit_id'] ?? $product->unit_id,
             ]);
 
             // Sync branches
@@ -91,8 +95,17 @@ class ProductService
                 }
             }
 
-            return $product->load('branches');
+            return $product->load('branches', 'unit_model');
         });
+    }
+
+    /**
+     * Generate a professional SKU if none provided.
+     */
+    protected function generateSku(?string $sku): string
+    {
+        if ($sku) return strtoupper($sku);
+        return 'PRD-' . strtoupper(uniqid());
     }
 
     /**

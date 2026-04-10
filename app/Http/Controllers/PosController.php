@@ -43,7 +43,7 @@ class PosController extends Controller
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('public');
             $product->image_url = $product->image_path
-                ? $disk->url($product->image_path)
+                ? asset('storage/' . $product->image_path)
                 : null;
             return $product;
         });
@@ -60,7 +60,7 @@ class PosController extends Controller
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('public');
             $category->image_url = $category->image_path
-                ? $disk->url($category->image_path)
+                ? asset('storage/' . $category->image_path)
                 : null;
             return $category;
         });

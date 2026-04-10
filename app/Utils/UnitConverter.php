@@ -35,4 +35,36 @@ class UnitConverter
     {
         return round($ml / 1000, 4);
     }
+
+    /**
+     * Get the standardized base unit for a given input unit.
+     */
+    public static function normalizeUnit(string $unit): string
+    {
+        return match (strtolower($unit)) {
+            'kg', 'g', 'grams' => 'g',
+            'l', 'liters', 'ml', 'milliliters' => 'ml',
+            default => 'pcs',
+        };
+    }
+
+    /**
+     * Convert a quantity and unit to its base unit equivalent.
+     */
+    public static function convertToBaseQuantity(float $quantity, string $unit): float
+    {
+        return match (strtolower($unit)) {
+            'kg' => self::kgToG($quantity),
+            'l', 'liters' => self::lToMl($quantity),
+            default => $quantity,
+        };
+    }
+
+    /**
+     * Get a list of allowed units for validation.
+     */
+    public static function getAllowedUnits(): array
+    {
+        return ['g', 'ml', 'pcs', 'kg', 'L', 'liters'];
+    }
 }

@@ -34,12 +34,18 @@ class InventoryService
             }
 
             // 3. Normalized conversion
-            $quantityBase = $this->convertToBaseUnit($quantity, $unit);
+            $quantityBase = UnitConverter::convertToBaseQuantity($quantity, $unit);
+            $normalizedUnit = UnitConverter::normalizeUnit($unit);
             
             // 4. Atomic update
             $previousStock = (float) $model->stock;
             $newStock = $previousStock + $quantityBase;
-            $model->update(['stock' => $newStock]);
+            
+            // Critical: Ensure the model's unit is also forced to the base unit
+            $model->update([
+                'stock' => $newStock,
+                'unit'  => $normalizedUnit
+            ]);
 
             // 5. Polymorphic Audit Trail
             return StockLog::create([
@@ -64,15 +70,6 @@ class InventoryService
             'ingredient' => Ingredient::findOrFail($id),
             'product'    => Product::findOrFail($id),
             default      => throw new \Exception("Unknown domain type: {$type}")
-        };
-    }
-
-    protected function convertToBaseUnit(float $quantity, string $unit): float
-    {
-        return match (strtolower($unit)) {
-            'kg' => UnitConverter::kgToG($quantity),
-            'liters', 'l' => UnitConverter::lToMl($quantity),
-            default => $quantity, // pcs, grams, and ml are 1:1
         };
     }
 }

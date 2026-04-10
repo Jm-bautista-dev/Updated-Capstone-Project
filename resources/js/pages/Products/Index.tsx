@@ -50,13 +50,16 @@ type Ingredient = {
     name: string;
     unit: string;
     stock: number;
+    branch_id: number;
 };
 
 type RecipeItem = {
-    ingredient_id: number;
+    ingredient_id: string;
     ingredient?: Ingredient;
-    quantity_required: number;
+    quantity_required: string;
 };
+
+// Using database-driven units instead of static constants
 
 type Product = {
     id: number;
@@ -74,6 +77,8 @@ type Product = {
     branch_id: number;
     is_direct: boolean;
     unit: string;
+    unit_id: number;
+    description: string | null;
     created_at: string;
 };
 
@@ -84,7 +89,7 @@ type Summary = {
 };
 
 export default function ProductsIndex() {
-    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin } = usePage().props as any;
+    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin, units } = usePage().props as any;
     const products: Product[] = rawProducts || [];
     const [search, setSearch] = useState(filters.search || '');
     const [filterCategory, setFilterCategory] = useState(filters.filter_category || '');
@@ -137,7 +142,7 @@ export default function ProductsIndex() {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-    const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
+    const { data, setData, post, put, delete: destroy, processing, errors, reset, transform } = useForm({
         name: '',
         sku: '',
         category_id: '',
@@ -145,9 +150,10 @@ export default function ProductsIndex() {
         selling_price: '',
         branch_id: currentBranchId ? String(currentBranchId) : '',
         branch_ids: [] as string[],
-        recipe: [] as { ingredient_id: string; quantity_required: string }[],
-        unit: 'pcs',
-        stock: '0',
+        recipe: [] as RecipeItem[],
+        unit_id: '',
+        description: '',
+        image: null as File | null,
     });
 
     // Reset pagination on filter change
@@ -171,16 +177,6 @@ export default function ProductsIndex() {
         return filteredData.slice(start, start + itemsPerPage);
     }, [filteredData, currentPage, itemsPerPage]);
 
-    // Handle Server-Side Search (Optional, we are doing client-side filtering now for speed)
-    /*
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            router.get('/products', { search, filter_category: filterCategory }, { preserveState: true, replace: true });
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [search, filterCategory]);
-    */
-
     const openAddModal = () => {
         reset();
         setImageFile(null);
@@ -202,6 +198,8 @@ export default function ProductsIndex() {
                 ingredient_id: ing.id.toString(),
                 quantity_required: ing.pivot.quantity_required.toString()
             })),
+            unit_id: product.unit_id?.toString() || '',
+            description: product.description || '',
         });
         setImageFile(null);
         setImagePreview(product.image_url || null);
@@ -220,10 +218,13 @@ export default function ProductsIndex() {
 
     const handleAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        router.post('/products', {
+        
+        transform((data) => ({
             ...data,
             image: imageFile,
-        } as any, {
+        }));
+
+        post('/products', {
             forceFormData: true,
             onSuccess: () => {
                 setSearch('');
@@ -235,17 +236,22 @@ export default function ProductsIndex() {
                 setImageFile(null);
                 setImagePreview(null);
             },
+            onError: (err) => {
+                console.error('Registration failed:', err);
+            }
         });
     };
 
     const handleEditSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedProduct) {
-            router.post(`/products/${selectedProduct.id}`, {
-                _method: 'PUT',
+            transform((data) => ({
                 ...data,
                 image: imageFile,
-            } as any, {
+                _method: 'PUT',
+            }));
+            
+            post(`/products/${selectedProduct.id}`, {
                 forceFormData: true,
                 onSuccess: () => {
                     setIsEditModalOpen(false);
@@ -255,6 +261,9 @@ export default function ProductsIndex() {
                     setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
                     setIsSuccessModalOpen(true);
                 },
+                onError: (err) => {
+                    console.error('Update failed:', err);
+                }
             });
         }
     };
@@ -615,199 +624,240 @@ export default function ProductsIndex() {
 
             {/* Modals */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Add New Product</DialogTitle>
-                        <DialogDescription>
-                            Enter product details and initial stock levels.
+                <DialogContent className="sm:max-w-[600px] h-[90vh] flex flex-col p-0 overflow-hidden bg-background">
+                    <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
+                        <DialogTitle className="text-xl font-bold">Add New Product</DialogTitle>
+                        <DialogDescription className="text-sm">
+                            Define product specifications and composition.
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-sm font-medium">Name</label>
-                                <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="Product Name" />
-                                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">SKU</label>
-                                <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} placeholder="Optional" />
-                                {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Category</label>
-                                <select
-                                    required
-                                    value={data.category_id}
-                                    onChange={(e) => setData('category_id', e.target.value)}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 ring-primary/20 transition-all"
-                                >
-                                    <option value="">Select Category</option>
-                                    {categories.map((c: Category) => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                                {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Cost Price</label>
-                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" />
-                                {errors.cost_price && <p className="text-xs text-destructive">{errors.cost_price}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Selling Price</label>
-                                <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" />
-                                {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Base Unit</label>
-                                <Input required value={data.unit} onChange={(e) => setData('unit', e.target.value)} placeholder="pcs, bottle, etc." />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Initial Stock</label>
-                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} placeholder="0" />
-                            </div>
-                            {/* Branch Visibility */}
-                            <div className="col-span-2 space-y-2 border-t pt-4">
-                                <label className="text-sm font-bold">Branch Visibility</label>
-                                <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this product (Default: All)</p>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {branches?.map((branch: any) => (
-                                        <div
-                                            key={branch.id}
-                                            onClick={() => toggleBranch(branch.id.toString())}
-                                            className={cn(
-                                                "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
-                                                data.branch_ids.includes(branch.id.toString())
-                                                    ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                    : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "size-2 rounded-full",
-                                                data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
-                                            )} />
-                                            {branch.name}
-                                        </div>
-                                    ))}
-                                    {data.branch_ids.length === 0 && (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
-                                            VISIBLE TO ALL BRANCHES
-                                        </Badge>
-                                    )}
+                    <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-sm font-medium">Name</label>
+                                    <Input value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="Product Name" className="h-10 rounded-lg" />
+                                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                                 </div>
-                            </div>
-                            {/* Product Image Upload */}
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-sm font-medium">Product Image <span className="text-muted-foreground text-xs">(Optional, max 2MB)</span></label>
-                                {imagePreview && (
-                                    <div className="relative w-full h-28 rounded-lg overflow-hidden border bg-muted/30">
-                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                                        <button
-                                            type="button"
-                                            onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute top-2 right-2 bg-destructive text-white rounded-full size-6 flex items-center justify-center text-xs hover:bg-destructive/90 transition-colors"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        setImageFile(file);
-                                        if (file) setImagePreview(URL.createObjectURL(file));
-                                    }}
-                                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer transition-all border border-input rounded-lg p-2 bg-background"
-                                />
-                            </div>
-                            <div className="col-span-2 border-t pt-4 mt-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex flex-col">
-                                        <label className="text-sm font-bold">Recipe Composition</label>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Define required materials for production</p>
-                                    </div>
-                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5">
-                                        <FiPlus className="size-3 text-primary" /> Add Ingredient
-                                    </Button>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">SKU</label>
+                                    <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} placeholder="Auto-generated if empty" className="h-10 rounded-lg" />
+                                    {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
                                 </div>
 
-                                <div className="space-y-3 max-h-[350px] overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-                                    {data.recipe.length === 0 && (
-                                        <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
-                                            <FiSlash className="size-8 text-destructive/30 mb-2" />
-                                            <p className="text-sm font-bold text-destructive italic tracking-tight">
-                                                NO INGREDIENTS REGISTERED.
-                                            </p>
-                                            <p className="text-[10px] text-muted-foreground uppercase">This product will be unavailable for sale (0 stock)</p>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Category</label>
+                                    <select
+                                        value={data.category_id}
+                                        onChange={(e) => setData('category_id', e.target.value)}
+                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
+                                    >
+                                        <option value="">Select Category</option>
+                                        {categories
+                                            .filter((c: any) => {
+                                                if (!data.branch_id) return true;
+                                                const targetId = Number(data.branch_id);
+                                                // Check direct branch_id column or many-to-many relationship
+                                                const hasDirectMatch = c.branch_id && Number(c.branch_id) === targetId;
+                                                const hasRelationMatch = c.branches?.some((b: any) => Number(b.id) === targetId);
+                                                const isGlobal = !c.branch_id && (!c.branches || c.branches.length === 0);
+
+                                                return hasDirectMatch || hasRelationMatch || isGlobal;
+                                            })
+                                            .map((c: any) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                    </select>
+                                    {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Cost Price</label>
+                                    <Input type="number" step="0.01" value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" className="h-10 rounded-lg" />
+                                    {errors.cost_price && <p className="text-xs text-destructive">{errors.cost_price}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Selling Price</label>
+                                    <Input type="number" step="0.01" value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" className="h-10 rounded-lg" />
+                                    {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Unit of Measure</label>
+                                    <select
+                                        value={data.unit_id}
+                                        onChange={(e) => setData('unit_id', e.target.value)}
+                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
+                                    >
+                                        <option value="">-- Select Unit --</option>
+                                        {units.map((u: any) => (
+                                            <option key={u.id} value={String(u.id)}>{u.name} ({u.abbreviation})</option>
+                                        ))}
+                                    </select>
+                                    {errors.unit_id && <p className="text-xs text-destructive">{errors.unit_id}</p>}
+                                </div>
+                                {/* Branch Visibility */}
+                                <div className="col-span-2 space-y-2 border-t pt-4">
+                                    <label className="text-sm font-bold">Branch Visibility</label>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this product (Default: All)</p>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {branches?.map((branch: any) => (
+                                            <div
+                                                key={branch.id}
+                                                onClick={() => toggleBranch(branch.id.toString())}
+                                                className={cn(
+                                                    "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
+                                                    data.branch_ids.includes(branch.id.toString())
+                                                        ? "bg-primary/10 border-primary text-primary shadow-sm"
+                                                        : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "size-2 rounded-full",
+                                                    data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                                                )} />
+                                                {branch.name}
+                                            </div>
+                                        ))}
+                                        {data.branch_ids.length === 0 && (
+                                            <Badge variant="outline" className="text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
+                                                VISIBLE TO ALL BRANCHES
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Product Image Upload */}
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-sm font-medium">Product Image <span className="text-muted-foreground text-xs">(Optional, max 2MB)</span></label>
+                                    {imagePreview && (
+                                        <div className="relative w-full h-40 rounded-lg overflow-hidden border bg-muted/30">
+                                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                                className="absolute top-2 right-2 bg-destructive text-white rounded-full size-6 flex items-center justify-center text-xs hover:bg-destructive/90 transition-colors"
+                                            >
+                                                ✕
+                                            </button>
                                         </div>
                                     )}
-                                    {data.recipe.map((item, idx) => {
-                                        const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
-                                        return (
-                                            <motion.div
-                                                layout
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                key={idx}
-                                                className="grid grid-cols-12 gap-2 items-end bg-background p-3 rounded-xl border border-muted ring-offset-background focus-within:ring-2 focus-within:ring-primary/10 transition-all"
-                                            >
-                                                <div className="col-span-7 space-y-1.5">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
-                                                    <select
-                                                        required
-                                                        value={item.ingredient_id}
-                                                        onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none"
-                                                    >
-                                                        <option value="">-- Choose Ingredient --</option>
-                                                        {(usePage().props as any).ingredients.map((ing: Ingredient) => {
-                                                            const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === ing.id.toString() && rIdx !== idx);
-                                                            return (
-                                                                <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                    {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                    </select>
-                                                </div>
-                                                <div className="col-span-3 space-y-1.5 px-1">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            type="number"
-                                                            step="0.0001"
-                                                            required
-                                                            value={item.quantity_required}
-                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                            className="h-10 text-xs font-bold pl-3 pr-8 bg-muted/30 focus:bg-background rounded-lg border-input"
-                                                        />
-                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
-                                                            {selectedIng?.unit || '-'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2 flex justify-end pb-1 text-right">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => removeRecipeItem(idx)}
-                                                        className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-lg"
-                                                    >
-                                                        <FiTrash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            </motion.div>
-                                        );
-                                    })}
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0] || null;
+                                            setImageFile(file);
+                                            if (file) setImagePreview(URL.createObjectURL(file));
+                                        }}
+                                    />
                                 </div>
-                                {errors.recipe && <p className="text-xs text-destructive font-bold mt-2 px-2">⚠ {errors.recipe}</p>}
+                                <div className="col-span-2 space-y-1.5 mt-2">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Description (Optional)</label>
+                                    <textarea
+                                        value={data.description}
+                                        onChange={(e) => setData('description', e.target.value)}
+                                        className="w-full min-h-[100px] px-4 py-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner"
+                                        placeholder="Add descriptive details for your customers..."
+                                    />
+                                    {errors.description && <p className="text-xs text-destructive mt-1 ml-1 font-bold">{errors.description}</p>}
+                                </div>
+                                <div className="col-span-2 border-t pt-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex flex-col">
+                                            <label className="text-sm font-bold">Recipe Composition</label>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-medium">Define required materials for production</p>
+                                        </div>
+                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5 rounded-lg">
+                                            <FiPlus className="size-3 text-primary" /> Add Ingredient
+                                        </Button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {data.recipe.length === 0 && (
+                                            <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
+                                                <FiSlash className="size-8 text-destructive/30 mb-2" />
+                                                <p className="text-sm font-bold text-destructive italic tracking-tight uppercase">
+                                                    No ingredients registered.
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground uppercase">This product will be unavailable for sale (0 stock)</p>
+                                            </div>
+                                        )}
+                                        {data.recipe.map((item, idx) => {
+                                            const filteredIngredients = (usePage().props as any).ingredients.filter((ing: Ingredient) => {
+                                                if (!data.branch_id) return true;
+                                                return Number(ing.branch_id) === Number(data.branch_id);
+                                            });
+                                            const selectedIng = filteredIngredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
+                                            const ingError = errors[`recipe.${idx}.ingredient_id` as keyof typeof errors];
+                                            const qtyError = errors[`recipe.${idx}.quantity_required` as keyof typeof errors];
+
+                                            return (
+                                                <motion.div
+                                                    key={idx}
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    className="grid grid-cols-12 gap-2 items-start bg-muted/20 p-3 rounded-xl border border-muted/50"
+                                                >
+                                                    <div className="col-span-12 sm:col-span-7 space-y-1.5">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
+                                                        <select
+                                                            value={item.ingredient_id}
+                                                            onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                            className={cn(
+                                                                "w-full h-10 px-3 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 transition-all appearance-none",
+                                                                ingError ? "border-destructive ring-destructive/10 text-destructive" : "border-input ring-primary/20"
+                                                            )}
+                                                        >
+                                                            <option value="">-- Choose Ingredient --</option>
+                                                            {filteredIngredients.map((ing: any) => {
+                                                                const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
+                                                                return (
+                                                                    <option key={ing.id} value={ing.id} disabled={isTaken}>
+                                                                        {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stock}
+                                                                    </option>
+                                                                );
+                                                            })}
+                                                        </select>
+                                                        {ingError && <p className="text-[10px] text-destructive font-bold ml-1">{ingError as string}</p>}
+                                                    </div>
+                                                    
+                                                    <div className="col-span-3 space-y-1.5 px-1">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                type="number"
+                                                                step="0.0001"
+                                                                value={item.quantity_required}
+                                                                onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                                className={cn(
+                                                                    "h-10 text-xs font-bold pl-3 pr-8 bg-background rounded-lg",
+                                                                    qtyError ? "border-destructive ring-destructive/10" : "border-input"
+                                                                )}
+                                                            />
+                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
+                                                                {selectedIng?.unit || '-'}
+                                                            </span>
+                                                        </div>
+                                                        {qtyError && <p className="text-[10px] text-destructive font-bold ml-1">{qtyError as string}</p>}
+                                                    </div>
+                                                    <div className="col-span-2 flex justify-end pb-1 text-right">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => removeRecipeItem(idx)}
+                                                            className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-lg"
+                                                        >
+                                                            <FiTrash2 className="size-4" />
+                                                        </Button>
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </div>
+                                    {errors.recipe && <p className="text-xs text-destructive font-bold mt-2 px-2">⚠ {errors.recipe}</p>}
+                                </div>
                             </div>
                         </div>
-                        <DialogFooter className="pt-6">
+                        <DialogFooter className="p-6 border-t bg-muted/10 mt-auto flex-shrink-0">
                             <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
                             <Button
                                 type="submit"
@@ -823,196 +873,217 @@ export default function ProductsIndex() {
 
             {/* Edit Product Modal (Synced for scalability) */}
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-[500px] rounded-[2rem]">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-[600px] h-[90vh] flex flex-col p-0 overflow-hidden bg-background">
+                    <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
                         <DialogTitle className="text-2xl font-black italic tracking-tighter">REVISE PRODUCT.</DialogTitle>
                         <DialogDescription className="font-medium">Modify existing product specifications and ingredients.</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleEditSubmit} className="space-y-4 pt-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2 space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Name</label>
-                                <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
-                                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Identifier (SKU)</label>
-                                <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
-                                {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Category</label>
-                                <select
-                                    required
-                                    value={data.category_id}
-                                    onChange={(e) => setData('category_id', e.target.value)}
-                                    className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 ring-primary/20 transition-all appearance-none"
-                                >
-                                    <option value="">Select Category</option>
-                                    {categories.map((c: Category) => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (PHP)</label>
-                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (PHP)</label>
-                                <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Base Unit</label>
-                                <Input required value={data.unit} onChange={(e) => setData('unit', e.target.value)} className="h-12 rounded-xl bg-muted/30" placeholder="pcs, bottle, etc." />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Current Stock</label>
-                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} className="h-12 rounded-xl bg-muted/30" placeholder="0" />
-                            </div>
-
-                            {/* Branch Visibility */}
-                            <div className="col-span-2 space-y-2 border-t pt-4">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Branch Visibility</label>
-                                <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">Select branches that can see this product (Default: All)</p>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {branches?.map((branch: any) => (
-                                        <div
-                                            key={branch.id}
-                                            onClick={() => toggleBranch(branch.id.toString())}
-                                            className={cn(
-                                                "cursor-pointer px-4 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-2",
-                                                data.branch_ids.includes(branch.id.toString())
-                                                    ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                    : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "size-2 rounded-full",
-                                                data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
-                                            )} />
-                                            {branch.name}
-                                        </div>
-                                    ))}
-                                    {data.branch_ids.length === 0 && (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                                            VISIBLE TO ALL BRANCHES
-                                        </Badge>
-                                    )}
+                    <form onSubmit={handleEditSubmit} className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2 space-y-1.5">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Name</label>
+                                    <Input value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
+                                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                                 </div>
-                            </div>
-
-                            {/* Product Image Upload */}
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Image <span className="font-normal">(Optional, max 2MB)</span></label>
-                                {imagePreview && (
-                                    <div className="relative w-full h-28 rounded-xl overflow-hidden border bg-muted/30">
-                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                                        <button
-                                            type="button"
-                                            onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute top-2 right-2 bg-destructive text-white rounded-full size-6 flex items-center justify-center text-xs hover:bg-destructive/90 transition-colors"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        setImageFile(file);
-                                        if (file) setImagePreview(URL.createObjectURL(file));
-                                    }}
-                                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer transition-all border border-input rounded-xl p-2 bg-muted/30"
-                                />
-                            </div>
-
-                            <div className="col-span-2 border-t pt-4 mt-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex flex-col">
-                                        <label className="text-sm font-bold">Recipe Composition</label>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Update required materials</p>
-                                    </div>
-                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5">
-                                        <FiPlus className="size-3 text-primary" /> Add Ingredient
-                                    </Button>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Identifier (SKU)</label>
+                                    <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
+                                    {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Category</label>
+                                    <select
+                                        value={data.category_id}
+                                        onChange={(e) => setData('category_id', e.target.value)}
+                                        className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 ring-primary/20 transition-all appearance-none"
+                                    >
+                                        <option value="">Select Category</option>
+                                        {categories
+                                            .filter((c: any) => !data.branch_id || String(c.branch_id) === String(data.branch_id))
+                                            .map((c: Category) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (PHP)</label>
+                                    <Input type="number" step="0.01" value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (PHP)</label>
+                                    <Input type="number" step="0.01" value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Unit of Measure</label>
+                                    <select
+                                        value={data.unit_id}
+                                        onChange={(e) => setData('unit_id', e.target.value)}
+                                        className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
+                                    >
+                                        <option value="">Select Unit</option>
+                                        {units.map((u: any) => (
+                                            <option key={u.id} value={String(u.id)}>{u.name} ({u.abbreviation})</option>
+                                        ))}
+                                    </select>
                                 </div>
 
-                                <div className="space-y-3 max-h-[350px] overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-                                    {data.recipe.length === 0 && (
-                                        <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
-                                            <FiSlash className="size-8 text-destructive/30 mb-2" />
-                                            <p className="text-sm font-bold text-destructive italic tracking-tight">
-                                                NO INGREDIENTS REGISTERED.
-                                            </p>
-                                        </div>
-                                    )}
-                                    {data.recipe.map((item, idx) => {
-                                        const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
-                                        return (
-                                            <motion.div
-                                                layout
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                key={idx}
-                                                className="grid grid-cols-12 gap-2 items-end bg-background p-3 rounded-xl border border-muted"
+                                {/* Branch Visibility */}
+                                <div className="col-span-2 space-y-2 border-t pt-4">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Branch Visibility</label>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">Select branches that can see this product (Default: All)</p>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {branches?.map((branch: any) => (
+                                            <div
+                                                key={branch.id}
+                                                onClick={() => toggleBranch(branch.id.toString())}
+                                                className={cn(
+                                                    "cursor-pointer px-4 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-2",
+                                                    data.branch_ids.includes(branch.id.toString())
+                                                        ? "bg-primary/10 border-primary text-primary shadow-sm"
+                                                        : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
+                                                )}
                                             >
-                                                <div className="col-span-7 space-y-1.5">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
-                                                    <select
-                                                        required
-                                                        value={item.ingredient_id}
-                                                        onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none"
-                                                    >
-                                                        <option value="">-- Choose Ingredient --</option>
-                                                        {(usePage().props as any).ingredients.map((ing: Ingredient) => {
-                                                            const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === ing.id.toString() && rIdx !== idx);
-                                                            return (
-                                                                <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                    {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                    </select>
-                                                </div>
-                                                <div className="col-span-3 space-y-1.5">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            type="number"
-                                                            step="0.0001"
-                                                            required
-                                                            value={item.quantity_required}
-                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                            className="h-10 text-xs font-bold bg-muted/30 focus:bg-background rounded-lg border-input"
-                                                        />
-                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
-                                                            {selectedIng?.unit || '-'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2 flex justify-end pb-1">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => removeRecipeItem(idx)}
-                                                        className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-lg"
-                                                    >
-                                                        <FiTrash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            </motion.div>
-                                        );
-                                    })}
+                                                <div className={cn(
+                                                    "size-2 rounded-full",
+                                                    data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
+                                                )} />
+                                                {branch.name}
+                                            </div>
+                                        ))}
+                                        {data.branch_ids.length === 0 && (
+                                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                                VISIBLE TO ALL BRANCHES
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
-                                {errors.recipe && <p className="text-xs text-destructive font-bold mt-2 px-2">⚠ {errors.recipe}</p>}
+
+                                {/* Product Image Upload */}
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Image <span className="font-normal">(Optional, max 2MB)</span></label>
+                                    {imagePreview && (
+                                        <div className="relative w-full h-40 rounded-xl overflow-hidden border bg-muted/30">
+                                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                                className="absolute top-2 right-2 bg-destructive text-white rounded-full size-6 flex items-center justify-center text-xs hover:bg-destructive/90 transition-colors"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0] || null;
+                                            setImageFile(file);
+                                            if (file) setImagePreview(URL.createObjectURL(file));
+                                        }}
+                                        className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer transition-all border border-input rounded-xl p-2 bg-muted/30"
+                                    />
+                                </div>
+
+                                <div className="col-span-2 space-y-1.5 pt-2">
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Update Description (Optional)</label>
+                                    <textarea
+                                        value={data.description}
+                                        onChange={(e) => setData('description', e.target.value)}
+                                        className="w-full min-h-[100px] px-4 py-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-inner"
+                                        placeholder="Enter product details for customers..."
+                                    />
+                                    {errors.description && <p className="text-xs text-destructive mt-1 ml-1 font-bold">{errors.description}</p>}
+                                </div>
+
+                                <div className="col-span-2 border-t pt-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex flex-col">
+                                            <label className="text-sm font-bold">Recipe Composition</label>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-medium">Update required materials</p>
+                                        </div>
+                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5 rounded-lg">
+                                            <FiPlus className="size-3 text-primary" /> Add Ingredient
+                                        </Button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {data.recipe.length === 0 && (
+                                            <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
+                                                <FiSlash className="size-8 text-destructive/30 mb-2" />
+                                                <p className="text-sm font-bold text-destructive italic tracking-tight">
+                                                    NO INGREDIENTS REGISTERED.
+                                                </p>
+                                            </div>
+                                        )}
+                                        {data.recipe.map((item, idx) => {
+                                            const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
+                                            return (
+                                                <motion.div
+                                                    layout
+                                                    initial={{ opacity: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    key={idx}
+                                                    className="grid grid-cols-12 gap-2 items-end bg-background p-3 rounded-xl border border-muted"
+                                                >
+                                                    <div className="col-span-7 space-y-1.5">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
+                                                        <select
+                                                            required
+                                                            value={item.ingredient_id}
+                                                            onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                            className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none"
+                                                        >
+                                                            <option value="">-- Choose Ingredient --</option>
+                                                            {(usePage().props as any).ingredients
+                                                                .filter((ing: any) => !data.branch_id || String(ing.branch_id) === String(data.branch_id))
+                                                                .map((ing: Ingredient) => {
+                                                                    const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
+                                                                    return (
+                                                                        <option key={ing.id} value={ing.id} disabled={isTaken}>
+                                                                            {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`}
+                                                                        </option>
+                                                                    );
+                                                                })}
+                                                        </select>
+                                                    </div>
+                                                    <div className="col-span-3 space-y-1.5">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
+                                                        <div className="relative">
+                                                            <Input
+                                                                type="number"
+                                                                step="0.0001"
+                                                                required
+                                                                value={item.quantity_required}
+                                                                onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                                className="h-10 text-xs font-bold bg-muted/30 focus:bg-background rounded-lg border-input"
+                                                            />
+                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
+                                                                {selectedIng?.unit || '-'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-span-2 flex justify-end pb-1">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => removeRecipeItem(idx)}
+                                                            className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-lg"
+                                                        >
+                                                            <FiTrash2 className="size-4" />
+                                                        </Button>
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </div>
+                                    {errors.recipe && <p className="text-xs text-destructive font-bold mt-2 px-2">⚠ {errors.recipe}</p>}
+                                </div>
                             </div>
                         </div>
-                        <DialogFooter className="pt-6">
+                        <DialogFooter className="p-6 border-t bg-muted/10 mt-auto flex-shrink-0">
                             <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
                             <Button
                                 type="submit"

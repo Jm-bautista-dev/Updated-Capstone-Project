@@ -1,0 +1,62 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\VerificationController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes — Mobile App (Laravel Sanctum Token Auth)
+|--------------------------------------------------------------------------
+|
+| These routes are for the React Native mobile app.
+| All responses are JSON. Authentication uses Sanctum personal access tokens.
+|
+*/
+
+// ─── Public Routes (no auth required) ────────────────────────────────────────
+Route::prefix('v1')->group(function () {
+
+    // Auth
+    Route::post('register', [AuthController::class, 'register']);
+    Route::post('login',    [AuthController::class, 'login']);
+
+    // Public Menu (Guest Access Allowed)
+    Route::get('products',       [ProductController::class, 'index']);
+    Route::get('products/{id}',  [ProductController::class, 'show']);
+    Route::get('categories',     [CategoryController::class, 'index']);
+
+    // Email Verification
+    Route::post('verify-email/request', [VerificationController::class, 'requestEmail']);
+    Route::post('verify-email/verify',  [VerificationController::class, 'verify']);
+
+    // ─── Protected Routes (Sanctum token required) ────────────────────────────
+    Route::middleware('auth:sanctum')->group(function () {
+
+        // Auth
+        Route::get('user',   [AuthController::class, 'user']);
+        Route::post('logout', [AuthController::class, 'logout']);
+
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| API Route Summary
+|--------------------------------------------------------------------------
+|
+| Public:
+|   POST  /api/v1/register   → Register a new user (returns token)
+|   POST  /api/v1/login      → Login (returns token)
+|
+| Protected (Bearer token required):
+|   GET   /api/v1/user                  → Get authenticated user
+|   POST  /api/v1/logout                → Revoke token
+|   GET   /api/v1/products              → List products (?category_id=&search=&branch_id=)
+|   GET   /api/v1/products/{id}         → Single product detail
+|   GET   /api/v1/categories            → List categories (?branch_id=&search=)
+|
+*/

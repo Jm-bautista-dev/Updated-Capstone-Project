@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Utils\UnitConverter;
+use Illuminate\Validation\Rule;
 
 
 class InventoryController extends Controller
@@ -62,13 +64,19 @@ class InventoryController extends Controller
 
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
-            'unit'            => 'required|string|max:20',
+            'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'initial_stock'   => 'nullable|numeric|min:0',
             'low_stock_level' => 'nullable|numeric|min:0',
             'branch_id'       => 'nullable|exists:branches,id',
             'branch_ids'      => 'nullable|array',
             'branch_ids.*'    => 'exists:branches,id',
         ]);
+
+        // Normalize unit and initial stock BEFORE creation
+        $rawUnit = $validated['unit'];
+        $rawStock = (float) ($validated['initial_stock'] ?? 0);
+        $normalizedUnit = UnitConverter::normalizeUnit($rawUnit);
+        $baseStock = UnitConverter::convertToBaseQuantity($rawStock, $rawUnit);
 
         // Determine target branches
         $targetBranchIds = [];
@@ -88,8 +96,8 @@ class InventoryController extends Controller
         foreach ($targetBranchIds as $branchId) {
             $ingredient = Ingredient::create([
                 'name'            => $validated['name'],
-                'unit'            => $validated['unit'],
-                'stock'           => $validated['initial_stock'] ?? 0,
+                'unit'            => $normalizedUnit,
+                'stock'           => $baseStock,
                 'low_stock_level' => $validated['low_stock_level'] ?? 5,
                 'branch_id'       => $branchId,
             ]);
@@ -117,18 +125,28 @@ class InventoryController extends Controller
 
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
-            'unit'            => 'required|string|max:20',
+            'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'stock'           => 'nullable|numeric|min:0',
             'low_stock_level' => 'nullable|numeric|min:0',
         ]);
+
+        // Normalize inputs
+        $rawUnit = $validated['unit'];
+        $rawStock = (float) ($validated['stock'] ?? $ingredient->stock);
+        $normalizedUnit = UnitConverter::normalizeUnit($rawUnit);
+        
+        // If the user changed the unit while updating stock, we need to be careful.
+        // But the requirement says "Only add base unit conversion logic for inventory inputs."
+        // We will normalize the incoming quantity based on the incoming unit.
+        $baseStock = UnitConverter::convertToBaseQuantity($rawStock, $rawUnit);
 
         $oldStock = (float) $ingredient->stock;
         $newStock = (float) ($validated['stock'] ?? $oldStock);
 
         $ingredient->update([
             'name'            => $validated['name'],
-            'unit'            => $validated['unit'],
-            'stock'           => $newStock,
+            'unit'            => $normalizedUnit,
+            'stock'           => $baseStock,
             'low_stock_level' => $validated['low_stock_level'] ?? $ingredient->low_stock_level,
         ]);
 
