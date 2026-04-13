@@ -32,7 +32,7 @@ class ProductService
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
                 'branch_id'     => $creatorBranchId ?? $validated['branch_id'] ?? 1,
-                'unit_id'       => $validated['unit_id'] ?? null,
+                'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? 'pcs'),
                 'stock'         => 0, // Initial stock is always 0; managed via movements
             ]);
 
@@ -77,7 +77,7 @@ class ProductService
                 'cost_price'    => $validated['cost_price'],
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
-                'unit_id'       => $validated['unit_id'] ?? $product->unit_id,
+                'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? $product->unit ?? 'pcs'),
             ]);
 
             // Sync branches

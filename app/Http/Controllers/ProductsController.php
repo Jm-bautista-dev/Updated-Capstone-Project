@@ -102,7 +102,7 @@ class ProductsController extends Controller
             'ingredients'     => $ingredientsQuery->get(),
             'summary'         => $summary,
             'branches'        => $branches,
-            'units'           => Unit::where('is_active', true)->get(),
+            'allowedUnits'    => UnitConverter::getAllowedUnits(),
             'currentBranchId' => $branchId,
             'isAdmin'         => $user->isAdmin(),
             'filters'         => $request->only(['search', 'filter_category', 'branch_id']),
@@ -152,7 +152,7 @@ class ProductsController extends Controller
                 'recipe.*.quantity_required'  => 'required_with:recipe|numeric|min:0.0001',
                 'branch_ids'                  => 'nullable|array',
                 'branch_ids.*'                => 'exists:branches,id',
-                'unit_id'                     => 'required|exists:units,id',
+                'unit'                        => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             ]);
 
             $this->productService->store($validated, $request->file('image'), $user->branch_id);
@@ -197,7 +197,7 @@ class ProductsController extends Controller
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
             'branch_ids'                  => 'nullable|array',
             'branch_ids.*'                => 'exists:branches,id',
-            'unit_id'                     => 'required|exists:units,id',
+            'unit'                        => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ], [
             'recipe.required' => 'At least one ingredient is required.',
             'recipe.min'      => 'At least one ingredient is required.',

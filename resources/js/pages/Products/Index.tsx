@@ -77,7 +77,6 @@ type Product = {
     branch_id: number;
     is_direct: boolean;
     unit: string;
-    unit_id: number;
     description: string | null;
     created_at: string;
 };
@@ -89,7 +88,7 @@ type Summary = {
 };
 
 export default function ProductsIndex() {
-    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin, units } = usePage().props as any;
+    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin, allowedUnits } = usePage().props as any;
     const products: Product[] = rawProducts || [];
     const [search, setSearch] = useState(filters.search || '');
     const [filterCategory, setFilterCategory] = useState(filters.filter_category || '');
@@ -151,7 +150,7 @@ export default function ProductsIndex() {
         branch_id: currentBranchId ? String(currentBranchId) : '',
         branch_ids: [] as string[],
         recipe: [] as RecipeItem[],
-        unit_id: '',
+        unit: 'pcs',
         description: '',
         image: null as File | null,
     });
@@ -198,7 +197,7 @@ export default function ProductsIndex() {
                 ingredient_id: ing.id.toString(),
                 quantity_required: ing.pivot.quantity_required.toString()
             })),
-            unit_id: product.unit_id?.toString() || '',
+            unit: product.unit || 'pcs',
             description: product.description || '',
         });
         setImageFile(null);
@@ -471,7 +470,7 @@ export default function ProductsIndex() {
                                                             "font-mono font-bold",
                                                             product.stock <= 0 ? "text-destructive" : product.stock <= 5 ? "text-amber-600" : ""
                                                         )}>
-                                                            {product.stock} units
+                                                            {product.stock} {product.unit || 'pcs'}
                                                         </span>
                                                     </td>
                                                     <td className="p-4 align-middle hidden sm:table-cell">
@@ -683,16 +682,16 @@ export default function ProductsIndex() {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Unit of Measure</label>
                                     <select
-                                        value={data.unit_id}
-                                        onChange={(e) => setData('unit_id', e.target.value)}
+                                        value={data.unit}
+                                        onChange={(e) => setData('unit', e.target.value)}
                                         className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
                                     >
                                         <option value="">-- Select Unit --</option>
-                                        {units.map((u: any) => (
-                                            <option key={u.id} value={String(u.id)}>{u.name} ({u.abbreviation})</option>
+                                        {allowedUnits?.map((u: string) => (
+                                            <option key={u} value={u}>{u.toUpperCase()} - {u === 'pcs' ? 'Pieces' : u === 'g' ? 'Grams' : u === 'ml' ? 'Milliliters' : u === 'kg' ? 'Kilograms' : u === 'L' ? 'Liters' : u}</option>
                                         ))}
                                     </select>
-                                    {errors.unit_id && <p className="text-xs text-destructive">{errors.unit_id}</p>}
+                                    {errors.unit && <p className="text-xs text-destructive">{errors.unit}</p>}
                                 </div>
                                 {/* Branch Visibility */}
                                 <div className="col-span-2 space-y-2 border-t pt-4">
@@ -917,13 +916,13 @@ export default function ProductsIndex() {
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Unit of Measure</label>
                                     <select
-                                        value={data.unit_id}
-                                        onChange={(e) => setData('unit_id', e.target.value)}
+                                        value={data.unit}
+                                        onChange={(e) => setData('unit', e.target.value)}
                                         className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
                                     >
                                         <option value="">Select Unit</option>
-                                        {units.map((u: any) => (
-                                            <option key={u.id} value={String(u.id)}>{u.name} ({u.abbreviation})</option>
+                                        {allowedUnits?.map((u: string) => (
+                                            <option key={u} value={u}>{u.toUpperCase()} - {u === 'pcs' ? 'Pieces' : u === 'g' ? 'Grams' : u === 'ml' ? 'Milliliters' : u === 'kg' ? 'Kilograms' : u === 'L' ? 'Liters' : u}</option>
                                         ))}
                                     </select>
                                 </div>
