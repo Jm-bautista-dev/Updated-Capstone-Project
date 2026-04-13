@@ -128,11 +128,14 @@ class SaleService
 
     protected function verifyIngredientAvailability(array $requirements, ?int $branchId): void
     {
-        $ingredients = Ingredient::whereIn('id', array_keys($requirements))->get()->keyBy('id');
+        $ingredients = Ingredient::with('branch')->whereIn('id', array_keys($requirements))->get()->keyBy('id');
         foreach ($requirements as $id => $totalNeeded) {
             $ingredient = $ingredients->get($id);
             if (!$ingredient || (float) $ingredient->stock < $totalNeeded) {
                 throw new \Exception("Insufficient ingredient stock: " . ($ingredient->name ?? "ID $id"));
+            }
+            if ($ingredient->branch_id != $branchId) {
+                throw new \Exception("Cross-branch deduction blocked: Ingredient '{$ingredient->name}' belongs to " . ($ingredient->branch ? $ingredient->branch->name : 'another branch') . " but POS is in a different branch.");
             }
         }
     }
@@ -140,6 +143,7 @@ class SaleService
     protected function deductIngredients(array $requirements, string $ref, ?int $branchId): void
     {
         foreach ($requirements as $id => $qty) {
+            /** @var \App\Models\Ingredient $ingredient */
             $ingredient = Ingredient::find($id);
             $prev = $ingredient->stock;
             $ingredient->decrement('stock', $qty);
@@ -175,6 +179,7 @@ class SaleService
     protected function deductProducts(array $deductions, string $ref, ?int $branchId): void
     {
         foreach ($deductions as $id => $qty) {
+            /** @var \App\Models\Product $product */
             $product = Product::find($id);
             $prev = $product->stock;
             $product->decrement('stock', $qty);

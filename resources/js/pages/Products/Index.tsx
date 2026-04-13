@@ -669,6 +669,23 @@ export default function ProductsIndex() {
                                     </select>
                                     {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
                                 </div>
+                                {isAdmin && (
+                                    <div className="space-y-2 col-span-2">
+                                        <label className="text-sm font-medium">Owner Branch</label>
+                                        <p className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5 mb-1.5 leading-tight">Determines the core ownership and dictates which ingredients can be used.</p>
+                                        <select
+                                            value={data.branch_id}
+                                            onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value, recipe: [] }))}
+                                            className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
+                                        >
+                                            <option value="">-- Select Owner Branch --</option>
+                                            {branches?.map((b: any) => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                        {errors.branch_id && <p className="text-xs text-destructive">{errors.branch_id}</p>}
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Cost Price</label>
                                     <Input type="number" step="0.01" value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" className="h-10 rounded-lg" />
@@ -779,6 +796,13 @@ export default function ProductsIndex() {
                                                 <p className="text-[10px] text-muted-foreground uppercase">This product will be unavailable for sale (0 stock)</p>
                                             </div>
                                         )}
+                                        {/* Added Helper Text when no branch selected */}
+                                        {!data.branch_id && (
+                                            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-2">
+                                                <p className="text-xs text-amber-600 font-bold">Please select an Owner Branch first.</p>
+                                                <p className="text-[10px] text-amber-600/80">Only ingredients from the selected branch are available.</p>
+                                            </div>
+                                        )}
                                         {data.recipe.map((item, idx) => {
                                             const filteredIngredients = (usePage().props as any).ingredients.filter((ing: Ingredient) => {
                                                 if (!data.branch_id) return true;
@@ -798,11 +822,13 @@ export default function ProductsIndex() {
                                                     <div className="col-span-12 sm:col-span-7 space-y-1.5">
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
                                                         <select
+                                                            disabled={!data.branch_id}
                                                             value={item.ingredient_id}
                                                             onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
                                                             className={cn(
                                                                 "w-full h-10 px-3 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 transition-all appearance-none",
-                                                                ingError ? "border-destructive ring-destructive/10 text-destructive" : "border-input ring-primary/20"
+                                                                ingError ? "border-destructive ring-destructive/10 text-destructive" : "border-input ring-primary/20",
+                                                                !data.branch_id ? "opacity-50 cursor-not-allowed bg-muted" : ""
                                                             )}
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
@@ -905,6 +931,23 @@ export default function ProductsIndex() {
                                             ))}
                                     </select>
                                 </div>
+                                {isAdmin && (
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Owner Branch</label>
+                                        <p className="text-[10px] text-muted-foreground font-medium uppercase -mt-0.5 mb-1 ml-1 leading-tight">Determines the core ownership and dictates which ingredients can be used.</p>
+                                        <select
+                                            value={data.branch_id}
+                                            onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value, recipe: [] }))}
+                                            className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
+                                        >
+                                            <option value="">-- Select Owner Branch --</option>
+                                            {branches?.map((b: any) => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                        {errors.branch_id && <p className="text-xs text-destructive">{errors.branch_id}</p>}
+                                    </div>
+                                )}
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (PHP)</label>
                                     <Input type="number" step="0.01" value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold" />
@@ -1016,6 +1059,13 @@ export default function ProductsIndex() {
                                                 </p>
                                             </div>
                                         )}
+                                        {/* Added Helper Text when no branch selected */}
+                                        {!data.branch_id && (
+                                            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl mb-2 mt-2">
+                                                <p className="text-xs text-amber-600 font-bold">Please select an Owner Branch.</p>
+                                                <p className="text-[10px] text-amber-600/80">Only ingredients from the selected branch are available for recipes.</p>
+                                            </div>
+                                        )}
                                         {data.recipe.map((item, idx) => {
                                             const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
                                             return (
@@ -1030,9 +1080,13 @@ export default function ProductsIndex() {
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
                                                         <select
                                                             required
+                                                            disabled={!data.branch_id}
                                                             value={item.ingredient_id}
                                                             onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                            className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none"
+                                                            className={cn(
+                                                                "w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none",
+                                                                !data.branch_id ? "opacity-50 cursor-not-allowed bg-muted" : ""
+                                                            )}
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
                                                             {(usePage().props as any).ingredients

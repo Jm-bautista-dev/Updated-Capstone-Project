@@ -142,18 +142,29 @@ class ProductsController extends Controller
                 'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                 => 'nullable|string',
                 'recipe'                      => 'nullable|array',
-                'recipe.*.ingredient_id'      => [
-                    'required_with:recipe',
-                    Rule::exists('ingredients', 'id')->where(function($q) use ($branchId, $user) {
-                        if ($user->isAdmin()) return; // Admins can use any ingredient
-                        $q->where('branch_id', $branchId)->orWhereNull('branch_id');
-                    })
-                ],
+                'recipe.*.ingredient_id' => [
+    'required_with:recipe',
+    Rule::exists('ingredient_stocks', 'ingredient_id')->where(function($q) use ($branchId) {
+        $q->where('branch_id', $branchId);
+    })
+],
                 'recipe.*.quantity_required'  => 'required_with:recipe|numeric|min:0.0001',
                 'branch_ids'                  => 'nullable|array',
                 'branch_ids.*'                => 'exists:branches,id',
                 'unit'                        => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             ]);
+
+            // Strict Validation for Branch Isolation
+            if (!empty($validated['recipe'])) {
+                foreach ($validated['recipe'] as $item) {
+                    $ingredient = Ingredient::find($item['ingredient_id']);
+                    if ($ingredient && $ingredient->branch_id != $branchId) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'recipe' => 'Invalid ingredient selection: ingredient does not belong to this branch.'
+                        ]);
+                    }
+                }
+            }
 
             $this->productService->store($validated, $request->file('image'), $user->branch_id);
 
@@ -188,12 +199,12 @@ class ProductsController extends Controller
             'selling_price'               => 'required|numeric|min:0',
             'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
             'recipe'                      => 'required|array|min:1',
-            'recipe.*.ingredient_id'      => [
-                'required',
-                Rule::exists('ingredients', 'id')->where(function($q) use ($branchId) {
-                    $q->where('branch_id', $branchId)->orWhereNull('branch_id');
-                })
-            ],
+            'recipe.*.ingredient_id' => [
+    'required',
+    Rule::exists('ingredient_stocks', 'ingredient_id')->where(function($q) use ($branchId) {
+        $q->where('branch_id', $branchId);
+    })
+],
             'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
             'branch_ids'                  => 'nullable|array',
             'branch_ids.*'                => 'exists:branches,id',
@@ -202,6 +213,18 @@ class ProductsController extends Controller
             'recipe.required' => 'At least one ingredient is required.',
             'recipe.min'      => 'At least one ingredient is required.',
         ]);
+
+        // Strict Validation for Branch Isolation
+        if (!empty($validated['recipe'])) {
+            foreach ($validated['recipe'] as $item) {
+                $ingredient = Ingredient::find($item['ingredient_id']);
+                if ($ingredient && $ingredient->branch_id != $branchId) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'recipe' => 'Invalid ingredient selection: ingredient does not belong to this branch.'
+                    ]);
+                }
+            }
+        }
 
         $this->productService->update($product, $validated, $request->file('image'));
 

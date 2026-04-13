@@ -68,6 +68,7 @@ type Ingredient = {
   stock: number;
   unit: string;
   branch_id?: number;
+  branch_name?: string;
   low_stock_level?: number;
   is_low_stock?: boolean;
 };
@@ -408,6 +409,7 @@ export default function InventoryIndex() {
                       {[
                         { label: 'Material Name', key: 'name' },
                         { label: 'Unit Type', key: 'unit' },
+                        { label: 'Branch', key: 'branch_name' },
                         { label: 'Current Stock', key: 'stock' },
                         { label: 'Status', key: null },
                         { label: 'Actions', key: null },
@@ -434,7 +436,7 @@ export default function InventoryIndex() {
                       <AnimatePresence>
                         {paginatedData.length === 0 ? (
                           <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <td colSpan={6} className="p-20 text-center text-muted-foreground italic text-lg">
+                            <td colSpan={7} className="p-20 text-center text-muted-foreground italic text-lg">
                               No items matching your criteria.
                             </td>
                           </motion.tr>
@@ -467,6 +469,11 @@ export default function InventoryIndex() {
                                 <td className="p-4 align-middle">
                                   <Badge variant="outline" className="bg-primary/5 border-primary/10 text-[10px] font-bold">
                                     {item.unit}
+                                  </Badge>
+                                </td>
+                                <td className="p-4 align-middle">
+                                  <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] font-bold">
+                                    {item.branch_name || 'All'}
                                   </Badge>
                                 </td>
                                 <td className="p-4 align-middle">

@@ -30,7 +30,7 @@ class InventoryController extends Controller
             $branchId = $user->branch_id; // Cashier: locked to their branch
         }
 
-        $query = Ingredient::orderBy('name');
+        $query = Ingredient::with('branch')->orderBy('name');
 
         if ($branchId) {
             $query->where('branch_id', $branchId);
@@ -43,6 +43,7 @@ class InventoryController extends Controller
                 'stock'           => (float) $ingredient->stock,
                 'unit'            => $ingredient->unit,
                 'branch_id'       => $ingredient->branch_id,
+                'branch_name'     => $ingredient->branch ? $ingredient->branch->name : null,
                 'low_stock_level' => (float) $ingredient->low_stock_level,
                 'is_low_stock'    => $ingredient->isLowStock(),
             ];
