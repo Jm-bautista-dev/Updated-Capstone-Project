@@ -409,10 +409,7 @@ export default function InventoryIndex() {
                               {/* Ingredient name */}
                               <td className="p-4 align-middle">
                                 <div className="flex items-center gap-3">
-                                  <div className="size-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary font-bold text-xs shadow-inner">
-                                    {item.name.charAt(0)}
-                                  </div>
-                                  <span className="font-semibold">{item.name}</span>
+                                  <span className="font-semibold truncate max-w-[200px]" title={item.name}>{item.name}</span>
                                 </div>
                               </td>
                               {/* Unit */}
@@ -619,7 +616,7 @@ export default function InventoryIndex() {
               <label className="text-sm font-medium">Ingredient Name <span className="text-destructive">*</span></label>
               <Input
                 required
-                maxLength={100}
+                maxLength={50}
                 value={data.name}
                 onChange={e => {
                   const cleaned = e.target.value.replace(/[^A-Za-z\s]/g, '');
@@ -632,7 +629,7 @@ export default function InventoryIndex() {
                 <p className="text-xs text-destructive font-medium">{errors.name}</p>
               ) : (
                 <p className="text-[10px] text-muted-foreground italic">
-                  Letters and spaces only. Max 100 chars.
+                  Letters and spaces only. Max 50 chars.
                 </p>
               )}
             </div>

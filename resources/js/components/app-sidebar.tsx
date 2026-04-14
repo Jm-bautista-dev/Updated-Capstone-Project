@@ -126,13 +126,22 @@ export function AppSidebar() {
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 
+    const sidebarSections = [
+        { label: 'Core', titles: ['Dashboard', 'Pos'] },
+        { label: 'Operations', titles: ['Products', 'Categories', 'Inventory', 'Suppliers'] },
+        { label: 'Sales', titles: ['Sales', 'Reports'] },
+        { label: 'Analytics', titles: ['Performance', 'Forecast', 'Suggestions'] },
+        { label: 'Logistics', titles: ['Delivery', 'Riders'] },
+        { label: 'Management', titles: ['Employees'] },
+    ];
+
     return (
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+        <Sidebar collapsible="icon" variant="inset" className="border-r-0">
+            <SidebarHeader className="bg-background">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href={user.role === 'admin' ? '/dashboard' : '/pos'}>
+                        <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
+                            <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex items-center gap-3">
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -140,8 +149,12 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent>
-                <NavMain items={filteredNavItems} />
+            <SidebarContent className="gap-0 py-2">
+                {sidebarSections.map((section) => {
+                    const items = filteredNavItems.filter((item) => section.titles.includes(item.title));
+                    if (items.length === 0) return null;
+                    return <NavMain key={section.label} label={section.label} items={items} />;
+                })}
             </SidebarContent>
 
             <SidebarFooter>

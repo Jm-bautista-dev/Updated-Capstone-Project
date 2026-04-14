@@ -23,11 +23,20 @@ class EmployeeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'      => 'required|string|max:255',
-            'email'     => 'required|string|email|max:255|unique:users',
-            'password'  => 'required|string|min:8',
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[A-Za-z\s]+$/'
+            ],
+            'email'     => 'required|string|email|max:100|unique:users',
+            'password'  => 'required|string|min:8|max:100',
             'role'      => 'required|string|in:admin,cashier',
-            'branch_id' => 'nullable|exists:branches,id',
+            'branch_id' => 'required|exists:branches,id',
+        ], [
+            'name.regex' => 'Full name must only contain letters and spaces.',
+            'branch_id.required' => 'Please select an assigned branch.',
         ]);
 
         User::create([
@@ -44,11 +53,20 @@ class EmployeeController extends Controller
     public function update(Request $request, User $employee)
     {
         $validated = $request->validate([
-            'name'      => 'required|string|max:255',
-            'email'     => 'required|string|email|max:255|unique:users,email,' . $employee->id,
-            'password'  => 'nullable|string|min:8',
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:50',
+                'regex:/^[A-Za-z\s]+$/'
+            ],
+            'email'     => 'required|string|email|max:100|unique:users,email,' . $employee->id,
+            'password'  => 'nullable|string|min:8|max:100',
             'role'      => 'required|string|in:admin,cashier',
-            'branch_id' => 'nullable|exists:branches,id',
+            'branch_id' => 'required|exists:branches,id',
+        ], [
+            'name.regex' => 'Full name must only contain letters and spaces.',
+            'branch_id.required' => 'Please select an assigned branch.',
         ]);
 
         $employee->update([

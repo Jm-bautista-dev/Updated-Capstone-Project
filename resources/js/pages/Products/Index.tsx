@@ -145,6 +145,13 @@ export default function ProductsIndex() {
         image: null as File | null,
     });
 
+    const [ingredientSearch, setIngredientSearch] = useState('');
+
+    // Helper to truncate long names safely for UI
+    const formatName = (name: string, limit: number = 25) => {
+        return name.length > limit ? name.substring(0, limit) + '...' : name;
+    };
+
     // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1);
@@ -168,6 +175,7 @@ export default function ProductsIndex() {
 
     const openAddModal = () => {
         reset();
+        setIngredientSearch('');
         setImageFile(null);
         setImagePreview(null);
         setIsAddModalOpen(true);
@@ -175,6 +183,7 @@ export default function ProductsIndex() {
 
     const openEditModal = (product: Product) => {
         setSelectedProduct(product);
+        setIngredientSearch('');
         setData({
             name: product.name,
             sku: product.sku || '',
@@ -452,8 +461,8 @@ export default function ProductsIndex() {
                                                     className="border-b transition-colors hover:bg-muted/40 group"
                                                 >
                                                     <td className="p-4 align-middle">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-semibold">{product.name}</span>
+                                                        <div className="flex flex-col max-w-[250px]">
+                                                            <span className="font-semibold truncate" title={product.name}>{product.name}</span>
                                                             <span className="text-xs text-muted-foreground font-mono">{product.sku || 'N/A'}</span>
                                                         </div>
                                                     </td>
@@ -656,9 +665,30 @@ export default function ProductsIndex() {
                         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2 space-y-2">
-                                    <label className="text-sm font-medium">Name</label>
-                                    <Input value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="Product Name" className="h-10 rounded-lg" />
-                                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-sm font-medium">Product Name <span className="text-destructive">*</span></label>
+                                        <span className={cn(
+                                            "text-[10px] font-bold",
+                                            data.name.length > 70 ? "text-amber-500" : "text-muted-foreground"
+                                        )}>
+                                            {data.name.length}/80
+                                        </span>
+                                    </div>
+                                    <Input 
+                                        required
+                                        maxLength={80}
+                                        value={data.name} 
+                                        onChange={(e) => {
+                                            const cleaned = e.target.value.replace(/[^A-Za-z0-9\s\-]/g, '');
+                                            setData('name', cleaned);
+                                        }} 
+                                        placeholder="e.g. Chicken Burger Deluxe" 
+                                        className={cn(
+                                            "h-10 rounded-lg",
+                                            errors.name && "border-destructive focus-visible:ring-destructive"
+                                        )} 
+                                    />
+                                    {errors.name && <p className="text-[10px] text-destructive font-bold">{errors.name}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">SKU</label>
@@ -751,14 +781,46 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Cost Price</label>
-                                    <Input type="number" step="0.01" value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" className="h-10 rounded-lg" />
-                                    {errors.cost_price && <p className="text-xs text-destructive">{errors.cost_price}</p>}
+                                    <label className="text-sm font-medium uppercase text-[10px] font-bold text-muted-foreground">Cost Price (₱) <span className="text-destructive">*</span></label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₱</span>
+                                        <Input 
+                                            type="number" 
+                                            step="0.01" 
+                                            min="0"
+                                            max="999999.99"
+                                            value={data.cost_price} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (Number(val) < 0) return;
+                                                setData('cost_price', val);
+                                            }} 
+                                            placeholder="0.00" 
+                                            className={cn("h-10 rounded-lg pl-7", errors.cost_price && "border-destructive")} 
+                                        />
+                                    </div>
+                                    {errors.cost_price && <p className="text-[10px] text-destructive font-bold">{errors.cost_price}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Selling Price</label>
-                                    <Input type="number" step="0.01" value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" className="h-10 rounded-lg" />
-                                    {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price}</p>}
+                                    <label className="text-sm font-medium uppercase text-[10px] font-bold text-muted-foreground">Selling Price (₱) <span className="text-destructive">*</span></label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-emerald-600">₱</span>
+                                        <Input 
+                                            type="number" 
+                                            step="0.01" 
+                                            min="0"
+                                            max="999999.99"
+                                            value={data.selling_price} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (Number(val) < 0) return;
+                                                setData('selling_price', val);
+                                            }} 
+                                            placeholder="0.00" 
+                                            className={cn("h-10 rounded-lg pl-7 border-emerald-500/20 focus-visible:ring-emerald-500", errors.selling_price && "border-destructive")} 
+                                        />
+                                    </div>
+                                    {errors.selling_price && <p className="text-[10px] text-destructive font-bold">{errors.selling_price}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Unit of Measure</label>
@@ -811,15 +873,20 @@ export default function ProductsIndex() {
                                     {errors.description && <p className="text-xs text-destructive mt-1 ml-1 font-bold">{errors.description}</p>}
                                 </div>
                                 <div className="col-span-2 border-t pt-4">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex flex-col">
-                                            <label className="text-sm font-bold">Recipe Composition</label>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-medium">Define required materials for production</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative w-48 hidden sm:block">
+                                                <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                                                <Input 
+                                                    placeholder="Search ingredients..." 
+                                                    value={ingredientSearch}
+                                                    onChange={e => setIngredientSearch(e.target.value)}
+                                                    className="h-8 pl-7 text-[10px] bg-muted/30"
+                                                />
+                                            </div>
+                                            <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5 rounded-lg">
+                                                <FiPlus className="size-3 text-primary" /> Add Ingredient
+                                            </Button>
                                         </div>
-                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5 rounded-lg">
-                                            <FiPlus className="size-3 text-primary" /> Add Ingredient
-                                        </Button>
-                                    </div>
 
                                     <div className="space-y-3">
                                         {data.recipe.length === 0 && (
@@ -849,8 +916,13 @@ export default function ProductsIndex() {
                                         )}
                                         {data.recipe.map((item, idx) => {
                                             const filteredIngredients = (usePage().props as any).ingredients.filter((ing: any) => {
+                                                const matchesSearch = ing.name.toLowerCase().includes(ingredientSearch.toLowerCase());
+                                                const isCurrentSelection = String(ing.id) === String(item.ingredient_id);
+                                                
+                                                if (isCurrentSelection) return true;
+                                                if (!matchesSearch) return false;
+
                                                 if (data.branch_option === 'both') {
-                                                    // Baseline: must exist in AT LEAST ONE branch to be selectable
                                                     return ing.stocks?.length > 0;
                                                 }
                                                 if (!data.branch_id) return true;
@@ -880,6 +952,9 @@ export default function ProductsIndex() {
                                                             )}
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
+                                                            {filteredIngredients.length === 0 && ingredientSearch && (
+                                                                <option disabled>No matches found for "{ingredientSearch}"</option>
+                                                            )}
                                                             {filteredIngredients.map((ing: any) => {
                                                                 const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
                                                                 const stock = data.branch_option === 'both' 
@@ -887,8 +962,14 @@ export default function ProductsIndex() {
                                                                     : (ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0);
                                                                 
                                                                 return (
-                                                                    <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                        {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {stock}
+                                                                    <option 
+                                                                        key={ing.id} 
+                                                                        value={ing.id} 
+                                                                        disabled={isTaken}
+                                                                        title={ing.name}
+                                                                        className={cn(isTaken && "text-muted-foreground italic")}
+                                                                    >
+                                                                        {formatName(ing.name)} {isTaken ? ' (Added)' : `(${ing.unit})`} — Stock: {stock}
                                                                     </option>
                                                                 );
                                                             })}
@@ -938,10 +1019,15 @@ export default function ProductsIndex() {
                             <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
                             <Button
                                 type="submit"
-                                disabled={processing}
-                                className="rounded-xl h-12 flex-1 bg-primary shadow-lg shadow-primary/20 font-bold active:scale-95 transition-all"
+                                disabled={processing || !data.name || !data.category_id || data.recipe.length === 0 || !!errors.recipe || !!errors.name}
+                                className="rounded-xl h-12 flex-1 bg-primary shadow-lg shadow-primary/20 font-bold active:scale-95 transition-all gap-2"
                             >
-                                {processing ? 'Processing...' : 'Confirm Registration'}
+                                {processing ? (
+                                    <>
+                                        <FiRefreshCw className="size-4 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : 'Confirm Registration'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -959,9 +1045,20 @@ export default function ProductsIndex() {
                         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2 space-y-1.5">
-                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Name</label>
-                                    <Input value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
-                                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Name</label>
+                                        <span className="text-[10px] font-bold text-muted-foreground mr-1">{data.name.length}/80</span>
+                                    </div>
+                                    <Input 
+                                        maxLength={80}
+                                        value={data.name} 
+                                        onChange={(e) => {
+                                            const cleaned = e.target.value.replace(/[^A-Za-z0-9\s\-]/g, '');
+                                            setData('name', cleaned);
+                                        }} 
+                                        className={cn("h-12 rounded-xl bg-muted/30", errors.name && "border-destructive")} 
+                                    />
+                                    {errors.name && <p className="text-[10px] text-destructive font-bold ml-1">{errors.name}</p>}
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Identifier (SKU)</label>
@@ -982,6 +1079,7 @@ export default function ProductsIndex() {
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
                                     </select>
+                                    {errors.category_id && <p className="text-[10px] text-destructive font-bold ml-1">{errors.category_id}</p>}
                                 </div>
                                 {isAdmin && (
                                     <div className="space-y-1.5 col-span-2">
@@ -994,12 +1092,40 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (PHP)</label>
-                                    <Input type="number" step="0.01" value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold" />
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (₱)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₱</span>
+                                        <Input 
+                                            type="number" 
+                                            step="0.01" 
+                                            min="0"
+                                            max="999999.99"
+                                            value={data.cost_price} 
+                                            onChange={(e) => {
+                                                if (Number(e.target.value) < 0) return;
+                                                setData('cost_price', e.target.value);
+                                            }} 
+                                            className="h-12 rounded-xl bg-muted/30 font-bold pl-7" 
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (PHP)</label>
-                                    <Input type="number" step="0.01" value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600" />
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (₱)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold">₱</span>
+                                        <Input 
+                                            type="number" 
+                                            step="0.01" 
+                                            min="0"
+                                            max="999999.99"
+                                            value={data.selling_price} 
+                                            onChange={(e) => {
+                                                if (Number(e.target.value) < 0) return;
+                                                setData('selling_price', e.target.value);
+                                            }} 
+                                            className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600 pl-7" 
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Unit of Measure</label>
@@ -1061,9 +1187,20 @@ export default function ProductsIndex() {
                                             <label className="text-sm font-bold">Recipe Composition</label>
                                             <p className="text-[10px] text-muted-foreground uppercase font-medium">Update required materials</p>
                                         </div>
-                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5 rounded-lg">
-                                            <FiPlus className="size-3 text-primary" /> Add Ingredient
-                                        </Button>
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative w-48 hidden sm:block">
+                                                <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                                                <Input 
+                                                    placeholder="Search ingredients..." 
+                                                    value={ingredientSearch}
+                                                    onChange={e => setIngredientSearch(e.target.value)}
+                                                    className="h-8 pl-7 text-[10px] bg-muted/30"
+                                                />
+                                            </div>
+                                            <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5 rounded-lg">
+                                                <FiPlus className="size-3 text-primary" /> Add Ingredient
+                                            </Button>
+                                        </div>
                                     </div>
 
                                     <div className="space-y-3">
@@ -1100,21 +1237,35 @@ export default function ProductsIndex() {
                                                             value={item.ingredient_id}
                                                             onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
                                                             className={cn(
-                                                                "w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none",
+                                                                "w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none dropdown-item",
                                                                 !data.branch_id ? "opacity-50 cursor-not-allowed bg-muted" : ""
                                                             )}
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
+                                                            {ingredientSearch && (usePage().props as any).ingredients.filter((ing: any) => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase())).length === 0 && (
+                                                                <option disabled>No matches found</option>
+                                                            )}
                                                             {(usePage().props as any).ingredients
                                                                 .filter((ing: any) => {
+                                                                    const matchesSearch = ing.name.toLowerCase().includes(ingredientSearch.toLowerCase());
+                                                                    const isCurrentSelection = String(ing.id) === String(item.ingredient_id);
+
+                                                                    if (isCurrentSelection) return true;
+                                                                    if (!matchesSearch) return false;
+
                                                                     if (!data.branch_id) return true;
                                                                     return ing.stocks?.some((s: any) => Number(s.branch_id) === Number(data.branch_id));
                                                                 })
                                                                 .map((ing: Ingredient) => {
                                                                     const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
                                                                     return (
-                                                                        <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                            {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0}
+                                                                        <option 
+                                                                            key={ing.id} 
+                                                                            value={ing.id} 
+                                                                            disabled={isTaken}
+                                                                            title={ing.name}
+                                                                        >
+                                                                            {formatName(ing.name)} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0}
                                                                         </option>
                                                                     );
                                                                 })}
@@ -1157,12 +1308,17 @@ export default function ProductsIndex() {
                         </div>
                         <DialogFooter className="p-6 border-t bg-muted/10 mt-auto flex-shrink-0">
                             <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
-                            <Button
-                                type="submit"
-                                disabled={processing}
-                                className="rounded-xl h-12 flex-1 bg-primary font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                            <Button 
+                                type="submit" 
+                                disabled={processing || !data.name || !data.category_id || data.recipe.length === 0 || !!errors.recipe || !!errors.name}
+                                className="rounded-xl h-12 flex-1 bg-primary font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all gap-2"
                             >
-                                {processing ? 'Updating...' : 'Push Updates'}
+                                {processing ? (
+                                    <>
+                                        <FiRefreshCw className="size-4 animate-spin" />
+                                        Pushing Updates...
+                                    </>
+                                ) : 'Push Updates'}
                             </Button>
                         </DialogFooter>
                     </form>

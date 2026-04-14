@@ -63,7 +63,7 @@ class InventoryActionController extends Controller
             'name' => [
                 'required',
                 'string',
-                'max:100',
+                'max:50',
                 'regex:/^[A-Za-z\s]+$/'
             ],
             'type' => 'required|in:solid,liquid',

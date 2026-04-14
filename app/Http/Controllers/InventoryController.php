@@ -111,7 +111,7 @@ class InventoryController extends Controller
             'name'            => [
                 'required',
                 'string',
-                'max:100',
+                'max:50',
                 'regex:/^[A-Za-z\s]+$/'
             ],
             'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
@@ -179,7 +179,7 @@ class InventoryController extends Controller
             'name'            => [
                 'required',
                 'string',
-                'max:100',
+                'max:50',
                 'regex:/^[A-Za-z\s]+$/'
             ],
             'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],

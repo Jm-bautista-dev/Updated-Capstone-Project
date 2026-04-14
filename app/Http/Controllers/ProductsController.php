@@ -113,20 +113,33 @@ class ProductsController extends Controller
             $user = Auth::user();
 
             $validated = $request->validate([
-                'name'                       => 'required|string|max:255',
+                'name'                       => [
+                    'required',
+                    'string',
+                    'max:80',
+                    'regex:/^[A-Za-z0-9\s\-]+$/'
+                ],
                 'sku'                        => 'nullable|string',
                 'category_id'                => 'required|exists:categories,id',
-                'cost_price'                 => 'required|numeric|min:0',
-                'selling_price'              => 'required|numeric|min:0',
+                'cost_price'                 => 'required|numeric|min:0|max:999999.99',
+                'selling_price'              => 'required|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                => 'nullable|string',
-                'recipe'                     => 'nullable|array',
-                'recipe.*.ingredient_id'     => 'required_with:recipe|exists:ingredients,id',
-                'recipe.*.quantity_required' => 'required_with:recipe|numeric|min:0.0001',
+                'recipe'                     => 'required|array|min:1',
+                'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
+                'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
                 'branch_option'              => 'required|in:single,both',
                 'branch_id'                  => 'required_if:branch_option,single|nullable|exists:branches,id',
             ]);
+
+            // ✅ Prevent Duplicate Ingredients in Recipe
+            $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
+            if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'recipe' => 'Duplicate ingredients are not allowed in the same product recipe.'
+                ]);
+            }
 
             return DB::transaction(function () use ($request, $validated, $user) {
                 $targetBranches = [];
@@ -177,18 +190,30 @@ class ProductsController extends Controller
         $this->authorize('update', $product);
 
         $validated = $request->validate([
-            'name'                       => 'required|string|max:255',
+            'name'                       => [
+                'required',
+                'string',
+                'max:80',
+                'regex:/^[A-Za-z0-9\s\-]+$/'
+            ],
             'sku'                        => 'nullable|string|unique:products,sku,' . $id,
             'description'                => 'nullable|string',
             'category_id'                => 'required|exists:categories,id',
-            'cost_price'                 => 'required|numeric|min:0',
-            'selling_price'              => 'required|numeric|min:0',
+            'cost_price'                 => 'required|numeric|min:0|max:999999.99',
+            'selling_price'              => 'required|numeric|min:0|max:999999.99',
             'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
             'recipe'                     => 'required|array|min:1',
             'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
-            'recipe.*.quantity_required' => 'required|numeric|min:0.0001',
+            'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
             'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ]);
+        // ✅ Prevent Duplicate Ingredients
+        $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
+        if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'recipe' => 'Duplicate ingredients are not allowed.'
+            ]);
+        }
 
         // ✅ Strict Branch-Stock Validation (updates only affect the product's owner branch)
         if (!empty($validated['recipe'])) {

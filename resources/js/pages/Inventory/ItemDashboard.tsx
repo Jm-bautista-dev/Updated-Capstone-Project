@@ -120,7 +120,7 @@ export default function ItemDashboard() {
                            {item.type === 'solid' ? <FiBox className="size-5" /> : <FiDroplet className="size-5" />}
                         </div>
                         <div>
-                          <CardTitle className="text-lg font-black group-hover:text-primary transition-colors">{item.name}</CardTitle>
+                          <CardTitle className="text-lg font-black group-hover:text-primary transition-colors truncate max-w-[150px]" title={item.name}>{item.name}</CardTitle>
                           <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-muted/50">
                             {item.type}
                           </Badge>
@@ -206,7 +206,7 @@ export default function ItemDashboard() {
                 <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Item Name</label>
                 <Input 
                   required
-                  maxLength={100}
+                  maxLength={50}
                   placeholder="e.g. Premium White Rice" 
                   value={data.name}
                   onChange={e => {
@@ -219,7 +219,11 @@ export default function ItemDashboard() {
                   )}
                 />
                 {errors.name && <p className="text-[10px] text-destructive font-bold ml-1">{errors.name}</p>}
-                {!errors.name && <p className="text-[10px] text-muted-foreground italic ml-1">Letters and spaces only.</p>}
+                {!errors.name && (
+                  <p className="text-[10px] text-muted-foreground italic ml-1">
+                    Letters and spaces only. Max 50 chars.
+                  </p>
+                )}
              </div>
 
              <div className="grid grid-cols-2 gap-4">
