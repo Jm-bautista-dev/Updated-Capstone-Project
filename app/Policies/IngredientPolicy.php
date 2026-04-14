@@ -10,10 +10,11 @@ class IngredientPolicy
 {
     /**
      * Determine if the user can view the model.
+     * Ingredients are GLOBAL — all authenticated users can view.
      */
     public function view(User $user, Ingredient $ingredient): bool
     {
-        return $user->isAdmin() || $ingredient->branch_id === $user->branch_id;
+        return true; // Global ingredient, viewable by all
     }
 
     /**

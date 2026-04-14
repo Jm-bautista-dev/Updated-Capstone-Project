@@ -20,7 +20,6 @@ use Illuminate\Support\Facades\Log;
 
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
-
 class ProductsController extends Controller
 {
     use AuthorizesRequests;
@@ -38,11 +37,9 @@ class ProductsController extends Controller
         $branches = Branch::orderBy('name')->get();
 
         // Determine branch filter
-        if ($user->isAdmin()) {
-            $branchId = $request->input('branch_id');
-        } else {
-            $branchId = $user->branch_id;
-        }
+        $branchId = $user->isAdmin()
+            ? $request->input('branch_id')
+            : $user->branch_id;
 
         $query = Product::query()->with(['category', 'ingredients', 'branches']);
 
@@ -60,15 +57,14 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function (Product $product) {
-            $product->stock = $product->computed_stock;
+        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId) {
+            // Use branch-scoped stock computation
+            $product->stock  = $product->computedStockForBranch($branchId);
             $product->status = $this->getStockStatus($product->stock);
             $product->is_direct = !$product->hasRecipe();
 
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('public');
             $product->image_url = $product->image_path
-                ? $disk->url($product->image_path)
+                ? asset('storage/' . $product->image_path)
                 : null;
 
             return $product;
@@ -80,17 +76,23 @@ class ProductsController extends Controller
             'out_of_stock'   => $products->filter(fn($p) => $p->stock <= 0)->count(),
         ];
 
-        // Ingredients for the recipe builder
+        // ── Ingredients for the recipe builder ──────────────────────────────
+        // Ingredients are GLOBAL — show all without branch label.
+        // Filter to only those that have a stock row in the user's branch
+        // (so cashier doesn't see unstocked ingredients).
         $ingredientsQuery = Ingredient::orderBy('name');
-        
+
+        if (!$user->isAdmin() && $user->branch_id) {
+            // For non-admin: only global ingredients that have stock in their branch
+            $ingredientsQuery->whereHas('stocks', function ($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
         // Categories for the product form
         $categoriesQuery = Category::query()->with('branches')->orderBy('name');
-
-        $user = $request->user();
         if (!$user->isAdmin()) {
-            // For non-admins, we strictly filter by their branch
-            $ingredientsQuery->where('branch_id', $user->branch_id);
-            $categoriesQuery->where(function($q) use ($user) {
+            $categoriesQuery->where(function ($q) use ($user) {
                 $q->where('branch_id', $user->branch_id)
                   ->orWhereHas('branches', fn($bq) => $bq->where('branches.id', $user->branch_id));
             });
@@ -99,7 +101,7 @@ class ProductsController extends Controller
         return Inertia::render('Products/Index', [
             'products'        => $products,
             'categories'      => $categoriesQuery->get(),
-            'ingredients'     => $ingredientsQuery->get(),
+            'ingredients'     => $ingredientsQuery->with('stocks')->get(), // Include stocks for branch-scoped visibility in frontend
             'summary'         => $summary,
             'branches'        => $branches,
             'allowedUnits'    => UnitConverter::getAllowedUnits(),
@@ -109,7 +111,7 @@ class ProductsController extends Controller
         ]);
     }
 
-    private function getStockStatus($stock)
+    private function getStockStatus($stock): string
     {
         if ($stock <= 0) return 'Out of Stock';
         if ($stock <= 5) return 'Low Stock';
@@ -128,39 +130,41 @@ class ProductsController extends Controller
                 : $user->branch_id;
 
             $validated = $request->validate([
-                'name'                        => 'required|string|max:255',
-                'sku'                         => 'nullable|string|unique:products,sku',
-                'category_id'                 => [
+                'name'                       => 'required|string|max:255',
+                'sku'                        => 'nullable|string|unique:products,sku',
+                'category_id'                => [
                     'required',
-                    Rule::exists('categories', 'id')->where(function($q) use ($branchId, $user) {
-                        if ($user->isAdmin()) return; // Admins can use any category
+                    Rule::exists('categories', 'id')->where(function ($q) use ($branchId, $user) {
+                        if ($user->isAdmin()) return;
                         $q->where('branch_id', $branchId)->orWhereNull('branch_id');
-                    })
+                    }),
                 ],
-                'cost_price'                  => 'required|numeric|min:0',
-                'selling_price'               => 'required|numeric|min:0',
-                'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-                'description'                 => 'nullable|string',
-                'recipe'                      => 'nullable|array',
-                'recipe.*.ingredient_id' => [
-    'required_with:recipe',
-    Rule::exists('ingredient_stocks', 'ingredient_id')->where(function($q) use ($branchId) {
-        $q->where('branch_id', $branchId);
-    })
-],
-                'recipe.*.quantity_required'  => 'required_with:recipe|numeric|min:0.0001',
-                'branch_ids'                  => 'nullable|array',
-                'branch_ids.*'                => 'exists:branches,id',
-                'unit'                        => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+                'cost_price'                 => 'required|numeric|min:0',
+                'selling_price'              => 'required|numeric|min:0',
+                'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+                'description'                => 'nullable|string',
+                'recipe'                     => 'nullable|array',
+                // Ingredients are GLOBAL — validate existence in global ingredients table only
+                'recipe.*.ingredient_id'     => 'required_with:recipe|exists:ingredients,id',
+                'recipe.*.quantity_required' => 'required_with:recipe|numeric|min:0.0001',
+                'branch_ids'                 => 'nullable|array',
+                'branch_ids.*'               => 'exists:branches,id',
+                'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             ]);
 
-            // Strict Validation for Branch Isolation
-            if (!empty($validated['recipe'])) {
+            // ── Strict Branch-Stock Validation ───────────────────────────────────
+            // Before creating the product, ensure all recipe ingredients have a stock
+            // row in the branch this product will belong to.
+            if (!empty($validated['recipe']) && $branchId) {
                 foreach ($validated['recipe'] as $item) {
-                    $ingredient = Ingredient::find($item['ingredient_id']);
-                    if ($ingredient && $ingredient->branch_id != $branchId) {
+                    $hasStock = \App\Models\IngredientStock::where('ingredient_id', $item['ingredient_id'])
+                        ->where('branch_id', $branchId)
+                        ->exists();
+
+                    if (!$hasStock) {
+                        $ingredient = Ingredient::find($item['ingredient_id']);
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            'recipe' => 'Invalid ingredient selection: ingredient does not belong to this branch.'
+                            'recipe' => "Ingredient '{$ingredient->name}' has no stock record for this branch. Please stock-in first.",
                         ]);
                     }
                 }
@@ -169,7 +173,7 @@ class ProductsController extends Controller
             $this->productService->store($validated, $request->file('image'), $user->branch_id);
 
             Log::info('Product Registered Successfully');
-            return redirect()->back();
+            return redirect()->back()->with('success', 'Product created successfully.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::warning('Product Validation Failed:', $e->errors());
             throw $e;
@@ -181,46 +185,46 @@ class ProductsController extends Controller
 
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $product  = Product::findOrFail($id);
         $this->authorize('update', $product);
         $branchId = $product->branch_id;
 
         $validated = $request->validate([
-            'name'                        => 'required|string|max:255',
-            'sku'                         => 'nullable|string|unique:products,sku,' . $id,
-            'description'                 => 'nullable|string',
-            'category_id'                 => [
+            'name'                       => 'required|string|max:255',
+            'sku'                        => 'nullable|string|unique:products,sku,' . $id,
+            'description'                => 'nullable|string',
+            'category_id'                => [
                 'required',
-                Rule::exists('categories', 'id')->where(function($q) use ($branchId) {
+                Rule::exists('categories', 'id')->where(function ($q) use ($branchId) {
                     $q->where('branch_id', $branchId)->orWhereNull('branch_id');
-                })
+                }),
             ],
-            'cost_price'                  => 'required|numeric|min:0',
-            'selling_price'               => 'required|numeric|min:0',
-            'image'                       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'recipe'                      => 'required|array|min:1',
-            'recipe.*.ingredient_id' => [
-    'required',
-    Rule::exists('ingredient_stocks', 'ingredient_id')->where(function($q) use ($branchId) {
-        $q->where('branch_id', $branchId);
-    })
-],
-            'recipe.*.quantity_required'  => 'required|numeric|min:0.0001',
-            'branch_ids'                  => 'nullable|array',
-            'branch_ids.*'                => 'exists:branches,id',
-            'unit'                        => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'cost_price'                 => 'required|numeric|min:0',
+            'selling_price'              => 'required|numeric|min:0',
+            'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'recipe'                     => 'required|array|min:1',
+            // Ingredients are GLOBAL — only validate against global table
+            'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
+            'recipe.*.quantity_required' => 'required|numeric|min:0.0001',
+            'branch_ids'                 => 'nullable|array',
+            'branch_ids.*'               => 'exists:branches,id',
+            'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ], [
             'recipe.required' => 'At least one ingredient is required.',
             'recipe.min'      => 'At least one ingredient is required.',
         ]);
 
-        // Strict Validation for Branch Isolation
-        if (!empty($validated['recipe'])) {
+        // ── Strict Branch-Stock Validation ───────────────────────────────────
+        if (!empty($validated['recipe']) && $branchId) {
             foreach ($validated['recipe'] as $item) {
-                $ingredient = Ingredient::find($item['ingredient_id']);
-                if ($ingredient && $ingredient->branch_id != $branchId) {
+                $hasStock = \App\Models\IngredientStock::where('ingredient_id', $item['ingredient_id'])
+                    ->where('branch_id', $branchId)
+                    ->exists();
+
+                if (!$hasStock) {
+                    $ingredient = Ingredient::find($item['ingredient_id']);
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'recipe' => 'Invalid ingredient selection: ingredient does not belong to this branch.'
+                        'recipe' => "Ingredient '{$ingredient->name}' has no stock record for branch #{$branchId}. Please stock-in first.",
                     ]);
                 }
             }
@@ -228,7 +232,7 @@ class ProductsController extends Controller
 
         $this->productService->update($product, $validated, $request->file('image'));
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Product updated.');
     }
 
     public function destroy($id)
@@ -243,6 +247,6 @@ class ProductsController extends Controller
         MenuItemIngredient::where('menu_item_id', $id)->delete();
         $product->delete();
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Product deleted.');
     }
 }

@@ -68,29 +68,42 @@ class Product extends Model
      * If branch_id is set, only considers that branch's ingredient stock.
      */
     /**
-     * Compute available stock based on ingredient availability or ledger movements.
+     * Compute how many units of this product can be made, given ingredient stock.
+     *
+     * Pass $branchId to scope properly. Without it, returns 0 for recipe products.
      */
-    public function getComputedStockAttribute()
+    public function computedStockForBranch(?int $branchId): int|float
     {
         $ingredients = $this->ingredients;
 
-        // If HAS ingredients, use recipe-based calculation
         if ($ingredients->isNotEmpty()) {
+            if (!$branchId) return 0;
+
             $possibleAmounts = [];
             foreach ($ingredients as $ingredient) {
                 $required = (float) $ingredient->pivot->quantity_required;
                 if ($required <= 0) continue;
 
-                $available = (float) $ingredient->stock;
+                // Look up branch-scoped stock
+                $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
+                $available = $stockRow ? (float) $stockRow->stock : 0;
                 $possibleAmounts[] = floor($available / $required);
             }
             return empty($possibleAmounts) ? 0 : (int) min($possibleAmounts);
         }
 
-        // Professional Fix: Dynamic Ledger-Based Stock Calculation
-        // stock = SUM(IN) - SUM(OUT) + SUM(ADJUSTMENT)
+        // Direct product (no recipe): ledger-based calculation
         return (float) $this->stockMovements()
             ->selectRaw("SUM(CASE WHEN type = 'IN' THEN quantity WHEN type = 'OUT' THEN -quantity ELSE quantity END) as balance")
             ->value('balance') ?? 0;
+    }
+
+    /**
+     * Legacy accessor — kept for backward compatibility.
+     * Returns 0 for recipe products (branch context unknown).
+     */
+    public function getComputedStockAttribute(): int|float
+    {
+        return $this->computedStockForBranch(null);
     }
 }

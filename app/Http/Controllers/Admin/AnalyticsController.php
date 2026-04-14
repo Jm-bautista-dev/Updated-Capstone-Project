@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Ingredient;
+use App\Models\IngredientStock;
 use App\Models\Sale;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -27,16 +28,26 @@ class AnalyticsController extends Controller
             'total_revenue'   => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('total'),
             'total_profit'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('profit'),
             'total_orders'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->count(),
-            'low_stock_items' => Ingredient::whereColumn('stock', '<=', 'low_stock_level')->count(),
+            'low_stock_items' => IngredientStock::whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
 
         // ─── Per-Branch Stats (for the split dashboard view) ─────────────────
         $branchStats = $branches->map(function (Branch $branch) use ($startDate, $today) {
             $salesQuery = Sale::where('branch_id', $branch->id)->where('status', 'completed');
 
-            $lowStockIngredients = Ingredient::where('branch_id', $branch->id)
+            $lowStockRows = IngredientStock::with('ingredient')
+                ->where('branch_id', $branch->id)
                 ->whereColumn('stock', '<=', 'low_stock_level')
-                ->get(['name', 'stock', 'unit', 'low_stock_level']);
+                ->get();
+
+            $lowStockIngredients = $lowStockRows->map(function($row) {
+                return [
+                    'name'            => $row->ingredient->name,
+                    'stock'           => $row->stock,
+                    'unit'            => $row->ingredient->unit,
+                    'low_stock_level' => $row->low_stock_level,
+                ];
+            });
 
             return [
                 'id'                   => $branch->id,
@@ -46,7 +57,7 @@ class AnalyticsController extends Controller
                 'total_orders'         => (clone $salesQuery)->where('created_at', '>=', $startDate)->count(),
                 'orders_today'         => (clone $salesQuery)->whereDate('created_at', $today)->count(),
                 'revenue_today'        => (float) (clone $salesQuery)->whereDate('created_at', $today)->sum('total'),
-                'inventory_count'      => Ingredient::where('branch_id', $branch->id)->count(),
+                'inventory_count'      => IngredientStock::where('branch_id', $branch->id)->count(),
                 'low_stock_count'      => $lowStockIngredients->count(),
                 'low_stock_ingredients'=> $lowStockIngredients,
             ];

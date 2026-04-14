@@ -49,8 +49,7 @@ type Ingredient = {
     id: number;
     name: string;
     unit: string;
-    stock: number;
-    branch_id: number;
+    stocks?: { branch_id: number; stock: number }[];
 };
 
 type RecipeItem = {
@@ -237,6 +236,7 @@ export default function ProductsIndex() {
             },
             onError: (err) => {
                 console.error('Registration failed:', err);
+                alert('Validation Errors:\n' + JSON.stringify(err, null, 2));
             }
         });
     };
@@ -262,6 +262,7 @@ export default function ProductsIndex() {
                 },
                 onError: (err) => {
                     console.error('Update failed:', err);
+                    alert('Validation Errors:\n' + JSON.stringify(err, null, 2));
                 }
             });
         }
@@ -631,6 +632,16 @@ export default function ProductsIndex() {
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col overflow-hidden">
+                        {Object.keys(errors).length > 0 && (
+                            <div className="mx-6 mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex flex-col gap-1">
+                                <p className="text-sm font-bold text-destructive">Please fix the following validation errors:</p>
+                                <ul className="list-disc pl-5 text-xs text-destructive/90">
+                                    {Object.entries(errors).map(([key, error]) => (
+                                        <li key={key}>{key}: {error as string}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2 space-y-2">
@@ -764,6 +775,7 @@ export default function ProductsIndex() {
                                             if (file) setImagePreview(URL.createObjectURL(file));
                                         }}
                                     />
+                                    {errors.image && <p className="text-[10px] text-destructive font-bold">{errors.image}</p>}
                                 </div>
                                 <div className="col-span-2 space-y-1.5 mt-2">
                                     <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Description (Optional)</label>
@@ -804,9 +816,10 @@ export default function ProductsIndex() {
                                             </div>
                                         )}
                                         {data.recipe.map((item, idx) => {
-                                            const filteredIngredients = (usePage().props as any).ingredients.filter((ing: Ingredient) => {
+                                            const filteredIngredients = (usePage().props as any).ingredients.filter((ing: any) => {
                                                 if (!data.branch_id) return true;
-                                                return Number(ing.branch_id) === Number(data.branch_id);
+                                                // Check if ingredient has a stock record for the selected branch
+                                                return ing.stocks?.some((s: any) => Number(s.branch_id) === Number(data.branch_id));
                                             });
                                             const selectedIng = filteredIngredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
                                             const ingError = errors[`recipe.${idx}.ingredient_id` as keyof typeof errors];
@@ -836,7 +849,7 @@ export default function ProductsIndex() {
                                                                 const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
                                                                 return (
                                                                     <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                        {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stock}
+                                                                        {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0}
                                                                     </option>
                                                                 );
                                                             })}
@@ -1090,12 +1103,15 @@ export default function ProductsIndex() {
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
                                                             {(usePage().props as any).ingredients
-                                                                .filter((ing: any) => !data.branch_id || String(ing.branch_id) === String(data.branch_id))
+                                                                .filter((ing: any) => {
+                                                                    if (!data.branch_id) return true;
+                                                                    return ing.stocks?.some((s: any) => Number(s.branch_id) === Number(data.branch_id));
+                                                                })
                                                                 .map((ing: Ingredient) => {
                                                                     const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
                                                                     return (
                                                                         <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                            {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`}
+                                                                            {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0}
                                                                         </option>
                                                                     );
                                                                 })}

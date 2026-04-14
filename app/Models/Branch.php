@@ -47,9 +47,13 @@ class Branch extends Model
         return $this->belongsToMany(Product::class, 'branch_product');
     }
 
-    public function ingredients()
+    /**
+     * Branch-scoped stock rows for all ingredients in this branch.
+     * Ingredients themselves are GLOBAL — stock lives here.
+     */
+    public function ingredientStocks()
     {
-        return $this->hasMany(Ingredient::class);
+        return $this->hasMany(IngredientStock::class);
     }
 
     public function sales()

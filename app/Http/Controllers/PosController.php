@@ -38,8 +38,9 @@ class PosController extends Controller
             });
         }
 
-        $products = $productsQuery->get()->map(function ($product) {
-            $product->stock    = $product->computed_stock;
+        $products = $productsQuery->get()->map(function ($product) use ($branchId) {
+            // Use branch-scoped stock computation
+            $product->stock    = $product->computedStockForBranch($branchId);
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('public');
             $product->image_url = $product->image_path

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Sale;
-use App\Models\SaleItem;
+use App\Models\IngredientStock;
 use App\Models\InventoryItem;
 use App\Mail\DailyInventoryReportMail;
 use Illuminate\Console\Command;
@@ -54,14 +54,20 @@ class SendDailyInventoryReport extends Command
                 ->limit(5)
                 ->get();
 
-            // 3. Current Inventory
-            $inventory = InventoryItem::orderBy('name')->get();
+            // 3. Ingredient Inventory (Multi-Branch)
+            $ingredientInventory = IngredientStock::with(['ingredient', 'branch'])
+                ->get()
+                ->groupBy('branch.name');
+
+            // 4. Legacy Inventory Items (if still used)
+            $legacyInventory = InventoryItem::orderBy('name')->get();
 
             $reportData = [
-                'total_revenue' => $totalRevenue,
+                'total_revenue'      => $totalRevenue,
                 'total_transactions' => $totalTransactions,
-                'top_products' => $topProducts,
-                'inventory' => $inventory,
+                'top_products'       => $topProducts,
+                'ingredient_inventory' => $ingredientInventory,
+                'legacy_inventory'   => $legacyInventory,
             ];
 
             Mail::to($recipient)->send(new DailyInventoryReportMail($reportData));
@@ -72,6 +78,7 @@ class SendDailyInventoryReport extends Command
         } catch (\Exception $e) {
             $this->error('Failed to generate report: ' . $e->getMessage());
             Log::error('Daily inventory report failed: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
         }
     }
 }

@@ -73,13 +73,17 @@ class Supplier extends Model
     /* ------------------------------------------------------------------ */
 
     /**
-     * Count how many linked ingredients are at critical stock level.
-     * An ingredient is critical if stock <= low_stock_level.
+     * Count how many linked ingredients are at critical stock level in this branch.
+     * An ingredient is critical if its branch-scoped stock <= low_stock_level.
      */
     public function getCriticalIngredientCountAttribute(): int
     {
-        return $this->ingredients->filter(function ($ingredient) {
-            return (float) $ingredient->stock <= (float) $ingredient->low_stock_level;
+        $branchId = $this->branch_id;
+        if (!$branchId) return 0;
+
+        return $this->ingredients->filter(function ($ingredient) use ($branchId) {
+            $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
+            return $stockRow ? $stockRow->isLowStock() || $stockRow->isOutOfStock() : true;
         })->count();
     }
 }

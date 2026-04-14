@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\InventoryService;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Utils\UnitConverter;
@@ -18,7 +19,10 @@ class StockInController extends Controller
     }
 
     /**
-     * Handle manual restocking for either an Ingredient or a Product.
+     * Handle manual restocking for either an Ingredient (branch-scoped) or a Product.
+     *
+     * For ingredients: updates ingredient_stocks WHERE ingredient_id=X AND branch_id=Y.
+     * NEVER allows cross-branch restocking.
      */
     public function store(Request $request)
     {
@@ -30,24 +34,21 @@ class StockInController extends Controller
             'branch_id' => 'required|exists:branches,id',
         ]);
 
-        $isAdmin = Auth::user()->role === 'admin';
-        $userBranchId = Auth::user()->branch_id;
+        $user         = Auth::user();
+        $isAdmin      = $user->role === 'admin';
+        $userBranchId = $user->branch_id;
 
-        // Security check: Cashiers can only stock-in for their own branch
-        if (!$isAdmin && $request->branch_id != $userBranchId) {
-            return back()->withErrors(['branch_id' => 'You only have permission to restock for your assigned branch.']);
-        }
-
-        // Security check: Access control for types
-        // Cashiers can stock-in both ingredients and products for their own branch.
-        if (!$isAdmin && !in_array($request->type, ['ingredient', 'product'])) {
-            return back()->withErrors(['type' => 'Invalid restock type.']);
+        // Security: Cashiers can only restock their own branch
+        if (!$isAdmin && (int) $request->branch_id !== (int) $userBranchId) {
+            return back()->withErrors([
+                'branch_id' => 'You can only restock for your own branch.',
+            ]);
         }
 
         try {
             $this->inventoryService->stockIn(
                 $request->type,
-                $request->id,
+                (int) $request->id,
                 (float) $request->quantity,
                 $request->unit,
                 (int) $request->branch_id

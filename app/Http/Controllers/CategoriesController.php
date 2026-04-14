@@ -52,7 +52,7 @@ class CategoriesController extends Controller
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('public');
             $category->image_url = $category->image_path
-                ? $disk->url($category->image_path)
+                ? asset('storage/' . $category->image_path)
                 : null;
             return $category;
         });
