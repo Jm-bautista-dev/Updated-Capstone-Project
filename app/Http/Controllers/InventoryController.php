@@ -108,13 +108,20 @@ class InventoryController extends Controller
         $this->authorize('create', Ingredient::class);
 
         $validated = $request->validate([
-            'name'            => 'required|string|max:255',
+            'name'            => [
+                'required',
+                'string',
+                'max:100',
+                'regex:/^[A-Za-z\s]+$/'
+            ],
             'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
-            'initial_stock'   => 'nullable|numeric|min:0',
-            'low_stock_level' => 'nullable|numeric|min:0',
+            'initial_stock'   => 'required|numeric|gt:0|max:10000',
+            'low_stock_level' => 'required|numeric|gt:0|max:10000',
             'branch_id'       => 'nullable|exists:branches,id',
             'branch_ids'      => 'nullable|array',
             'branch_ids.*'    => 'exists:branches,id',
+        ], [
+            'name.regex' => 'The ingredient name must only contain letters and spaces.',
         ]);
 
         // Normalize unit and stock
@@ -169,11 +176,18 @@ class InventoryController extends Controller
         $this->authorize('update', $ingredient);
 
         $validated = $request->validate([
-            'name'            => 'required|string|max:255',
+            'name'            => [
+                'required',
+                'string',
+                'max:100',
+                'regex:/^[A-Za-z\s]+$/'
+            ],
             'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'branch_id'       => 'nullable|exists:branches,id',
-            'stock'           => 'nullable|numeric|min:0',
-            'low_stock_level' => 'nullable|numeric|min:0',
+            'stock'           => 'nullable|numeric|gt:0|max:10000',
+            'low_stock_level' => 'nullable|numeric|gt:0|max:10000',
+        ], [
+            'name.regex' => 'The ingredient name must only contain letters and spaces.',
         ]);
 
         $normalizedUnit = UnitConverter::normalizeUnit($validated['unit']);

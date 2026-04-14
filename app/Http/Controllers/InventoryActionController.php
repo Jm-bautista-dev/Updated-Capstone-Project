@@ -60,9 +60,16 @@ class InventoryActionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+                'regex:/^[A-Za-z\s]+$/'
+            ],
             'type' => 'required|in:solid,liquid',
-            'quantity' => 'required|numeric|min:0',
+            'quantity' => 'required|numeric|gt:0|max:10000',
+        ], [
+            'name.regex' => 'The name must only contain letters and spaces.',
         ]);
 
         $unit = $validated['type'] === 'solid' ? 'kg' : 'L';

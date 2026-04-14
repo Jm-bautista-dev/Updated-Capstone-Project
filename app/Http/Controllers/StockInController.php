@@ -29,7 +29,7 @@ class StockInController extends Controller
         $request->validate([
             'type'      => 'required|in:ingredient,product',
             'id'        => 'required|integer',
-            'quantity'  => 'required|numeric|min:0.0001',
+            'quantity'  => 'required|numeric|gt:0|max:10000',
             'unit'      => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'branch_id' => 'required|exists:branches,id',
         ]);

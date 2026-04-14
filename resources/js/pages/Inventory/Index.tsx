@@ -619,21 +619,29 @@ export default function InventoryIndex() {
               <label className="text-sm font-medium">Ingredient Name <span className="text-destructive">*</span></label>
               <Input
                 required
+                maxLength={100}
                 value={data.name}
-                onChange={e => setData('name', e.target.value)}
+                onChange={e => {
+                  const cleaned = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                  setData('name', cleaned);
+                }}
                 placeholder="e.g. Flour"
+                className={cn(errors.name && "border-destructive focus-visible:ring-destructive")}
               />
-              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-              <p className="text-[10px] text-muted-foreground">
-                One global record per ingredient — no branch label.
-              </p>
+              {errors.name ? (
+                <p className="text-xs text-destructive font-medium">{errors.name}</p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground italic">
+                  Letters and spaces only. Max 100 chars.
+                </p>
+              )}
             </div>
 
             {/* Unit */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Unit Type <span className="text-destructive">*</span></label>
               <Select value={data.unit} onValueChange={val => setData('unit', val)}>
-                <SelectTrigger className="w-full h-9 border-muted-foreground/20">
+                <SelectTrigger className={cn("w-full h-9 border-muted-foreground/20", errors.unit && "border-destructive")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -644,32 +652,45 @@ export default function InventoryIndex() {
                   <SelectItem value="liters">liters — normalized to ml</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.unit && <p className="text-xs text-destructive font-medium">{errors.unit}</p>}
             </div>
 
             {/* Initial Stock */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {isEditModalOpen ? 'Adjust Stock' : 'Initial Stock'}
+                  {isEditModalOpen ? 'Adjust Stock' : 'Initial Stock'} <span className="text-destructive">*</span>
                 </label>
                 <Input
                   type="number"
-                  step="0.0001"
-                  min="0"
+                  step="0.01"
+                  min="0.01"
+                  max="10000"
+                  required
                   value={data.stock}
                   onChange={e => setData('stock', e.target.value)}
+                  className={cn(errors.stock || (errors as any).initial_stock ? "border-destructive focus-visible:ring-destructive" : "")}
                 />
+                {(errors.stock || (errors as any).initial_stock) && (
+                  <p className="text-[10px] text-destructive font-medium">{errors.stock || (errors as any).initial_stock}</p>
+                )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Low Stock Alert At</label>
+                <label className="text-sm font-medium">Low Stock Alert At <span className="text-destructive">*</span></label>
                 <Input
                   type="number"
-                  step="0.0001"
-                  min="0"
+                  step="0.01"
+                  min="0.01"
+                  max="10000"
+                  required
                   value={data.low_stock_level}
                   onChange={e => setData('low_stock_level', e.target.value)}
                   placeholder="e.g. 500"
+                  className={cn(errors.low_stock_level && "border-destructive focus-visible:ring-destructive")}
                 />
+                {errors.low_stock_level && (
+                  <p className="text-[10px] text-destructive font-medium">{errors.low_stock_level}</p>
+                )}
               </div>
             </div>
 
@@ -734,10 +755,15 @@ export default function InventoryIndex() {
             )}
 
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}>
+              <Button type="button" variant="outline" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={processing}>
+              <Button 
+                type="submit" 
+                disabled={processing || !data.name || !data.stock || !data.low_stock_level || !!errors.name || !!errors.stock || !!errors.low_stock_level || !!(errors as any).initial_stock}
+                className="gap-2 shadow-lg shadow-primary/20"
+              >
+                {processing && <FiRefreshCw className="size-3 animate-spin" />}
                 {isEditModalOpen ? 'Update Ingredient' : 'Add Ingredient'}
               </Button>
             </DialogFooter>

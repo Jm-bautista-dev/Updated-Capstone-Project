@@ -10,7 +10,8 @@ import {
   FiSearch, 
   FiArrowRight,
   FiDroplet,
-  FiBox 
+  FiBox,
+  FiRefreshCw
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -205,12 +206,20 @@ export default function ItemDashboard() {
                 <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Item Name</label>
                 <Input 
                   required
+                  maxLength={100}
                   placeholder="e.g. Premium White Rice" 
                   value={data.name}
-                  onChange={e => setData('name', e.target.value)}
-                  className="h-12 border-none ring-1 ring-black/10 focus:ring-primary shadow-sm"
+                  onChange={e => {
+                    const cleaned = e.target.value.replace(/[^A-Za-z\s]/g, '');
+                    setData('name', cleaned);
+                  }}
+                  className={cn(
+                    "h-12 border-none ring-1 shadow-sm transition-all",
+                    errors.name ? "ring-destructive bg-destructive/5" : "ring-black/10 focus:ring-primary"
+                  )}
                 />
-                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                {errors.name && <p className="text-[10px] text-destructive font-bold ml-1">{errors.name}</p>}
+                {!errors.name && <p className="text-[10px] text-muted-foreground italic ml-1">Letters and spaces only.</p>}
              </div>
 
              <div className="grid grid-cols-2 gap-4">
@@ -233,19 +242,29 @@ export default function ItemDashboard() {
                   <Input 
                     type="number"
                     step="0.01"
+                    min="0.01"
+                    max="10000"
                     required
                     placeholder="0.00"
                     value={data.quantity}
                     onChange={e => setData('quantity', e.target.value)}
-                    className="h-12 border-none ring-1 ring-black/10 focus:ring-primary shadow-sm"
+                    className={cn(
+                      "h-12 border-none ring-1 shadow-sm transition-all",
+                      errors.quantity ? "ring-destructive bg-destructive/5" : "ring-black/10 focus:ring-primary"
+                    )}
                   />
-                  {errors.quantity && <p className="text-xs text-destructive">{errors.quantity}</p>}
+                  {errors.quantity && <p className="text-[10px] text-destructive font-bold ml-1">{errors.quantity}</p>}
                 </div>
              </div>
 
              <DialogFooter className="pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={processing} className="px-8 font-bold">
+                <Button type="button" variant="outline" onClick={() => { setIsAddModalOpen(false); reset(); }}>Cancel</Button>
+                <Button 
+                    type="submit" 
+                    disabled={processing || !data.name || !data.quantity || Number(data.quantity) <= 0 || Number(data.quantity) > 10000} 
+                    className="px-8 font-bold gap-2"
+                >
+                  {processing && <FiRefreshCw className="animate-spin size-3" />}
                   {processing ? "Saving..." : "Add to Stock"}
                 </Button>
              </DialogFooter>

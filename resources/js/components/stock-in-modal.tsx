@@ -40,7 +40,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
         id: item?.id,
         quantity: '',
         unit: item?.unit || (type === 'product' ? 'pcs' : 'g'),
-        branch_id: defaultBranchId,
+        branch_id: item?.branch_id ? String(item.branch_id) : defaultBranchId,
     });
 
     // Sync form data when item changes or modal opens
@@ -51,7 +51,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                 id: item.id,
                 quantity: '',
                 unit: item.unit || (type === 'product' ? 'pcs' : 'g'),
-                branch_id: defaultBranchId,
+                branch_id: item.branch_id ? String(item.branch_id) : defaultBranchId,
             });
         }
     }, [open, item, type, defaultBranchId]);
@@ -142,13 +142,19 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                             <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Quantity Received</label>
                             <Input
                                 type="number"
-                                step="0.0001"
+                                step="0.01"
+                                min="0.01"
+                                max="10000"
                                 required
                                 value={data.quantity}
                                 onChange={(e) => setData('quantity', e.target.value)}
-                                className="h-11 rounded-xl bg-muted/20 border-none ring-1 ring-muted font-bold text-lg"
+                                className={cn(
+                                    "h-11 rounded-xl bg-muted/20 border-none ring-1 font-bold text-lg transition-all",
+                                    errors.quantity ? "ring-destructive bg-destructive/5" : "ring-muted"
+                                )}
                                 placeholder="0.00"
                             />
+                            {errors.quantity && <p className="text-[10px] text-destructive font-bold ml-1 animate-in fade-in slide-in-from-left-2">{errors.quantity}</p>}
                         </div>
 
                         <div className="space-y-1.5">
@@ -199,12 +205,16 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                     )}
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Dismiss</Button>
+                        <Button type="button" variant="ghost" onClick={() => { onOpenChange(false); reset(); }} className="rounded-xl h-12 font-bold text-muted-foreground">Dismiss</Button>
                         <Button
                             type="submit"
-                            disabled={processing || !data.quantity}
-                            className="rounded-xl h-12 flex-1 bg-primary shadow-lg shadow-primary/20 font-bold active:scale-95 transition-all"
+                            disabled={processing || !data.quantity || Number(data.quantity) <= 0 || Number(data.quantity) > 10000}
+                            className={cn(
+                                "rounded-xl h-12 flex-1 shadow-lg font-bold active:scale-95 transition-all gap-2",
+                                processing ? "bg-muted text-muted-foreground" : "bg-primary shadow-primary/20"
+                            )}
                         >
+                            {processing && <FiPackage className="animate-bounce" />}
                             {processing ? 'Processing...' : 'Confirm Delivery'}
                         </Button>
                     </DialogFooter>
