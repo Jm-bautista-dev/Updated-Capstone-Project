@@ -105,27 +105,15 @@ export default function ProductsIndex() {
         });
     };
 
-    // --- Sync Logic ---
-    const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
-
+    // --- Real-time Sync Logic (Now handled globally by useRealTime hook in AppLayout) ---
     useEffect(() => {
-        const handleMessage = (e: MessageEvent) => {
-            if (e.data.type === 'inventory-updated' || e.data.type === 'products-updated') {
-                router.reload();
-            }
-        };
-        stateChannel.addEventListener('message', handleMessage);
-
         const handleFocus = () => {
-            router.reload();
+            router.reload({ preserveScroll: true, preserveState: true } as any);
         };
         window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, []);
 
-        return () => {
-            stateChannel.removeEventListener('message', handleMessage);
-            window.removeEventListener('focus', handleFocus);
-        };
-    }, [stateChannel]);
 
     // Pagination States
     const [currentPage, setCurrentPage] = useState(1);
@@ -231,7 +219,6 @@ export default function ProductsIndex() {
                 setSearch('');
                 setIsAddModalOpen(false);
                 reset();
-                stateChannel.postMessage({ type: 'products-updated' });
                 setSuccessMessage({ title: 'Product Added!', message: 'The product has been registered successfully.' });
                 setIsSuccessModalOpen(true);
                 setImageFile(null);
@@ -284,7 +271,6 @@ export default function ProductsIndex() {
             destroy(`/products/${selectedProduct.id}`, {
                 onSuccess: () => {
                     setIsDeleteModalOpen(false);
-                    stateChannel.postMessage({ type: 'products-updated' });
                     setSelectedProduct(null);
                 },
             });

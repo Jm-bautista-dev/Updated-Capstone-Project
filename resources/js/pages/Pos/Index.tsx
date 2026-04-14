@@ -42,29 +42,18 @@ type CartItem = Product & { quantity: number };
 export default function PosIndex() {
   const { products, categories, branch, availableRiders } = usePage().props as any;
 
-  // --- Sync Logic ---
-  const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
-
+  // --- Real-time Sync Logic (Now handled globally by useRealTime hook in AppLayout) ---
   useEffect(() => {
-    // 1. Listen for updates from other tabs
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data.type === 'inventory-updated' || e.data.type === 'products-updated') {
-        router.reload({ only: ['products', 'categories'] });
-      }
-    };
-    stateChannel.addEventListener('message', handleMessage);
-
-    // 2. Refresh on window focus (Ensures data is fresh when switching back to this tab)
+    // Refresh on window focus (Ensures data is fresh when switching back to this tab)
     const handleFocus = () => {
-      router.reload({ only: ['products', 'categories'] });
+      router.reload({ only: ['products', 'categories'], preserveScroll: true, preserveState: true } as any);
     };
+
     window.addEventListener('focus', handleFocus);
 
-    return () => {
-      stateChannel.removeEventListener('message', handleMessage);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [stateChannel]);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -286,8 +275,6 @@ export default function PosIndex() {
         setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
         setIsPaymentModalOpen(false);
         setIsSuccessModalOpen(true);
-        stateChannel.postMessage({ type: 'inventory-updated' });
-        stateChannel.postMessage({ type: 'sales-updated' });
       },
       onError: (err: any) => {
         setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });

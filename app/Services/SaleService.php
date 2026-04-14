@@ -11,6 +11,8 @@ use App\Models\IngredientLog;
 use App\Models\StockLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Events\SaleCreated;
+use App\Events\StockUpdated;
 
 class SaleService
 {
@@ -138,6 +140,9 @@ class SaleService
                 SaleItem::create($itemData);
             }
 
+            // 7. 🔥 BROADCAST: Sale registered in real-time
+            broadcast(new SaleCreated($sale))->toOthers();
+
             // 7. ── DELIVERY (if applicable) ─────────────────────────────────────
             if (($data['type'] ?? 'dine-in') === 'delivery' && !empty($data['delivery_info'])) {
                 $this->deliveryService->createDelivery(
@@ -246,6 +251,9 @@ class SaleService
             // Update stock alert flags on the stock row
             $stockRow->refresh();
             $this->updateStockAlerts($stockRow);
+
+            // 🔥 BROADCAST: Ingredient stock updated
+            broadcast(new StockUpdated($branchId, Ingredient::class, $ingredientId))->toOthers();
         }
     }
 
@@ -274,6 +282,9 @@ class SaleService
                 'new_stock'      => (float) $product->stock,
                 'reference'      => "Sale: {$ref}",
             ]);
+
+            // 🔥 BROADCAST: Product stock updated
+            broadcast(new StockUpdated($branchId, Product::class, $id))->toOthers();
         }
     }
 

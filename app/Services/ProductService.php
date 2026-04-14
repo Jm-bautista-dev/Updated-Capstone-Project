@@ -8,6 +8,8 @@ use App\Models\MenuItemIngredient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Utils\UnitConverter;
+use App\Events\ProductUpdated;
+use App\Events\StockUpdated;
 
 class ProductService
 {
@@ -45,6 +47,9 @@ class ProductService
                     ]);
                 }
             }
+
+            // 🔥 BROADCAST: Instant catalog sync
+            broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
 
             return $product->load('branch', 'unit_model');
         });
@@ -87,6 +92,10 @@ class ProductService
                     ]);
                 }
             }
+
+            // 🔥 BROADCAST: Instant catalog sync
+            broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
+            broadcast(new StockUpdated($product->branch_id, Product::class, $product->id))->toOthers();
 
             return $product->load('branch', 'unit_model', 'ingredients');
         });

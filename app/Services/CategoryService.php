@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Branch;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Events\CategoryUpdated;
 
 class CategoryService
 {
@@ -23,6 +24,9 @@ class CategoryService
                 'image_path'  => $imagePath,
                 'created_by'  => $creatorId,
             ]);
+
+            // 🔥 BROADCAST: Global category sync
+            broadcast(new CategoryUpdated(0))->toOthers(); // 0 means refresh all
         });
     }
 
@@ -46,6 +50,9 @@ class CategoryService
                 'description' => $validated['description'] ?? null,
                 'image_path'  => $imagePath,
             ]);
+
+            // 🔥 BROADCAST: Global category sync
+            broadcast(new CategoryUpdated($category->id))->toOthers();
 
             return $category;
         });
