@@ -45,12 +45,10 @@ class SaleService
 
             // 1. Batch-fetch all products with their ingredients (eager loading)
             $itemIds = array_column($data['items'], 'id');
-            $productsQuery = Product::with(['ingredients.stocks', 'branches'])->whereIn('id', $itemIds);
+            $productsQuery = Product::with(['ingredients.stocks'])
+                ->whereIn('id', $itemIds)
+                ->where('branch_id', $branchId); // Filter by the cashier's branch ownership
 
-            // Ensure product is available in this branch
-            $productsQuery->whereHas('branches', function ($q) use ($branchId) {
-                $q->where('branches.id', $branchId);
-            });
 
             $products = $productsQuery->get()->keyBy('id');
 

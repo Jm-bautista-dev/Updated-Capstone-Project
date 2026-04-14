@@ -161,51 +161,196 @@ class AnalyticsController extends Controller
     }
     public function salesForecast(Request $request)
     {
-        $days = (int) $request->input('days', 7);
+        $days = (int) $request->input('days', 30);
         $branchId = $request->input('branch_id');
 
-        $query = DB::table('sales')
-            ->where('status', 'completed')
-            ->select(
-                DB::raw('DATE(created_at) as date'),
-                DB::raw('SUM(total) as daily_total')
-            )
-            ->groupBy('date')
-            ->orderBy('date', 'desc')
-            ->limit($days);
+        $result = $this->calculateForecast($days, $branchId);
 
-        if ($branchId && $branchId !== 'all') {
-            $query->where('branch_id', $branchId);
-        }
-
-        $historicalData = $query->get()->reverse()->values();
-
-        if ($historicalData->count() < 3) {
+        if (isset($result['error'])) {
             return Inertia::render('Analytics/SalesForecast', [
-                'error' => 'Not enough historical data for a reliable prediction. At least 3 days of sales are required.',
+                'error' => $result['error'],
                 'branches' => Branch::all(),
                 'filters' => $request->only(['days', 'branch_id']),
             ]);
         }
 
-        // Calculate Moving Average (Prediction for Tomorrow)
-        $prediction = $historicalData->avg('daily_total');
-
-        // Simple Trend detection
-        $firstDayValue = $historicalData->first()->daily_total;
-        $lastDayValue = $historicalData->last()->daily_total;
-        $trend = $lastDayValue > $firstDayValue ? 'upward' : 'downward';
-        $trendPercentage = $firstDayValue > 0 ? (($lastDayValue - $firstDayValue) / $firstDayValue) * 100 : 0;
-
-        return Inertia::render('Analytics/SalesForecast', [
-            'historical' => $historicalData,
-            'prediction' => round($prediction, 2),
-            'trend' => [
-                'type' => $trend,
-                'percentage' => round($trendPercentage, 1)
-            ],
+        return Inertia::render('Analytics/SalesForecast', array_merge($result, [
             'branches' => Branch::all(),
             'filters' => $request->only(['days', 'branch_id']),
+        ]));
+    }
+
+    public function restockSuggestions(Request $request)
+    {
+        $branchId = $request->input('branch_id');
+
+        if (!$branchId || $branchId === 'all') {
+            // Default to first branch if none selected for specific restock suggestions
+            $branchId = Branch::first()?->id;
+        }
+
+        if (!$branchId) {
+            return Inertia::render('Analytics/RestockSuggestions', [
+                'error' => 'No branches found in the system.',
+                'branches' => Branch::all(),
+            ]);
+        }
+
+        // 1. Get Forecast for tomorrow (using a 30-day lookback for accuracy)
+        $forecastResult = $this->calculateForecast(30, $branchId);
+
+        if (isset($forecastResult['error'])) {
+            return Inertia::render('Analytics/RestockSuggestions', [
+                'error' => "Forecast error: {$forecastResult['error']}",
+                'branches' => Branch::all(),
+                'filters' => ['branch_id' => $branchId],
+            ]);
+        }
+
+        $tomorrowPrediction = $forecastResult['prediction'];
+
+        // 2. Load Products with Recipes for this branch
+        $products = Product::where('branch_id', $branchId)
+            ->with('ingredients') // Has pivot quantity_required
+            ->get();
+
+        // 3. Aggregate Usage Requirements
+        $usage = [];
+        foreach ($products as $product) {
+            foreach ($product->ingredients as $ingredient) {
+                $requiredPerUnit = (float) $ingredient->pivot->quantity_required;
+                $totalExpectedUsage = $tomorrowPrediction * $requiredPerUnit;
+
+                if (!isset($usage[$ingredient->id])) {
+                    $usage[$ingredient->id] = [
+                        'id' => $ingredient->id,
+                        'name' => $ingredient->name,
+                        'unit' => $ingredient->unit,
+                        'cost_price' => $ingredient->cost_price ?? 0,
+                        'required_qty' => 0
+                    ];
+                }
+                $usage[$ingredient->id]['required_qty'] += $totalExpectedUsage;
+            }
+        }
+
+        // 4. Compare with Current Stock and Generate Suggestions
+        $suggestions = [];
+        foreach ($usage as $ingredientId => $data) {
+            $stockRecord = IngredientStock::where('ingredient_id', $ingredientId)
+                ->where('branch_id', $branchId)
+                ->first();
+
+            $currentStock = $stockRecord ? (float) $stockRecord->stock : 0;
+            $required = $data['required_qty'];
+            
+            // Apply 10% Safety Buffer
+            $safeRequired = $required * 1.1;
+            $gap = $safeRequired - $currentStock;
+
+            if ($gap > 0 || ($stockRecord && $stockRecord->isLowStock())) {
+                $restockQty = max(0, $gap);
+                
+                $status = 'Safe';
+                if ($currentStock <= 0) $status = 'Out of Stock';
+                elseif ($currentStock <= ($safeRequired * 0.2)) $status = 'Critical';
+                elseif ($currentStock <= ($safeRequired * 0.5)) $status = 'Warning';
+
+                $suggestions[] = [
+                    'ingredient_id' => $ingredientId,
+                    'name' => $data['name'],
+                    'unit' => $data['unit'],
+                    'current_stock' => round($currentStock, 2),
+                    'predicted_usage' => round($required, 2),
+                    'suggested_restock' => ceil($restockQty),
+                    'estimated_cost' => round(ceil($restockQty) * $data['cost_price'], 2),
+                    'status' => $status
+                ];
+            }
+        }
+
+        return Inertia::render('Analytics/RestockSuggestions', [
+            'suggestions' => $suggestions,
+            'branches' => Branch::all(),
+            'tomorrow_forecast' => $tomorrowPrediction,
+            'filters' => ['branch_id' => $branchId],
         ]);
+    }
+
+    private function calculateForecast(int $days, ?int $branchId)
+    {
+        $forecastData = DB::table('sales')
+            ->where('status', 'completed')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(total) as daily_total')
+            )
+            ->when($branchId && $branchId !== 'all', function($q) use ($branchId) {
+                return $q->where('branch_id', $branchId);
+            })
+            ->where('created_at', '>=', Carbon::now()->subDays($days))
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->get();
+
+        if ($forecastData->count() < 5) {
+            return ['error' => 'Not enough data for AI prediction. Minimum 5 days of sales records required.'];
+        }
+
+        $startDate = Carbon::parse($forecastData->first()->date);
+        $endDate = Carbon::now();
+        $processedData = collect();
+        $currentDate = $startDate->copy();
+
+        while ($currentDate->lte($endDate)) {
+            $dateStr = $currentDate->toDateString();
+            $match = $forecastData->firstWhere('date', $dateStr);
+            $processedData->push([
+                'date' => $dateStr,
+                'total' => $match ? (float) $match->daily_total : 0.0
+            ]);
+            $currentDate->addDay();
+        }
+
+        $n = $processedData->count();
+        $sumX = 0; $sumY = 0; $sumXY = 0; $sumX2 = 0;
+        foreach ($processedData as $index => $row) {
+            $xi = $index + 1;
+            $yi = $row['total'];
+            $sumX += $xi;
+            $sumY += $yi;
+            $sumXY += ($xi * $yi);
+            $sumX2 += ($xi * $xi);
+        }
+
+        $denominator = ($n * $sumX2) - ($sumX * $sumX);
+        $m = $denominator != 0 ? (($n * $sumXY) - ($sumX * $sumY)) / $denominator : 0;
+        $b = ($sumY - ($m * $sumX)) / $n;
+
+        $futureForecast = [];
+        $lastDate = Carbon::parse($processedData->last()['date']);
+        for ($i = 1; $i <= 7; $i++) {
+            $nextXi = $n + $i;
+            $predictedValue = ($m * $nextXi) + $b;
+            $futureForecast[] = [
+                'date' => $lastDate->copy()->addDays($i)->toDateString(),
+                'predicted' => max(0, round($predictedValue, 2))
+            ];
+        }
+
+        $trendPercentage = $processedData->first()['total'] > 0 
+            ? (($processedData->last()['total'] - $processedData->first()['total']) / $processedData->first()['total']) * 100 
+            : 0;
+
+        return [
+            'historical' => $processedData,
+            'prediction' => max(0, round(($m * ($n + 1)) + $b, 2)), 
+            'forecast'   => $futureForecast,
+            'trend' => [
+                'type' => $m >= 0 ? 'upward' : 'downward',
+                'slope' => round($m, 2),
+                'percentage' => round($trendPercentage, 1)
+            ],
+        ];
     }
 }

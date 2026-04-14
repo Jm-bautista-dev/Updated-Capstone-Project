@@ -9,10 +9,6 @@ use Illuminate\Support\Facades\Storage;
 
 class CategoryService
 {
-    /**
-     * Store a new category.
-     * Supports "Both Branch" via branch_option.
-     */
     public function store(array $validated, $image = null, ?int $creatorId = null): void
     {
         DB::transaction(function () use ($validated, $image, $creatorId) {
@@ -21,24 +17,12 @@ class CategoryService
                 $imagePath = $image->store('categories', 'public');
             }
 
-            $branchOption = $validated['branch_option'] ?? 'single';
-            $branchIds = [];
-
-            if ($branchOption === 'both') {
-                $branchIds = Branch::pluck('id')->toArray();
-            } else {
-                $branchIds = [$validated['branch_id']];
-            }
-
-            foreach ($branchIds as $branchId) {
-                Category::create([
-                    'name'        => $validated['name'],
-                    'description' => $validated['description'] ?? null,
-                    'image_path'  => $imagePath,
-                    'branch_id'   => $branchId,
-                    'created_by'  => $creatorId,
-                ]);
-            }
+            Category::create([
+                'name'        => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'image_path'  => $imagePath,
+                'created_by'  => $creatorId,
+            ]);
         });
     }
 
@@ -61,7 +45,6 @@ class CategoryService
                 'name'        => $validated['name'],
                 'description' => $validated['description'] ?? null,
                 'image_path'  => $imagePath,
-                'branch_id'   => $validated['branch_id'] ?? $category->branch_id,
             ]);
 
             return $category;

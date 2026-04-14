@@ -63,11 +63,6 @@ const mainNavItems: NavItem[] = [
         icon: Archive,
     },
     {
-        title: 'Customers',
-        href: '/customers',
-        icon: UserIcon,
-    },
-    {
         title: 'Sales',
         href: '/sales',
         icon: ShoppingCart,
@@ -91,6 +86,11 @@ const mainNavItems: NavItem[] = [
         title: 'Forecast',
         href: '/analytics/sales-forecast',
         icon: Zap,
+    },
+    {
+        title: 'Suggestions',
+        href: '/analytics/restock-suggestions',
+        icon: ShoppingCart,
     },
     {
         title: 'Delivery',
@@ -132,7 +132,7 @@ export function AppSidebar() {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees', 'Performance', 'Forecast'];
+        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees', 'Performance', 'Forecast', 'Suggestions'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 

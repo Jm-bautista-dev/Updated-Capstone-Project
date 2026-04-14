@@ -24,22 +24,7 @@ class CategoriesController extends Controller
 
     public function index(Request $request)
     {
-        $user     = Auth::user();
-        $branches = Branch::orderBy('name')->get();
-
-        // Determine branch filter
-        if ($user->isAdmin()) {
-            $branchId = $request->input('branch_id');
-        } else {
-            $branchId = $user->branch_id;
-        }
-
-        // Use direct branch_id relationship
-        $query = Category::query()->with(['branch'])->withCount('products');
-
-        if ($branchId && $branchId !== 'all') {
-            $query->where('branch_id', $branchId);
-        }
+        $query = Category::query()->withCount('products');
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
@@ -54,13 +39,11 @@ class CategoriesController extends Controller
 
         return Inertia::render('Categories/Index', [
             'categories'      => $categories,
-            'branches'        => $branches,
-            'currentBranchId' => $branchId,
-            'isAdmin'         => $user->isAdmin(),
+            'isAdmin'         => Auth::user()->isAdmin(),
             'summary'         => [
                 'total_categories' => $categories->count(),
             ],
-            'filters' => $request->only(['search', 'branch_id']),
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -70,8 +53,6 @@ class CategoriesController extends Controller
             'name'          => 'required|string|max:255',
             'description'   => 'nullable|string',
             'image'         => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'branch_id'     => 'required_if:branch_option,single|nullable|exists:branches,id',
-            'branch_option' => 'required|in:single,both',
         ]);
 
         $this->categoryService->store($validated, $request->file('image'), Auth::id());
@@ -82,13 +63,11 @@ class CategoriesController extends Controller
     public function update(Request $request, $id)
     {
         $category = Category::findOrFail($id);
-        // We might want to authorize update, but usually categories are branch-scoped now
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
             'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'branch_id'   => 'required|exists:branches,id',
         ]);
 
         $this->categoryService->update($category, $validated, $request->file('image'));

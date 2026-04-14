@@ -11,7 +11,6 @@ import {
   FiLayers,
   FiChevronLeft,
   FiChevronRight,
-  FiPackage,
   FiInfo
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,13 +18,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +27,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
 
 type Category = {
   id: number;
@@ -45,15 +36,12 @@ type Category = {
   image_url: string | null;
   products_count: number;
   created_at: string;
-  branch?: { id: number; name: string };
-  branch_id?: number;
 };
 
 export default function CategoriesIndex() {
-  const { categories: rawCategories, summary, filters, branches, currentBranchId, isAdmin } = usePage().props as any;
+  const { categories: rawCategories, summary, filters, isAdmin } = usePage().props as any;
   const categories: Category[] = rawCategories || [];
 
-  // --- Sync Logic ---
   const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
 
   useEffect(() => {
@@ -95,8 +83,6 @@ export default function CategoriesIndex() {
   const { data, setData, processing, errors, reset } = useForm({
     name: '',
     description: '',
-    branch_id: '',
-    branch_option: 'single' as 'single' | 'both',
   });
 
   // Derived Paginated Data
@@ -125,8 +111,6 @@ export default function CategoriesIndex() {
     setData({
       name: category.name,
       description: category.description || '',
-      branch_id: category.branch_id?.toString() || '',
-      branch_option: 'single',
     });
     setImageFile(null);
     setImagePreview(category.image_url || null);
@@ -143,8 +127,6 @@ export default function CategoriesIndex() {
     router.post('/categories', {
       name: data.name,
       description: data.description,
-      branch_id: data.branch_id,
-      branch_option: data.branch_option,
       image: imageFile,
     } as any, {
       forceFormData: true,
@@ -154,7 +136,7 @@ export default function CategoriesIndex() {
         setImageFile(null);
         setImagePreview(null);
         stateChannel.postMessage({ type: 'categories-updated' });
-        setResultModal({ type: 'success', title: 'Category Created', message: 'The new category has been added successfully.' });
+        setResultModal({ type: 'success', title: 'Category Created', message: 'The new global category has been added successfully.' });
         setIsResultModalOpen(true);
       },
     });
@@ -167,7 +149,6 @@ export default function CategoriesIndex() {
         _method: 'PUT',
         name: data.name,
         description: data.description,
-        branch_id: data.branch_id,
         image: imageFile,
       } as any, {
         forceFormData: true,
@@ -177,7 +158,7 @@ export default function CategoriesIndex() {
           setImageFile(null);
           setImagePreview(null);
           stateChannel.postMessage({ type: 'categories-updated' });
-          setResultModal({ type: 'success', title: 'Category Updated', message: 'Category details have been updated.' });
+          setResultModal({ type: 'success', title: 'Category Updated', message: 'Group details updated successfully across all branches.' });
           setIsResultModalOpen(true);
         },
       });
@@ -191,46 +172,29 @@ export default function CategoriesIndex() {
           setIsDeleteModalOpen(false);
           setSelectedCategory(null);
           stateChannel.postMessage({ type: 'categories-updated' });
-          setResultModal({ type: 'success', title: 'Category Deleted', message: 'The category has been removed.' });
+          setResultModal({ type: 'success', title: 'Category Deleted', message: 'The global category has been removed.' });
           setIsResultModalOpen(true);
         },
       });
     }
   };
 
-  const handleBranchFilter = (value: string) => {
-    router.get('/categories', { branch_id: value === 'all' ? '' : value, search }, { preserveState: true });
-  };
-
   return (
     <AppLayout breadcrumbs={[{ title: 'Categories', href: '/categories' }]}>
-      <Head title="Categories" />
+      <Head title="Global Categories" />
 
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-muted/20">
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b flex-shrink-0">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Categories</h1>
-            <p className="text-sm text-muted-foreground">Branch-isolated product classification.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Global Categories</h1>
+            <p className="text-sm text-muted-foreground">Unified product classification shared across all branches.</p>
           </div>
           <div className="flex items-center gap-3">
-            {isAdmin && (
-              <Select value={currentBranchId ? String(currentBranchId) : 'all'} onValueChange={handleBranchFilter}>
-                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50 border-none ring-1 ring-black/5">
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {branches?.map((b: any) => (
-                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
             <div className="relative w-full sm:w-64">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder="Search categories..."
+                placeholder="Search global categories..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 h-10 bg-muted/50 focus:bg-background transition-all border-none ring-1 ring-black/5"
@@ -250,7 +214,7 @@ export default function CategoriesIndex() {
             <Card className="bg-primary/5 border-primary/20 shadow-sm">
               <CardContent className="p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total Categories</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">System Labels</p>
                   <p className="text-2xl font-black">{summary.total_categories}</p>
                 </div>
                 <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -265,13 +229,12 @@ export default function CategoriesIndex() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
                   <tr className="bg-muted/30">
-                    <th className="h-12 px-6 text-left align-middle font-black text-muted-foreground uppercase tracking-widest text-[10px]">Category Info</th>
-                    {isAdmin && <th className="h-12 px-6 text-left align-middle font-black text-muted-foreground uppercase tracking-widest text-[10px]">Branch</th>}
-                    <th className="h-12 px-6 text-center align-middle font-black text-muted-foreground uppercase tracking-widest text-[10px]">Products</th>
+                    <th className="h-12 px-6 text-left align-middle font-black text-muted-foreground uppercase tracking-widest text-[10px]">Category / Label</th>
+                    <th className="h-12 px-6 text-center align-middle font-black text-muted-foreground uppercase tracking-widest text-[10px]">Global Product Count</th>
                     <th className="h-12 px-6 text-right align-middle font-black text-muted-foreground uppercase tracking-widest text-[10px]">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y text-slate-700">
                   <AnimatePresence mode="popLayout">
                     {paginatedData.map((category: Category) => (
                       <motion.tr key={category.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-muted/30 transition-colors group">
@@ -292,25 +255,22 @@ export default function CategoriesIndex() {
                             </div>
                           </div>
                         </td>
-                        {isAdmin && (
-                          <td className="p-4 px-6">
-                            <Badge variant="outline" className="bg-white/50 font-black text-[10px] uppercase border-black/5 ring-1 ring-black/5">
-                              {category.branch?.name || 'All'}
-                            </Badge>
-                          </td>
-                        )}
                         <td className="p-4 px-6 text-center">
-                          <span className="font-mono font-bold text-xs">{category.products_count} items</span>
+                          <Badge variant="outline" className="font-black text-[10px] bg-slate-100 border-none px-3">
+                            {category.products_count} items
+                          </Badge>
                         </td>
                         <td className="p-4 px-6 text-right">
-                          <div className="flex justify-end gap-2">
-                             <Button variant="ghost" size="icon" onClick={() => openEditModal(category)} className="size-8 rounded-lg hover:bg-primary/10 hover:text-primary">
-                                <FiEdit2 className="size-4" />
-                             </Button>
-                             <Button variant="ghost" size="icon" onClick={() => openDeleteModal(category)} className="size-8 rounded-lg hover:bg-destructive/10 hover:text-destructive">
-                                <FiTrash2 className="size-4" />
-                             </Button>
-                          </div>
+                          {isAdmin && (
+                            <div className="flex justify-end gap-2">
+                               <Button variant="ghost" size="icon" onClick={() => openEditModal(category)} className="size-8 rounded-lg hover:bg-primary/10 hover:text-primary">
+                                  <FiEdit2 className="size-4" />
+                               </Button>
+                               <Button variant="ghost" size="icon" onClick={() => openDeleteModal(category)} className="size-8 rounded-lg hover:bg-destructive/10 hover:text-destructive">
+                                  <FiTrash2 className="size-4" />
+                               </Button>
+                            </div>
+                          )}
                         </td>
                       </motion.tr>
                     ))}
@@ -334,68 +294,20 @@ export default function CategoriesIndex() {
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight">Create Category</DialogTitle>
-              <DialogDescription className="text-xs font-bold text-muted-foreground uppercase">Classify your products for specific branches.</DialogDescription>
+              <DialogTitle className="text-xl font-black uppercase tracking-tight">Create Global Category</DialogTitle>
+              <DialogDescription className="text-xs font-bold text-muted-foreground uppercase">Define a labels shared by all branches.</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Category Name</label>
-                  <Input required value={data.name} onChange={e => setData('name', e.target.value)} placeholder="e.g. Beverages, Pastries" className="h-10 font-bold" />
+                  <Input required value={data.name} onChange={e => setData('name', e.target.value)} placeholder="e.g. Beverages, Pastries" className="h-11 font-bold rounded-xl" />
                </div>
 
                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description (Optional)</label>
-                  <Input value={data.description} onChange={e => setData('description', e.target.value)} className="h-10 text-xs font-medium" />
+                  <Input value={data.description} onChange={e => setData('description', e.target.value)} className="h-11 text-xs font-medium rounded-xl" />
                </div>
-
-               {isAdmin && (
-                  <div className="space-y-3 bg-muted/30 p-4 rounded-2xl border border-black/5">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-primary">Target Branch Configuration</label>
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase">Assign this category to a specific branch or all locations.</p>
-                    </div>
-
-                    <div className="flex gap-2">
-                       <Button
-                          type="button"
-                          variant={data.branch_option === 'single' ? 'default' : 'outline'}
-                          onClick={() => setData('branch_option', 'single')}
-                          className="flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                       >
-                          Single Branch
-                       </Button>
-                       <Button
-                          type="button"
-                          variant={data.branch_option === 'both' ? 'default' : 'outline'}
-                          onClick={() => setData('branch_option', 'both')}
-                          className="flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                       >
-                          Both Branches
-                       </Button>
-                    </div>
-
-                    {data.branch_option === 'single' && (
-                      <Select value={String(data.branch_id)} onValueChange={val => setData('branch_id', val)}>
-                         <SelectTrigger className="h-10 bg-background border-none ring-1 ring-black/5 rounded-xl font-bold">
-                            <SelectValue placeholder="Select Branch" />
-                         </SelectTrigger>
-                         <SelectContent>
-                            {branches.map((b: any) => (
-                              <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                            ))}
-                         </SelectContent>
-                      </Select>
-                    )}
-
-                    {data.branch_option === 'both' && (
-                       <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-xl border border-primary/20">
-                          <FiInfo className="text-primary size-4" />
-                          <span className="text-[9px] font-black text-primary uppercase leading-tight">System will create independent copies for ALL branches.</span>
-                       </div>
-                    )}
-                  </div>
-               )}
 
                <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Display Image</label>
@@ -409,12 +321,12 @@ export default function CategoriesIndex() {
                     const file = e.target.files?.[0] || null;
                     setImageFile(file);
                     if (file) setImagePreview(URL.createObjectURL(file));
-                  }} className="h-10 file:font-bold file:text-[10px] file:uppercase file:bg-primary/10 file:text-primary file:border-none cursor-pointer" />
+                  }} className="h-11 file:font-bold file:text-[10px] file:uppercase file:bg-primary/10 file:text-primary file:border-none cursor-pointer rounded-xl" />
                </div>
 
                <DialogFooter>
                   <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={processing} className="font-black uppercase tracking-widest px-8">Save Category</Button>
+                  <Button type="submit" disabled={processing} className="font-black uppercase tracking-widest px-8 h-11 rounded-xl">Create Global Label</Button>
                </DialogFooter>
             </form>
           </DialogContent>
@@ -425,35 +337,19 @@ export default function CategoriesIndex() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-black uppercase tracking-tight">Modify Category</DialogTitle>
-              <DialogDescription className="text-xs font-bold text-muted-foreground uppercase">Update details for this branch-specific category.</DialogDescription>
+              <DialogDescription className="text-xs font-bold text-muted-foreground uppercase">Updates will apply system-wide across all branches.</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleEditSubmit} className="space-y-4 pt-4">
                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Category Name</label>
-                  <Input required value={data.name} onChange={e => setData('name', e.target.value)} className="h-10 font-bold" />
+                  <Input required value={data.name} onChange={e => setData('name', e.target.value)} className="h-11 font-bold rounded-xl" />
                </div>
 
                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description</label>
-                  <Input value={data.description} onChange={e => setData('description', e.target.value)} className="h-10 text-xs font-medium" />
+                  <Input value={data.description} onChange={e => setData('description', e.target.value)} className="h-11 text-xs font-medium rounded-xl" />
                </div>
-
-               {isAdmin && (
-                  <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Owning Branch</label>
-                     <Select value={String(data.branch_id)} onValueChange={val => setData('branch_id', val)}>
-                        <SelectTrigger className="h-10 bg-muted/50 border-none ring-1 ring-black/5 font-bold">
-                           <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                           {branches.map((b: any) => (
-                              <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                           ))}
-                        </SelectContent>
-                     </Select>
-                  </div>
-               )}
 
                <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Display Image</label>
@@ -468,12 +364,12 @@ export default function CategoriesIndex() {
                     const file = e.target.files?.[0] || null;
                     setImageFile(file);
                     if (file) setImagePreview(URL.createObjectURL(file));
-                  }} className="h-10 file:font-bold file:text-[10px] file:uppercase font-medium" />
+                  }} className="h-11 file:font-bold file:text-[10px] file:uppercase font-medium rounded-xl" />
                </div>
 
                <DialogFooter>
                   <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={processing} className="font-black uppercase tracking-widest px-8">Update Details</Button>
+                  <Button type="submit" disabled={processing} className="font-black uppercase tracking-widest px-8 h-11 rounded-xl">Update System-Wide</Button>
                </DialogFooter>
             </form>
           </DialogContent>
@@ -483,15 +379,15 @@ export default function CategoriesIndex() {
         <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
            <DialogContent>
               <DialogHeader>
-                 <DialogTitle className="text-xl font-black uppercase tracking-tight text-destructive">Delete Confirmation</DialogTitle>
+                 <DialogTitle className="text-xl font-black uppercase tracking-tight text-destructive">Global Delete Protection</DialogTitle>
                  <DialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed">
                    Are you sure you want to remove <span className="text-foreground font-black">"{selectedCategory?.name}"</span>? 
-                   This will NOT delete the products inside, but they will be left without a category.
+                   This will affect ALL products across ALL branches using this category. Items will become uncategorized.
                  </DialogDescription>
               </DialogHeader>
               <DialogFooter className="pt-4">
                  <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>No, Keep it</Button>
-                 <Button variant="destructive" onClick={handleDeleteSubmit} disabled={processing} className="font-black uppercase tracking-widest">Yes, Delete Forever</Button>
+                 <Button variant="destructive" onClick={handleDeleteSubmit} disabled={processing} className="font-black uppercase tracking-widest rounded-xl h-11">Yes, Delete Globally</Button>
               </DialogFooter>
            </DialogContent>
         </Dialog>

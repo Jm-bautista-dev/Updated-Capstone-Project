@@ -17,6 +17,7 @@ import {
     FiRefreshCw
 } from 'react-icons/fi';
 import { StockInModal } from '@/components/stock-in-modal';
+import { ValidationErrorModal } from '@/components/validation-error-modal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -139,6 +140,8 @@ export default function ProductsIndex() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+    const [errorInfo, setErrorInfo] = useState({ title: '', message: '' });
 
     const { data, setData, post, put, delete: destroy, processing, errors, reset, transform } = useForm({
         name: '',
@@ -235,8 +238,12 @@ export default function ProductsIndex() {
                 setImagePreview(null);
             },
             onError: (err) => {
-                console.error('Registration failed:', err);
-                alert('Validation Errors:\n' + JSON.stringify(err, null, 2));
+                const firstError = Object.values(err)[0] as string;
+                setErrorInfo({ 
+                    title: 'Material Conflict', 
+                    message: firstError || 'Please check your recipe and branch availability.' 
+                });
+                setIsErrorModalOpen(true);
             }
         });
     };
@@ -261,8 +268,12 @@ export default function ProductsIndex() {
                     setIsSuccessModalOpen(true);
                 },
                 onError: (err) => {
-                    console.error('Update failed:', err);
-                    alert('Validation Errors:\n' + JSON.stringify(err, null, 2));
+                    const firstError = Object.values(err)[0] as string;
+                    setErrorInfo({ 
+                        title: 'Update Rejected', 
+                        message: firstError || 'Ingredient validation failed for this branch.' 
+                    });
+                    setIsErrorModalOpen(true);
                 }
             });
         }
@@ -620,6 +631,13 @@ export default function ProductsIndex() {
                 type="success"
                 title={successMessage.title}
                 message={successMessage.message}
+            />
+
+            <ValidationErrorModal
+                open={isErrorModalOpen}
+                onClose={() => setIsErrorModalOpen(false)}
+                title={errorInfo.title}
+                message={errorInfo.message}
             />
 
             <StockInModal

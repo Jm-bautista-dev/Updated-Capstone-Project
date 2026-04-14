@@ -36,7 +36,7 @@ class PosController extends Controller
             $productsQuery->where('branch_id', $branchId);
         }
 
-        $products = $productsQuery->get()->map(function ($product) use ($branchId) {
+        $products = $productsQuery->get()->map(function (Product $product) use ($branchId) {
             // Use branch-scoped stock computation
             $product->stock    = $product->computedStockForBranch($branchId);
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
@@ -47,15 +47,8 @@ class PosController extends Controller
             return $product;
         });
 
-        // Load categories scoped to the cashier's branch via direct branch_id ownership
-        $categoriesQuery = Category::orderBy('name');
-        if ($branchId) {
-            $categoriesQuery->where('branch_id', $branchId);
-        }
-
-        $categories = $categoriesQuery->get()->map(function ($category) {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('public');
+        // Load categories globally (shared across branches)
+        $categories = Category::orderBy('name')->get()->map(function ($category) {
             $category->image_url = $category->image_path
                 ? asset('storage/' . $category->image_path)
                 : null;
