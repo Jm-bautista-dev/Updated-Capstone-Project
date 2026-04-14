@@ -33,6 +33,12 @@ class InventoryController extends Controller
             ? $request->input('branch_id') // null = all branches
             : $user->branch_id;            // cashier locked to own branch
 
+        $targetBranchName = null;
+        if ($branchId) {
+            $branch = $branches->firstWhere('id', (int) $branchId);
+            $targetBranchName = $branch ? $branch->name : null;
+        }
+
         // Load all global ingredients with their per-branch stock
         $ingredientsQuery = Ingredient::with(['stocks.branch'])->orderBy('name');
 
@@ -48,22 +54,29 @@ class InventoryController extends Controller
             }
 
             foreach ($stocks as $stockRow) {
+                // For cashiers, strictly enforce they never see a null branch row
+                if (!$user->isAdmin() && !$stockRow->branch_id) {
+                    continue;
+                }
+
                 $inventory[] = [
                     'id'              => $ingredient->id,
                     'stock_id'        => $stockRow->id,
                     'name'            => $ingredient->name,
                     'unit'            => $ingredient->unit,
                     'branch_id'       => $stockRow->branch_id,
-                    'branch_name'     => $stockRow->branch ? $stockRow->branch->name : null,
+                    'branch_name'     => $stockRow->branch ? $stockRow->branch->name : 'UNASSIGNED (ORPHANED)',
                     'stock'           => (float) $stockRow->stock,
                     'low_stock_level' => (float) $stockRow->low_stock_level,
                     'is_low_stock'    => $stockRow->isLowStock(),
                     'is_out_of_stock' => $stockRow->isOutOfStock(),
+                    'status'          => 'valid',
                 ];
             }
 
-            // If a global ingredient has NO stock row for this branch,
-            // still show it so the user knows to stock-in
+            // If a global ingredient has NO stock row for THIS branch yet,
+            // we attach the target branch_name so it groups within the cashier's active node
+            // seamlessly, preventing "UNASSIGNED" UI bleed.
             if ($branchId && $stocks->isEmpty()) {
                 $inventory[] = [
                     'id'              => $ingredient->id,
@@ -71,11 +84,30 @@ class InventoryController extends Controller
                     'name'            => $ingredient->name,
                     'unit'            => $ingredient->unit,
                     'branch_id'       => (int) $branchId,
-                    'branch_name'     => null,
+                    'branch_name'     => $targetBranchName, 
                     'stock'           => 0,
                     'low_stock_level' => 5,
                     'is_low_stock'    => false,
                     'is_out_of_stock' => true,
+                    'status'          => 'valid',
+                ];
+            }
+
+            // If Admin is viewing ALL branches, but an ingredient has ZERO stock mappings globally,
+            // expose it as orphaned for data integrity correction.
+            if (!$branchId && $stocks->isEmpty() && $user->isAdmin()) {
+                $inventory[] = [
+                    'id'              => $ingredient->id,
+                    'stock_id'        => null,
+                    'name'            => $ingredient->name,
+                    'unit'            => $ingredient->unit,
+                    'branch_id'       => null,
+                    'branch_name'     => 'UNASSIGNED (ORPHANED)',
+                    'stock'           => 0,
+                    'low_stock_level' => 5,
+                    'is_low_stock'    => false,
+                    'is_out_of_stock' => true,
+                    'status'          => 'invalid', // Marks needing alignment
                 ];
             }
         }
