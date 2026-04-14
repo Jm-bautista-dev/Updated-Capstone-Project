@@ -68,22 +68,22 @@ export default function ItemDashboard() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Inventory - Weight & Volume" />
       
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 bg-muted/10 min-h-screen">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-8 bg-background dark:bg-zinc-950 min-h-screen">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-              <FiPackage className="text-primary" />
+            <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
+              <FiPackage className="text-primary dark:text-primary-foreground" />
                Stock Intelligence
             </h1>
-            <p className="text-muted-foreground mt-1 font-medium">Auto-converting weight and volume inventory management.</p>
+            <p className="text-muted-foreground dark:text-zinc-400 mt-1 font-medium">Auto-converting weight and volume inventory management.</p>
           </div>
           <div className="flex items-center gap-3">
              <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500" />
                 <Input 
                   placeholder="Search materials..." 
-                  className="pl-10 w-64 bg-background shadow-sm border-none ring-1 ring-black/5" 
+                  className="pl-10 w-64 bg-background dark:bg-zinc-900 shadow-sm border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -106,7 +106,7 @@ export default function ItemDashboard() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className="overflow-hidden border-none shadow-xl ring-1 ring-black/5 hover:ring-primary/30 transition-all group">
+                <Card className="overflow-hidden border-none shadow-xl ring-1 ring-black/5 dark:ring-white/5 hover:ring-primary/30 dark:hover:ring-primary/50 transition-all group bg-card dark:bg-zinc-900/50">
                   <div className={cn(
                     "h-2 w-full",
                     item.type === 'solid' ? "bg-amber-500" : "bg-blue-500"
@@ -115,13 +115,13 @@ export default function ItemDashboard() {
                     <div className="flex items-center gap-3">
                         <div className={cn(
                           "size-10 rounded-2xl flex items-center justify-center shadow-inner",
-                          item.type === 'solid' ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
+                          item.type === 'solid' ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         )}>
                            {item.type === 'solid' ? <FiBox className="size-5" /> : <FiDroplet className="size-5" />}
                         </div>
                         <div>
-                          <CardTitle className="text-lg font-black group-hover:text-primary transition-colors truncate max-w-[150px]" title={item.name}>{item.name}</CardTitle>
-                          <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-muted/50">
+                          <CardTitle className="text-lg font-black group-hover:text-primary transition-colors truncate max-w-[150px] text-foreground dark:text-white" title={item.name}>{item.name}</CardTitle>
+                          <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-muted/50 dark:bg-zinc-800/50 text-muted-foreground dark:text-zinc-400">
                             {item.type}
                           </Badge>
                         </div>
@@ -131,20 +131,20 @@ export default function ItemDashboard() {
                   <CardContent className="pt-4 space-y-6">
                     {/* Units Display */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-muted/30 rounded-2xl p-4 border border-black/5">
-                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Storage Unit</p>
+                        <div className="bg-muted/30 dark:bg-zinc-800/50 rounded-2xl p-4 border border-black/5 dark:border-white/5">
+                            <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest mb-1">Storage Unit</p>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black tracking-tighter">{item.quantity}</span>
-                                <span className="text-xs font-bold text-muted-foreground">{item.unit}</span>
+                                <span className="text-2xl font-black tracking-tighter text-foreground dark:text-zinc-100">{item.quantity}</span>
+                                <span className="text-xs font-bold text-muted-foreground dark:text-zinc-500">{item.unit}</span>
                             </div>
                         </div>
-                        <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
-                            <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">POS Available</p>
+                        <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-4 border border-primary/10 dark:border-primary/20">
+                            <p className="text-[10px] font-black uppercase text-primary dark:text-primary-foreground tracking-widest mb-1">POS Available</p>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black tracking-tighter text-primary">
+                                <span className="text-2xl font-black tracking-tighter text-primary dark:text-primary-foreground">
                                   {item.pos_quantity.toLocaleString()}
                                 </span>
-                                <span className="text-xs font-bold text-primary/70">{item.pos_unit}</span>
+                                <span className="text-xs font-bold text-primary/70 dark:text-primary-foreground/70">{item.pos_unit}</span>
                             </div>
                         </div>
                     </div>
@@ -157,7 +157,7 @@ export default function ItemDashboard() {
                           {item.quantity > 5 ? 'High' : 'Reorder Soon'}
                         </span>
                       </div>
-                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex shadow-inner">
+                      <div className="h-2 w-full bg-muted dark:bg-zinc-800 rounded-full overflow-hidden flex shadow-inner">
                         <motion.div 
                           className={cn(
                             "h-full",

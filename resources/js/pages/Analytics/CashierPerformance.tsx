@@ -89,24 +89,24 @@ export default function CashierPerformance() {
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Cashier Performance', href: '#' }]}>
             <Head title="Cashier Performance Analytics" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/50">
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Section */}
-                <div className="bg-white border-b px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                            <FiTrendingUp className="text-indigo-600" />
+                        <h1 className="text-2xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
+                            <FiTrendingUp className="text-primary dark:text-primary-foreground" />
                             Cashier Performance
                         </h1>
-                        <p className="text-sm text-slate-500 font-medium mt-1">
+                        <p className="text-sm text-muted-foreground dark:text-zinc-500 font-medium mt-1">
                             Operational insights and sales leaderboard.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-                            <FiCalendar className="text-slate-400 ml-2 size-4" />
+                        <div className="flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-xl p-1 gap-1">
+                            <FiCalendar className="text-muted-foreground dark:text-zinc-500 ml-2 size-4" />
                             <Select value={range} onValueChange={(val) => { setRange(val); handleFilterChange('range', val); }}>
-                                <SelectTrigger className="w-40 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight">
+                                <SelectTrigger className="w-40 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-foreground dark:text-zinc-300">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -118,10 +118,10 @@ export default function CashierPerformance() {
                             </Select>
                         </div>
 
-                        <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-                            <FiFilter className="text-slate-400 ml-2 size-4" />
+                        <div className="flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-xl p-1 gap-1">
+                            <FiFilter className="text-muted-foreground dark:text-zinc-500 ml-2 size-4" />
                             <Select value={branchId} onValueChange={(val) => { setBranchId(val); handleFilterChange('branch_id', val); }}>
-                                <SelectTrigger className="w-44 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight">
+                                <SelectTrigger className="w-44 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-foreground dark:text-zinc-300">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -139,17 +139,17 @@ export default function CashierPerformance() {
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     {/* Top Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                        <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
-                                    <div className="size-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
-                                        <FiTrendingUp className="text-indigo-600 size-6" />
+                                    <div className="size-12 rounded-2xl bg-primary/5 dark:bg-primary/10 flex items-center justify-center">
+                                        <FiTrendingUp className="text-primary dark:text-primary-foreground size-6" />
                                     </div>
-                                    <Badge className="bg-indigo-50 text-indigo-700 border-none font-bold uppercase text-[10px]">Revenue</Badge>
+                                    <Badge className="bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary-foreground border-none font-bold uppercase text-[10px]">Revenue</Badge>
                                 </div>
                                 <div className="mt-4">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Sales</p>
-                                    <h3 className="text-2xl font-black text-slate-900">{formatCurrency(stats.totalSales)}</h3>
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">Total Sales</p>
+                                    <h3 className="text-2xl font-black text-foreground dark:text-white">{formatCurrency(stats.totalSales)}</h3>
                                 </div>
                             </CardContent>
                         </Card>
@@ -169,31 +169,31 @@ export default function CashierPerformance() {
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                        <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
-                                    <div className="size-12 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                                        <FiTrendingUp className="text-emerald-600 size-6" />
+                                    <div className="size-12 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 flex items-center justify-center">
+                                        <FiTrendingUp className="text-emerald-600 dark:text-emerald-500 size-6" />
                                     </div>
-                                    <Badge className="bg-emerald-50 text-emerald-700 border-none font-bold uppercase text-[10px]">Efficiency</Badge>
+                                    <Badge className="bg-emerald-500/5 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-500 border-none font-bold uppercase text-[10px]">Efficiency</Badge>
                                 </div>
                                 <div className="mt-4">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Avg Order Value</p>
-                                    <h3 className="text-2xl font-black text-slate-900">{formatCurrency(stats.avgOrderOverall)}</h3>
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">Avg Order Value</p>
+                                    <h3 className="text-2xl font-black text-foreground dark:text-white">{formatCurrency(stats.avgOrderOverall)}</h3>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-indigo-600 text-white shadow-xl shadow-indigo-100 border-none">
+                        <Card className="bg-primary dark:bg-primary-foreground/10 text-white dark:text-primary-foreground shadow-xl shadow-primary/10 dark:shadow-none border-none">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
-                                    <div className="size-12 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                                    <div className="size-12 rounded-2xl bg-white/10 dark:bg-white/20 flex items-center justify-center backdrop-blur-md">
                                         <FiAward className="text-white size-6" />
                                     </div>
-                                    <Badge className="bg-white/20 text-white border-none font-bold uppercase text-[10px]">Top Performer</Badge>
+                                    <Badge className="bg-white/20 dark:bg-white/30 text-white dark:text-white border-none font-bold uppercase text-[10px]">Top Performer</Badge>
                                 </div>
                                 <div className="mt-4">
-                                    <p className="text-[10px] font-black uppercase text-indigo-200 tracking-widest">Highest Seller</p>
+                                    <p className="text-[10px] font-black uppercase text-primary-foreground/70 tracking-widest">Highest Seller</p>
                                     <h3 className="text-2xl font-black truncate">{stats.topCashier?.name || 'N/A'}</h3>
                                 </div>
                             </CardContent>
@@ -202,26 +202,26 @@ export default function CashierPerformance() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Leaderboard Table */}
-                        <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-slate-200 overflow-hidden">
-                            <CardHeader className="bg-white border-b">
-                                <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                                    <FiUsers className="text-indigo-600" />
+                        <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden">
+                            <CardHeader className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800">
+                                <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground dark:text-white flex items-center gap-2">
+                                    <FiUsers className="text-primary dark:text-primary-foreground" />
                                     Performance Leaderboard
                                 </CardTitle>
                             </CardHeader>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
-                                    <thead className="bg-slate-50 border-b">
+                                    <thead className="bg-muted/30 dark:bg-zinc-800/50 border-b dark:border-zinc-800">
                                         <tr>
-                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400">Rank</th>
-                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400">Cashier</th>
-                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400">Branch</th>
-                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-right">Transactions</th>
-                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-right">Total Sales</th>
-                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-right">Avg Order</th>
+                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500">Rank</th>
+                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500">Cashier</th>
+                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500">Branch</th>
+                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-right">Transactions</th>
+                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-right">Total Sales</th>
+                                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-right">Avg Order</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-border dark:divide-zinc-800">
                                         <AnimatePresence>
                                             {performance.map((p, index) => (
                                                 <motion.tr
@@ -229,7 +229,7 @@ export default function CashierPerformance() {
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     transition={{ delay: index * 0.05 }}
-                                                    className="group hover:bg-slate-50 transition-colors"
+                                                    className="group hover:bg-muted/30 dark:hover:bg-zinc-800/30 transition-colors"
                                                 >
                                                     <td className="px-6 py-4">
                                                         <div className={cn(
@@ -242,21 +242,21 @@ export default function CashierPerformance() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className="font-bold text-slate-900">{p.name}</span>
+                                                        <span className="font-bold text-foreground dark:text-zinc-200">{p.name}</span>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <Badge variant="outline" className="font-black text-[9px] uppercase tracking-tighter border-slate-200 bg-white shadow-sm">
+                                                        <Badge variant="outline" className="font-black text-[9px] uppercase tracking-tighter border-border dark:border-zinc-800 bg-background dark:bg-zinc-900 shadow-sm text-foreground dark:text-zinc-400">
                                                             {p.branch_name}
                                                         </Badge>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <span className="font-mono font-medium text-slate-600">{p.total_transactions} txns</span>
+                                                        <span className="font-mono font-medium text-muted-foreground dark:text-zinc-500">{p.total_transactions} txns</span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <span className="font-black text-indigo-600">{formatCurrency(p.total_sales)}</span>
+                                                        <span className="font-black text-primary dark:text-primary-foreground transition-colors">{formatCurrency(p.total_sales)}</span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-1 font-medium text-slate-500">
+                                                        <div className="flex items-center justify-end gap-1 font-medium text-muted-foreground dark:text-zinc-500">
                                                             {formatCurrency(p.avg_order_value)}
                                                             <FiArrowUpRight className="size-3 text-emerald-500" />
                                                         </div>
@@ -266,7 +266,7 @@ export default function CashierPerformance() {
 
                                             {performance.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic">
+                                                    <td colSpan={6} className="px-6 py-20 text-center text-muted-foreground dark:text-zinc-600 italic">
                                                         No performance data found for the selected filters.
                                                     </td>
                                                 </tr>
@@ -277,12 +277,12 @@ export default function CashierPerformance() {
                             </div>
                         </Card>
 
-                        {/* Top Performers Chart */}
+                         {/* Top Performers Chart */}
                         <div className="space-y-8">
-                            <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                            <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                                 <CardHeader>
-                                    <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                                        <FiBarChart2 className="text-indigo-600" />
+                                    <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground dark:text-white flex items-center gap-2">
+                                        <FiBarChart2 className="text-primary dark:text-primary-foreground" />
                                         Sales Distribution
                                     </CardTitle>
                                 </CardHeader>
@@ -290,24 +290,25 @@ export default function CashierPerformance() {
                                     <div className="h-[280px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={chartData} layout="vertical">
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
                                                 <XAxis type="number" hide />
                                                 <YAxis
                                                     dataKey="name"
                                                     type="category"
-                                                    stroke="#94a3b8"
+                                                    stroke="currentColor"
+                                                    className="text-muted-foreground dark:text-zinc-500"
                                                     fontSize={10}
                                                     fontWeight="bold"
                                                     width={80}
                                                 />
                                                 <Tooltip
-                                                    cursor={{ fill: '#f8fafc' }}
+                                                    cursor={{ fill: 'currentColor', opacity: 0.05 }}
                                                     content={({ active, payload }) => {
                                                         if (active && payload && payload.length) {
                                                             return (
-                                                                <div className="bg-white p-3 shadow-2xl rounded-xl border border-slate-100 ring-1 ring-black/5">
-                                                                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">{payload[0].payload.name}</p>
-                                                                    <p className="text-sm font-black text-indigo-600">{formatCurrency(payload[0].value)}</p>
+                                                                <div className="bg-background dark:bg-zinc-900 p-3 shadow-2xl rounded-xl border dark:border-zinc-800 ring-1 ring-black/5 dark:ring-white/5">
+                                                                    <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 mb-1">{payload[0].payload.name}</p>
+                                                                    <p className="text-sm font-black text-primary dark:text-primary-foreground">{formatCurrency(payload[0].value)}</p>
                                                                 </div>
                                                             );
                                                         }
@@ -322,9 +323,9 @@ export default function CashierPerformance() {
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <div className="mt-4 pt-4 border-t border-slate-100">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Insights</p>
-                                        <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                                    <div className="mt-4 pt-4 border-t border-muted dark:border-zinc-800">
+                                        <p className="text-[10px] font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest">Insights</p>
+                                        <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-2 leading-relaxed">
                                             Top 5 cashiers represent independent branch performance. Data reflects <strong>{range} days</strong> range.
                                         </p>
                                     </div>
@@ -334,9 +335,9 @@ export default function CashierPerformance() {
                             {/* Additional Info / Tips */}
                             <Card className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white border-none space-y-4">
                                 <CardContent className="p-6">
-                                    <FiAward className="text-amber-400 size-8 mb-4" />
-                                    <h4 className="text-lg font-black tracking-tight">System Notice</h4>
-                                    <p className="text-xs text-indigo-200/80 leading-relaxed font-medium">
+                                    <FiAward className="text-amber-400 dark:text-amber-500 size-8 mb-4" />
+                                    <h4 className="text-lg font-black tracking-tight text-white">System Notice</h4>
+                                    <p className="text-xs text-indigo-200/80 dark:text-zinc-300/80 leading-relaxed font-medium">
                                         Rankings are updated in real-time. Performance logic is strictly read-only and does not affect inventory or commission calculations.
                                     </p>
                                     <Button variant="outline" className="w-full mt-6 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold uppercase tracking-widest h-10 text-[10px]">

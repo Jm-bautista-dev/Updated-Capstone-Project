@@ -328,12 +328,12 @@ export default function ProductsIndex() {
         <AppLayout breadcrumbs={[{ title: 'Products', href: '/products' }]}>
             <Head title="Products" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-muted/20">
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b flex-shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Products</h1>
-                        <p className="text-sm text-muted-foreground">Manage your product inventory and pricing.</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground dark:text-white">Products</h1>
+                        <p className="text-sm text-muted-foreground dark:text-zinc-400">Manage your product inventory and pricing.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                         {isAdmin && (
@@ -341,7 +341,7 @@ export default function ProductsIndex() {
                                 value={currentBranchId ? String(currentBranchId) : 'all'}
                                 onValueChange={handleBranchFilter}
                             >
-                                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
+                                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50 dark:bg-zinc-800/50 dark:text-zinc-300">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -358,14 +358,14 @@ export default function ProductsIndex() {
                                 placeholder="Search products..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="pl-9 h-10 bg-muted/50 focus:bg-background transition-colors"
+                                className="pl-9 h-10 bg-muted/50 dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-colors border-none ring-1 ring-border dark:ring-zinc-700"
                             />
                         </div>
                         <Select
                             value={String(filterCategory)}
                             onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}
                         >
-                            <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
+                            <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50 dark:bg-zinc-800/50 dark:text-zinc-300">
                                 <SelectValue placeholder="All Categories" />
                             </SelectTrigger>
                             <SelectContent>
@@ -387,54 +387,54 @@ export default function ProductsIndex() {
                 <div className="flex-1 overflow-hidden p-4 sm:p-6 flex flex-col gap-6">
                     {/* Summary Row */}
                     <div className="grid gap-4 md:grid-cols-3 flex-shrink-0">
-                        <Card className="bg-primary/5 border-primary/20 shadow-sm group">
+                        <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 shadow-sm group">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Products</CardTitle>
-                                <FiPackage className="size-4 text-primary group-hover:scale-110 transition-transform" />
+                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Total Products</CardTitle>
+                                <FiPackage className="size-4 text-primary dark:text-primary-foreground group-hover:scale-110 transition-transform" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-black">{summary.total_products}</div>
+                                <div className="text-2xl font-black text-foreground dark:text-white">{summary.total_products}</div>
                                 <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Unique items in system</p>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-amber-500/5 border-amber-500/20 shadow-sm group">
+                        <Card className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 shadow-sm group">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Low Stock Items</CardTitle>
+                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Low Stock Items</CardTitle>
                                 <FiAlertTriangle className="size-4 text-amber-500 group-hover:scale-110 transition-transform" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-black text-amber-600">{summary.low_stock}</div>
+                                <div className="text-2xl font-black text-amber-600 dark:text-amber-500">{summary.low_stock}</div>
                                 <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Stock levels ≤ 5 units</p>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-destructive/5 border-destructive/20 shadow-sm group">
+                        <Card className="bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-sm group">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Out of Stock</CardTitle>
+                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Out of Stock</CardTitle>
                                 <FiSlash className="size-4 text-destructive group-hover:scale-110 transition-transform" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-black text-destructive">{summary.out_of_stock}</div>
+                                <div className="text-2xl font-black text-destructive dark:text-red-500">{summary.out_of_stock}</div>
                                 <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Items requiring restock</p>
                             </CardContent>
                         </Card>
                     </div>
 
                     {/* Table Card */}
-                    <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 flex-shrink min-h-0">
+                    <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 dark:ring-white/5 bg-card dark:bg-zinc-900/50 flex-shrink min-h-0">
                         <div className="flex-1 overflow-auto">
                             <table className="w-full text-sm">
-                                <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
-                                    <tr className="bg-muted/30">
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Product Information</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden lg:table-cell">Category</th>
-                                        {isAdmin && !currentBranchId && <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden lg:table-cell">Branch</th>}
-                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden sm:table-cell">Pricing</th>
-                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock Status</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden md:table-cell">Created</th>
-                                        <th className="h-12 px-6 text-right align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Actions</th>
+                                <thead className="sticky top-0 z-10 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 shadow-sm">
+                                    <tr className="bg-muted/30 dark:bg-zinc-800/50">
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Product Information</th>
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden lg:table-cell">Category</th>
+                                        {isAdmin && !currentBranchId && <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden lg:table-cell">Branch</th>}
+                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Stock</th>
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden sm:table-cell">Pricing</th>
+                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Stock Status</th>
+                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden md:table-cell">Created</th>
+                                        <th className="h-12 px-6 text-right align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y relative">
@@ -458,16 +458,16 @@ export default function ProductsIndex() {
                                                     initial={{ opacity: 0, y: 5 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     exit={{ opacity: 0, scale: 0.98 }}
-                                                    className="border-b transition-colors hover:bg-muted/40 group"
+                                                    className="border-b dark:border-zinc-800 transition-colors hover:bg-muted/40 dark:hover:bg-zinc-800/30 group text-foreground dark:text-zinc-300"
                                                 >
                                                     <td className="p-4 align-middle">
                                                         <div className="flex flex-col max-w-[250px]">
-                                                            <span className="font-semibold truncate" title={product.name}>{product.name}</span>
-                                                            <span className="text-xs text-muted-foreground font-mono">{product.sku || 'N/A'}</span>
+                                                            <span className="font-semibold truncate text-foreground dark:text-white" title={product.name}>{product.name}</span>
+                                                            <span className="text-xs text-muted-foreground dark:text-zinc-500 font-mono">{product.sku || 'N/A'}</span>
                                                         </div>
                                                     </td>
                                                     <td className="p-4 align-middle hidden lg:table-cell">
-                                                        <Badge variant="outline" className="bg-primary/5 border-primary/10">
+                                                        <Badge variant="outline" className="bg-primary/5 dark:bg-primary/10 border-primary/10 dark:border-primary/20 text-foreground dark:text-zinc-300">
                                                             {product.category?.name || 'Uncategorized'}
                                                         </Badge>
                                                     </td>
@@ -519,7 +519,7 @@ export default function ProductsIndex() {
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     onClick={() => openEditModal(product)}
-                                                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                    className="h-8 w-8 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                                                                 >
                                                                     <FiEdit2 className="size-4" />
                                                                 </Button>
@@ -545,7 +545,7 @@ export default function ProductsIndex() {
                         </div>
 
                         {/* Pagination Controls */}
-                        <div className="p-4 bg-muted/5 border-t flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="p-4 bg-muted/5 dark:bg-zinc-800/10 border-t dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Show</span>
@@ -553,7 +553,7 @@ export default function ProductsIndex() {
                                         setItemsPerPage(Number(val));
                                         setCurrentPage(1);
                                     }}>
-                                        <SelectTrigger className="w-[70px] h-8 rounded-lg border-none bg-background shadow-sm font-bold text-xs ring-1 ring-muted">
+                                    <SelectTrigger className="w-[70px] h-8 rounded-lg border-none bg-background dark:bg-zinc-900 shadow-sm font-bold text-xs ring-1 ring-muted dark:ring-zinc-800">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-lg border-none shadow-2xl min-w-[70px]">

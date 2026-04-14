@@ -246,13 +246,13 @@ export default function InventoryIndex() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Inventory Catalog" />
       <TooltipProvider>
-        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-muted/20">
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
 
           {/* ── Header Bar ──────────────────────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Inventory Catalog</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground dark:text-white">Inventory Catalog</h1>
+              <p className="text-sm text-muted-foreground dark:text-zinc-400">
                 Global ingredients with per-branch stock levels. One ingredient = one record.
               </p>
             </div>
@@ -274,12 +274,12 @@ export default function InventoryIndex() {
                 </Select>
               )}
               <div className="relative w-full sm:w-64">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground dark:text-zinc-500" />
                 <Input
                   placeholder="Search ingredient or branch..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="pl-9 h-10 bg-muted/50 focus:bg-background transition-colors"
+                  className="pl-9 h-10 bg-muted/50 dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-colors border-none ring-1 ring-border dark:ring-zinc-700"
                 />
               </div>
               <Select value={filterUnit} onValueChange={setFilterUnit}>
@@ -306,46 +306,46 @@ export default function InventoryIndex() {
 
             {/* Stats */}
             <div className="grid gap-4 md:grid-cols-3 flex-shrink-0">
-              <Card className="bg-primary/5 border-primary/20 shadow-sm">
+              <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">
                     Global Ingredients
                   </CardTitle>
-                  <FiPackage className="size-4 text-primary" />
+                  <FiPackage className="size-4 text-primary dark:text-primary-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-black">{stats.total}</div>
+                  <div className="text-2xl font-black text-foreground dark:text-white">{stats.total}</div>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Unique ingredients</p>
                 </CardContent>
               </Card>
-              <Card className="bg-amber-500/5 border-amber-500/20 shadow-sm">
+              <Card className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Low Stock</CardTitle>
+                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Low Stock</CardTitle>
                   <FiAlertTriangle className="size-4 text-amber-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-black text-amber-600">{stats.low_stock}</div>
+                  <div className="text-2xl font-black text-amber-600 dark:text-amber-500">{stats.low_stock}</div>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Branch rows low</p>
                 </CardContent>
               </Card>
-              <Card className="bg-destructive/5 border-destructive/20 shadow-sm">
+              <Card className="bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Out of Stock</CardTitle>
+                  <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Out of Stock</CardTitle>
                   <FiSlash className="size-4 text-destructive" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-black text-destructive">{stats.out_of_stock}</div>
+                  <div className="text-2xl font-black text-destructive dark:text-red-500">{stats.out_of_stock}</div>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Branch rows depleted</p>
                 </CardContent>
               </Card>
             </div>
 
             {/* ── Table — Option A: Ingredient | Branch | Stock ─────────── */}
-            <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 flex-shrink min-h-0">
+            <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 dark:ring-white/5 bg-card dark:bg-zinc-900/50 flex-shrink min-h-0">
               <div className="flex-1 overflow-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-muted/50">
+                    <tr className="border-b dark:border-zinc-800 bg-muted/50 dark:bg-zinc-800/50">
                       <th className="h-12 px-4 w-10"></th>
                       {[
                         { label: 'Ingredient', key: 'name' },
@@ -355,7 +355,7 @@ export default function InventoryIndex() {
                         { label: 'Status', key: null },
                         { label: 'Actions', key: null },
                       ].map((col, idx) => (
-                        <th key={idx} className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                        <th key={idx} className="h-12 px-4 text-left align-middle font-medium text-muted-foreground dark:text-zinc-500">
                           {col.key ? (
                             <button
                               onClick={() => toggleSort(col.key!)}
@@ -395,8 +395,8 @@ export default function InventoryIndex() {
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
                               className={cn(
-                                'border-b transition-colors hover:bg-muted/40 group cursor-pointer',
-                                isExpanded ? 'bg-primary/5' : ''
+                                'border-b dark:border-zinc-800 transition-colors hover:bg-muted/40 dark:hover:bg-zinc-800/30 group cursor-pointer text-foreground dark:text-zinc-200',
+                                isExpanded ? 'bg-primary/5 dark:bg-primary/10' : ''
                               )}
                               onClick={() => setExpandedRowKey(isExpanded ? null : key)}
                             >
@@ -486,13 +486,13 @@ export default function InventoryIndex() {
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              className="bg-muted/30"
+                              className="bg-muted/30 dark:bg-zinc-800/40"
                             >
                               <td colSpan={7} className="p-0 overflow-hidden">
-                                <div className="px-12 py-5 grid grid-cols-1 md:grid-cols-4 gap-6 border-b border-dashed border-primary/20">
+                                <div className="px-12 py-5 grid grid-cols-1 md:grid-cols-4 gap-6 border-b border-dashed border-primary/20 dark:border-primary/40">
                                   <div className="flex flex-col gap-1">
-                                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Ingredient ID</span>
-                                    <span className="font-mono text-xs font-semibold bg-background px-2 py-1 rounded border w-fit">
+                                    <span className="text-[10px] font-bold uppercase text-muted-foreground dark:text-zinc-500">Ingredient ID</span>
+                                    <span className="font-mono text-xs font-semibold bg-background dark:bg-zinc-900 px-2 py-1 rounded border dark:border-zinc-800 w-fit text-foreground dark:text-zinc-300">
                                       #ING-{item.id.toString().padStart(4, '0')}
                                     </span>
                                   </div>
@@ -528,7 +528,7 @@ export default function InventoryIndex() {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Show</span>
                     <Select value={String(itemsPerPage)} onValueChange={val => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
-                      <SelectTrigger className="w-[70px] h-8 rounded-lg border-none bg-background shadow-sm font-bold text-xs ring-1 ring-muted">
+                      <SelectTrigger className="w-[70px] h-8 rounded-lg border-none bg-background dark:bg-zinc-900 shadow-sm font-bold text-xs ring-1 ring-muted dark:ring-zinc-800">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

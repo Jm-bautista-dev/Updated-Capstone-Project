@@ -132,30 +132,30 @@ export default function SalesIndex() {
         <AppLayout breadcrumbs={[{ title: 'Sales & Orders', href: '/sales' }]}>
             <Head title="Sales & Orders" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Bar */}
-                <div className="h-16 border-b bg-background/50 backdrop-blur-md px-6 flex items-center justify-between flex-shrink-0">
+                <div className="h-16 border-b dark:border-zinc-800 bg-background/50 dark:bg-zinc-900/50 backdrop-blur-md px-6 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
-                            <FiShoppingCart className="text-primary" />
+                        <h1 className="text-xl font-black tracking-tight flex items-center gap-2 text-foreground dark:text-white">
+                            <FiShoppingCart className="text-primary dark:text-primary-foreground" />
                             Sales & Orders
                         </h1>
-                        <div className="flex items-center bg-muted/50 rounded-lg p-1">
+                        <div className="flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-lg p-1">
                             <button
                                 onClick={() => handleFilterChange('all')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'all' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'all' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
                             >All</button>
                             <button
                                 onClick={() => handleFilterChange('pending')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'pending' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'pending' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
                             >Pending</button>
                             <button
                                 onClick={() => handleFilterChange('preparing')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'preparing' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'preparing' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
                             >Preparing</button>
                             <button
                                 onClick={() => handleFilterChange('completed')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'completed' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'completed' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
                             >Completed</button>
                         </div>
                     </div>
@@ -163,7 +163,7 @@ export default function SalesIndex() {
                     <div className="flex items-center gap-3">
                         {isAdmin && (
                             <Select value={branchFilter} onValueChange={handleBranchFilter}>
-                                <SelectTrigger className="w-44 h-9 bg-background/50 border-none ring-1 ring-black/5">
+                                <SelectTrigger className="w-44 h-9 bg-background/50 dark:bg-zinc-800/50 border-none ring-1 ring-black/5 dark:ring-white/10 dark:text-zinc-300">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -175,10 +175,10 @@ export default function SalesIndex() {
                             </Select>
                         )}
                         <div className="relative">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
                             <Input
                                 placeholder="Search order ID..."
-                                className="pl-9 w-64 h-9 bg-background/50 border-none ring-1 ring-black/5"
+                                className="pl-9 w-64 h-9 bg-background/50 dark:bg-zinc-800/50 border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200"
                                 value={search}
                                 onChange={handleSearchChange}
                             />
@@ -193,53 +193,53 @@ export default function SalesIndex() {
                 <div className="flex-1 overflow-hidden p-6 flex flex-col gap-6">
                     {/* Stats Row */}
                     <div className="grid grid-cols-3 gap-4 flex-shrink-0">
-                        <Card className="bg-amber-500/5 border-amber-500/20 shadow-sm">
+                        <Card className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 shadow-sm">
                             <CardContent className="p-4 flex items-center gap-4">
-                                <div className="size-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                                    <FiClock className="text-amber-600 size-5" />
+                                <div className="size-10 rounded-full bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center">
+                                    <FiClock className="text-amber-600 dark:text-amber-500 size-5" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Pending Orders</p>
-                                    <p className="text-xl font-black">{stats.pending}</p>
+                                    <p className="text-[10px] font-bold uppercase text-muted-foreground dark:text-zinc-400 tracking-widest">Pending Orders</p>
+                                    <p className="text-xl font-black text-foreground dark:text-white">{stats.pending}</p>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="bg-blue-500/5 border-blue-500/20 shadow-sm">
+                        <Card className="bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30 shadow-sm">
                             <CardContent className="p-4 flex items-center gap-4">
-                                <div className="size-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                                    <FiAlertCircle className="text-blue-600 size-5" />
+                                <div className="size-10 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
+                                    <FiAlertCircle className="text-blue-600 dark:text-blue-500 size-5" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">In Preparation</p>
-                                    <p className="text-xl font-black">{stats.preparing}</p>
+                                    <p className="text-[10px] font-bold uppercase text-muted-foreground dark:text-zinc-400 tracking-widest">In Preparation</p>
+                                    <p className="text-xl font-black text-foreground dark:text-white">{stats.preparing}</p>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="bg-green-500/5 border-green-500/20 shadow-sm">
+                        <Card className="bg-green-500/5 dark:bg-green-500/10 border-green-500/20 dark:border-green-500/30 shadow-sm">
                             <CardContent className="p-4 flex items-center gap-4">
-                                <div className="size-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                                    <FiCheckCircle className="text-green-600 size-5" />
+                                <div className="size-10 rounded-full bg-green-500/10 dark:bg-green-500/20 flex items-center justify-center">
+                                    <FiCheckCircle className="text-green-600 dark:text-green-500 size-5" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Completed Today</p>
-                                    <p className="text-xl font-black">{stats.completed_today}</p>
+                                    <p className="text-[10px] font-bold uppercase text-muted-foreground dark:text-zinc-400 tracking-widest">Completed Today</p>
+                                    <p className="text-xl font-black text-foreground dark:text-white">{stats.completed_today}</p>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
                     {/* Orders Table */}
-                    <Card className="flex-1 overflow-hidden border-none shadow-xl ring-1 ring-black/5 flex flex-col">
+                    <Card className="flex-1 overflow-hidden border-none shadow-xl ring-1 ring-black/5 dark:ring-white/5 bg-card dark:bg-zinc-900/50 flex flex-col">
                         <div className="flex-1 overflow-auto">
                             <table className="w-full text-sm text-left border-collapse">
-                                <thead className="sticky top-0 bg-background/80 backdrop-blur-md z-10 border-b">
-                                    <tr className="bg-muted/30">
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Order Info</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Type</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Items</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Total</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center">Actions</th>
+                                <thead className="sticky top-0 bg-background/80 dark:bg-zinc-900/80 backdrop-blur-md z-10 border-b dark:border-zinc-800">
+                                    <tr className="bg-muted/30 dark:bg-zinc-800/50">
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Order Info</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Type</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Status</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right">Items</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right" >Total</th>
+                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -251,11 +251,11 @@ export default function SalesIndex() {
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
-                                                className="group hover:bg-muted/20 transition-colors"
+                                                className="group hover:bg-muted/20 dark:hover:bg-zinc-800/30 transition-colors border-b dark:border-zinc-800"
                                             >
                                                 <td className="px-6 py-4">
-                                                    <div className="font-black text-foreground">#{sale.order_number}</div>
-                                                    <div className="text-[11px] text-muted-foreground font-medium uppercase mt-1">
+                                                    <div className="font-black text-foreground dark:text-white">#{sale.order_number}</div>
+                                                    <div className="text-[11px] text-muted-foreground dark:text-zinc-500 font-medium uppercase mt-1">
                                                         {format(new Date(sale.created_at), 'MMM dd, HH:mm')} • {sale.cashier.name}
                                                     </div>
                                                 </td>
@@ -269,8 +269,8 @@ export default function SalesIndex() {
                                                     {sale.items.reduce((sum, i) => sum + i.quantity, 0)} items
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="font-black text-primary">{formatCurrency(sale.total)}</div>
-                                                    <div className="text-[9px] uppercase font-bold text-muted-foreground">{sale.payment_method}</div>
+                                                    <div className="font-black text-primary dark:text-primary-foreground">{formatCurrency(sale.total)}</div>
+                                                    <div className="text-[9px] uppercase font-bold text-muted-foreground dark:text-zinc-500">{sale.payment_method}</div>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <div className="flex items-center justify-center gap-2">
@@ -280,7 +280,7 @@ export default function SalesIndex() {
                                                             </Button>
                                                         )}
                                                         {sale.status === 'preparing' && (
-                                                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase tracking-wider bg-green-500/5 text-green-600 border-green-500/20 hover:bg-green-500/10" onClick={() => updateStatus(sale.id, 'completed')}>
+                                                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase tracking-wider bg-green-500/5 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20 dark:border-green-500/30 hover:bg-green-500/10 dark:hover:bg-green-500/20" onClick={() => updateStatus(sale.id, 'completed')}>
                                                                 Complete
                                                             </Button>
                                                         )}
@@ -298,7 +298,7 @@ export default function SalesIndex() {
 
                         {/* Pagination Placeholder */}
                         {paginatedSales.total > paginatedSales.per_page && (
-                            <div className="p-4 border-t flex justify-between items-center bg-muted/10">
+                            <div className="p-4 border-t dark:border-zinc-800 flex justify-between items-center bg-muted/10 dark:bg-zinc-800/10">
                                 <p className="text-xs text-muted-foreground font-medium">Showing {paginatedSales.from} to {paginatedSales.to} of {paginatedSales.total} orders</p>
                                 <div className="flex gap-2">
                                     <Button

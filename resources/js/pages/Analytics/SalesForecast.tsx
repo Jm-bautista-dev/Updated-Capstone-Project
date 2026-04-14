@@ -97,24 +97,24 @@ export default function SalesForecast() {
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Sales Forecast (AI)', href: '#' }]}>
             <Head title="AI-Powered Sales Forecasting" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/30">
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Section */}
-                <div className="bg-white border-b px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                            <FiTarget className="text-indigo-600" />
-                            AI Sales Forecasting (Regression)
+                        <h1 className="text-2xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
+                            <FiTarget className="text-primary dark:text-primary-foreground" />
+                            AI Sales Forecasting
                         </h1>
-                        <p className="text-sm text-slate-500 font-medium mt-1">
+                        <p className="text-sm text-muted-foreground dark:text-zinc-500 font-medium mt-1">
                             Linear regression modeling for trend detection and multi-day revenue projection.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-                            <FiCalendar className="text-slate-400 ml-2 size-4" />
+                        <div className="flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-xl p-1 gap-1">
+                            <FiCalendar className="text-muted-foreground dark:text-zinc-500 ml-2 size-4" />
                             <Select value={String(days)} onValueChange={(val) => { setDays(val); handleFilterChange('days', val); }}>
-                                <SelectTrigger className="w-32 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight">
+                                <SelectTrigger className="w-32 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-foreground dark:text-zinc-300">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -126,10 +126,10 @@ export default function SalesForecast() {
                             </Select>
                         </div>
 
-                        <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-                            <FiFilter className="text-slate-400 ml-2 size-4" />
+                        <div className="flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-xl p-1 gap-1">
+                            <FiFilter className="text-muted-foreground dark:text-zinc-500 ml-2 size-4" />
                             <Select value={branchId} onValueChange={(val) => { setBranchId(val); handleFilterChange('branch_id', val); }}>
-                                <SelectTrigger className="w-44 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight">
+                                <SelectTrigger className="w-44 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-foreground dark:text-zinc-300">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -146,7 +146,7 @@ export default function SalesForecast() {
                 {/* Main Content */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     {error && (
-                        <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 rounded-2xl">
+                        <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400 rounded-2xl">
                             <FiInfo className="size-5" />
                             <AlertTitle className="font-black uppercase tracking-widest text-[10px] mb-1">Model Training Failed</AlertTitle>
                             <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
@@ -155,14 +155,14 @@ export default function SalesForecast() {
 
                     {!error && (
                         <>
-                            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                                 {/* Tomorrow Prediction */}
-                                <Card className="bg-indigo-600 text-white shadow-xl shadow-indigo-100 border-none relative overflow-hidden">
+                                <Card className="bg-primary dark:bg-primary-foreground/10 text-white dark:text-primary-foreground shadow-xl shadow-primary/10 dark:shadow-none border-none relative overflow-hidden">
                                     <div className="absolute -right-8 -top-8 size-32 bg-white/10 rounded-full blur-2xl" />
                                     <CardHeader className="pb-2">
-                                        <Badge className="bg-white/20 text-white border-none font-black uppercase text-[9px] w-fit mb-2">Tomorrow</Badge>
-                                        <CardDescription className="text-indigo-100 font-bold text-[10px] uppercase tracking-widest">Expected Revenue</CardDescription>
-                                        <CardTitle className="text-4xl font-black tabular-nums">
+                                        <Badge className="bg-white/20 dark:bg-white/30 text-white border-none font-black uppercase text-[9px] w-fit mb-2">Tomorrow</Badge>
+                                        <CardDescription className="text-primary-foreground/70 font-bold text-[10px] uppercase tracking-widest">Expected Revenue</CardDescription>
+                                        <CardTitle className="text-4xl font-black tabular-nums transition-colors">
                                             {formatCurrency(prediction)}
                                         </CardTitle>
                                     </CardHeader>
@@ -174,7 +174,7 @@ export default function SalesForecast() {
                                             )}>
                                                 {trend?.type === 'upward' ? <FiTrendingUp className="size-3 text-emerald-400" /> : <FiTrendingDown className="size-3 text-red-400" />}
                                             </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-primary-foreground/70">
                                                 {trend?.type} Trend
                                             </span>
                                         </div>
@@ -182,17 +182,17 @@ export default function SalesForecast() {
                                 </Card>
 
                                 {/* Trend Analysis */}
-                                <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                                <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                                     <CardContent className="p-6">
-                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Growth Slope</p>
-                                        <h3 className={cn("text-2xl font-black", trend?.slope >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest mb-1">Growth Slope</p>
+                                        <h3 className={cn("text-2xl font-black transition-colors", trend?.slope >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive dark:text-red-500")}>
                                             {trend?.slope >= 0 ? '+' : ''}{formatCurrency(trend?.slope)}
-                                            <span className="text-xs font-bold text-slate-400 ml-1.5 whitespace-nowrap">/ day avg</span>
+                                            <span className="text-xs font-bold text-muted-foreground dark:text-zinc-600 ml-1.5 whitespace-nowrap">/ day avg</span>
                                         </h3>
                                         <div className="mt-4 flex items-center gap-1.5">
                                             <Badge variant="outline" className={cn(
                                                 "border-none font-black text-[10px] uppercase",
-                                                trend?.percentage >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                                                trend?.percentage >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-destructive/10 text-destructive"
                                             )}>
                                                 {trend?.percentage > 0 ? '+' : ''}{trend?.percentage}% velocity
                                             </Badge>
@@ -201,25 +201,25 @@ export default function SalesForecast() {
                                 </Card>
 
                                 {/* Multi-day Summary */}
-                                <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-slate-200 overflow-hidden">
+                                <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden">
                                     <div className="flex h-full">
-                                        <div className="flex-1 p-6 border-r text-center">
-                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">7-Day Sum Forecast</p>
-                                            <h4 className="text-2xl font-black text-slate-900">
+                                        <div className="flex-1 p-6 border-r dark:border-zinc-800 text-center">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest mb-1">7-Day Sum Forecast</p>
+                                            <h4 className="text-2xl font-black text-foreground dark:text-white transition-colors">
                                                 {formatCurrency(forecast.reduce((a, b) => a + b.predicted, 0))}
                                             </h4>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Projected Weekly Revenue</p>
+                                            <p className="text-[9px] font-bold text-muted-foreground dark:text-zinc-600 uppercase mt-1">Projected Weekly Revenue</p>
                                         </div>
-                                        <div className="flex-1 p-6 bg-slate-50/50 flex flex-col justify-center">
+                                        <div className="flex-1 p-6 bg-muted/30 dark:bg-zinc-800/50 flex flex-col justify-center">
                                             <div className="space-y-3">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase">Model accuracy</span>
-                                                    <span className="text-xs font-black text-indigo-600">88.4%</span>
+                                                    <span className="text-[10px] font-black text-muted-foreground dark:text-zinc-500 uppercase">Model accuracy</span>
+                                                    <span className="text-xs font-black text-primary dark:text-primary-foreground">88.4%</span>
                                                 </div>
-                                                <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                                    <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: '88%' }}></div>
+                                                <div className="w-full bg-muted dark:bg-zinc-700 rounded-full h-1.5">
+                                                    <div className="bg-primary h-1.5 rounded-full" style={{ width: '88%' }}></div>
                                                 </div>
-                                                <p className="text-[9px] italic text-slate-400">Based on historical variance analysis.</p>
+                                                <p className="text-[9px] italic text-muted-foreground dark:text-zinc-600">Based on historical variance analysis.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -228,18 +228,18 @@ export default function SalesForecast() {
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                 {/* Regression Chart */}
-                                <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-slate-200">
-                                    <CardHeader className="bg-white border-b px-6 py-4">
+                                <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
+                                    <CardHeader className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4">
                                         <div className="flex items-center justify-between">
-                                            <CardTitle className="text-sm font-black uppercase tracking-widest">Regression Model Visualization</CardTitle>
+                                            <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground dark:text-white">Regression Model Visualization</CardTitle>
                                             <div className="flex items-center gap-4">
                                                 <div className="flex items-center gap-1.5">
-                                                    <div className="size-2 rounded-full bg-slate-200" />
-                                                    <span className="text-[9px] font-bold uppercase text-slate-400">Past</span>
+                                                    <div className="size-2 rounded-full bg-muted dark:bg-zinc-700" />
+                                                    <span className="text-[9px] font-bold uppercase text-muted-foreground dark:text-zinc-500">Past</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
-                                                    <div className="size-2 rounded-full bg-indigo-500" />
-                                                    <span className="text-[9px] font-bold uppercase text-slate-400">Prediction</span>
+                                                    <div className="size-2 rounded-full bg-primary" />
+                                                    <span className="text-[9px] font-bold uppercase text-muted-foreground dark:text-zinc-500">Prediction</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -250,14 +250,15 @@ export default function SalesForecast() {
                                                 <ComposedChart data={chartData}>
                                                     <defs>
                                                         <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.1}/>
-                                                            <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
+                                                            <stop offset="5%" stopColor="currentColor" stopOpacity={0.1} className="text-muted-foreground" />
+                                                            <stop offset="95%" stopColor="currentColor" stopOpacity={0} className="text-muted-foreground" />
                                                         </linearGradient>
                                                     </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
                                                     <XAxis
                                                         dataKey="date"
-                                                        stroke="#94a3b8"
+                                                        stroke="currentColor"
+                                                        className="text-muted-foreground dark:text-zinc-600"
                                                         fontSize={10}
                                                         fontWeight="bold"
                                                         axisLine={false}
@@ -265,7 +266,8 @@ export default function SalesForecast() {
                                                         minTickGap={30}
                                                     />
                                                     <YAxis
-                                                        stroke="#94a3b8"
+                                                        stroke="currentColor"
+                                                        className="text-muted-foreground dark:text-zinc-600"
                                                         fontSize={10}
                                                         fontWeight="bold"
                                                         axisLine={false}
@@ -277,16 +279,16 @@ export default function SalesForecast() {
                                                             if (active && payload && payload.length) {
                                                                 const data = payload[0].payload;
                                                                 return (
-                                                                    <div className="bg-white p-4 shadow-2xl rounded-2xl border border-slate-100 ring-1 ring-black/5">
-                                                                        <p className="text-[10px] font-black uppercase text-slate-400 mb-2">{data.date}</p>
+                                                                    <div className="bg-background dark:bg-zinc-900 p-4 shadow-2xl rounded-2xl border dark:border-zinc-800 ring-1 ring-black/5 dark:ring-white/5">
+                                                                        <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 mb-2">{data.date}</p>
                                                                         <div className="space-y-1.5">
                                                                             {data.actual !== null && (
-                                                                                <p className="text-sm font-black text-slate-700">
+                                                                                <p className="text-sm font-black text-foreground dark:text-zinc-300">
                                                                                     Actual: {formatCurrency(data.actual)}
                                                                                 </p>
                                                                             )}
                                                                             {data.predicted !== null && (
-                                                                                <p className="text-sm font-black text-indigo-600">
+                                                                                <p className="text-sm font-black text-primary dark:text-primary-foreground">
                                                                                     Forecast: {formatCurrency(data.predicted)}
                                                                                 </p>
                                                                             )}
@@ -300,7 +302,8 @@ export default function SalesForecast() {
                                                     <Area
                                                         type="monotone"
                                                         dataKey="actual"
-                                                        stroke="#94a3b8"
+                                                        stroke="currentColor"
+                                                        className="text-muted-foreground dark:text-zinc-600"
                                                         strokeWidth={2}
                                                         fillOpacity={1}
                                                         fill="url(#colorActual)"
@@ -309,12 +312,13 @@ export default function SalesForecast() {
                                                     <Line
                                                         type="stepAfter"
                                                         dataKey="predicted"
-                                                        stroke="#6366f1"
+                                                        stroke="currentColor"
+                                                        className="text-primary dark:text-primary-foreground"
                                                         strokeWidth={3}
-                                                        dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }}
+                                                        dot={{ r: 4, fill: 'currentColor', strokeWidth: 2, stroke: 'currentColor' }}
                                                         animationDuration={2000}
                                                     />
-                                                    <ReferenceLine x={format(new Date(historical[historical.length-1].date), 'MMM d')} stroke="#94a3b8" strokeDasharray="3 3" />
+                                                    <ReferenceLine x={format(new Date(historical[historical.length-1].date), 'MMM d')} stroke="currentColor" className="text-muted/20 dark:text-zinc-800" strokeDasharray="3 3" />
                                                 </ComposedChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -322,41 +326,41 @@ export default function SalesForecast() {
                                 </Card>
 
                                 {/* 7-Day Forecast Table */}
-                                <Card className="border-none shadow-sm ring-1 ring-slate-200 overflow-hidden">
-                                    <CardHeader className="bg-slate-50 border-b">
-                                        <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                                            <FiCalendar className="text-indigo-600" />
+                                <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden">
+                                    <CardHeader className="bg-muted/30 dark:bg-zinc-900 border-b dark:border-zinc-800">
+                                        <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground dark:text-white flex items-center gap-2">
+                                            <FiCalendar className="text-primary dark:text-primary-foreground" />
                                             7-Day Forecast Grid
                                         </CardTitle>
                                     </CardHeader>
                                     <div className="overflow-hidden">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-white border-b">
+                                            <thead className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800">
                                                 <tr>
-                                                    <th className="px-6 py-4 font-black uppercase tracking-widest text-[9px] text-slate-400">Schedule</th>
-                                                    <th className="px-6 py-4 font-black uppercase tracking-widest text-[9px] text-slate-400 text-right">Projected Revenue</th>
+                                                    <th className="px-6 py-4 font-black uppercase tracking-widest text-[9px] text-muted-foreground dark:text-zinc-500">Schedule</th>
+                                                    <th className="px-6 py-4 font-black uppercase tracking-widest text-[9px] text-muted-foreground dark:text-zinc-500 text-right">Projected Revenue</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100">
+                                            <tbody className="divide-y divide-border dark:divide-zinc-800">
                                                 {forecast.map((f, i) => (
-                                                    <tr key={i} className="hover:bg-slate-50 transition-colors group">
+                                                    <tr key={i} className="hover:bg-muted/30 dark:hover:bg-zinc-800/30 transition-colors group">
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="size-2 rounded-full bg-indigo-500 group-hover:scale-125 transition-transform" />
-                                                                <span className="font-bold text-slate-700">{format(new Date(f.date), 'EEE, MMM d')}</span>
+                                                                <div className="size-2 rounded-full bg-primary group-hover:scale-125 transition-transform" />
+                                                                <span className="font-bold text-foreground dark:text-zinc-200 transition-colors">{format(new Date(f.date), 'EEE, MMM d')}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <span className="font-black text-indigo-600">{formatCurrency(f.predicted)}</span>
+                                                            <span className="font-black text-primary dark:text-primary-foreground transition-colors">{formatCurrency(f.predicted)}</span>
                                                         </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
-                                        <div className="p-6 bg-indigo-50/50 border-t">
+                                        <div className="p-6 bg-primary/5 dark:bg-primary/10 border-t dark:border-zinc-800">
                                             <div className="flex items-start gap-3">
-                                                <FiZap className="text-indigo-600 mt-1 size-4 flex-shrink-0" />
-                                                <p className="text-[10px] text-indigo-700/80 font-bold leading-relaxed">
+                                                <FiZap className="text-primary dark:text-primary-foreground mt-1 size-4 flex-shrink-0" />
+                                                <p className="text-[10px] text-primary dark:text-primary-foreground font-bold leading-relaxed opacity-80">
                                                     Predictions based on Linear Regression models which adapt better to persistent market trends than arithmetic averages.
                                                 </p>
                                             </div>

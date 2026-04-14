@@ -67,24 +67,24 @@ export default function RestockSuggestions() {
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Restock Suggestions', href: '#' }]}>
             <Head title="Prescriptive Restock Suggestions" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-50/30">
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Section */}
-                <div className="bg-white border-b px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                            <FiBox className="text-emerald-600" />
+                        <h1 className="text-2xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
+                            <FiBox className="text-emerald-500 dark:text-emerald-400" />
                             Prescriptive Restock AI
                         </h1>
-                        <p className="text-sm text-slate-500 font-medium mt-1">
+                        <p className="text-sm text-muted-foreground dark:text-zinc-500 font-medium mt-1">
                             Algorithmically generated restocking plans based on forecasted demand.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-emerald-50 rounded-xl p-1 gap-1 border border-emerald-100">
-                            <FiFilter className="text-emerald-600 ml-2 size-4" />
+                        <div className="flex items-center bg-emerald-50/50 dark:bg-emerald-500/10 rounded-xl p-1 gap-1 border border-emerald-100 dark:border-emerald-500/20">
+                            <FiFilter className="text-emerald-600 dark:text-emerald-400 ml-2 size-4" />
                             <Select value={branchId} onValueChange={(val) => { setBranchId(val); handleFilterChange('branch_id', val); }}>
-                                <SelectTrigger className="w-56 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-emerald-900">
+                                <SelectTrigger className="w-56 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-emerald-900 dark:text-emerald-200">
                                     <SelectValue placeholder="Select Branch" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -100,7 +100,7 @@ export default function RestockSuggestions() {
                 {/* Main Content */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     {error && (
-                        <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 rounded-2xl">
+                        <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400 rounded-2xl">
                             <FiAlertTriangle className="size-5" />
                             <AlertTitle className="font-black uppercase tracking-widest text-[10px] mb-1">Intelligence Gap</AlertTitle>
                             <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
@@ -109,9 +109,9 @@ export default function RestockSuggestions() {
 
                     {!error && (
                         <>
-                           {/* Info Alert */}
-                            <Alert className="bg-indigo-50 border-indigo-100 text-indigo-900 rounded-2xl mb-2">
-                                <FiInfo className="size-5 text-indigo-600" />
+                            {/* Info Alert */}
+                            <Alert className="bg-primary/5 dark:bg-primary/20 border-primary/20 dark:border-primary/30 text-primary dark:text-primary-foreground rounded-2xl mb-2">
+                                <FiInfo className="size-5 text-primary dark:text-white" />
                                 <AlertTitle className="font-black uppercase tracking-widest text-[10px] mb-1">AI Context</AlertTitle>
                                 <AlertDescription className="text-xs font-semibold">
                                     Predictions are optimized for tomorrow's forecasted sales of <strong>{Math.round(tomorrow_forecast)} units</strong> across all branch-specific recipes.
@@ -121,78 +121,78 @@ export default function RestockSuggestions() {
 
                             {/* Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                                <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
-                                            <div className="size-11 rounded-2xl bg-orange-50 flex items-center justify-center">
-                                                <FiShoppingCart className="text-orange-600 size-5" />
+                                            <div className="size-11 rounded-2xl bg-orange-500/10 flex items-center justify-center">
+                                                <FiShoppingCart className="text-orange-600 dark:text-orange-500 size-5" />
                                             </div>
-                                            <Badge className="bg-orange-50 text-orange-700 border-none font-black text-[9px] uppercase tracking-tighter">Action Required</Badge>
+                                            <Badge className="bg-orange-500/10 text-orange-700 dark:text-orange-500 border-none font-black text-[9px] uppercase tracking-tighter">Action Required</Badge>
                                         </div>
                                         <div className="mt-4">
-                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ingredients to Restock</p>
-                                            <h3 className="text-3xl font-black text-slate-900">{stats.totalToRestock} <span className="text-sm font-bold text-slate-400">items</span></h3>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">Ingredients to Restock</p>
+                                            <h3 className="text-3xl font-black text-foreground dark:text-white">{stats.totalToRestock} <span className="text-sm font-bold text-muted-foreground">items</span></h3>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                                <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
-                                            <div className="size-11 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                                                <FiTrendingUp className="text-emerald-600 size-5" />
+                                            <div className="size-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                                                <FiTrendingUp className="text-emerald-600 dark:text-emerald-500 size-5" />
                                             </div>
-                                            <Badge className="bg-emerald-50 text-emerald-700 border-none font-black text-[9px] uppercase tracking-tighter">Est. Investment</Badge>
+                                            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-none font-black text-[9px] uppercase tracking-tighter">Est. Investment</Badge>
                                         </div>
                                         <div className="mt-4">
-                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Estimated Cost</p>
-                                            <h3 className="text-3xl font-black text-slate-900">{formatCurrency(stats.totalEstimatedCost)}</h3>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">Estimated Cost</p>
+                                            <h3 className="text-3xl font-black text-foreground dark:text-white">{formatCurrency(stats.totalEstimatedCost)}</h3>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                                <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                                     <CardContent className="p-6">
                                         <div className="flex items-center justify-between">
-                                            <div className="size-11 rounded-2xl bg-rose-50 flex items-center justify-center">
-                                                <FiAlertCircle className="text-rose-600 size-5" />
+                                            <div className="size-11 rounded-2xl bg-destructive/10 flex items-center justify-center">
+                                                <FiAlertCircle className="text-destructive dark:text-red-500 size-5" />
                                             </div>
-                                            <Badge className="bg-rose-50 text-rose-700 border-none font-black text-[9px] uppercase tracking-tighter">System Health</Badge>
+                                            <Badge className="bg-destructive/10 text-destructive dark:text-red-500 border-none font-black text-[9px] uppercase tracking-tighter">System Health</Badge>
                                         </div>
                                         <div className="mt-4">
-                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Critical Shortages</p>
-                                            <h3 className="text-3xl font-black text-rose-600">{stats.criticalItems} <span className="text-sm font-bold text-rose-300">items</span></h3>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">Critical Shortages</p>
+                                            <h3 className="text-3xl font-black text-destructive dark:text-red-500">{stats.criticalItems} <span className="text-sm font-bold text-destructive/50">items</span></h3>
                                         </div>
                                     </CardContent>
                                 </Card>
                             </div>
 
                             {/* Suggestions Table */}
-                            <Card className="border-none shadow-sm ring-1 ring-slate-200 overflow-hidden">
-                                <CardHeader className="bg-white border-b px-8 py-4">
+                            <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden">
+                                <CardHeader className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-8 py-4">
                                     <div className="flex items-center justify-between">
-                                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                                            <FiArrowRight className="text-emerald-600" />
+                                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-foreground dark:text-white">
+                                            <FiArrowRight className="text-emerald-600 dark:text-emerald-400" />
                                             Restructuring Recommendation Grid
                                         </CardTitle>
-                                        <Button variant="outline" size="sm" className="h-9 rounded-xl border-slate-200 font-bold text-[10px] uppercase tracking-widest bg-white">
+                                        <Button variant="outline" size="sm" className="h-9 rounded-xl border-border dark:border-zinc-800 font-bold text-[10px] uppercase tracking-widest bg-background dark:bg-zinc-950 dark:hover:bg-zinc-900 text-foreground dark:text-zinc-300">
                                             Export Purchase List
                                         </Button>
                                     </div>
                                 </CardHeader>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
-                                        <thead className="bg-slate-50 border-b">
+                                        <thead className="bg-muted/30 dark:bg-zinc-800/50 border-b dark:border-zinc-800">
                                             <tr>
-                                                <th className="px-8 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400">Ingredient / Metric</th>
-                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400">Current Stock</th>
-                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-center">Predicted Consumption</th>
-                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-right">Suggested Restock</th>
-                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-right">Est. Cost</th>
-                                                <th className="px-8 py-4 font-black uppercase tracking-widest text-[10px] text-slate-400 text-right">Urgency</th>
+                                                <th className="px-8 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500">Ingredient / Metric</th>
+                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500">Current Stock</th>
+                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-center">Predicted Consumption</th>
+                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-right">Suggested Restock</th>
+                                                <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-right">Est. Cost</th>
+                                                <th className="px-8 py-4 font-black uppercase tracking-widest text-[10px] text-muted-foreground dark:text-zinc-500 text-right">Urgency</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100 bg-white">
+                                        <tbody className="divide-y divide-border dark:divide-zinc-800 bg-card dark:bg-zinc-900/50">
                                             {suggestions.map((s: Suggestion, i: number) => (
                                                 <motion.tr
                                                     key={s.ingredient_id}
@@ -203,19 +203,19 @@ export default function RestockSuggestions() {
                                                 >
                                                     <td className="px-8 py-5">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="size-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500 text-xs">
+                                                            <div className="size-10 rounded-xl bg-muted dark:bg-zinc-800 flex items-center justify-center font-black text-muted-foreground dark:text-zinc-500 text-xs text-foreground dark:text-zinc-300">
                                                                 {s.name.charAt(0)}
                                                             </div>
                                                             <div>
-                                                                <p className="font-black text-slate-900 leading-tight">{s.name}</p>
-                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">ID: #ING-00{s.ingredient_id}</p>
+                                                                <p className="font-black text-foreground dark:text-white leading-tight">{s.name}</p>
+                                                                <p className="text-[10px] font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest mt-0.5">ID: #ING-00{s.ingredient_id}</p>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-5">
                                                        <div className="space-y-1">
-                                                            <span className="font-mono font-black text-slate-700">{s.current_stock} {s.unit}</span>
-                                                            <div className="w-20 bg-slate-100 h-1 rounded-full overflow-hidden">
+                                                            <span className="font-mono font-black text-foreground dark:text-zinc-300">{s.current_stock} {s.unit}</span>
+                                                            <div className="w-20 bg-muted dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
                                                                 <div 
                                                                     className={cn(
                                                                         "h-full rounded-full transition-all",
@@ -227,25 +227,25 @@ export default function RestockSuggestions() {
                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-5 text-center">
-                                                        <Badge variant="outline" className="font-black text-[10px] border-slate-200 bg-white shadow-sm">
+                                                        <Badge variant="outline" className="font-black text-[10px] border-border dark:border-zinc-800 bg-background dark:bg-zinc-900 shadow-sm text-foreground dark:text-zinc-300">
                                                             {s.predicted_usage} {s.unit}
                                                         </Badge>
                                                     </td>
-                                                    <td className="px-6 py-5 text-right font-black text-indigo-600">
+                                                    <td className="px-6 py-5 text-right font-black text-primary dark:text-primary-foreground">
                                                        <div className="flex items-center justify-end gap-1.5">
                                                             <FiPlusCircle className="size-3" />
                                                             {s.suggested_restock} {s.unit}
                                                        </div>
                                                     </td>
-                                                    <td className="px-6 py-5 text-right font-black text-slate-900 tabular-nums">
+                                                    <td className="px-6 py-5 text-right font-black text-foreground dark:text-zinc-100 tabular-nums">
                                                         {formatCurrency(s.estimated_cost)}
                                                     </td>
                                                     <td className="px-8 py-5 text-right">
                                                         <Badge className={cn(
                                                             "font-black text-[9px] uppercase tracking-widest rounded-lg px-2 py-1",
-                                                            s.status === 'Safe' ? "bg-emerald-50 text-emerald-700" :
-                                                            s.status === 'Warning' ? "bg-amber-50 text-amber-700" :
-                                                            "bg-rose-50 text-rose-700"
+                                                            s.status === 'Safe' ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                                            s.status === 'Warning' ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                                            "bg-destructive/10 text-destructive"
                                                         )}>
                                                             {s.status}
                                                         </Badge>
@@ -271,23 +271,23 @@ export default function RestockSuggestions() {
 
                             {/* Additional Intelligence Panel */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <Card className="border-none shadow-sm ring-1 ring-slate-200">
+                                <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
                                     <CardHeader>
-                                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                                            <FiShield className="text-indigo-600" />
+                                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-foreground dark:text-white">
+                                            <FiShield className="text-primary dark:text-primary-foreground" />
                                             Risk Mitigation Protocol
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                                        <p className="text-xs text-muted-foreground dark:text-zinc-500 leading-relaxed font-medium">
                                             The system has identified <strong>{stats.criticalItems} critical shortages</strong> that may lead to order fulfillment failures tomorrow. 
                                             We recommend immediate restocking of these items to maintain a 100% service level.
                                         </p>
                                         <div className="flex gap-2">
-                                            <Button className="flex-1 bg-slate-900 hover:bg-black h-11 rounded-2xl font-black uppercase text-[10px] tracking-widest">
+                                            <Button className="flex-1 bg-zinc-900 dark:bg-primary hover:bg-black dark:hover:bg-primary/90 h-11 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white">
                                                 Create Purchase Draft
                                             </Button>
-                                            <Button variant="outline" className="flex-1 border-slate-200 h-11 rounded-2xl font-black uppercase text-[10px] tracking-widest">
+                                            <Button variant="outline" className="flex-1 border-border dark:border-zinc-800 h-11 rounded-2xl font-black uppercase text-[10px] tracking-widest text-foreground dark:text-zinc-400">
                                                 Audit Stock Logs
                                             </Button>
                                         </div>
