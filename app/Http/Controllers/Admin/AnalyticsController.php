@@ -114,4 +114,98 @@ class AnalyticsController extends Controller
             'range'                => (int) $range,
         ]);
     }
+    public function cashierPerformance(Request $request)
+    {
+        $range = $request->input('range', '7'); // Default 7 days
+        $branchId = $request->input('branch_id');
+
+        $query = DB::table('sales')
+            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->join('branches', 'sales.branch_id', '=', 'branches.id')
+            ->where('users.role', 'cashier')
+            ->where('sales.status', 'completed');
+
+        // Date range filtering
+        if ($range !== 'all') {
+            $startDate = match ($range) {
+                'today' => Carbon::today(),
+                'yesterday' => Carbon::yesterday(),
+                '30' => Carbon::now()->subDays(30),
+                default => Carbon::now()->subDays((int)$range),
+            };
+            $query->where('sales.created_at', '>=', $startDate);
+        }
+
+        // Branch filtering
+        if ($branchId && $branchId !== 'all') {
+            $query->where('sales.branch_id', $branchId);
+        }
+
+        $performance = $query->select(
+            'users.id',
+            'users.name',
+            'branches.name as branch_name',
+            DB::raw('SUM(sales.total) as total_sales'),
+            DB::raw('COUNT(sales.id) as total_transactions'),
+            DB::raw('AVG(sales.total) as avg_order_value')
+        )
+        ->groupBy('users.id', 'users.name', 'branches.name')
+        ->orderByDesc('total_sales')
+        ->get();
+
+        return Inertia::render('Analytics/CashierPerformance', [
+            'performance' => $performance,
+            'branches'    => Branch::all(),
+            'filters'     => $request->only(['range', 'branch_id']),
+        ]);
+    }
+    public function salesForecast(Request $request)
+    {
+        $days = (int) $request->input('days', 7);
+        $branchId = $request->input('branch_id');
+
+        $query = DB::table('sales')
+            ->where('status', 'completed')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(total) as daily_total')
+            )
+            ->groupBy('date')
+            ->orderBy('date', 'desc')
+            ->limit($days);
+
+        if ($branchId && $branchId !== 'all') {
+            $query->where('branch_id', $branchId);
+        }
+
+        $historicalData = $query->get()->reverse()->values();
+
+        if ($historicalData->count() < 3) {
+            return Inertia::render('Analytics/SalesForecast', [
+                'error' => 'Not enough historical data for a reliable prediction. At least 3 days of sales are required.',
+                'branches' => Branch::all(),
+                'filters' => $request->only(['days', 'branch_id']),
+            ]);
+        }
+
+        // Calculate Moving Average (Prediction for Tomorrow)
+        $prediction = $historicalData->avg('daily_total');
+
+        // Simple Trend detection
+        $firstDayValue = $historicalData->first()->daily_total;
+        $lastDayValue = $historicalData->last()->daily_total;
+        $trend = $lastDayValue > $firstDayValue ? 'upward' : 'downward';
+        $trendPercentage = $firstDayValue > 0 ? (($lastDayValue - $firstDayValue) / $firstDayValue) * 100 : 0;
+
+        return Inertia::render('Analytics/SalesForecast', [
+            'historical' => $historicalData,
+            'prediction' => round($prediction, 2),
+            'trend' => [
+                'type' => $trend,
+                'percentage' => round($trendPercentage, 1)
+            ],
+            'branches' => Branch::all(),
+            'filters' => $request->only(['days', 'branch_id']),
+        ]);
+    }
 }

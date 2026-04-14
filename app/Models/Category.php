@@ -13,9 +13,9 @@ class Category extends Model
 {
     protected $fillable = ['name', 'description', 'image_path', 'branch_id', 'created_by'];
 
-    public function branches()
+    public function branch()
     {
-        return $this->belongsToMany(Branch::class, 'branch_category');
+        return $this->belongsTo(Branch::class);
     }
 
     public function creator()

@@ -14,6 +14,8 @@ import {
     Truck,
     Navigation,
     Bike,
+    TrendingUp,
+    Zap,
 } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -81,6 +83,16 @@ const mainNavItems: NavItem[] = [
         icon: BarChart2,
     },
     {
+        title: 'Performance',
+        href: '/analytics/cashier-performance',
+        icon: TrendingUp,
+    },
+    {
+        title: 'Forecast',
+        href: '/analytics/sales-forecast',
+        icon: Zap,
+    },
+    {
         title: 'Delivery',
         href: '/delivery',
         icon: Navigation,
@@ -120,7 +132,7 @@ export function AppSidebar() {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees'];
+        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees', 'Performance', 'Forecast'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 

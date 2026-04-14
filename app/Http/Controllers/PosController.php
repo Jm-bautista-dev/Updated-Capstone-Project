@@ -30,12 +30,10 @@ class PosController extends Controller
         $user     = Auth::user();
         $branchId = $user->branch_id;
 
-        // Load products scoped to the cashier's branch via many-to-many relationship
-        $productsQuery = Product::with(['category', 'ingredients', 'branches']);
+        // Load products scoped to the cashier's branch via direct branch_id ownership
+        $productsQuery = Product::with(['category', 'ingredients']);
         if ($branchId) {
-            $productsQuery->whereHas('branches', function ($query) use ($branchId) {
-                $query->where('branches.id', $branchId);
-            });
+            $productsQuery->where('branch_id', $branchId);
         }
 
         $products = $productsQuery->get()->map(function ($product) use ($branchId) {
@@ -49,12 +47,10 @@ class PosController extends Controller
             return $product;
         });
 
-        // Load categories scoped to the cashier's branch via many-to-many relationship
+        // Load categories scoped to the cashier's branch via direct branch_id ownership
         $categoriesQuery = Category::orderBy('name');
         if ($branchId) {
-            $categoriesQuery->whereHas('branches', function ($query) use ($branchId) {
-                $query->where('branches.id', $branchId);
-            });
+            $categoriesQuery->where('branch_id', $branchId);
         }
 
         $categories = $categoriesQuery->get()->map(function ($category) {

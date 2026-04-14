@@ -12,17 +12,16 @@ use App\Utils\UnitConverter;
 class ProductService
 {
     /**
-     * Store a new product and sync its branches.
+     * Store a new product.
      */
-    public function store(array $validated, $image = null, ?int $creatorBranchId = null): Product
+    public function store(array $validated, $image = null, ?int $targetBranchId = null): Product
     {
-        return DB::transaction(function () use ($validated, $image, $creatorBranchId) {
+        return DB::transaction(function () use ($validated, $image, $targetBranchId) {
             $imagePath = null;
             if ($image) {
                 $imagePath = $image->store('products', 'public');
             }
 
-            // Professional Fix: Automatic branch assignment and transactional stock
             $product = Product::create([
                 'name'          => $validated['name'],
                 'sku'           => $this->generateSku($validated['sku'] ?? null),
@@ -31,13 +30,10 @@ class ProductService
                 'cost_price'    => $validated['cost_price'],
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
-                'branch_id'     => $creatorBranchId ?? $validated['branch_id'] ?? 1,
+                'branch_id'     => $targetBranchId ?? $validated['branch_id'],
                 'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? 'pcs'),
-                'stock'         => 0, // Initial stock is always 0; managed via movements
+                'stock'         => 0,
             ]);
-
-            // Sync branches
-            $this->syncBranches($product, $validated['branch_ids'] ?? []);
 
             // Create recipe (Optional)
             if (!empty($validated['recipe'])) {
@@ -50,12 +46,12 @@ class ProductService
                 }
             }
 
-            return $product->load('branches', 'unit_model');
+            return $product->load('branch', 'unit_model');
         });
     }
 
     /**
-     * Update an existing product and sync its branches.
+     * Update an existing product.
      */
     public function update(Product $product, array $validated, $image = null): Product
     {
@@ -80,9 +76,6 @@ class ProductService
                 'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? $product->unit ?? 'pcs'),
             ]);
 
-            // Sync branches
-            $this->syncBranches($product, $validated['branch_ids'] ?? []);
-
             // Update recipe (Optional)
             MenuItemIngredient::where('menu_item_id', $product->id)->delete();
             if (!empty($validated['recipe'])) {
@@ -95,7 +88,7 @@ class ProductService
                 }
             }
 
-            return $product->load('branches', 'unit_model');
+            return $product->load('branch', 'unit_model', 'ingredients');
         });
     }
 
@@ -106,19 +99,5 @@ class ProductService
     {
         if ($sku) return strtoupper($sku);
         return 'PRD-' . strtoupper(uniqid());
-    }
-
-    /**
-     * Sync branches for a product.
-     * If no branches provided, sync to ALL existing branches.
-     */
-    protected function syncBranches(Product $product, array $branchIds): void
-    {
-        if (empty($branchIds)) {
-            // Default to ALL branches as requested
-            $branchIds = Branch::pluck('id')->toArray();
-        }
-
-        $product->branches()->sync($branchIds);
     }
 }

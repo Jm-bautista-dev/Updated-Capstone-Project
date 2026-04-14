@@ -10,32 +10,40 @@ use Illuminate\Support\Facades\Storage;
 class CategoryService
 {
     /**
-     * Store a new category and sync its branches.
+     * Store a new category.
+     * Supports "Both Branch" via branch_option.
      */
-    public function store(array $validated, $image = null, ?int $creatorId = null): Category
+    public function store(array $validated, $image = null, ?int $creatorId = null): void
     {
-        return DB::transaction(function () use ($validated, $image, $creatorId) {
+        DB::transaction(function () use ($validated, $image, $creatorId) {
             $imagePath = null;
             if ($image) {
                 $imagePath = $image->store('categories', 'public');
             }
 
-            $category = Category::create([
-                'name'        => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'image_path'  => $imagePath,
-                'created_by'  => $creatorId,
-            ]);
+            $branchOption = $validated['branch_option'] ?? 'single';
+            $branchIds = [];
 
-            // Sync branches
-            $this->syncBranches($category, $validated['branch_ids'] ?? []);
+            if ($branchOption === 'both') {
+                $branchIds = Branch::pluck('id')->toArray();
+            } else {
+                $branchIds = [$validated['branch_id']];
+            }
 
-            return $category->load('branches');
+            foreach ($branchIds as $branchId) {
+                Category::create([
+                    'name'        => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'image_path'  => $imagePath,
+                    'branch_id'   => $branchId,
+                    'created_by'  => $creatorId,
+                ]);
+            }
         });
     }
 
     /**
-     * Update an existing category and sync its branches.
+     * Update an existing category.
      */
     public function update(Category $category, array $validated, $image = null): Category
     {
@@ -53,26 +61,10 @@ class CategoryService
                 'name'        => $validated['name'],
                 'description' => $validated['description'] ?? null,
                 'image_path'  => $imagePath,
+                'branch_id'   => $validated['branch_id'] ?? $category->branch_id,
             ]);
 
-            // Sync branches
-            $this->syncBranches($category, $validated['branch_ids'] ?? []);
-
-            return $category->load('branches');
+            return $category;
         });
-    }
-
-    /**
-     * Sync branches for a category.
-     * If no branches provided, sync to ALL existing branches.
-     */
-    protected function syncBranches(Category $category, array $branchIds): void
-    {
-        if (empty($branchIds)) {
-            // Default to ALL branches
-            $branchIds = Branch::pluck('id')->toArray();
-        }
-
-        $category->branches()->sync($branchIds);
     }
 }

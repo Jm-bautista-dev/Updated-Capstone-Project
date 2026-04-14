@@ -37,6 +37,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Admin ONLY Routes
     Route::middleware(['role:admin'])->group(function () {
         Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
+        Route::get('analytics/cashier-performance', [AnalyticsController::class, 'cashierPerformance'])->name('analytics.cashier-performance');
+        Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
 
         // Supplier Management
         Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');

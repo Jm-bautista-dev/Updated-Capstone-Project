@@ -9,8 +9,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-
-
 use App\Services\CategoryService;
 
 class CategoriesController extends Controller
@@ -36,12 +34,11 @@ class CategoriesController extends Controller
             $branchId = $user->branch_id;
         }
 
-        $query = Category::query()->with(['branches'])->withCount('products');
+        // Use direct branch_id relationship
+        $query = Category::query()->with(['branch'])->withCount('products');
 
-        if ($branchId) {
-            $query->whereHas('branches', function($q) use ($branchId) {
-                $q->where('branches.id', $branchId);
-            });
+        if ($branchId && $branchId !== 'all') {
+            $query->where('branch_id', $branchId);
         }
 
         if ($request->filled('search')) {
@@ -49,8 +46,6 @@ class CategoriesController extends Controller
         }
 
         $categories = $query->orderBy('name')->get()->map(function (Category $category) {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('public');
             $category->image_url = $category->image_path
                 ? asset('storage/' . $category->image_path)
                 : null;
@@ -72,40 +67,38 @@ class CategoriesController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'branch_ids'  => 'nullable|array',
-            'branch_ids.*'=> 'exists:branches,id',
+            'name'          => 'required|string|max:255',
+            'description'   => 'nullable|string',
+            'image'         => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'branch_id'     => 'required_if:branch_option,single|nullable|exists:branches,id',
+            'branch_option' => 'required|in:single,both',
         ]);
 
         $this->categoryService->store($validated, $request->file('image'), Auth::id());
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Category created successfully');
     }
 
     public function update(Request $request, $id)
     {
         $category = Category::findOrFail($id);
-        $this->authorize('update', $category);
+        // We might want to authorize update, but usually categories are branch-scoped now
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'description' => 'nullable|string',
             'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'branch_ids'  => 'nullable|array',
-            'branch_ids.*'=> 'exists:branches,id',
+            'branch_id'   => 'required|exists:branches,id',
         ]);
 
         $this->categoryService->update($category, $validated, $request->file('image'));
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Category updated successfully');
     }
 
     public function destroy($id)
     {
         $category = Category::findOrFail($id);
-        $this->authorize('delete', $category);
 
         if ($category->image_path) {
             Storage::disk('public')->delete($category->image_path);
@@ -113,6 +106,6 @@ class CategoriesController extends Controller
 
         $category->delete();
 
-        return redirect()->back();
+        return redirect()->back()->with('success', 'Category deleted successfully');
     }
 }

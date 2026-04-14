@@ -58,10 +58,13 @@ class SupplierController extends Controller
         }
 
         // ── Low-stock supplier filter ───────────────────────────
-        // Only show suppliers who have at least one ingredient at or below reorder level
+        // Only show suppliers who have at least one ingredient at or below reorder level (in their branch)
         if ($request->filled('low_stock') && $request->input('low_stock') === 'true') {
             $query->whereHas('ingredients', function ($q) {
-                $q->whereColumn('stock', '<=', 'low_stock_level');
+                $q->whereHas('stocks', function ($sq) {
+                    $sq->whereColumn('ingredient_stocks.branch_id', 'suppliers.branch_id')
+                       ->whereColumn('ingredient_stocks.stock', '<=', 'ingredient_stocks.low_stock_level');
+                });
             });
         }
 
@@ -81,7 +84,10 @@ class SupplierController extends Controller
         // We use a subquery to count critical ingredients without N+1
         $query->withCount([
             'ingredients as critical_count' => function ($q) {
-                $q->whereColumn('stock', '<=', 'low_stock_level');
+                $q->whereHas('stocks', function ($sq) {
+                    $sq->whereColumn('ingredient_stocks.branch_id', 'suppliers.branch_id')
+                       ->whereColumn('ingredient_stocks.stock', '<=', 'ingredient_stocks.low_stock_level');
+                });
             },
         ]);
 

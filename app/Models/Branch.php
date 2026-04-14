@@ -39,12 +39,12 @@ class Branch extends Model
 
     public function categories()
     {
-        return $this->belongsToMany(Category::class, 'branch_category');
+        return $this->hasMany(Category::class);
     }
 
     public function products()
     {
-        return $this->belongsToMany(Product::class, 'branch_product');
+        return $this->hasMany(Product::class);
     }
 
     /**

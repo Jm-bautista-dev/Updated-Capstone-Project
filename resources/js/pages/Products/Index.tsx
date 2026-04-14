@@ -72,7 +72,7 @@ type Product = {
     status: string;
     image_url: string | null;
     ingredients: (Ingredient & { pivot: { quantity_required: string } })[];
-    branches: { id: number; name: string }[];
+    branch: { id: number; name: string };
     branch_id: number;
     is_direct: boolean;
     unit: string;
@@ -147,7 +147,7 @@ export default function ProductsIndex() {
         cost_price: '',
         selling_price: '',
         branch_id: currentBranchId ? String(currentBranchId) : '',
-        branch_ids: [] as string[],
+        branch_option: 'single', // 'single' or 'both'
         recipe: [] as RecipeItem[],
         unit: 'pcs',
         description: '',
@@ -191,7 +191,7 @@ export default function ProductsIndex() {
             cost_price: product.cost_price.toString(),
             selling_price: product.selling_price.toString(),
             branch_id: product.branch_id?.toString() || '',
-            branch_ids: product.branches.map(b => b.id.toString()),
+            branch_option: 'single',
             recipe: product.ingredients.map(ing => ({
                 ingredient_id: ing.id.toString(),
                 quantity_required: ing.pivot.quantity_required.toString()
@@ -309,15 +309,13 @@ export default function ProductsIndex() {
         setData('recipe', newRecipe);
     };
 
-    const toggleBranch = (id: string) => {
-        const current = [...data.branch_ids];
-        const index = current.indexOf(id);
-        if (index > -1) {
-            current.splice(index, 1);
-        } else {
-            current.push(id);
-        }
-        setData('branch_ids', current);
+    const handleBranchOptionChange = (val: string) => {
+        setData(d => ({
+            ...d,
+            branch_option: val,
+            branch_id: val === 'both' ? d.branch_id : d.branch_id, // keep current branch id if single
+            recipe: [] // Clear recipe when branch context changes to ensure validity
+        }));
     };
 
     return (
@@ -425,6 +423,7 @@ export default function ProductsIndex() {
                                     <tr className="bg-muted/30">
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Product Information</th>
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden lg:table-cell">Category</th>
+                                        {isAdmin && !currentBranchId && <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden lg:table-cell">Branch</th>}
                                         <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock</th>
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden sm:table-cell">Pricing</th>
                                         <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock Status</th>
@@ -466,6 +465,14 @@ export default function ProductsIndex() {
                                                             {product.category?.name || 'Uncategorized'}
                                                         </Badge>
                                                     </td>
+                                                    {isAdmin && !currentBranchId && (
+                                                        <td className="p-4 align-middle hidden lg:table-cell">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="size-1.5 rounded-full bg-primary/40" />
+                                                                <span className="text-[10px] font-bold uppercase text-muted-foreground">{product.branch?.name || 'Global'}</span>
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                     <td className="p-4 align-middle text-center">
                                                         <span className={cn(
                                                             "font-mono font-bold",
@@ -681,20 +688,62 @@ export default function ProductsIndex() {
                                     {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
                                 </div>
                                 {isAdmin && (
-                                    <div className="space-y-2 col-span-2">
-                                        <label className="text-sm font-medium">Owner Branch</label>
-                                        <p className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5 mb-1.5 leading-tight">Determines the core ownership and dictates which ingredients can be used.</p>
-                                        <select
-                                            value={data.branch_id}
-                                            onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value, recipe: [] }))}
-                                            className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
-                                        >
-                                            <option value="">-- Select Owner Branch --</option>
-                                            {branches?.map((b: any) => (
-                                                <option key={b.id} value={b.id}>{b.name}</option>
-                                            ))}
-                                        </select>
-                                        {errors.branch_id && <p className="text-xs text-destructive">{errors.branch_id}</p>}
+                                    <div className="space-y-4 col-span-2 border p-4 rounded-xl bg-primary/5 border-primary/10">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-bold flex items-center gap-2">
+                                                <div className="size-2 bg-primary rounded-full" />
+                                                Branch Configuration
+                                            </label>
+                                            <p className="text-[10px] text-muted-foreground font-medium uppercase leading-tight">
+                                                Choose "Both Branches" to automatically create this product in all locations.
+                                            </p>
+                                            
+                                            <div className="flex gap-4 mt-3">
+                                                {['single', 'both'].map((opt) => (
+                                                    <div 
+                                                        key={opt}
+                                                        onClick={() => handleBranchOptionChange(opt)}
+                                                        className={cn(
+                                                            "flex-1 p-3 rounded-lg border-2 cursor-pointer transition-all text-center font-bold text-xs uppercase",
+                                                            data.branch_option === opt 
+                                                                ? "bg-primary text-white border-primary shadow-md scale-[1.02]" 
+                                                                : "bg-background border-muted text-muted-foreground hover:border-primary/30"
+                                                        )}
+                                                    >
+                                                        {opt === 'single' ? 'Specific Branch' : 'Both Branches'}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {data.branch_option === 'single' && (
+                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                                <label className="text-[10px] uppercase font-bold text-muted-foreground">Select Owner Branch</label>
+                                                <select
+                                                    value={data.branch_id}
+                                                    onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value, recipe: [] }))}
+                                                    className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-bold shadow-sm"
+                                                >
+                                                    <option value="">-- Choose Branch --</option>
+                                                    {branches?.map((b: any) => (
+                                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                                    ))}
+                                                </select>
+                                                {errors.branch_id && <p className="text-xs text-destructive font-bold">{errors.branch_id}</p>}
+                                            </div>
+                                        )}
+                                        {data.branch_option === 'both' && (
+                                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                                <p className="text-[10px] text-emerald-600 font-bold uppercase italic">System will auto-duplicate this product for:</p>
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {branches?.map((b: any) => (
+                                                        <Badge key={b.id} variant="outline" className="bg-emerald-500/20 text-emerald-700 border-none px-2 py-0.5 text-[9px] font-black">
+                                                            {b.name.toUpperCase()}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 <div className="space-y-2">
@@ -720,36 +769,6 @@ export default function ProductsIndex() {
                                         ))}
                                     </select>
                                     {errors.unit && <p className="text-xs text-destructive">{errors.unit}</p>}
-                                </div>
-                                {/* Branch Visibility */}
-                                <div className="col-span-2 space-y-2 border-t pt-4">
-                                    <label className="text-sm font-bold">Branch Visibility</label>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this product (Default: All)</p>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {branches?.map((branch: any) => (
-                                            <div
-                                                key={branch.id}
-                                                onClick={() => toggleBranch(branch.id.toString())}
-                                                className={cn(
-                                                    "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
-                                                    data.branch_ids.includes(branch.id.toString())
-                                                        ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                        : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "size-2 rounded-full",
-                                                    data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
-                                                )} />
-                                                {branch.name}
-                                            </div>
-                                        ))}
-                                        {data.branch_ids.length === 0 && (
-                                            <Badge variant="outline" className="text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
-                                                VISIBLE TO ALL BRANCHES
-                                            </Badge>
-                                        )}
-                                    </div>
                                 </div>
                                 {/* Product Image Upload */}
                                 <div className="col-span-2 space-y-2">
@@ -809,16 +828,28 @@ export default function ProductsIndex() {
                                             </div>
                                         )}
                                         {/* Added Helper Text when no branch selected */}
-                                        {!data.branch_id && (
+                                        {!data.branch_id && data.branch_option === 'single' && (
                                             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-2">
                                                 <p className="text-xs text-amber-600 font-bold">Please select an Owner Branch first.</p>
-                                                <p className="text-[10px] text-amber-600/80">Only ingredients from the selected branch are available.</p>
+                                                <p className="text-[10px] text-amber-600/80 uppercase">Ingredients must be available in the chosen branch inventory.</p>
+                                            </div>
+                                        )}
+                                        {data.branch_option === 'both' && (
+                                            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-2">
+                                                <div className="flex items-center gap-2 text-blue-600 mb-1">
+                                                    <FiPlus className="size-3" />
+                                                    <p className="text-xs font-bold uppercase italic">Auto-Sync Mode Active</p>
+                                                </div>
+                                                <p className="text-[10px] text-blue-600/80 leading-relaxed uppercase">The system will verify that these ingredients exist in ALL branches. Stock levels shown are baseline estimates from the primary location.</p>
                                             </div>
                                         )}
                                         {data.recipe.map((item, idx) => {
                                             const filteredIngredients = (usePage().props as any).ingredients.filter((ing: any) => {
+                                                if (data.branch_option === 'both') {
+                                                    // Baseline: must exist in AT LEAST ONE branch to be selectable
+                                                    return ing.stocks?.length > 0;
+                                                }
                                                 if (!data.branch_id) return true;
-                                                // Check if ingredient has a stock record for the selected branch
                                                 return ing.stocks?.some((s: any) => Number(s.branch_id) === Number(data.branch_id));
                                             });
                                             const selectedIng = filteredIngredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
@@ -835,21 +866,25 @@ export default function ProductsIndex() {
                                                     <div className="col-span-12 sm:col-span-7 space-y-1.5">
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
                                                         <select
-                                                            disabled={!data.branch_id}
+                                                            disabled={!data.branch_id && data.branch_option === 'single'}
                                                             value={item.ingredient_id}
                                                             onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
                                                             className={cn(
                                                                 "w-full h-10 px-3 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 transition-all appearance-none",
                                                                 ingError ? "border-destructive ring-destructive/10 text-destructive" : "border-input ring-primary/20",
-                                                                !data.branch_id ? "opacity-50 cursor-not-allowed bg-muted" : ""
+                                                                !data.branch_id && data.branch_option === 'single' ? "opacity-50 cursor-not-allowed bg-muted" : ""
                                                             )}
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
                                                             {filteredIngredients.map((ing: any) => {
                                                                 const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
+                                                                const stock = data.branch_option === 'both' 
+                                                                    ? (ing.stocks?.[0]?.stock || 0) 
+                                                                    : (ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0);
+                                                                
                                                                 return (
                                                                     <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                        {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0}
+                                                                        {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {stock}
                                                                     </option>
                                                                 );
                                                             })}
@@ -946,19 +981,12 @@ export default function ProductsIndex() {
                                 </div>
                                 {isAdmin && (
                                     <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Owner Branch</label>
-                                        <p className="text-[10px] text-muted-foreground font-medium uppercase -mt-0.5 mb-1 ml-1 leading-tight">Determines the core ownership and dictates which ingredients can be used.</p>
-                                        <select
-                                            value={data.branch_id}
-                                            onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value, recipe: [] }))}
-                                            className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
-                                        >
-                                            <option value="">-- Select Owner Branch --</option>
-                                            {branches?.map((b: any) => (
-                                                <option key={b.id} value={b.id}>{b.name}</option>
-                                            ))}
-                                        </select>
-                                        {errors.branch_id && <p className="text-xs text-destructive">{errors.branch_id}</p>}
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Current Owner Branch</label>
+                                        <div className="h-12 w-full flex items-center px-4 rounded-xl bg-primary/5 border border-primary/10 text-primary font-bold text-sm">
+                                            <div className="size-2 bg-primary rounded-full mr-2" />
+                                            {branches?.find((b: any) => String(b.id) === String(data.branch_id))?.name || 'N/A'}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground italic ml-1 mt-1">Note: Branch ownership cannot be changed after creation.</p>
                                     </div>
                                 )}
                                 <div className="space-y-1.5">
@@ -983,36 +1011,7 @@ export default function ProductsIndex() {
                                     </select>
                                 </div>
 
-                                {/* Branch Visibility */}
-                                <div className="col-span-2 space-y-2 border-t pt-4">
-                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Branch Visibility</label>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">Select branches that can see this product (Default: All)</p>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {branches?.map((branch: any) => (
-                                            <div
-                                                key={branch.id}
-                                                onClick={() => toggleBranch(branch.id.toString())}
-                                                className={cn(
-                                                    "cursor-pointer px-4 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-2",
-                                                    data.branch_ids.includes(branch.id.toString())
-                                                        ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                        : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "size-2 rounded-full",
-                                                    data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
-                                                )} />
-                                                {branch.name}
-                                            </div>
-                                        ))}
-                                        {data.branch_ids.length === 0 && (
-                                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                                                VISIBLE TO ALL BRANCHES
-                                            </Badge>
-                                        )}
-                                    </div>
-                                </div>
+
 
                                 {/* Product Image Upload */}
                                 <div className="col-span-2 space-y-2">

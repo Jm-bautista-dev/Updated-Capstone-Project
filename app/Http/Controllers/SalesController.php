@@ -26,16 +26,20 @@ class SalesController extends Controller
                 return $q->where('order_number', 'like', "%{$search}%");
             });
 
-        // Scope the main query
-        if ($user->isCashier()) {
-            $query->where('branch_id', $user->branch_id);
-            $statsScope = Sale::where('branch_id', $user->branch_id);
+        // Scope the main query and stats
+        if (!$user->isAdmin()) {
+            // Cashier: ONLY their own sales from their specific branch
+            $query->where('user_id', $user->id)
+                  ->where('branch_id', $user->branch_id);
+            
+            $statsScope = Sale::where('user_id', $user->id)
+                              ->where('branch_id', $user->branch_id);
         } else {
-            // Admin: optional branch filter
+            // Admin: sees ALL, optional branch filter
             if ($branchId && $branchId !== 'all') {
                 $query->where('branch_id', $branchId);
             }
-            $statsScope = new Sale(); // Global scope for admin
+            $statsScope = new Sale();
         }
 
         return Inertia::render('Sales/Index', [
@@ -57,6 +61,13 @@ class SalesController extends Controller
 
     public function updateStatus(Request $request, Sale $sale)
     {
+        $user = Auth::user();
+        
+        // Authorization check: Admin can update anything, Cashier only their own
+        if (!$user->isAdmin() && $sale->user_id !== $user->id) {
+            abort(403, 'Unauthorized access to this sale record.');
+        }
+
         $validated = $request->validate([
             'status' => 'required|in:pending,preparing,completed,cancelled',
         ]);
