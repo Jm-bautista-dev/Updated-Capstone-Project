@@ -61,10 +61,44 @@ class UnitConverter
     }
 
     /**
-     * Get a list of allowed units for validation.
+     * Convert a quantity given in a specific unit to the ingredient's base unit.
+     */
+    public static function convertToBaseQuantityWithIngredient(float $quantity, string $unit, string $baseUnit, ?float $avgWeight = null): float
+    {
+        $unit = strtolower(trim($unit));
+        $baseUnit = strtolower(trim($baseUnit));
+
+        // If the units already match (e.g., g -> g, ml -> ml, pcs -> pcs)
+        if ($unit === $baseUnit || self::normalizeUnit($unit) === $baseUnit) {
+            return self::convertToBaseQuantity($quantity, $unit);
+        }
+
+        // If trying to convert a piece-based unit (cloves, pcs, slices, half) to weight (g, ml)
+        // using the ingredient's average weight per piece.
+        $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
+        if (in_array($unit, $pieceUnits)) {
+            // Apply half logic if user explicitly chooses 'half' as unit
+            if ($unit === 'half') {
+                $quantity = $quantity * 0.5;
+            }
+
+            if ($avgWeight && $avgWeight > 0) {
+                // If base unit is kg/l, we assume avgWeight is in base units, but typically it's in g/ml.
+                // Assuming avg_weight_per_piece is stored in the base unit (e.g., 5 for 5g, 150 for 150g).
+                return round($quantity * $avgWeight, 4);
+            }
+        }
+
+        // If it's some other non-standard conversion requested without an avg weight,
+        // we just fall back securely without causing zeroing out.
+        return self::convertToBaseQuantity($quantity, $unit);
+    }
+
+    /**
+     * Get a list of allowed units for general application.
      */
     public static function getAllowedUnits(): array
     {
-        return ['g', 'ml', 'pcs', 'kg', 'L', 'liters'];
+        return ['g', 'ml', 'pcs', 'kg', 'L', 'liters', 'cloves', 'clove', 'half', 'whole'];
     }
 }

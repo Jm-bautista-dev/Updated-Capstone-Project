@@ -59,18 +59,43 @@ class InventoryController extends Controller
                     continue;
                 }
 
+                $displayUnit = $ingredient->unit;
+                $displayStock = (float) $stockRow->stock;
+
+                // Robust price calculation with fallback to global cost
+                $baseUnitPrice = (float) $stockRow->cost_per_unit > 0 
+                    ? (float) $stockRow->cost_per_unit 
+                    : (float) $ingredient->cost_per_base_unit;
+
+                $displayPrice = $baseUnitPrice;
+
+                if ($ingredient->unit === 'g') {
+                    $displayUnit = 'kg';
+                    $displayStock = (float) $stockRow->stock / 1000;
+                    $displayPrice = $baseUnitPrice * 1000;
+                } elseif ($ingredient->unit === 'ml') {
+                    $displayUnit = 'L';
+                    $displayStock = (float) $stockRow->stock / 1000;
+                    $displayPrice = $baseUnitPrice * 1000;
+                }
+
                 $inventory[] = [
                     'id'              => $ingredient->id,
                     'stock_id'        => $stockRow->id,
                     'name'            => $ingredient->name,
-                    'unit'            => $ingredient->unit,
+                    'unit'            => $ingredient->unit, // storage unit
+                    'display_unit'    => $displayUnit,     // UI unit
                     'branch_id'       => $stockRow->branch_id,
                     'branch_name'     => $stockRow->branch ? $stockRow->branch->name : 'UNASSIGNED (ORPHANED)',
                     'stock'           => (float) $stockRow->stock,
+                    'display_stock'   => $displayStock,
                     'low_stock_level' => (float) $stockRow->low_stock_level,
                     'is_low_stock'    => $stockRow->isLowStock(),
                     'is_out_of_stock' => $stockRow->isOutOfStock(),
                     'status'          => 'valid',
+                    'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
+                    'cost_per_unit'   => (float) $stockRow->cost_per_unit,
+                    'display_price'   => $displayPrice,
                 ];
             }
 
@@ -78,18 +103,32 @@ class InventoryController extends Controller
             // we attach the target branch_name so it groups within the cashier's active node
             // seamlessly, preventing "UNASSIGNED" UI bleed.
             if ($branchId && $stocks->isEmpty()) {
+                $displayUnit = $ingredient->unit;
+                $displayPrice = 0;
+
+                if ($ingredient->unit === 'g') {
+                    $displayUnit = 'kg';
+                } elseif ($ingredient->unit === 'ml') {
+                    $displayUnit = 'L';
+                }
+
                 $inventory[] = [
                     'id'              => $ingredient->id,
                     'stock_id'        => null,
                     'name'            => $ingredient->name,
                     'unit'            => $ingredient->unit,
+                    'display_unit'    => $displayUnit,
                     'branch_id'       => (int) $branchId,
                     'branch_name'     => $targetBranchName, 
                     'stock'           => 0,
+                    'display_stock'   => 0,
                     'low_stock_level' => 5,
                     'is_low_stock'    => false,
                     'is_out_of_stock' => true,
                     'status'          => 'valid',
+                    'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
+                    'cost_per_unit'   => 0,
+                    'display_price'   => 0,
                 ];
             }
 
@@ -108,6 +147,8 @@ class InventoryController extends Controller
                     'is_low_stock'    => false,
                     'is_out_of_stock' => true,
                     'status'          => 'invalid', // Marks needing alignment
+                    'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
+                    'cost_per_unit'   => 0,
                 ];
             }
         }
@@ -148,30 +189,49 @@ class InventoryController extends Controller
             ],
             'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'initial_stock'   => 'required|numeric|gt:0|max:10000',
-            'low_stock_level' => 'required|numeric|gt:0|max:10000',
-            'branch_id'       => 'nullable|exists:branches,id',
-            'branch_ids'      => 'nullable|array',
-            'branch_ids.*'    => 'exists:branches,id',
+            'low_stock_level'      => 'required|numeric|gt:0|max:10000',
+            'avg_weight_per_piece' => 'nullable|numeric|gt:0|max:10000',
+            'cost_per_base_unit'   => 'required|numeric|min:0|max:999999',
+            'cost_per_unit'        => 'nullable|numeric|min:0|max:999999',
+            'branch_id'            => 'nullable|exists:branches,id',
+            'branch_ids'           => 'nullable|array',
+            'branch_ids.*'         => 'exists:branches,id',
         ], [
             'name.regex' => 'The ingredient name must only contain letters and spaces.',
         ]);
 
-        // Normalize unit and stock
         $normalizedUnit = UnitConverter::normalizeUnit($validated['unit']);
-        $baseStock      = UnitConverter::convertToBaseQuantity(
-            (float) ($validated['initial_stock'] ?? 0),
-            $validated['unit']
-        );
-        $lowStockLevel = (float) ($validated['low_stock_level'] ?? 5);
+        $conversionFactor = UnitConverter::convertToBaseQuantity(1, $validated['unit']);
+        
+        $baseStock      = (float) ($validated['initial_stock'] ?? 0) * $conversionFactor;
+        $lowStockLevel  = (float) ($validated['low_stock_level'] ?? 5);
+
+        // Normalize costs to base unit (Total batch cost / Total base units)
+        // Rule: 10kg onion for 500 pesos => 500 / 10,000g = 0.05 per gram
+        $normalizedGlobalCost = $baseStock > 0 
+            ? (float) ($validated['cost_per_base_unit'] ?? 0) / $baseStock
+            : 0;
+            
+        $normalizedBranchCost = $baseStock > 0
+            ? (float) ($validated['cost_per_unit'] ?? 0) / $baseStock
+            : 0;
 
         // Create ONE global ingredient (deduplicated by name)
         $ingredient = Ingredient::firstOrCreate(
             ['name' => $validated['name']],
-            ['unit' => $normalizedUnit]
+            [
+                'unit' => $normalizedUnit,
+                'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? null,
+                'cost_per_base_unit' => $normalizedGlobalCost
+            ]
         );
 
-        // Update unit if it was just found (idempotent)
-        $ingredient->update(['unit' => $normalizedUnit]);
+        // Update properties if they already existed
+        $ingredient->update([
+            'unit' => $normalizedUnit,
+            'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
+            'cost_per_base_unit' => $normalizedGlobalCost
+        ]);
 
         // Determine which branches to create stock rows for
         $targetBranchIds = $this->resolveTargetBranches($user, $validated);
@@ -182,6 +242,7 @@ class InventoryController extends Controller
                 [
                     'stock'           => $baseStock,
                     'low_stock_level' => $lowStockLevel,
+                    'cost_per_unit'   => $normalizedBranchCost,
                 ]
             );
 
@@ -214,37 +275,51 @@ class InventoryController extends Controller
                 'max:50',
                 'regex:/^[A-Za-z\s]+$/'
             ],
-            'unit'            => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
-            'branch_id'       => 'nullable|exists:branches,id',
-            'stock'           => 'nullable|numeric|gt:0|max:10000',
-            'low_stock_level' => 'nullable|numeric|gt:0|max:10000',
+            'unit'                 => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'branch_id'            => 'nullable|exists:branches,id',
+            'stock'                => 'nullable|numeric|min:0|max:10000',
+            'low_stock_level'      => 'nullable|numeric|min:0|max:10000',
+            'avg_weight_per_piece' => 'nullable|numeric|gt:0|max:10000',
+            'cost_per_base_unit'   => 'nullable|numeric|min:0|max:999999',
+            'cost_per_unit'        => 'nullable|numeric|min:0|max:999999',
         ], [
             'name.regex' => 'The ingredient name must only contain letters and spaces.',
         ]);
 
         $normalizedUnit = UnitConverter::normalizeUnit($validated['unit']);
+        $conversionFactor = UnitConverter::convertToBaseQuantity(1, $validated['unit']);
+
+        // Normalize updated global cost
+        $normalizedGlobalCost = $conversionFactor > 0 
+            ? (float) ($validated['cost_per_base_unit'] ?? $ingredient->cost_per_base_unit) / $conversionFactor
+            : (float) ($validated['cost_per_base_unit'] ?? $ingredient->cost_per_base_unit);
 
         $ingredient->update([
             'name' => $validated['name'],
             'unit' => $normalizedUnit,
+            'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
+            'cost_per_base_unit' => $normalizedGlobalCost,
         ]);
 
         // If branch_id and stock provided, update that branch's stock row
         if (!empty($validated['branch_id']) && isset($validated['stock'])) {
-            $baseStock = UnitConverter::convertToBaseQuantity(
-                (float) $validated['stock'],
-                $validated['unit']
-            );
+            $baseStock = (float) $validated['stock'] * $conversionFactor;
+            
+            // Normalize updated cost (Total value / Total base units)
+            $normalizedBranchCost = $baseStock > 0
+                ? (float) ($validated['cost_per_unit'] ?? 0) / $baseStock
+                : 0;
 
             $stockRow = IngredientStock::firstOrCreate(
                 ['ingredient_id' => $ingredient->id, 'branch_id' => $validated['branch_id']],
-                ['stock' => 0, 'low_stock_level' => $validated['low_stock_level'] ?? 5]
+                ['stock' => 0, 'low_stock_level' => $validated['low_stock_level'] ?? 5, 'cost_per_unit' => $normalizedBranchCost]
             );
 
             $oldStock = (float) $stockRow->stock;
             $stockRow->update([
                 'stock'           => $baseStock,
                 'low_stock_level' => $validated['low_stock_level'] ?? $stockRow->low_stock_level,
+                'cost_per_unit'   => $normalizedBranchCost,
             ]);
 
             if ($baseStock != $oldStock) {
@@ -264,14 +339,33 @@ class InventoryController extends Controller
     /**
      * Delete a global ingredient (and all its branch stock rows via cascade).
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $ingredient = Ingredient::findOrFail($id);
         $this->authorize('delete', $ingredient);
 
-        $ingredient->delete(); // cascade deletes ingredient_stocks rows
+        $branchId = $request->query('branch_id') ?: $request->input('branch_id');
 
-        return redirect()->back()->with('success', 'Ingredient deleted.');
+        if ($branchId) {
+            // Only remove from this specific branch's inventory
+            $ingredient->stocks()->where('branch_id', $branchId)->delete();
+            
+            // Log the removal
+            IngredientLog::create([
+                'ingredient_id' => $ingredient->id,
+                'user_id'       => Auth::id(),
+                'branch_id'     => $branchId,
+                'change_qty'    => 0,
+                'reason'        => 'Removed from branch inventory',
+            ]);
+
+            return redirect()->back()->with('success', 'Ingredient removed from this branch.');
+        }
+
+        // Global delete (Admin only or if no branch context provided)
+        $ingredient->delete(); // cascade deletes all stock rows
+
+        return redirect()->back()->with('success', 'Ingredient deleted globally.');
     }
 
     /**

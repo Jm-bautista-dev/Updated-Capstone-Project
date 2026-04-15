@@ -6,6 +6,10 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\VerificationController;
+use App\Http\Controllers\Api\ApiOrderController;
+
+// ─── External Operations API (Mobile App Entry) ──────────────────
+Route::post('orders', [ApiOrderController::class, 'store']);
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +32,12 @@ Route::prefix('v1')->group(function () {
     Route::get('products',       [ProductController::class, 'index']);
     Route::get('products/{id}',  [ProductController::class, 'show']);
     Route::get('categories',     [CategoryController::class, 'index']);
+
+    // Customer App Specific (Clean & Safe)
+    Route::prefix('customer')->group(function () {
+        Route::get('categories', [\App\Http\Controllers\Customer\CategoryController::class, 'index']);
+        Route::get('products',   [\App\Http\Controllers\Customer\ProductController::class, 'index']);
+    });
 
     // Email Verification
     Route::post('verify-email/request', [VerificationController::class, 'requestEmail']);
@@ -60,3 +70,9 @@ Route::prefix('v1')->group(function () {
 |   GET   /api/v1/categories            → List categories (?branch_id=&search=)
 |
 */
+
+// ─── Customer App Shorthand Aliases ──────────────────────────────────────────
+Route::prefix('customer')->group(function () {
+    Route::get('categories', [\App\Http\Controllers\Customer\CategoryController::class, 'index']);
+    Route::get('products',   [\App\Http\Controllers\Customer\ProductController::class, 'index']);
+});

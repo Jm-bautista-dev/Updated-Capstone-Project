@@ -15,6 +15,7 @@ class MenuItemIngredient extends Pivot
         'menu_item_id',
         'ingredient_id',
         'quantity_required',
+        'unit',
     ];
 
     public $incrementing = true;

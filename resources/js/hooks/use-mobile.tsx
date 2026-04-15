@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -28,9 +28,25 @@ function getServerSnapshot(): boolean {
 }
 
 export function useIsMobile(): boolean {
-    return useSyncExternalStore(
+    const isMobileMql = useSyncExternalStore(
         mediaQueryListener,
         isSmallerThanBreakpoint,
         getServerSnapshot,
     );
+    
+    // In some mobile browsers, matchMedia might be unreliable or delayed.
+    // We add a state-based fallback for window width.
+    const [isMobileWidth, setIsMobileWidth] = useState(
+        typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false
+    );
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobileWidth(window.innerWidth < MOBILE_BREAKPOINT);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    return isMobileMql || isMobileWidth;
 }

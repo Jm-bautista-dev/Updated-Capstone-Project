@@ -29,7 +29,7 @@ class ProductService
                 'sku'           => $this->generateSku($validated['sku'] ?? null),
                 'category_id'   => $validated['category_id'],
                 'description'   => $validated['description'] ?? null,
-                'cost_price'    => $validated['cost_price'],
+                'cost_price'    => $validated['cost_price'] ?? 0,
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
                 'branch_id'     => $targetBranchId ?? $validated['branch_id'],
@@ -44,9 +44,13 @@ class ProductService
                         'menu_item_id'      => $product->id,
                         'ingredient_id'     => $item['ingredient_id'],
                         'quantity_required' => $item['quantity_required'],
+                        'unit'              => $item['unit'] ?? null,
                     ]);
                 }
             }
+
+            $product->refresh();
+            $product->update(['cost_price' => $product->computeProductCost($product->branch_id)]);
 
             // 🔥 BROADCAST: Instant catalog sync
             broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
@@ -75,7 +79,7 @@ class ProductService
                 'sku'           => $validated['sku'] ?? $product->sku,
                 'category_id'   => $validated['category_id'],
                 'description'   => $validated['description'] ?? null,
-                'cost_price'    => $validated['cost_price'],
+                'cost_price'    => $validated['cost_price'] ?? 0,
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
                 'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? $product->unit ?? 'pcs'),
@@ -89,9 +93,13 @@ class ProductService
                         'menu_item_id'      => $product->id,
                         'ingredient_id'     => $item['ingredient_id'],
                         'quantity_required' => $item['quantity_required'],
+                        'unit'              => $item['unit'] ?? null,
                     ]);
                 }
             }
+
+            $product->refresh();
+            $product->update(['cost_price' => $product->computeProductCost($product->branch_id)]);
 
             // 🔥 BROADCAST: Instant catalog sync
             broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();

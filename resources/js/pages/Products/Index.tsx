@@ -16,6 +16,7 @@ import {
     FiChevronRight,
     FiRefreshCw
 } from 'react-icons/fi';
+import { FiZap } from 'react-icons/fi';
 import { StockInModal } from '@/components/stock-in-modal';
 import { ValidationErrorModal } from '@/components/validation-error-modal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +41,10 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { 
+    normalizeUnit, 
+    convertToBaseQuantityWithIngredient 
+} from '@/lib/unit-converter';
 
 type Category = {
     id: number;
@@ -50,13 +55,16 @@ type Ingredient = {
     id: number;
     name: string;
     unit: string;
-    stocks?: { branch_id: number; stock: number }[];
+    avg_weight_per_piece: number;
+    cost_per_base_unit?: number;
+    stocks?: { branch_id: number; stock: number; cost_per_unit: number }[];
 };
 
 type RecipeItem = {
     ingredient_id: string;
     ingredient?: Ingredient;
     quantity_required: string;
+    unit: string;
 };
 
 // Using database-driven units instead of static constants
@@ -68,6 +76,8 @@ type Product = {
     category_id: number;
     category: Category;
     stock: number;
+    limiting_ingredient: string | null;
+    is_low_stock: boolean;
     cost_price: number;
     selling_price: number;
     status: string;
@@ -88,8 +98,9 @@ type Summary = {
 };
 
 export default function ProductsIndex() {
-    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin, allowedUnits } = usePage().props as any;
+    const { products: rawProducts, categories, ingredients: rawIngredients, summary, filters, branches, currentBranchId, isAdmin, allowedUnits } = usePage().props as any;
     const products: Product[] = rawProducts || [];
+    const ingredients: Ingredient[] = Array.isArray(rawIngredients) ? rawIngredients : [];
     const [search, setSearch] = useState(filters.search || '');
     const [filterCategory, setFilterCategory] = useState(filters.filter_category || '');
 
@@ -147,6 +158,52 @@ export default function ProductsIndex() {
 
     const [ingredientSearch, setIngredientSearch] = useState('');
 
+
+    const getAvailableUnits = (ing?: any) => {
+        if (!ing || !ing.unit) return [];
+        const base = ing.unit.toLowerCase();
+        let options = [base];
+        if (base === 'g' || base === 'grams') options.push('kg');
+        if (base === 'ml') options.push('l', 'liters');
+        
+        if (ing.avg_weight_per_piece && Number(ing.avg_weight_per_piece) > 0) {
+            options.push('pcs', 'half', 'cloves', 'whole');
+        } else if (base === 'pcs') {
+            options.push('half');
+        }
+        
+        return Array.from(new Set(options));
+    };
+
+    const calculateComputedCost = () => {
+        let total = 0;
+        data.recipe.forEach(item => {
+            const ing = ingredients.find((i: any) => i.id.toString() === item.ingredient_id);
+            if (ing) {
+                const branchId = data.branch_option === 'both' ? null : data.branch_id;
+                const stockRow = ing.stocks?.find((s: any) => branchId ? String(s.branch_id) === String(branchId) : true);
+                
+                // Priority: Branch procurement cost -> Global base cost -> 0
+                const cpu = (stockRow && Number(stockRow.cost_per_unit) > 0) 
+                    ? Number(stockRow.cost_per_unit) 
+                    : Number(ing.cost_per_base_unit || 0);
+
+                const u = (item.unit || ing.unit).toLowerCase().trim();
+                const qty = Number(item.quantity_required) || 0;
+                
+                const baseQty = convertToBaseQuantityWithIngredient(
+                    qty, 
+                    u, 
+                    ing.unit, 
+                    Number(ing.avg_weight_per_piece || 0)
+                );
+                
+                total += baseQty * cpu;
+            }
+        });
+        return total;
+    };
+
     // Helper to truncate long names safely for UI
     const formatName = (name: string, limit: number = 25) => {
         return name.length > limit ? name.substring(0, limit) + '...' : name;
@@ -192,9 +249,10 @@ export default function ProductsIndex() {
             selling_price: product.selling_price.toString(),
             branch_id: product.branch_id?.toString() || '',
             branch_option: 'single',
-            recipe: product.ingredients.map(ing => ({
+            recipe: product.ingredients.map((ing: any) => ({
                 ingredient_id: ing.id.toString(),
-                quantity_required: ing.pivot.quantity_required.toString()
+                quantity_required: ing.pivot.quantity_required.toString(),
+                unit: ing.pivot.unit || ing.unit
             })),
             unit: product.unit || 'pcs',
             description: product.description || '',
@@ -300,7 +358,7 @@ export default function ProductsIndex() {
     };
 
     const addRecipeItem = () => {
-        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1' }]);
+        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1', unit: 'pcs' }]);
     };
 
     const removeRecipeItem = (index: number) => {
@@ -310,17 +368,18 @@ export default function ProductsIndex() {
     };
 
     const updateRecipeItem = (index: number, field: string, value: string) => {
-        const newRecipe = [...data.recipe];
-        newRecipe[index] = { ...newRecipe[index], [field]: value };
-        setData('recipe', newRecipe);
+        setData(d => {
+            const newRecipe = [...d.recipe];
+            newRecipe[index] = { ...newRecipe[index], [field]: value };
+            return { ...d, recipe: newRecipe };
+        });
     };
 
     const handleBranchOptionChange = (val: string) => {
         setData(d => ({
             ...d,
             branch_option: val,
-            branch_id: val === 'both' ? d.branch_id : d.branch_id, // keep current branch id if single
-            recipe: [] // Clear recipe when branch context changes to ensure validity
+            branch_id: val === 'both' ? d.branch_id : d.branch_id
         }));
     };
 
@@ -394,7 +453,7 @@ export default function ProductsIndex() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-black text-foreground dark:text-white">{summary.total_products}</div>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Unique items in system</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Unique SKUs</p>
                             </CardContent>
                         </Card>
 
@@ -405,7 +464,7 @@ export default function ProductsIndex() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-black text-amber-600 dark:text-amber-500">{summary.low_stock}</div>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Stock levels ≤ 5 units</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Limited by Ingredients</p>
                             </CardContent>
                         </Card>
 
@@ -416,7 +475,7 @@ export default function ProductsIndex() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-black text-destructive dark:text-red-500">{summary.out_of_stock}</div>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Items requiring restock</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Ingredients Exhausted</p>
                             </CardContent>
                         </Card>
                     </div>
@@ -430,7 +489,7 @@ export default function ProductsIndex() {
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Product Information</th>
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden lg:table-cell">Category</th>
                                         {isAdmin && !currentBranchId && <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden lg:table-cell">Branch</th>}
-                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Stock</th>
+                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Available to Sell</th>
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden sm:table-cell">Pricing</th>
                                         <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px]">Stock Status</th>
                                         <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground dark:text-zinc-500 uppercase tracking-widest text-[10px] hidden md:table-cell">Created</th>
@@ -480,12 +539,22 @@ export default function ProductsIndex() {
                                                         </td>
                                                     )}
                                                     <td className="p-4 align-middle text-center">
-                                                        <span className={cn(
-                                                            "font-mono font-bold",
-                                                            product.stock <= 0 ? "text-destructive" : product.stock <= 5 ? "text-amber-600" : ""
-                                                        )}>
-                                                            {product.stock} {product.unit || 'pcs'}
-                                                        </span>
+                                                        <div className="flex flex-col items-center">
+                                                            <span className={cn(
+                                                                "font-mono font-black text-lg tracking-tighter leading-none",
+                                                                product.stock <= 0 ? "text-destructive" : product.stock <= 5 ? "text-amber-600" : "text-primary dark:text-primary-foreground"
+                                                            )}>
+                                                                {product.stock}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold uppercase text-muted-foreground/60 tracking-wider mt-0.5">Servings Available</span>
+                                                            
+                                                            {product.limiting_ingredient && product.stock <= 10 && (
+                                                                <div className="mt-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                                                                    <FiAlertTriangle className="size-2.5 text-amber-600" />
+                                                                    <span className="text-[9px] font-black uppercase text-amber-700/80 tracking-tighter italic">Limited by: {product.limiting_ingredient}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="p-4 align-middle hidden sm:table-cell">
                                                         <div className="flex flex-col gap-1">
@@ -755,7 +824,7 @@ export default function ProductsIndex() {
                                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Select Owner Branch</label>
                                                 <select
                                                     value={data.branch_id}
-                                                    onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value, recipe: [] }))}
+                                                    onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value }))}
                                                     className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-bold shadow-sm"
                                                 >
                                                     <option value="">-- Choose Branch --</option>
@@ -780,26 +849,119 @@ export default function ProductsIndex() {
                                         )}
                                     </div>
                                 )}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium uppercase text-[10px] font-bold text-muted-foreground">Cost Price (₱) <span className="text-destructive">*</span></label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₱</span>
-                                        <Input 
-                                            type="number" 
-                                            step="0.01" 
-                                            min="0"
-                                            max="999999.99"
-                                            value={data.cost_price} 
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (Number(val) < 0) return;
-                                                setData('cost_price', val);
-                                            }} 
-                                            placeholder="0.00" 
-                                            className={cn("h-10 rounded-lg pl-7", errors.cost_price && "border-destructive")} 
-                                        />
+                                {/* ── LIVE RECIPE COST PANEL ── */}
+                                <div className="space-y-3 mt-4">
+                                    <div className="p-4 bg-muted/30 border border-border/60 rounded-2xl shadow-inner space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-border/40 pb-2">
+                                            <FiZap className="size-4 text-emerald-500" />
+                                            <h4 className="text-[11px] font-black uppercase tracking-widest text-foreground">Live Recipe Cost Panel</h4>
+                                        </div>
+                                        
+                                        {data.recipe.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-6 border-2 border-dashed border-border/30 rounded-xl bg-background/40">
+                                                <FiPackage className="size-6 text-muted-foreground/30 mb-2" />
+                                                <p className="text-[10px] italic font-bold text-muted-foreground/60 text-center">Add ingredients to build your recipe and calculate costs.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {data.recipe.map((rItem, idx) => {
+                                                        const ing = ingredients.find((i: any) => i.id.toString() === rItem.ingredient_id);
+                                                        if (!ing) return null;
+                                                        
+                                                        const qty = Number(rItem.quantity_required) || 0;
+                                                        const branchId = data.branch_option === 'both' ? null : data.branch_id;
+                                                        const stockRow = ing.stocks?.find((s: any) => branchId ? String(s.branch_id) === String(branchId) : true);
+                                                        const cpu = stockRow && Number(stockRow.cost_per_unit) > 0 ? Number(stockRow.cost_per_unit) : Number(ing.cost_per_base_unit || 0);
+
+                                                        const u = (rItem.unit || ing.unit).toLowerCase().trim();
+                                                        const baseQty = convertToBaseQuantityWithIngredient(
+                                                            qty, 
+                                                            u, 
+                                                            ing.unit, 
+                                                            Number(ing.avg_weight_per_piece || 0)
+                                                        );
+                                                        const itemTotalCost = baseQty * cpu;
+
+                                                        const pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
+                                                        const isPieceUsed = pieceUnits.includes(u);
+                                                        const showConversion = isPieceUsed && ing.unit !== u && ing.avg_weight_per_piece > 0;
+
+                                                        return (
+                                                            <div key={idx} className="group relative bg-background/60 hover:bg-background border border-border/40 hover:border-emerald-500/30 p-3 rounded-xl transition-all shadow-sm">
+                                                                <div className="flex justify-between items-start gap-3">
+                                                                    <div className="flex flex-col gap-0.5">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className="text-[11px] font-black text-foreground uppercase tracking-tight">{ing.name}</span>
+                                                                            <Badge variant="outline" className="text-[8px] font-black uppercase py-0 px-1 border-primary/20 text-primary bg-primary/5">{qty} {u}</Badge>
+                                                                        </div>
+                                                                        {showConversion && (
+                                                                            <span className="text-[9px] text-muted-foreground font-bold italic">
+                                                                                ≈ {baseQty.toFixed(1)}{ing.unit} at ₱{cpu.toFixed(2)}/{ing.unit}
+                                                                            </span>
+                                                                        )}
+                                                                        {!showConversion && (
+                                                                             <span className="text-[9px] text-muted-foreground font-bold italic">
+                                                                                ₱{cpu.toFixed(2)} / {ing.unit}
+                                                                             </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex flex-col items-end">
+                                                                        <span className="text-[11px] font-black tabular-nums text-emerald-600">₱{itemTotalCost.toFixed(2)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                <div className="pt-4 border-t-2 border-dashed border-border/40 space-y-3">
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Production Cost</span>
+                                                            <span className="text-[9px] font-bold text-muted-foreground/50">Base ingredients only</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="block text-2xl font-black text-emerald-600 tabular-nums">₱{calculateComputedCost().toFixed(2)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    {errors.cost_price && <p className="text-[10px] text-destructive font-bold">{errors.cost_price}</p>}
+                                    
+                                    {/* Suggested Margins */}
+                                    {calculateComputedCost() > 0 && (
+                                        <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex flex-col gap-2 shadow-sm">
+                                            <p className="text-[9px] font-black uppercase text-amber-600 dark:text-amber-500 tracking-widest flex items-center gap-1.5 justify-center"><FiZap className="size-3"/> Suggested Selling Price</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {(() => {
+                                                    const baseCost = calculateComputedCost();
+                                                    const lowMargin = baseCost / (1 - 0.30); // 30% Margin
+                                                    const stdMargin = baseCost / (1 - 0.50); // 50% Margin
+                                                    const premMargin = baseCost / (1 - 0.80); // 80% Margin
+                                                    return (
+                                                        <>
+                                                            <div className="bg-background rounded-lg p-2 text-center border border-amber-500/20 shadow-sm cursor-pointer hover:border-amber-500/50 transition-colors" onClick={() => setData('selling_price', lowMargin.toFixed(2))}>
+                                                                <span className="block text-[8px] uppercase tracking-widest font-black text-muted-foreground mb-0.5">30% Margin</span>
+                                                                <span className="text-xs font-black tabular-nums">₱{lowMargin.toFixed(0)}</span>
+                                                            </div>
+                                                            <div className="bg-background rounded-lg p-2 text-center border border-amber-500/40 shadow-md cursor-pointer hover:border-amber-500/70 transition-colors relative overflow-hidden group" onClick={() => setData('selling_price', stdMargin.toFixed(2))}>
+                                                                <div className="absolute inset-x-0 top-0 h-0.5 bg-amber-500 w-full"></div>
+                                                                <span className="block text-[8px] uppercase tracking-widest font-black text-amber-600 mb-0.5 mt-1">50% Margin</span>
+                                                                <span className="text-xs font-black text-amber-600 tabular-nums">₱{stdMargin.toFixed(0)}</span>
+                                                            </div>
+                                                            <div className="bg-background rounded-lg p-2 text-center border border-emerald-500/20 shadow-sm cursor-pointer hover:border-emerald-500/50 transition-colors" onClick={() => setData('selling_price', premMargin.toFixed(2))}>
+                                                                <span className="block text-[8px] uppercase tracking-widest font-black text-emerald-600 mb-0.5">80% Margin</span>
+                                                                <span className="text-xs font-black text-emerald-600 tabular-nums">₱{premMargin.toFixed(0)}</span>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                            <p className="text-[8px] text-center font-bold text-muted-foreground/50 uppercase tracking-widest mt-1">Click a suggestion to apply</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium uppercase text-[10px] font-bold text-muted-foreground">Selling Price (₱) <span className="text-destructive">*</span></label>
@@ -823,17 +985,18 @@ export default function ProductsIndex() {
                                     {errors.selling_price && <p className="text-[10px] text-destructive font-bold">{errors.selling_price}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Unit of Measure</label>
+                                    <label className="text-sm font-medium uppercase text-[10px] font-bold text-muted-foreground">Package Type (Sold As)</label>
                                     <select
                                         value={data.unit}
                                         onChange={(e) => setData('unit', e.target.value)}
                                         className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
                                     >
-                                        <option value="">-- Select Unit --</option>
+                                        <option value="">-- Select Label --</option>
                                         {allowedUnits?.map((u: string) => (
                                             <option key={u} value={u}>{u.toUpperCase()} - {u === 'pcs' ? 'Pieces' : u === 'g' ? 'Grams' : u === 'ml' ? 'Milliliters' : u === 'kg' ? 'Kilograms' : u === 'L' ? 'Liters' : u}</option>
                                         ))}
                                     </select>
+                                    <p className="text-[9px] text-muted-foreground italic font-bold">This is just a label for your POS/Menu (e.g. 1 Pc, 1 Serving).</p>
                                     {errors.unit && <p className="text-xs text-destructive">{errors.unit}</p>}
                                 </div>
                                 {/* Product Image Upload */}
@@ -915,7 +1078,7 @@ export default function ProductsIndex() {
                                             </div>
                                         )}
                                         {data.recipe.map((item, idx) => {
-                                            const filteredIngredients = (usePage().props as any).ingredients.filter((ing: any) => {
+                                            const filteredIngredients = ingredients.filter((ing: any) => {
                                                 const matchesSearch = ing.name.toLowerCase().includes(ingredientSearch.toLowerCase());
                                                 const isCurrentSelection = String(ing.id) === String(item.ingredient_id);
                                                 
@@ -939,12 +1102,17 @@ export default function ProductsIndex() {
                                                     animate={{ opacity: 1, x: 0 }}
                                                     className="grid grid-cols-12 gap-2 items-start bg-muted/20 p-3 rounded-xl border border-muted/50"
                                                 >
-                                                    <div className="col-span-12 sm:col-span-7 space-y-1.5">
+                                                    <div className="col-span-12 sm:col-span-5 space-y-1.5">
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
                                                         <select
                                                             disabled={!data.branch_id && data.branch_option === 'single'}
                                                             value={item.ingredient_id}
-                                                            onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                            onChange={(e) => {
+                                                                updateRecipeItem(idx, 'ingredient_id', e.target.value);
+                                                                // auto-reset unit
+                                                                const sIng = filteredIngredients.find((i: Ingredient) => i.id.toString() === e.target.value);
+                                                                if(sIng) updateRecipeItem(idx, 'unit', sIng.unit);
+                                                            }}
                                                             className={cn(
                                                                 "w-full h-10 px-3 rounded-lg border bg-background text-xs focus:outline-none focus:ring-1 transition-all appearance-none",
                                                                 ingError ? "border-destructive ring-destructive/10 text-destructive" : "border-input ring-primary/20",
@@ -975,28 +1143,41 @@ export default function ProductsIndex() {
                                                             })}
                                                         </select>
                                                         {ingError && <p className="text-[10px] text-destructive font-bold ml-1">{ingError as string}</p>}
+                                                        {selectedIng && selectedIng.avg_weight_per_piece > 0 && (
+                                                            <p className="text-[9px] text-muted-foreground italic ml-1 mt-1 font-medium">1 pc/clove ≈ {Number(selectedIng.avg_weight_per_piece)} {selectedIng.unit}</p>
+                                                        )}
                                                     </div>
                                                     
                                                     <div className="col-span-3 space-y-1.5 px-1">
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
-                                                        <div className="relative">
-                                                            <Input
-                                                                type="number"
-                                                                step="0.0001"
-                                                                value={item.quantity_required}
-                                                                onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                                className={cn(
-                                                                    "h-10 text-xs font-bold pl-3 pr-8 bg-background rounded-lg",
-                                                                    qtyError ? "border-destructive ring-destructive/10" : "border-input"
-                                                                )}
-                                                            />
-                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
-                                                                {selectedIng?.unit || '-'}
-                                                            </span>
-                                                        </div>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.0001"
+                                                            value={item.quantity_required}
+                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                            className={cn(
+                                                                "h-10 text-xs font-bold px-3 bg-background rounded-lg",
+                                                                qtyError ? "border-destructive ring-destructive/10" : "border-input"
+                                                            )}
+                                                        />
                                                         {qtyError && <p className="text-[10px] text-destructive font-bold ml-1">{qtyError as string}</p>}
                                                     </div>
-                                                    <div className="col-span-2 flex justify-end pb-1 text-right">
+
+                                                    <div className="col-span-3 space-y-1.5 px-1">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Unit</label>
+                                                        <select
+                                                            disabled={!selectedIng}
+                                                            value={item.unit || selectedIng?.unit || ''}
+                                                            onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                            className="w-full h-10 px-3 rounded-lg border border-input bg-background text-xs focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none uppercase font-bold"
+                                                        >
+                                                            {getAvailableUnits(selectedIng).map(u => (
+                                                                <option key={u} value={u}>{u}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="col-span-1 flex justify-end pb-1 pr-1 items-end h-full mt-6 text-right">
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
@@ -1092,20 +1273,13 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (₱)</label>
+                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Computed Cost (₱)</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₱</span>
                                         <Input 
-                                            type="number" 
-                                            step="0.01" 
-                                            min="0"
-                                            max="999999.99"
-                                            value={data.cost_price} 
-                                            onChange={(e) => {
-                                                if (Number(e.target.value) < 0) return;
-                                                setData('cost_price', e.target.value);
-                                            }} 
-                                            className="h-12 rounded-xl bg-muted/30 font-bold pl-7" 
+                                            disabled
+                                            value={calculateComputedCost().toFixed(2)}
+                                            className="h-12 rounded-xl bg-muted/50 font-bold pl-7 cursor-not-allowed text-muted-foreground" 
                                         />
                                     </div>
                                 </div>
@@ -1213,39 +1387,51 @@ export default function ProductsIndex() {
                                             </div>
                                         )}
                                         {/* Added Helper Text when no branch selected */}
-                                        {!data.branch_id && (
+                                        {!data.branch_id && data.branch_option !== 'both' && (
                                             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl mb-2 mt-2">
                                                 <p className="text-xs text-amber-600 font-bold">Please select an Owner Branch.</p>
                                                 <p className="text-[10px] text-amber-600/80">Only ingredients from the selected branch are available for recipes.</p>
                                             </div>
                                         )}
                                         {data.recipe.map((item, idx) => {
-                                            const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
+                                            const selectedIng = ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
                                             return (
                                                 <motion.div
                                                     layout
                                                     initial={{ opacity: 0, scale: 0.95 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     key={idx}
-                                                    className="grid grid-cols-12 gap-2 items-end bg-background p-3 rounded-xl border border-muted"
+                                                    className="grid grid-cols-12 gap-2 items-start bg-background p-3 rounded-xl border border-muted"
                                                 >
-                                                    <div className="col-span-7 space-y-1.5">
+                                                    <div className="col-span-12 sm:col-span-5 space-y-1.5">
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
                                                         <select
                                                             required
-                                                            disabled={!data.branch_id}
                                                             value={item.ingredient_id}
-                                                            onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    const sIng = ingredients.find((i: Ingredient) => String(i.id) === val);
+                                                                    
+                                                                    // Update both ID and default unit in a single state update for stability
+                                                                    setData(prev => {
+                                                                        const newRecipe = [...prev.recipe];
+                                                                        newRecipe[idx] = { 
+                                                                            ...newRecipe[idx], 
+                                                                            ingredient_id: val,
+                                                                            unit: sIng ? sIng.unit : newRecipe[idx].unit
+                                                                        };
+                                                                        return { ...prev, recipe: newRecipe };
+                                                                    });
+                                                                }}
                                                             className={cn(
-                                                                "w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none dropdown-item",
-                                                                !data.branch_id ? "opacity-50 cursor-not-allowed bg-muted" : ""
+                                                                "w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all dropdown-item shadow-sm cursor-pointer ml-0"
                                                             )}
                                                         >
                                                             <option value="">-- Choose Ingredient --</option>
-                                                            {ingredientSearch && (usePage().props as any).ingredients.filter((ing: any) => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase())).length === 0 && (
+                                                            {ingredientSearch && ingredients.filter((ing: any) => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase())).length === 0 && (
                                                                 <option disabled>No matches found</option>
                                                             )}
-                                                            {(usePage().props as any).ingredients
+                                                            {ingredients
                                                                 .filter((ing: any) => {
                                                                     const matchesSearch = ing.name.toLowerCase().includes(ingredientSearch.toLowerCase());
                                                                     const isCurrentSelection = String(ing.id) === String(item.ingredient_id);
@@ -1253,41 +1439,56 @@ export default function ProductsIndex() {
                                                                     if (isCurrentSelection) return true;
                                                                     if (!matchesSearch) return false;
 
-                                                                    if (!data.branch_id) return true;
-                                                                    return ing.stocks?.some((s: any) => Number(s.branch_id) === Number(data.branch_id));
+                                                                    // Always allow selection in both modes, stock records are for costing/display only
+                                                                    return true;
                                                                 })
                                                                 .map((ing: Ingredient) => {
                                                                     const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === String(ing.id) && rIdx !== idx);
+                                                                    const branchId = data.branch_option === 'both' ? (ing.stocks?.[0]?.branch_id || '') : data.branch_id;
+                                                                    const stockLabel = ing.stocks?.find((s: any) => Number(s.branch_id) === Number(branchId))?.stock || 0;
                                                                     return (
                                                                         <option 
                                                                             key={ing.id} 
-                                                                            value={ing.id} 
+                                                                            value={String(ing.id)} 
                                                                             disabled={isTaken}
                                                                             title={ing.name}
                                                                         >
-                                                                            {formatName(ing.name)} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {ing.stocks?.find((s: any) => Number(s.branch_id) === Number(data.branch_id))?.stock || 0}
+                                                                            {formatName(ing.name)} {isTaken ? '(Already added)' : `(${ing.unit})`} — Stock: {stockLabel}
                                                                         </option>
                                                                     );
                                                                 })}
                                                         </select>
+                                                        {selectedIng && selectedIng.avg_weight_per_piece > 0 && (
+                                                            <p className="text-[9px] text-muted-foreground italic ml-1 mt-1 font-medium">1 pc/clove ≈ {Number(selectedIng.avg_weight_per_piece)} {selectedIng.unit}</p>
+                                                        )}
                                                     </div>
-                                                    <div className="col-span-3 space-y-1.5">
+                                                    <div className="col-span-3 space-y-1.5 px-1">
                                                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
-                                                        <div className="relative">
-                                                            <Input
-                                                                type="number"
-                                                                step="0.0001"
-                                                                required
-                                                                value={item.quantity_required}
-                                                                onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                                className="h-10 text-xs font-bold bg-muted/30 focus:bg-background rounded-lg border-input"
-                                                            />
-                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
-                                                                {selectedIng?.unit || '-'}
-                                                            </span>
-                                                        </div>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.0001"
+                                                            required
+                                                            value={item.quantity_required}
+                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                            className="h-10 text-xs font-bold bg-muted/30 focus:bg-background rounded-lg border-input px-3"
+                                                        />
                                                     </div>
-                                                    <div className="col-span-2 flex justify-end pb-1">
+
+                                                    <div className="col-span-3 space-y-1.5 px-1">
+                                                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Unit</label>
+                                                        <select
+                                                            disabled={!selectedIng}
+                                                            value={item.unit || selectedIng?.unit || ''}
+                                                            onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                            className="w-full h-10 px-3 rounded-lg border border-input bg-background/50 text-xs focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none uppercase font-bold"
+                                                        >
+                                                            {getAvailableUnits(selectedIng).map(u => (
+                                                                <option key={u} value={u}>{u}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="col-span-1 flex justify-end pr-1 items-end h-full pb-1 mt-6">
                                                         <Button
                                                             type="button"
                                                             variant="ghost"

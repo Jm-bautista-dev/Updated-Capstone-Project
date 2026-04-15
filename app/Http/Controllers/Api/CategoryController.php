@@ -17,22 +17,15 @@ class CategoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = auth('sanctum')->user();
-        
-        // Priority: Request Param -> User Profile -> Default to Branch 1
-        $branchId = $request->branch_id ?? $user?->branch_id ?? 1;
-
-        $categories = Category::whereIn('id', function ($query) use ($branchId) {
-            $query->select('category_id')
-                  ->from('branch_category')
-                  ->where('branch_id', $branchId);
-        })
-            ->orderBy('name')
+        // For a restaurant app, categories are usually global or shared.
+        // We will return all categories to ensure they show up in the Expo app.
+        $categories = Category::orderBy('name')
             ->get()
             ->map(function (Category $cat) {
                 return [
                     'id' => $cat->id,
                     'name' => $cat->name,
+                    'image_url' => $cat->image_path ? asset('storage/' . $cat->image_path) : null,
                 ];
             });
 

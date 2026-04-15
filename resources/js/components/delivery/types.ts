@@ -14,11 +14,16 @@ export interface Delivery {
     delivery_fee: number;
     created_at: string;
     next_statuses: string[];
-    sale: {
+    sale?: {
         order_number: string;
         total: number;
         branch: { name: string };
-    };
+    } | null;
+    order?: {
+        id: number;
+        total_amount: number;
+        branch?: { name: string } | null;
+    } | null;
     rider?: { name: string };
     external_notes?: string | null;
     proof_of_delivery_url?: string | null;

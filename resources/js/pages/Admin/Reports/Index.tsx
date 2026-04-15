@@ -207,8 +207,8 @@ function AdminReports({ sales, cashiers, filters }: any) {
                                 <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">7-Day Trajectory</CardDescription>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-0 h-[320px]">
-                                <ResponsiveContainer width="100%" height="85%">
+                        <CardContent className="p-0 h-[320px] min-h-[320px]">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={0}>
                                     <AreaChart data={TREND_DATA} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -232,8 +232,8 @@ function AdminReports({ sales, cashiers, filters }: any) {
                             <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Category Dispersion</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col items-center justify-center p-6 pt-0">
-                            <div className="h-[200px] w-full relative">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-[200px] w-full relative min-h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={0}>
                                     <PieChart>
                                         <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={8} dataKey="value" stroke="none">
                                             {CAT_DATA.map((entry, index) => (

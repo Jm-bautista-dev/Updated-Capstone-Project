@@ -37,10 +37,13 @@ class PosController extends Controller
         }
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId) {
-            // Use branch-scoped stock computation
-            $product->stock    = $product->computedStockForBranch($branchId);
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('public');
+            // Compute dynamic availability (ingredient-based truth)
+            $availability = $product->dynamicAvailability($branchId);
+            
+            $product->stock = $availability['available'];
+            $product->limiting_ingredient = $availability['limiting_ingredient'];
+            $product->is_low_stock = $availability['is_low_stock'];
+
             $product->image_url = $product->image_path
                 ? asset('storage/' . $product->image_path)
                 : null;

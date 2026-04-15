@@ -67,16 +67,18 @@ class ProductController extends Controller
         $imageUrl = $imagePath ? $disk->url($imagePath) : null;
 
         return [
-            'id'          => $product->id,
-            'name'        => $product->name,
-            'sku'         => $product->sku,
-            'price'       => (float) ($product->selling_price ?? 0),
-            'image'       => $imageUrl,
-            'category_id' => $product->category_id,
-            'category'    => $product->category ? $product->category->name : 'Uncategorized',
-            'description' => $product->description,
-            'unit'        => $product->unit_model ? $product->unit_model->abbreviation : ($product->unit ?? 'pcs'),
-            'stock'       => (float) $product->computed_stock,
+            'id'            => $product->id,
+            'name'          => $product->name,
+            'sku'           => $product->sku,
+            'price'         => (float) ($product->selling_price ?? 0),
+            'selling_price' => (float) ($product->selling_price ?? 0),
+            'cost_price'    => (float) ($product->cost_price ?? 0),
+            'image'         => $imageUrl,
+            'category_id'   => $product->category_id,
+            'category'      => $product->category ? $product->category->name : 'Uncategorized',
+            'description'   => $product->description,
+            'unit'          => $product->unit_model ? $product->unit_model->abbreviation : ($product->unit ?? 'pcs'),
+            'stock'         => (float) $product->computed_stock,
         ];
     }
 }

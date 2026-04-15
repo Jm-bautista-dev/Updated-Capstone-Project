@@ -245,8 +245,8 @@ export default function SalesForecast() {
                                         </div>
                                     </CardHeader>
                                     <CardContent className="pt-8">
-                                        <div className="h-[400px] w-full">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                        <div className="h-[400px] w-full min-h-[400px]">
+                                            <ResponsiveContainer width="100%" height="100%" minHeight={400} minWidth={0}>
                                                 <ComposedChart data={chartData}>
                                                     <defs>
                                                         <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">

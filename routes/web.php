@@ -32,6 +32,10 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
+Route::get('/menu', function () {
+    return Inertia::render('Customer/Menu');
+})->name('menu');
+
 Route::middleware(['auth', 'verified'])->group(function () {
 
     // Admin ONLY Routes
@@ -91,6 +95,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Inventory
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
+        Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
 
         // Reports
         Route::get('reports', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('reports.index');

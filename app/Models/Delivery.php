@@ -16,6 +16,7 @@ class Delivery extends Model
 
     protected $fillable = [
         'sale_id',
+        'order_id',
         'delivery_type',
         'external_service',
         'tracking_number',
@@ -62,6 +63,11 @@ class Delivery extends Model
     ];
 
     /* ── Relationships ─────────────────────────────── */
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
 
     public function sale(): BelongsTo
     {

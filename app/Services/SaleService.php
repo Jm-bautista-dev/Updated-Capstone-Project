@@ -56,7 +56,6 @@ class SaleService
 
             // Aggregate totals per ingredient and per product
             $ingredientRequirements = []; // [ingredient_id => total_quantity_needed]
-            $productDeductions      = []; // [product_id => total_qty]
             $costTotal   = 0;
             $saleProfit  = 0;
             $saleItemsData = [];
@@ -72,17 +71,20 @@ class SaleService
                 if ($product->ingredients->isNotEmpty()) {
                     // Recipe-based: deduct from ingredient_stocks
                     foreach ($product->ingredients as $ingredient) {
-                        $needed = (float) $ingredient->pivot->quantity_required * $qty;
+                        $qtyInput = (float) $ingredient->pivot->quantity_required;
+                        $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+                        $baseRequiredPerProduct = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient($qtyInput, $unitInput, $ingredient->unit, $ingredient->avg_weight_per_piece);
+                        $needed = $baseRequiredPerProduct * $qty;
                         $ingredientRequirements[$ingredient->id] =
                             ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
                     }
                 } else {
-                    // Direct product stock deduction
-                    $productDeductions[$product->id] =
-                        ($productDeductions[$product->id] ?? 0) + $qty;
+                    // Direct products do not deduct stock directly anymore
                 }
 
-                $itemCost    = (float) $product->cost_price * $qty;
+                $computedCost = $product->computeProductCost($branchId);
+
+                $itemCost    = $computedCost * $qty;
                 $itemSelling = (float) $product->selling_price * $qty;
                 $itemProfit  = $itemSelling - $itemCost;
 
@@ -93,7 +95,7 @@ class SaleService
                     'product_id' => $product->id,
                     'quantity'   => $qty,
                     'unit_price' => $product->selling_price,
-                    'cost_price' => $product->cost_price,
+                    'cost_price' => $computedCost,
                     'subtotal'   => $itemSelling,
                     'profit'     => $itemProfit,
                 ];
@@ -103,9 +105,6 @@ class SaleService
             if (!empty($ingredientRequirements)) {
                 $this->validateIngredientStock($ingredientRequirements, $branchId);
             }
-            if (!empty($productDeductions)) {
-                $this->validateProductStock($productDeductions);
-            }
 
             // 3. ── DEDUCT INGREDIENTS (branch-scoped, atomic) ───────────────────
             $orderRef = $data['order_number'] ?? ('SALE-' . strtoupper(uniqid()));
@@ -114,10 +113,7 @@ class SaleService
                 $this->deductIngredientStock($ingredientRequirements, $branchId, $orderRef);
             }
 
-            // 4. ── DEDUCT DIRECT PRODUCTS ───────────────────────────────────────
-            if (!empty($productDeductions)) {
-                $this->deductProducts($productDeductions, $branchId, $orderRef);
-            }
+            // 4. ── (Product Level Stock Deduction Removed) ──────────────────────
 
             // 5. ── CREATE SALE RECORD ───────────────────────────────────────────
             $sale = Sale::create([
@@ -193,24 +189,6 @@ class SaleService
         }
     }
 
-    /**
-     * Validate direct product stock before deduction.
-     *
-     * @throws \Exception on insufficient stock
-     */
-    protected function validateProductStock(array $deductions): void
-    {
-        $products = Product::whereIn('id', array_keys($deductions))->get()->keyBy('id');
-        foreach ($deductions as $id => $qty) {
-            $product = $products->get($id);
-            if (!$product || (float) $product->stock < $qty) {
-                throw new \Exception(
-                    "Insufficient product stock: " . ($product->name ?? "ID #{$id}")
-                );
-            }
-        }
-    }
-
     // ──────────────────────────────────────────────────────────────────────────
     // DEDUCTIONS
     // ──────────────────────────────────────────────────────────────────────────
@@ -254,37 +232,6 @@ class SaleService
 
             // 🔥 BROADCAST: Ingredient stock updated
             broadcast(new StockUpdated($branchId, Ingredient::class, $ingredientId))->toOthers();
-        }
-    }
-
-    /**
-     * Deduct from direct product stock.
-     */
-    protected function deductProducts(array $deductions, int $branchId, string $ref): void
-    {
-        foreach ($deductions as $id => $qty) {
-            /** @var \App\Models\Product $product */
-            $product = Product::lockForUpdate()->findOrFail($id);
-            $prev = (float) $product->stock;
-            $product->decrement('stock', $qty);
-            $product->refresh();
-
-            StockLog::create([
-                'storable_type'  => Product::class,
-                'storable_id'    => $id,
-                'branch_id'      => $branchId,
-                'user_id'        => Auth::id(),
-                'action_type'    => 'sale_deduction',
-                'quantity'       => $qty,
-                'quantity_base'  => $qty,
-                'unit'           => $product->unit ?? 'pcs',
-                'previous_stock' => $prev,
-                'new_stock'      => (float) $product->stock,
-                'reference'      => "Sale: {$ref}",
-            ]);
-
-            // 🔥 BROADCAST: Product stock updated
-            broadcast(new StockUpdated($branchId, Product::class, $id))->toOthers();
         }
     }
 

@@ -41,6 +41,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
         quantity: '',
         unit: item?.unit || (type === 'product' ? 'pcs' : 'g'),
         branch_id: item?.branch_id ? String(item.branch_id) : defaultBranchId,
+        purchase_price: '',
     });
 
     // Sync form data when item changes or modal opens
@@ -52,6 +53,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                 quantity: '',
                 unit: item.unit || (type === 'product' ? 'pcs' : 'g'),
                 branch_id: item.branch_id ? String(item.branch_id) : defaultBranchId,
+                purchase_price: '',
             });
         }
     }, [open, item, type, defaultBranchId]);
@@ -170,6 +172,27 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {type === 'ingredient' && (
+                            <div className="col-span-2 space-y-1.5">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Total Purchase Price (Batch Cost)</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₱</span>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={data.purchase_price}
+                                        onChange={(e) => setData('purchase_price', e.target.value)}
+                                        className="h-11 pl-8 rounded-xl bg-muted/20 border-none ring-1 ring-muted font-bold"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                                <p className="text-[9px] text-muted-foreground italic ml-1 leading-tight">
+                                    Used to calculate **Weighted Average Cost (WAC)** for accurate profit reports.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {preview && (

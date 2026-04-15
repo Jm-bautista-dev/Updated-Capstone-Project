@@ -25,6 +25,7 @@ import {
   FiZap
 } from 'react-icons/fi';
 import { StockInModal } from '@/components/stock-in-modal';
+import { WastageModal } from '@/components/wastage-modal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,11 @@ type InventoryRow = {
   low_stock_level: number;
   is_low_stock: boolean;
   is_out_of_stock: boolean;
+  avg_weight_per_piece: number | null;
+  cost_per_unit: number;
+  display_unit?: string;
+  display_stock?: number;
+  display_price?: number;
 };
 
 type Branch = { id: number; name: string };
@@ -119,6 +125,7 @@ export default function InventoryIndex() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
+  const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
   const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
     type: 'success', title: '', message: '',
   });
@@ -129,11 +136,19 @@ export default function InventoryIndex() {
     setIsStockInModalOpen(true);
   };
 
+  const openWastageModal = (row: InventoryRow) => {
+    setSelectedRow(row);
+    setIsWastageModalOpen(true);
+  };
+
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
     name: '',
     unit: 'g',
     stock: '0',
     low_stock_level: '5',
+    avg_weight_per_piece: '',
+    cost_per_base_unit: '0',
+    cost_per_unit: '0',
     branch_id: currentBranchId ? String(currentBranchId) : '',
     branch_ids: [] as string[],
   });
@@ -220,6 +235,9 @@ export default function InventoryIndex() {
       unit: row.unit,
       stock: String(row.stock),
       low_stock_level: String(row.low_stock_level ?? 5),
+      avg_weight_per_piece: row.avg_weight_per_piece ? String(row.avg_weight_per_piece) : '',
+      cost_per_base_unit: String(row.cost_per_unit ?? 0), // Defaulting for edit
+      cost_per_unit: String(row.cost_per_unit ?? 0),
       branch_id: row.branch_id ? String(row.branch_id) : '',
       branch_ids: [],
     });
@@ -235,6 +253,9 @@ export default function InventoryIndex() {
       unit: data.unit,
       initial_stock: Number(data.stock),
       low_stock_level: Number(data.low_stock_level),
+      avg_weight_per_piece: data.avg_weight_per_piece ? Number(data.avg_weight_per_piece) : undefined,
+      cost_per_base_unit: Number(data.cost_per_base_unit),
+      cost_per_unit: Number(data.cost_per_unit),
       branch_id: data.branch_id ? Number(data.branch_id) : undefined,
       branch_ids: data.branch_ids.length > 0 ? data.branch_ids.map(Number) : undefined,
     }, {
@@ -256,6 +277,8 @@ export default function InventoryIndex() {
       branch_id: data.branch_id ? Number(data.branch_id) : undefined,
       stock: Number(data.stock),
       low_stock_level: Number(data.low_stock_level),
+      avg_weight_per_piece: data.avg_weight_per_piece ? Number(data.avg_weight_per_piece) : undefined,
+      cost_per_unit: Number(data.cost_per_unit),
     }, {
       onSuccess: () => {
         setIsEditModalOpen(false);
@@ -268,11 +291,11 @@ export default function InventoryIndex() {
   };
 
   const submitDelete = () => {
-    router.delete(`/inventory/${selectedRow?.id}`, {
+    router.delete(`/inventory/${selectedRow?.id}?branch_id=${selectedRow?.branch_id}`, {
       onSuccess: () => {
         setIsDeleteModalOpen(false);
         stateChannel.postMessage({ type: 'inventory-updated' });
-        setResultModal({ type: 'success', title: 'Ingredient Deleted', message: 'The ingredient and all its branch stock records have been removed.' });
+        setResultModal({ type: 'success', title: 'Inventory Updated', message: `Ingredient removed from ${selectedRow?.branch_name}.` });
         setIsResultModalOpen(true);
       },
     });
@@ -293,6 +316,25 @@ export default function InventoryIndex() {
 
   const rowKey = (row: InventoryRow) => `${row.id}-${row.branch_id}`;
 
+  // Simple icon for the intelligence cards
+  const FiCheckCircle = (props: any) => (
+    <svg 
+      stroke="currentColor" 
+      fill="none" 
+      strokeWidth="2" 
+      viewBox="0 0 24 24" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      height="1em" 
+      width="1em" 
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+  );
+
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Maki Desu Inventory Intelligence" />
@@ -304,10 +346,10 @@ export default function InventoryIndex() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <FiPackage className="text-primary size-5" />
-                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white">Inventory Catalog</h1>
+                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white">Inventory</h1>
               </div>
               <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">
-                Global Network Intelligence & Per-Branch Asset Management
+                Keep track of your ingredients and stock levels across shops.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -320,7 +362,7 @@ export default function InventoryIndex() {
                     <SelectValue placeholder="All Branches" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-border shadow-2xl">
-                    <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">Global View</SelectItem>
+                    <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Branches</SelectItem>
                     {branchList.map(b => (
                       <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase tracking-widest py-3">{b.name}</SelectItem>
                     ))}
@@ -338,18 +380,18 @@ export default function InventoryIndex() {
               </div>
               <Select value={filterUnit} onValueChange={setFilterUnit}>
                 <SelectTrigger className="w-full sm:w-32 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                  <SelectValue placeholder="Scale" />
+                  <SelectValue placeholder="Unit" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-border shadow-2xl">
-                  <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Scales</SelectItem>
-                  <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Mass)</SelectItem>
-                  <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Volume)</SelectItem>
-                  <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Count)</SelectItem>
+                  <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Units</SelectItem>
+                  <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Grams)</SelectItem>
+                  <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Milliliters)</SelectItem>
+                  <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Pieces)</SelectItem>
                 </SelectContent>
               </Select>
               {isAdmin && (
                 <Button onClick={handleAdd} className="h-11 gap-2 shadow-lg shadow-primary/20 rounded-xl px-5 font-black uppercase text-[10px] tracking-widest italic">
-                  <FiPlus className="size-4" /> <span className="hidden sm:inline">Initialize Asset</span>
+                  <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Item</span>
                 </Button>
               )}
             </div>
@@ -363,29 +405,29 @@ export default function InventoryIndex() {
                  <div className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-10" />
                                 <div className="flex items-center justify-between mb-4">
-                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Unique Assets</p>
+                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Total Items</p>
                                      <FiGrid className="size-5 text-primary" />
                                 </div>
                                 <h3 className="text-3xl font-black text-foreground dark:text-white tabular-nums">{stats.total}</h3>
-                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Cross-Network Ingredients</p>
+                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Ingredients across all branches</p>
                  </div>
                  <div className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 size-24 bg-amber-500 blur-3xl opacity-10" />
                                 <div className="flex items-center justify-between mb-4">
-                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/70 dark:text-amber-500/70">Threshold Warning</p>
+                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/70 dark:text-amber-500/70">Low Stock</p>
                                      <FiAlertTriangle className="size-5 text-amber-500" />
                                 </div>
                                 <h3 className="text-3xl font-black text-amber-600 dark:text-amber-500 tabular-nums">{stats.low_stock}</h3>
-                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Rows requiring restocking</p>
+                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Items running low</p>
                  </div>
                  <div className="bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/20 dark:border-rose-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 size-24 bg-rose-500 blur-3xl opacity-10" />
                                 <div className="flex items-center justify-between mb-4">
-                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-600/70 dark:text-rose-500/70">Critical Depletion</p>
+                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-600/70 dark:text-rose-500/70">Out of Stock</p>
                                      <FiSlash className="size-5 text-rose-500" />
                                 </div>
                                 <h3 className="text-3xl font-black text-rose-600 dark:text-rose-500 tabular-nums">{stats.out_of_stock}</h3>
-                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Items currently inaccessible</p>
+                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Items with zero stock</p>
                  </div>
             </div>
 
@@ -396,10 +438,10 @@ export default function InventoryIndex() {
                    <div className="flex flex-col items-center gap-4">
                       <FiSearch className="size-12 text-muted-foreground opacity-20" />
                       <div>
-                        <p className="text-xl font-black italic uppercase tracking-tighter text-muted-foreground">No matching intelligence found</p>
-                        <p className="text-xs font-bold text-muted-foreground/60 uppercase mt-1">Adjust filters or refine your search query</p>
+                        <p className="text-xl font-black italic uppercase tracking-tighter text-muted-foreground">No items found</p>
+                        <p className="text-xs font-bold text-muted-foreground/60 uppercase mt-1">Try a different search or filter</p>
                       </div>
-                      <Button variant="outline" onClick={() => {setSearch(''); setFilterUnit('all');}} className="mt-4 font-black uppercase text-[10px] tracking-widest italic">Clear Spectrum Filters</Button>
+                      <Button variant="outline" onClick={() => {setSearch(''); setFilterUnit('all');}} className="mt-4 font-black uppercase text-[10px] tracking-widest italic">Clear Filters</Button>
                    </div>
                 </Card>
               ) : (
@@ -427,7 +469,7 @@ export default function InventoryIndex() {
                                 {branchName}
                                 {items.some(i => i.is_out_of_stock) && <Badge className="bg-rose-500 text-white border-none font-black text-[9px] uppercase tracking-widest shadow-lg shadow-rose-500/30 ring-1 ring-rose-500/20">Critical</Badge>}
                               </h2>
-                              <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mt-0.5">Location ID Asset Stream</p>
+                              <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mt-0.5">Store Stock</p>
                            </div>
                         </div>
 
@@ -461,10 +503,10 @@ export default function InventoryIndex() {
                                         if (firstCritical) openStockInModal(firstCritical);
                                       }}
                                     >
-                                      <FiRefreshCw className="size-3 animate-spin-slow" /> Quick Restock
+                                      <FiRefreshCw className="size-3 animate-spin-slow" /> Restock Item
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent className="bg-primary text-white border-none font-bold text-[10px] uppercase">Initialize restock for most critical item</TooltipContent>
+                                  <TooltipContent className="bg-primary text-white border-none font-bold text-[10px] uppercase">Restock the item with the lowest stock</TooltipContent>
                                 </Tooltip>
                               )}
                               <Button 
@@ -494,11 +536,11 @@ export default function InventoryIndex() {
                                     <tr className="border-b border-border/40 bg-muted/20 dark:bg-black/20">
                                       <th className="h-12 w-14"></th>
                                       {[
-                                        { label: 'Asset Entity', key: 'name' },
-                                        { label: 'Scale', key: 'unit' },
-                                        { label: 'In-Hand Stock', key: 'stock' },
-                                        { label: 'Status Matrix', key: null },
-                                        { label: 'Operations', key: null },
+                                        { label: 'Item Name', key: 'name' },
+                                        { label: 'Unit', key: 'unit' },
+                                        { label: 'Current Stock', key: 'stock' },
+                                        { label: 'Status', key: null },
+                                        { label: 'Actions', key: null },
                                       ].map((col, idx) => (
                                         <th key={idx} className="h-12 px-6 text-left align-middle">
                                           {col.key ? (
@@ -550,14 +592,17 @@ export default function InventoryIndex() {
                                                    </div>
                                                 </td>
                                                 <td className="px-6 align-middle">
-                                                  <Badge variant="outline" className="bg-muted/50 dark:bg-zinc-800 border-none px-2 rounded-lg font-black text-[9px] uppercase tabular-nums tracking-widest italic">{item.unit}</Badge>
+                                                   <Badge variant="outline" className="bg-muted/50 dark:bg-zinc-800 border-none px-2 rounded-lg font-black text-[9px] uppercase tabular-nums tracking-widest italic">{item.display_unit || item.unit}</Badge>
                                                 </td>
                                                 <td className="px-6 align-middle">
-                                                   <div className="flex items-baseline gap-1.5">
-                                                      <span className={cn("font-black text-lg italic tracking-tighter tabular-nums", isCritical ? "text-rose-600 dark:text-rose-500" : "text-foreground")}>
-                                                        {Number(item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}
-                                                      </span>
-                                                      <span className="text-[9px] font-black uppercase text-muted-foreground opacity-50 tracking-widest">{item.unit}</span>
+                                                    <div className="flex items-baseline gap-1.5 flex-col">
+                                                      <div>
+                                                          <span className={cn("font-black text-lg italic tracking-tighter tabular-nums", isCritical ? "text-rose-600 dark:text-rose-500" : "text-foreground")}>
+                                                            {Number(item.display_stock ?? item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}
+                                                          </span>
+                                                          <span className="text-[9px] font-black uppercase text-muted-foreground opacity-50 tracking-widest ml-1">{item.display_unit || item.unit}</span>
+                                                      </div>
+                                                      <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter tabular-nums">avg. ₱{Number(item.display_price ?? item.cost_per_unit).toFixed(2)} / {item.display_unit || item.unit}</span>
                                                    </div>
                                                 </td>
                                                 <td className="px-6 align-middle">
@@ -575,6 +620,9 @@ export default function InventoryIndex() {
                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform scale-95 group-hover:scale-100 duration-200" onClick={e => e.stopPropagation()}>
                                                       <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30" onClick={() => openStockInModal(item)}>
                                                           <FiRefreshCw className="size-4" />
+                                                      </Button>
+                                                      <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => openWastageModal(item)}>
+                                                          <FiTrash2 className="size-4" />
                                                       </Button>
                                                       {isAdmin && (
                                                         <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-indigo-500/10 hover:text-indigo-500 hover:border-indigo-500/30" onClick={() => handleEdit(item)}>
@@ -602,25 +650,32 @@ export default function InventoryIndex() {
                                                             <div className="absolute top-0 left-[2.4rem] h-full w-0.5 bg-primary/20" />
                                                             <div className="space-y-4">
                                                                 <div className="flex flex-col gap-1">
-                                                                    <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Global Asset Metadata</span>
+                                                                    <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Item Details</span>
                                                                     <div className="flex items-center gap-3">
                                                                        <Badge variant="outline" className="font-mono text-xs font-black bg-background dark:bg-zinc-800/80 px-2 py-1 rounded-lg border-primary/20 text-primary">#ING-{item.id.toString().padStart(4, '0')}</Badge>
-                                                                       <span className="text-[11px] font-bold text-muted-foreground">{item.name} General Specs</span>
+                                                                       <span className="text-[11px] font-bold text-muted-foreground">{item.name} Information</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                             <div className="space-y-4">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Safety Variance</span>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-black italic uppercase tracking-tighter">{item.low_stock_level} {item.unit}</span>
-                                                                        <span className="text-[9px] font-bold text-muted-foreground/60 leading-none lowercase">threshold per node</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                                 <div className="flex flex-col gap-1">
+                                                                     <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Procurement Cost</span>
+                                                                     <div className="flex items-center gap-2">
+                                                                         <span className="text-sm font-black italic uppercase tracking-tighter text-emerald-600">₱{Number(item.display_price ?? item.cost_per_unit).toFixed(2)} / {item.display_unit || item.unit}</span>
+                                                                         <span className="text-[9px] font-bold text-muted-foreground/60 leading-none lowercase">actual cost</span>
+                                                                     </div>
+                                                                 </div>
+                                                                 <div className="flex flex-col gap-1">
+                                                                     <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Low Stock Alert</span>
+                                                                     <div className="flex items-center gap-2">
+                                                                         <span className="text-sm font-black italic uppercase tracking-tighter text-rose-500">{(item.display_unit === 'kg' || item.display_unit === 'L') ? (item.low_stock_level / 1000) : item.low_stock_level} {item.display_unit || item.unit}</span>
+                                                                         <span className="text-[9px] font-bold text-muted-foreground/60 leading-none lowercase">alert level</span>
+                                                                     </div>
+                                                                 </div>
+                                                             </div>
                                                             <div className="flex justify-end items-center">
                                                                 <Button variant="default" className="shadow-lg shadow-primary/20 font-black uppercase text-[10px] tracking-widest italic rounded-xl px-6 h-10 gap-2" onClick={() => openStockInModal(item)}>
-                                                                   <FiPackage className="size-4" /> Stock Control
+                                                                   <FiPackage className="size-4" /> Restock Item
                                                                 </Button>
                                                             </div>
                                                         </div>
@@ -647,7 +702,7 @@ export default function InventoryIndex() {
             <div className="p-8 bg-card dark:bg-zinc-900 border border-border shadow-xl rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-8">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black italic uppercase text-muted-foreground/60 tracking-widest">Density Control</span>
+                    <span className="text-[10px] font-black italic uppercase text-muted-foreground/60 tracking-widest">Display Rows</span>
                     <Select value={String(itemsPerPage)} onValueChange={val => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
                       <SelectTrigger className="w-[80px] h-10 rounded-xl border-none bg-muted/50 dark:bg-zinc-800 shadow-inner font-black text-xs ring-1 ring-border">
                         <SelectValue />
@@ -716,6 +771,13 @@ export default function InventoryIndex() {
         type="ingredient"
       />
 
+      <WastageModal
+        open={isWastageModalOpen}
+        onOpenChange={setIsWastageModalOpen}
+        item={selectedRow}
+        type="ingredient"
+      />
+
       {/* ── Add/Edit Ingredient Modal ────────────────────────────────────── */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={open => {
         if (!open) { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }
@@ -723,12 +785,12 @@ export default function InventoryIndex() {
         <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-               <FiPackage className="text-primary size-5" /> {isEditModalOpen ? 'Asset Modification' : 'Initialize Global Asset'}
+               <FiPackage className="text-primary size-5" /> {isEditModalOpen ? 'Edit Item' : 'Add Item'}
             </DialogTitle>
             <DialogDescription className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
               {isEditModalOpen
-                ? 'Update the architectural specifications for this global entity.'
-                : 'Define a new global inventory entity. Stock logic is distributed per node.'
+                ? 'Update the details for this inventory item.'
+                : 'Add a new inventory item that will be used across branches.'
               }
             </DialogDescription>
           </DialogHeader>
@@ -738,7 +800,7 @@ export default function InventoryIndex() {
                 {/* Name */}
                 <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <div className="size-1 rounded-full bg-primary" /> Entity Designation
+                    <div className="size-1 rounded-full bg-primary" /> Item Name
                 </label>
                 <Input
                     required
@@ -748,7 +810,7 @@ export default function InventoryIndex() {
                     const cleaned = e.target.value.replace(/[^A-Za-z0-9\s]/g, '');
                     setData('name', cleaned);
                     }}
-                    placeholder="e.g. Premium Ramen Flour"
+                    placeholder="e.g. Flour"
                     className={cn("h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border focus:ring-primary/50 font-bold", errors.name && "ring-destructive/50")}
                 />
                 {errors.name && <p className="text-[9px] text-destructive font-bold uppercase tracking-widest mt-1 ml-1">{errors.name}</p>}
@@ -757,27 +819,38 @@ export default function InventoryIndex() {
                 {/* Unit */}
                 <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <div className="size-1 rounded-full bg-primary" /> Measurement Scale
+                    <div className="size-1 rounded-full bg-primary" /> Purchase Unit
                 </label>
-                <Select value={data.unit} onValueChange={val => setData('unit', val)}>
-                    <SelectTrigger className={cn("w-full h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border shadow-none font-bold", errors.unit && "ring-destructive/50")}>
+                <div className="flex flex-col gap-1">
+                  <Select value={data.unit} onValueChange={val => {
+                     setData(prev => ({
+                        ...prev, 
+                        unit: val, 
+                        avg_weight_per_piece: (val === 'pcs') ? prev.avg_weight_per_piece : ''
+                     }));
+                  }}>
+                      <SelectTrigger className={cn("w-full h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border shadow-none font-bold", errors.unit && "ring-destructive/50")}>
                     <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl shadow-2xl">
-                    <SelectItem value="g" className="text-xs font-bold py-2.5">g (Gram Unit)</SelectItem>
-                    <SelectItem value="ml" className="text-xs font-bold py-2.5">ml (Milliliter Unit)</SelectItem>
-                    <SelectItem value="pcs" className="text-xs font-bold py-2.5">pcs (Discrete Count)</SelectItem>
-                    <SelectItem value="kg" className="text-xs font-bold py-2.5">kg (Auto-normalized to g)</SelectItem>
-                    <SelectItem value="liters" className="text-xs font-bold py-2.5">liters (Auto-normalized to ml)</SelectItem>
+                    <SelectItem value="g" className="text-xs font-bold py-2.5">g (Gram)</SelectItem>
+                    <SelectItem value="ml" className="text-xs font-bold py-2.5">ml (Milliliter)</SelectItem>
+                    <SelectItem value="pcs" className="text-xs font-bold py-2.5">pcs (Pieces)</SelectItem>
+                    <SelectItem value="kg" className="text-xs font-bold py-2.5">kg (Kilogram)</SelectItem>
+                    <SelectItem value="liters" className="text-xs font-bold py-2.5">liters (Liters)</SelectItem>
                     </SelectContent>
-                </Select>
+                  </Select>
+                  <p className="text-[9px] text-muted-foreground font-bold italic opacity-70 mt-1 pl-1">
+                    Garlic: 1 clove = 5g | Onion: 1 piece = 10g | Milk: measured in liters | Flour: measured in kg
+                  </p>
+                </div>
                 </div>
 
                 {/* Initial Stock Matrix */}
                 <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <div className="size-1 rounded-full bg-primary" /> {isEditModalOpen ? 'Vector Adjust' : 'Baseline Stock'}
+                            <div className="size-1 rounded-full bg-primary" /> Current Stock
                         </label>
                         <Input
                         type="number"
@@ -792,7 +865,7 @@ export default function InventoryIndex() {
                     </div>
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <div className="size-1 rounded-full bg-rose-500" /> Variance Trigger
+                            <div className="size-1 rounded-full bg-rose-500" /> Low Stock Mark
                         </label>
                         <Input
                         type="number"
@@ -808,15 +881,80 @@ export default function InventoryIndex() {
                     </div>
                 </div>
 
+                {/* Costing Engine (Procurement Truth) */}
+                <div className="pt-4 border-t border-border/40">
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                <div className="size-1.5 rounded-full bg-emerald-500" /> Procurement Costing
+                            </label>
+                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-3 leading-tight">
+                                Enter the total amount paid for this stock batch. <br/>
+                                <span className="text-emerald-600/80 italic">Rule: 10kg for ₱500 results in ₱0.05 per gram.</span>
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Total Purchase Cost (Batch Total)</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-emerald-600">₱</span>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    required
+                                    value={data.cost_per_base_unit}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setData(d => ({
+                                            ...d,
+                                            cost_per_base_unit: val,
+                                            cost_per_unit: val // Keep branch cost synced in initial creation
+                                        }));
+                                    }}
+                                    placeholder="0.00"
+                                    className={cn("h-11 bg-muted/50 rounded-xl pl-8 border-none ring-1 ring-border font-bold tabular-nums", errors.cost_per_base_unit && "ring-destructive/50")}
+                                />
+                            </div>
+                            {errors.cost_per_base_unit && <p className="text-[9px] text-destructive font-bold uppercase tracking-widest mt-1 ml-1">{String(errors.cost_per_base_unit)}</p>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Average Weight Settings */}
+                {data.unit === 'pcs' && (
+                   <div className="pt-4 border-t border-border/40">
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                               <div className="size-1 rounded-full bg-indigo-500" /> Average weight per Piece (g / pc)
+                           </label>
+                        <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={data.avg_weight_per_piece}
+                        onChange={e => setData('avg_weight_per_piece', e.target.value)}
+                        placeholder="e.g. 5 (for 5g/clove)"
+                        className={cn("h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border font-bold tabular-nums", errors.avg_weight_per_piece && "ring-destructive/50")}
+                        />
+                        <p className="text-[9px] text-muted-foreground font-bold italic opacity-70 mt-1 pl-1">
+                            This is CRITICAL. If you use 'pcs' in recipes, we need this to calculate gram-based cost accurately.
+                        </p>
+                        {errors.avg_weight_per_piece && <p className="text-[9px] text-destructive font-bold uppercase tracking-widest mt-1 ml-1">{String(errors.avg_weight_per_piece)}</p>}
+                        {!data.avg_weight_per_piece && <p className="text-[9px] text-destructive font-bold uppercase mt-1 pl-1">Average weight per piece is required for piece-based items.</p>}
+                       </div>
+                   </div>
+                )}
+
                 {/* Distribution (add mode) */}
                 {isAdmin && !isEditModalOpen && (
                 <div className="space-y-4 border-t border-border/40 pt-6">
                     <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <div className="size-1.5 rounded-full bg-primary" /> Hub Distribution Strategy
+                            <div className="size-1.5 rounded-full bg-primary" /> Store Selection
                         </label>
                         <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-3">
-                            Define which network nodes will host this asset.
+                            Choose which branches will carry this item.
                         </p>
                     </div>
                     
@@ -851,7 +989,7 @@ export default function InventoryIndex() {
                     {data.branch_ids.length === 0 && (
                         <div className="w-full flex items-center gap-2 bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/10">
                             <FiCheckCircle className="size-4 text-emerald-500" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-600">Global Strategy: Deployed to all nodes</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-600">Note: Applied to all branches</span>
                         </div>
                     )}
                     </div>
@@ -862,11 +1000,11 @@ export default function InventoryIndex() {
                 {isAdmin && isEditModalOpen && (
                 <div className="space-y-2 border-t border-border/40 pt-6">
                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <div className="size-1 rounded-full bg-primary" /> Targeted Asset Override
+                        <div className="size-1 rounded-full bg-primary" /> Branch Assignment
                     </label>
                     <Select value={data.branch_id} onValueChange={val => setData('branch_id', val)}>
                     <SelectTrigger className="w-full h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border font-bold">
-                        <SelectValue placeholder="Select target hub..." />
+                        <SelectValue placeholder="Select branch..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
                         {branchList.map(b => (
@@ -880,15 +1018,15 @@ export default function InventoryIndex() {
 
             <DialogFooter className="pt-6 border-t border-border/40 gap-3">
               <Button type="button" variant="ghost" className="rounded-xl h-11 px-6 font-black uppercase text-[10px] tracking-widest hover:bg-muted/80 underline underline-offset-4 decoration-border" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }}>
-                Abort
+                Cancel
               </Button>
               <Button 
                 type="submit" 
-                disabled={processing || !data.name || !data.stock || !data.low_stock_level || !!errors.name || !!errors.stock || !!errors.low_stock_level || !!(errors as any).initial_stock}
+                disabled={processing || !data.name || !data.stock || !data.low_stock_level || !!errors.name || !!errors.stock || !!errors.low_stock_level || (!data.avg_weight_per_piece && data.unit === 'pcs')}
                 className="rounded-xl h-11 px-8 gap-3 shadow-[0_10px_25px_-5px_rgba(99,102,241,0.4)] font-black uppercase text-[10px] tracking-widest italic"
               >
                 {processing ? <FiRefreshCw className="size-4 animate-spin" /> : <FiZap className="size-4" />}
-                {isEditModalOpen ? 'Commit Changes' : 'Initialize Asset'}
+                {isEditModalOpen ? 'Save Changes' : 'Add Item'}
               </Button>
             </DialogFooter>
           </form>
@@ -905,16 +1043,16 @@ export default function InventoryIndex() {
                  </div>
             </div>
             <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-rose-600">
-              Terminate Entity?
+              Delete Item?
             </DialogTitle>
             <DialogDescription className="pt-4 text-sm font-medium text-muted-foreground/80 leading-relaxed max-w-[300px]">
-              Confirm decommissioning for <span className="font-black italic text-foreground uppercase tracking-tight">"{selectedRow?.name}"</span>? 
-              This will irreversibly purge the global architectural specification and all distributed node stock.
+              Are you sure you want to remove <span className="font-black italic text-foreground uppercase tracking-tight">"{selectedRow?.name}"</span> from <span className="font-black text-rose-500">{selectedRow?.branch_name}</span>? 
+              This will only remove the stock record for this branch. Other locations will not be affected.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-10 flex flex-col sm:flex-row gap-3">
-            <Button variant="ghost" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-muted/50" onClick={() => setIsDeleteModalOpen(false)}>Abort Purge</Button>
-            <Button variant="destructive" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-rose-500/30" onClick={submitDelete} disabled={processing}>Confirm Deletion</Button>
+            <Button variant="ghost" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-muted/50" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-rose-500/30" onClick={submitDelete} disabled={processing}>Delete Item</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -922,26 +1060,6 @@ export default function InventoryIndex() {
   );
 }
 
-// Add simple icons for the intelligence cards
-function FiCheckCircle(props: any) {
-  return (
-    <svg 
-      stroke="currentColor" 
-      fill="none" 
-      strokeWidth="2" 
-      viewBox="0 0 24 24" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      height="1em" 
-      width="1em" 
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-    </svg>
-  );
-}
 
 // Add CSS to hide scrollbar but allow functional scrolling
 const scrollbarHideStyles = `

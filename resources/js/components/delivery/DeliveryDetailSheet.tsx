@@ -102,10 +102,12 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </Badge>
                     </div>
                     <SheetTitle className="text-xl font-black tracking-tight">
-                        {delivery.sale?.order_number}
+                        {delivery.sale?.order_number || (delivery.order ? `Order #${delivery.order.id}` : 'Order Detail')}
                     </SheetTitle>
                     <SheetDescription>
-                        Created on {formatDate(delivery.created_at)} at {formatTime(delivery.created_at)}
+                        {delivery.created_at 
+                            ? `Created on ${formatDate(delivery.created_at)} at ${formatTime(delivery.created_at)}`
+                            : 'Delivery transaction details and tracking information.'}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -119,7 +121,9 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     <div className="bg-muted/30 rounded-2xl p-4 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Order Total</p>
-                            <p className="text-2xl font-black text-primary tabular-nums">{formatCurrency(delivery.sale?.total)}</p>
+                            <p className="text-2xl font-black text-primary tabular-nums">
+                                {formatCurrency(delivery.sale?.total ?? delivery.order?.total_amount ?? 0)}
+                            </p>
                         </div>
                         <div className="text-right">
                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Delivery Fee</p>
@@ -178,7 +182,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </InfoRow>
 
                         <InfoRow icon={Building2} label="Origin Branch">
-                            <p className="font-bold">{delivery.sale?.branch?.name}</p>
+                            <p className="font-bold">{delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Main Branch'}</p>
                         </InfoRow>
 
                         {delivery.external_notes && (

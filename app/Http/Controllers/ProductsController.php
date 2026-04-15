@@ -55,8 +55,13 @@ class ProductsController extends Controller
         }
 
         $products = $query->orderBy('name')->get()->map(function (Product $product) {
-            // Use branch-scoped stock computation (product's own branch)
-            $product->stock  = $product->computedStockForBranch($product->branch_id);
+            // Compute dynamic availability (ingredient-based truth)
+            $availability = $product->dynamicAvailability($product->branch_id);
+            
+            $product->stock = $availability['available'];
+            $product->limiting_ingredient = $availability['limiting_ingredient'];
+            $product->is_low_stock = $availability['is_low_stock'];
+            
             $product->status = $this->getStockStatus($product->stock);
             $product->is_direct = !$product->hasRecipe();
 
@@ -75,12 +80,6 @@ class ProductsController extends Controller
 
         // ── Ingredients for the recipe builder ──────────────────────────────
         $ingredientsQuery = Ingredient::orderBy('name');
-
-        if (!$user->isAdmin()) {
-            $ingredientsQuery->whereHas('stocks', function ($q) use ($user) {
-                $q->where('branch_id', $user->branch_id);
-            });
-        }
 
         // Categories for the product form
         $categoriesQuery = Category::query()->orderBy('name');
@@ -121,13 +120,14 @@ class ProductsController extends Controller
                 ],
                 'sku'                        => 'nullable|string',
                 'category_id'                => 'required|exists:categories,id',
-                'cost_price'                 => 'required|numeric|min:0|max:999999.99',
+                'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                => 'nullable|string',
                 'recipe'                     => 'required|array|min:1',
                 'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
+                'recipe.*.unit'              => 'required|string',
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
                 'branch_option'              => 'required|in:single,both',
                 'branch_id'                  => 'required_if:branch_option,single|nullable|exists:branches,id',
@@ -139,6 +139,47 @@ class ProductsController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'recipe' => 'Duplicate ingredients are not allowed in the same product recipe.'
                 ]);
+            }
+
+            // ✅ Strict Recipe and Cost Consistency Validations
+            $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
+            foreach ($validated['recipe'] as $idx => $item) {
+                if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                    ]);
+                }
+
+                /** @var Ingredient $ing */
+                $ing = Ingredient::find($item['ingredient_id']);
+                if (!$ing) continue;
+
+                $usedUnit = strtolower(trim($item['unit']));
+                $baseUnit = strtolower(trim($ing->unit));
+                $normUsed = UnitConverter::normalizeUnit($usedUnit);
+                $normBase = UnitConverter::normalizeUnit($baseUnit);
+
+                // If cross-converting (e.g., pcs to g/ml) without avg_weight_per_piece
+                if (in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
+                    if (!$ing->avg_weight_per_piece || $ing->avg_weight_per_piece <= 0) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe" => "Piece-based ingredient '{$ing->name}' requires an average weight per piece to compute cost accurately."
+                        ]);
+                    }
+                } elseif (!in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
+                    if ($normUsed !== $normBase) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe" => "Invalid unit conversion: Cannot convert '{$usedUnit}' to base unit '{$baseUnit}' for ingredient '{$ing->name}'."
+                        ]);
+                    }
+                }
+
+                // Verify base cost exists
+                if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
+                    ]);
+                }
             }
 
             return DB::transaction(function () use ($request, $validated, $user) {
@@ -160,6 +201,7 @@ class ProductsController extends Controller
                                 ->exists();
 
                             if (!$exists) {
+                                /** @var Ingredient $ing */
                                 $ing = Ingredient::find($item['ingredient_id']);
                                 throw \Illuminate\Validation\ValidationException::withMessages([
                                     'recipe' => "Ingredient '{$ing->name}' is not available in branch: {$branch->name}"
@@ -199,12 +241,13 @@ class ProductsController extends Controller
             'sku'                        => 'nullable|string|unique:products,sku,' . $id,
             'description'                => 'nullable|string',
             'category_id'                => 'required|exists:categories,id',
-            'cost_price'                 => 'required|numeric|min:0|max:999999.99',
+            'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',
             'selling_price'              => 'required|numeric|min:0|max:999999.99',
             'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
             'recipe'                     => 'required|array|min:1',
             'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
             'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
+            'recipe.*.unit'              => 'required|string',
             'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ]);
         // ✅ Prevent Duplicate Ingredients
@@ -215,6 +258,47 @@ class ProductsController extends Controller
             ]);
         }
 
+        // ✅ Strict Recipe and Cost Consistency Validations
+        $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
+        foreach ($validated['recipe'] as $idx => $item) {
+            if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                ]);
+            }
+
+            /** @var Ingredient $ing */
+            $ing = Ingredient::find($item['ingredient_id']);
+            if (!$ing) continue;
+
+            $usedUnit = strtolower(trim($item['unit']));
+            $baseUnit = strtolower(trim($ing->unit));
+            $normUsed = UnitConverter::normalizeUnit($usedUnit);
+            $normBase = UnitConverter::normalizeUnit($baseUnit);
+
+            // If cross-converting (e.g., pcs to g/ml) without avg_weight_per_piece
+            if (in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
+                if (!$ing->avg_weight_per_piece || $ing->avg_weight_per_piece <= 0) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "recipe" => "Piece-based ingredient '{$ing->name}' requires an average weight per piece to compute cost accurately."
+                    ]);
+                }
+            } elseif (!in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
+                if ($normUsed !== $normBase) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "recipe" => "Invalid unit conversion: Cannot convert '{$usedUnit}' to base unit '{$baseUnit}' for ingredient '{$ing->name}'."
+                    ]);
+                }
+            }
+
+            // Verify base cost exists
+            if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
+                ]);
+            }
+        }
+
         // ✅ Strict Branch-Stock Validation (updates only affect the product's owner branch)
         if (!empty($validated['recipe'])) {
             foreach ($validated['recipe'] as $item) {
@@ -223,6 +307,7 @@ class ProductsController extends Controller
                     ->exists();
 
                 if (!$exists) {
+                    /** @var Ingredient $ing */
                     $ing = Ingredient::find($item['ingredient_id']);
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'recipe' => "Ingredient '{$ing->name}' is not available in branch: " . $product->branch->name

@@ -9,28 +9,36 @@ import {
 import { NotificationDropdown } from '@/components/notification-dropdown';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePage } from '@inertiajs/react';
 
 export function NotificationBell() {
+    const { auth } = usePage().props as any;
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [open, setOpen] = useState(false);
 
     const fetchNotifications = async () => {
+        if (!auth?.user) return;
         try {
             const response = await axios.get('/api/notifications');
             setNotifications(response.data.notifications);
             setUnreadCount(response.data.unread_count);
         } catch (error) {
-            console.error('Failed to fetch notifications:', error);
+            // Only log if it's not a 401 (just in case auth state shifted)
+            if (axios.isAxiosError(error) && error.response?.status !== 401) {
+                console.error('Failed to fetch notifications:', error);
+            }
         }
     };
 
     useEffect(() => {
+        if (!auth?.user) return;
+        
         fetchNotifications();
         // Refresh every 5 seconds
         const interval = setInterval(fetchNotifications, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [auth?.user]);
 
     const handleOpenChange = (newOpen: boolean) => {
         setOpen(newOpen);

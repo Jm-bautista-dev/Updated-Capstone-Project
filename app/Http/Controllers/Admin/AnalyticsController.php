@@ -28,7 +28,7 @@ class AnalyticsController extends Controller
             'total_revenue'   => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('total'),
             'total_profit'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('profit'),
             'total_orders'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->count(),
-            'low_stock_items' => IngredientStock::whereColumn('stock', '<=', 'low_stock_level')->count(),
+            'low_stock_items' => IngredientStock::whereHas('ingredient')->whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
 
         // ─── Per-Branch Stats (for the split dashboard view) ─────────────────
@@ -36,15 +36,16 @@ class AnalyticsController extends Controller
             $salesQuery = Sale::where('branch_id', $branch->id)->where('status', 'completed');
 
             $lowStockRows = IngredientStock::with('ingredient')
+                ->whereHas('ingredient')
                 ->where('branch_id', $branch->id)
                 ->whereColumn('stock', '<=', 'low_stock_level')
                 ->get();
 
             $lowStockIngredients = $lowStockRows->map(function($row) {
                 return [
-                    'name'            => $row->ingredient->name,
+                    'name'            => $row->ingredient->name ?? 'Unknown',
                     'stock'           => $row->stock,
-                    'unit'            => $row->ingredient->unit,
+                    'unit'            => $row->ingredient->unit ?? 'pcs',
                     'low_stock_level' => $row->low_stock_level,
                 ];
             });
@@ -226,7 +227,7 @@ class AnalyticsController extends Controller
                         'id' => $ingredient->id,
                         'name' => $ingredient->name,
                         'unit' => $ingredient->unit,
-                        'cost_price' => $ingredient->cost_price ?? 0,
+                        'cost_per_base_unit' => $ingredient->cost_per_base_unit ?? 0,
                         'required_qty' => 0
                     ];
                 }
@@ -263,7 +264,7 @@ class AnalyticsController extends Controller
                     'current_stock' => round($currentStock, 2),
                     'predicted_usage' => round($required, 2),
                     'suggested_restock' => ceil($restockQty),
-                    'estimated_cost' => round(ceil($restockQty) * $data['cost_price'], 2),
+                    'estimated_cost' => round(ceil($restockQty) * $data['cost_per_base_unit'], 2),
                     'status' => $status
                 ];
             }

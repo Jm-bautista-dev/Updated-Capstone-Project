@@ -26,7 +26,7 @@ class DeliveryController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Delivery::with(['sale.cashier', 'sale.branch', 'rider', 'creator'])
+        $query = Delivery::with(['sale.cashier', 'sale.branch', 'order', 'rider', 'creator'])
             ->latest();
 
         // Status filter
@@ -41,7 +41,11 @@ class DeliveryController extends Controller
 
         // Branch filter
         if ($request->filled('branch_id') && $request->input('branch_id') !== 'all') {
-            $query->whereHas('sale', fn($q) => $q->where('branch_id', $request->input('branch_id')));
+            $branchId = $request->input('branch_id');
+            $query->where(function ($q) use ($branchId) {
+                $q->whereHas('sale', fn($sq) => $sq->where('branch_id', $branchId))
+                  ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchId));
+            });
         }
 
         // Search
@@ -51,7 +55,8 @@ class DeliveryController extends Controller
                 $q->where('customer_name', 'like', "%{$search}%")
                   ->orWhere('customer_address', 'like', "%{$search}%")
                   ->orWhere('tracking_number', 'like', "%{$search}%")
-                  ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"));
+                  ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
+                  ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"));
             });
         }
 

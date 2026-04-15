@@ -27,11 +27,12 @@ class StockInController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'type'      => 'required|in:ingredient,product',
-            'id'        => 'required|integer',
-            'quantity'  => 'required|numeric|gt:0|max:10000',
-            'unit'      => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
-            'branch_id' => 'required|exists:branches,id',
+            'type'           => 'required|in:ingredient,product',
+            'id'             => 'required|integer',
+            'quantity'       => 'required|numeric|gt:0|max:10000',
+            'unit'           => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'branch_id'      => 'required|exists:branches,id',
+            'purchase_price' => 'nullable|numeric|min:0',
         ]);
 
         $user         = Auth::user();
@@ -51,7 +52,8 @@ class StockInController extends Controller
                 (int) $request->id,
                 (float) $request->quantity,
                 $request->unit,
-                (int) $request->branch_id
+                (int) $request->branch_id,
+                (float) ($request->purchase_price ?? 0)
             );
 
             return back()->with('success', 'Stock added successfully.');
