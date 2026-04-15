@@ -16,15 +16,31 @@ use Illuminate\Support\Facades\Log;
 class ApiOrderController extends Controller
 {
     /**
+     * List orders for the authenticated mobile user.
+     */
+    public function index(Request $request)
+    {
+        $orders = Order::with(['delivery'])
+            ->where('user_id', $request->user()?->id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $orders
+        ]);
+    }
+
+    /**
      * Store a newly created order from the mobile application.
      * 
-     * Post Payload: { customer_name, contact_number, address, items: [{product_id, quantity, price}], total_amount }
+     * Post Payload: { customer_name, mobile_number, address, items: [{product_id, quantity, price}], total_amount }
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'customer_name'  => 'required|string|max:255',
-            'contact_number' => 'required|string|max:20',
+            'mobile_number'  => 'required|string|max:20',
             'address'        => 'required|string',
             'items'          => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -35,14 +51,16 @@ class ApiOrderController extends Controller
         ]);
 
         $branchId = $validated['branch_id'] ?? 1; // Default to main branch if not provided
+        $userId = $request->user()?->id;
 
         try {
-            return DB::transaction(function () use ($validated, $branchId) {
+            return DB::transaction(function () use ($validated, $branchId, $userId) {
                 // 1. Create Order
                 $order = Order::create([
+                    'user_id'        => $userId,
                     'branch_id'      => $branchId,
                     'customer_name'  => $validated['customer_name'],
-                    'contact_number' => $validated['contact_number'],
+                    'contact_number' => $validated['mobile_number'],
                     'address'        => $validated['address'],
                     'total_amount'   => $validated['total_amount'],
                     'status'         => 'pending',
@@ -63,7 +81,7 @@ class ApiOrderController extends Controller
                 Delivery::create([
                     'order_id'         => $order->id,
                     'customer_name'    => $validated['customer_name'],
-                    'customer_phone'   => $validated['contact_number'],
+                    'customer_phone'   => $validated['mobile_number'],
                     'customer_address' => $validated['address'],
                     'delivery_type'    => 'internal', // Default for mobile orders
                     'status'           => 'pending',
@@ -86,6 +104,51 @@ class ApiOrderController extends Controller
                 'message' => 'Failed to place order: ' . $e->getMessage()
             ], 500);
         }
+    }
+    /**
+     * Retrieve order status for the tracking screen.
+     */
+    public function show(Request $request, $id)
+    {
+        $order = Order::with(['delivery.rider', 'items.product'])->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        // Ownership check (only if order is associated with a user)
+        if ($order->user_id && $request->user() && $order->user_id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'             => $order->id,
+                'status'         => $order->status, // pending, ...
+                'total_amount'   => $order->total_amount,
+                'customer_name'  => $order->customer_name,
+                'delivery' => $order->delivery ? [
+                    'status'        => $order->delivery->status,
+                    'status_label'  => $order->delivery->getStatusLabel(),
+                    'status_color'  => $order->delivery->getStatusColor(),
+                    'rider_name'    => $order->delivery->rider?->name,
+                    'updated_at'    => $order->delivery->updated_at,
+                ] : null,
+                'items' => $order->items->map(fn($item) => [
+                    'product_name' => $item->product->name,
+                    'quantity'     => $item->quantity,
+                    'price'        => $item->price,
+                ]),
+                'created_at' => $order->created_at,
+            ]
+        ]);
     }
 
     /**

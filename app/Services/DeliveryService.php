@@ -172,6 +172,13 @@ class DeliveryService
                 'updated_by' => Auth::id(),
             ]);
 
+            // Sync status with linked Order if exists
+            if ($delivery->order_id) {
+                // Map delivery status to a likely order status if they differ
+                // For now, we'll keep them 1:1 as the mobile app expects
+                $delivery->order()->update(['status' => $newStatus]);
+            }
+
             if ($newStatus === Delivery::STATUS_DELIVERED && $delivery->rider_id) {
                 /** @var \App\Models\Rider|null $rider */
                 $rider = Rider::find($delivery->rider_id);

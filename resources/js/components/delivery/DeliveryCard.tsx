@@ -43,7 +43,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                     </p>
                                 </div>
                             </div>
-                            <p className="text-base font-black text-primary shrink-0 tabular-nums">{formatCurrency(delivery.sale?.total)}</p>
+                            <p className="text-base font-black text-primary shrink-0 tabular-nums">{formatCurrency(delivery.sale?.total ?? 0)}</p>
                         </div>
 
                         {/* Middle row: Customer + Type */}

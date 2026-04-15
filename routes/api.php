@@ -9,7 +9,11 @@ use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Api\ApiOrderController;
 
 // ─── External Operations API (Mobile App Entry) ──────────────────
-Route::post('orders', [ApiOrderController::class, 'store']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('orders', [ApiOrderController::class, 'index']);
+    Route::post('orders', [ApiOrderController::class, 'store']);
+    Route::get('orders/{id}', [ApiOrderController::class, 'show']);
+});
 
 /*
 |--------------------------------------------------------------------------

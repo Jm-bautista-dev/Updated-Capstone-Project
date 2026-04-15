@@ -2,7 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Navigation, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 
 // Delivery components
 import DeliveryStats from '@/components/delivery/DeliveryStats';
@@ -51,11 +51,27 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
     const [accumulatedDeliveries, setAccumulatedDeliveries] = useState<Delivery[]>(deliveries.data);
     const [currentPage, setCurrentPage] = useState(deliveries.current_page);
 
-    // Reset accumulated deliveries when filters change (Inertia re-renders the page)
-    useMemo(() => {
-        setAccumulatedDeliveries(deliveries.data);
-        setCurrentPage(deliveries.current_page);
-    }, [deliveries.data]);
+    // Update state when Inertia sends new data (e.g. after a status update or filter change)
+    useEffect(() => {
+        // Only reset accumulated if we're on page 1 (meaning it's likely a fresh search or refresh)
+        if (deliveries.current_page === 1) {
+            setAccumulatedDeliveries(deliveries.data);
+            setCurrentPage(1);
+        }
+    }, [deliveries.data, deliveries.current_page]);
+
+    // Polling for real-time updates (every 15 seconds)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({
+                only: ['deliveries', 'stats'],
+                preserveScroll: true,
+                preserveState: true,
+            } as any);
+        }, 15000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     // ---- Callbacks ----
 

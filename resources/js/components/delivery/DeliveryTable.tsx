@@ -84,7 +84,7 @@ const TableRow = React.memo(function TableRow({
 
             {/* Amount */}
             <div className="w-[100px] shrink-0 text-right">
-                <p className="font-bold text-xs tabular-nums">{formatCurrency(delivery.sale?.total)}</p>
+                <p className="font-bold text-xs tabular-nums">{formatCurrency(delivery.sale?.total ?? 0)}</p>
             </div>
 
             {/* Date */}

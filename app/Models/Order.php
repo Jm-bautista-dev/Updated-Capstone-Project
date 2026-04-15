@@ -10,6 +10,7 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'branch_id',
         'customer_name',
         'contact_number',
@@ -17,6 +18,11 @@ class Order extends Model
         'total_amount',
         'status',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function branch()
     {
