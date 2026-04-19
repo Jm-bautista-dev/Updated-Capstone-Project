@@ -1,0 +1,32 @@
+import Api from './Api'
+import Customer from './Customer'
+import Admin from './Admin'
+import ProductsController from './ProductsController'
+import InventoryController from './InventoryController'
+import PosController from './PosController'
+import CategoriesController from './CategoriesController'
+import StockInController from './StockInController'
+import WastageController from './WastageController'
+import SalesController from './SalesController'
+import BranchController from './BranchController'
+import NotificationController from './NotificationController'
+import InventoryActionController from './InventoryActionController'
+import Settings from './Settings'
+const Controllers = {
+    Api: Object.assign(Api, Api),
+Customer: Object.assign(Customer, Customer),
+Admin: Object.assign(Admin, Admin),
+ProductsController: Object.assign(ProductsController, ProductsController),
+InventoryController: Object.assign(InventoryController, InventoryController),
+PosController: Object.assign(PosController, PosController),
+CategoriesController: Object.assign(CategoriesController, CategoriesController),
+StockInController: Object.assign(StockInController, StockInController),
+WastageController: Object.assign(WastageController, WastageController),
+SalesController: Object.assign(SalesController, SalesController),
+BranchController: Object.assign(BranchController, BranchController),
+NotificationController: Object.assign(NotificationController, NotificationController),
+InventoryActionController: Object.assign(InventoryActionController, InventoryActionController),
+Settings: Object.assign(Settings, Settings),
+}
+
+export default Controllers

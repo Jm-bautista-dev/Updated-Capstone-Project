@@ -6,9 +6,10 @@
 /public/storage
 /storage/*.key
 /storage/pail
-/resources/js/actions
-/resources/js/routes
-/resources/js/wayfinder
+# Commented out so they can be pushed to Hostinger
+# /resources/js/actions
+# /resources/js/routes
+# /resources/js/wayfinder
 /vendor
 .DS_Store
 .env
