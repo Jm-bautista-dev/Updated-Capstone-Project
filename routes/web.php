@@ -137,6 +137,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 require __DIR__.'/settings.php';
 
 Route::get('/fix-my-db', function () {
-    Artisan::call('migrate:fresh --force');
-    return "Database tables created successfully!";
+    Artisan::call('migrate:fresh --seed --force');
+    return "Database tables and seeders created successfully!";
 });
