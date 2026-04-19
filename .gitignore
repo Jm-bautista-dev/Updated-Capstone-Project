@@ -1,7 +1,8 @@
 /.phpunit.cache
 /bootstrap/ssr
 /node_modules
-/public/build
+# Commented out to push built assets to Hostinger instead of building them there
+# /public/build
 /public/hot
 /public/storage
 /storage/*.key
