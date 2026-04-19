@@ -1,5 +1,4 @@
-<?php
-
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -134,3 +133,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+
+Route::get('/fix-my-db', function () {
+    Artisan::call('migrate:fresh --force');
+    return "Database tables created successfully!";
+});
