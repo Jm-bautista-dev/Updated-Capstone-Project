@@ -21,7 +21,7 @@ export function UserMenuContent({ user }: Props) {
 
     const handleLogout = () => {
         cleanup();
-        router.flushAll();
+        // Standard Inertia cleanup is handled by the redirect from the server
     };
 
     return (

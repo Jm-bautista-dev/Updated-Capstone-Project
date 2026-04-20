@@ -134,6 +134,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
+Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
+
 require __DIR__.'/settings.php';
 
 
