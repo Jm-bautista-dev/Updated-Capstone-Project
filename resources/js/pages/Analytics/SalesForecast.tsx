@@ -357,7 +357,7 @@ export default function SalesForecast() {
                                         </CardHeader>
                                         <CardContent className="pt-6">
                                             <div className="h-[380px] w-full min-h-[380px]">
-                                                <ResponsiveContainer width="99%" height="100%">
+                                                <ResponsiveContainer width="100%" height={380}>
                                                     <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                                                         <defs>
                                                             <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">

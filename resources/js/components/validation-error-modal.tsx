@@ -71,10 +71,10 @@ export function ValidationErrorModal({
 
                     {/* Text Content */}
                     <div className="space-y-3 mb-8">
-                        <h2 className="text-2xl font-black tracking-tight uppercase italic flex items-center justify-center gap-2">
+                        <DialogTitle className="text-2xl font-black tracking-tight uppercase italic flex items-center justify-center gap-2">
                             {type === 'error' && <span className="text-destructive">ERR.</span>}
                             {title}
-                        </h2>
+                        </DialogTitle>
                         <div className="relative">
                             <div className="absolute -left-2 top-0 bottom-0 w-1 bg-destructive/10 rounded-full hidden sm:block" />
                             <p className="text-sm font-bold text-muted-foreground leading-relaxed px-2">

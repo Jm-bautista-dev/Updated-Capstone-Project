@@ -66,18 +66,26 @@ class AnalyticsController extends Controller
             ];
         });
 
-        // ─── Line Chart: Sales over time ──────────────────────────────────────
-        $salesOverTime = Sale::where('status', 'completed')
+        // ─── Line Chart: Sales over time (Padded with zeros) ───────────────────
+        $salesData = Sale::where('status', 'completed')
             ->where('created_at', '>=', $startDate)
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total) as revenue'), DB::raw('SUM(profit) as profit'))
             ->groupBy('date')
             ->orderBy('date')
             ->get()
-            ->map(function ($item) {
-                $item->revenue = (float) $item->revenue;
-                $item->profit = (float) $item->profit;
-                return $item;
-            });
+            ->keyBy('date');
+
+        $salesOverTime = collect();
+        for ($i = (int) $range; $i >= 0; $i--) {
+            $date = Carbon::now()->subDays($i)->format('Y-m-d');
+            $data = $salesData->get($date);
+            
+            $salesOverTime->push([
+                'date'    => Carbon::parse($date)->format('M d'),
+                'revenue' => (float) ($data->revenue ?? 0),
+                'profit'  => (float) ($data->profit ?? 0),
+            ]);
+        }
 
         // ─── Bar Chart: Top 10 selling products ───────────────────────────────
         $salesPerProduct = DB::table('sale_items')

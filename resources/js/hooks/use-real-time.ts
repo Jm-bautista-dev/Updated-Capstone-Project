@@ -7,14 +7,16 @@ export function useRealTime(branchId?: number | null) {
 
     useEffect(() => {
         // 1. Listen for Global Category Updates
-        echo.channel('global')
-            .listen('CategoryUpdated', (e: any) => {
-                console.log('Real-time: Global Categories Updated', e);
-                router.reload({ preserveScroll: true } as any);
-            });
+        if (echo) {
+            echo.channel('global')
+                .listen('CategoryUpdated', (e: any) => {
+                    console.log('Real-time: Global Categories Updated', e);
+                    router.reload({ preserveScroll: true } as any);
+                });
+        }
 
         // 2. Listen for Branch-Specific Updates
-        if (branchId || auth?.user?.branch_id) {
+        if (echo && (branchId || auth?.user?.branch_id)) {
             const targetId = branchId || auth?.user?.branch_id;
             
             echo.private(`branch.${targetId}`)
@@ -43,9 +45,11 @@ export function useRealTime(branchId?: number | null) {
         }
 
         return () => {
-            echo.leave('global');
-            if (branchId || auth?.user?.branch_id) {
-                echo.leave(`branch.${branchId || auth?.user?.branch_id}`);
+            if (echo) {
+                echo.leave('global');
+                if (branchId || auth?.user?.branch_id) {
+                    echo.leave(`branch.${branchId || auth?.user?.branch_id}`);
+                }
             }
         };
     }, [branchId, auth?.user?.branch_id]);

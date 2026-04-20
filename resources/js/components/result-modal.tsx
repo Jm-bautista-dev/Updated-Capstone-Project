@@ -92,7 +92,7 @@ export function ResultModal({
 
                     {/* Text */}
                     <div className="space-y-1">
-                        <h2 className="text-xl font-bold tracking-tight">{title}</h2>
+                        <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
                         {message && (
                             <p className="text-sm text-muted-foreground">{message}</p>
                         )}

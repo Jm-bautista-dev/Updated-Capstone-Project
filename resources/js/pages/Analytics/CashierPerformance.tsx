@@ -288,7 +288,7 @@ export default function CashierPerformance() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[280px] w-full min-h-[280px]">
-                                        <ResponsiveContainer width="99%" height="100%">
+                                        <ResponsiveContainer width="100%" height={280}>
                                             <BarChart data={chartData} layout="vertical">
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
                                                 <XAxis type="number" hide />

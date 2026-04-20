@@ -19,15 +19,14 @@ if (!key) {
     console.warn('Real-time broadcasting is disabled: Missing VITE_REVERB_APP_KEY in .env');
 }
 
-const echo = new Echo({
-    broadcaster: 'reverb',
-    key: key || 'missing-key',
-    wsHost: host,
-    wsPort: port,
-    wssPort: port,
-    forceTLS: scheme === 'https',
-    enabledTransports: ['ws', 'wss'],
-});
+const isPusher = !!import.meta.env.VITE_PUSHER_APP_KEY;
+
+const echo = isPusher ? new Echo({
+    broadcaster: 'pusher',
+    key: import.meta.env.VITE_PUSHER_APP_KEY,
+    cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
+    forceTLS: true,
+}) : null;
 
 
 

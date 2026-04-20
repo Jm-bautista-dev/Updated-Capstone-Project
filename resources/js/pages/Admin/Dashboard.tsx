@@ -375,7 +375,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="h-[420px] w-full px-6 pb-6 min-h-[420px]">
-                                <ResponsiveContainer width="99%" height="100%">
+                                <ResponsiveContainer width="100%" height={400}>
                                     <AreaChart data={salesOverTime} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                                         <defs>
                                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -418,6 +418,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                                             fillOpacity={1} 
                                             fill="url(#colorRevenue)" 
                                             animationDuration={2000}
+                                            connectNulls={true}
                                         />
                                         <Area 
                                             type="monotone" 
@@ -428,6 +429,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                                             fillOpacity={1} 
                                             fill="url(#colorProfit)" 
                                             animationDuration={2000}
+                                            connectNulls={true}
                                         />
                                     </AreaChart>
                                 </ResponsiveContainer>
@@ -445,7 +447,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                             </CardHeader>
                             <CardContent className="px-4 pb-4 flex-1">
                                 <div className="h-full w-full min-h-[200px]">
-                                    <ResponsiveContainer width="99%" height="100%">
+                                    <ResponsiveContainer width="100%" height={280}>
                                         <BarChart data={salesPerProduct.slice(0, 6)} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
                                             <XAxis type="number" hide />
@@ -482,7 +484,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Platform Revenue Mix</CardDescription>
                             </CardHeader>
                             <CardContent className="px-4 pb-4 relative h-[200px] min-h-[200px]">
-                                <ResponsiveContainer width="99%" height="100%">
+                                <ResponsiveContainer width="100%" height={200}>
                                     <PieChart>
                                         <Pie
                                             data={salesByPaymentMethod}

@@ -136,16 +136,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 require __DIR__.'/settings.php';
 
-Route::get('/fix-my-db', function () {
-    try {
-        // Just run migrate instead of migrate:fresh (safer)
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        // Then try to seed
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-        
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        return "<h1>Migration Result:</h1><pre>" . $output . "</pre><br><a href='/login'>Go to Login</a>";
-    } catch (\Exception $e) {
-        return "<h1>Migration Failed!</h1><p>Error: " . $e->getMessage() . "</p>";
-    }
-});
+
