@@ -256,6 +256,68 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     </Button>
                 </SheetFooter>
             </SheetContent>
+
+            {/* 🖨️ PRINT-ONLY WAYBILL SECTION */}
+            <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8 text-black font-sans">
+                <style dangerouslySetInnerHTML={{ __html: `
+                    @media print {
+                        body * { visibility: hidden; }
+                        .print-content, .print-content * { visibility: visible; }
+                        .print-content { position: absolute; left: 0; top: 0; width: 100%; }
+                        @page { size: auto; margin: 0mm; }
+                    }
+                ` }} />
+                
+                <div className="print-content max-w-[400px] mx-auto border-2 border-black p-6 space-y-6">
+                    {/* Header */}
+                    <div className="text-center border-b-2 border-black pb-4">
+                        <h1 className="text-2xl font-black uppercase tracking-tighter">MAKI DESU</h1>
+                        <p className="text-[10px] font-bold uppercase">Official Delivery Waybill</p>
+                    </div>
+
+                    {/* Order Meta */}
+                    <div className="flex justify-between items-end border-b-2 border-dashed border-black pb-4">
+                        <div>
+                            <p className="text-[8px] font-black uppercase text-gray-500">Tracking / Order ID</p>
+                            <p className="text-xl font-black italic">
+                                {delivery.sale?.order_number || `#ORD-${delivery.id}`}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[8px] font-black uppercase text-gray-500">Date Issued</p>
+                            <p className="text-xs font-bold">{formatDate(delivery.created_at)}</p>
+                        </div>
+                    </div>
+
+                    {/* Shipping Address */}
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 inline-block">SHIP TO:</p>
+                        <p className="text-lg font-black leading-none pt-2">{delivery.customer_name}</p>
+                        <p className="text-sm font-bold leading-tight">{delivery.customer_address}</p>
+                        <p className="text-sm font-black border-t border-black mt-2 pt-1">📞 {delivery.customer_phone}</p>
+                    </div>
+
+                    {/* Courier Section */}
+                    <div className="grid grid-cols-2 gap-4 border-2 border-black p-3">
+                        <div>
+                            <p className="text-[8px] font-black uppercase text-gray-500">Courier / Service</p>
+                            <p className="text-xs font-bold uppercase">{delivery.delivery_type}</p>
+                        </div>
+                        <div>
+                            <p className="text-[8px] font-black uppercase text-gray-500">Payment Status</p>
+                            <p className="text-xs font-black uppercase">PAID / ONLINE</p>
+                        </div>
+                    </div>
+
+                    {/* Footer / Barcode Placeholder */}
+                    <div className="text-center pt-4 space-y-2">
+                        <div className="h-12 bg-black w-full flex items-center justify-center">
+                           <span className="text-white font-mono text-xs tracking-[0.5em]">{delivery.sale?.order_number || delivery.id}</span>
+                        </div>
+                        <p className="text-[8px] font-bold uppercase">Thank you for ordering at Maki Desu!</p>
+                    </div>
+                </div>
+            </div>
         </Sheet>
     );
 });
