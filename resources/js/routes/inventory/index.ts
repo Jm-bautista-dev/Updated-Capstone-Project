@@ -1,5 +1,60 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
+* @see \App\Http\Controllers\StockInController::massStockIn
+ * @see app/Http/Controllers/StockInController.php:31
+ * @route '/inventory/mass-stock-in'
+ */
+export const massStockIn = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: massStockIn.url(options),
+    method: 'post',
+})
+
+massStockIn.definition = {
+    methods: ["post"],
+    url: '/inventory/mass-stock-in',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\StockInController::massStockIn
+ * @see app/Http/Controllers/StockInController.php:31
+ * @route '/inventory/mass-stock-in'
+ */
+massStockIn.url = (options?: RouteQueryOptions) => {
+    return massStockIn.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\StockInController::massStockIn
+ * @see app/Http/Controllers/StockInController.php:31
+ * @route '/inventory/mass-stock-in'
+ */
+massStockIn.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: massStockIn.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\StockInController::massStockIn
+ * @see app/Http/Controllers/StockInController.php:31
+ * @route '/inventory/mass-stock-in'
+ */
+    const massStockInForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: massStockIn.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\StockInController::massStockIn
+ * @see app/Http/Controllers/StockInController.php:31
+ * @route '/inventory/mass-stock-in'
+ */
+        massStockInForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: massStockIn.url(options),
+            method: 'post',
+        })
+    
+    massStockIn.form = massStockInForm
+/**
 * @see \App\Http\Controllers\InventoryController::store
  * @see app/Http/Controllers/InventoryController.php:178
  * @route '/inventory'
@@ -489,7 +544,8 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     activity.form = activityForm
 const inventory = {
-    store: Object.assign(store, store),
+    massStockIn: Object.assign(massStockIn, massStockIn),
+store: Object.assign(store, store),
 update: Object.assign(update, update),
 destroy: Object.assign(destroy, destroy),
 index: Object.assign(index, index),

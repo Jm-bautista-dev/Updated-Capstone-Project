@@ -44,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:admin'])->group(function () {
         Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
         Route::get('analytics/cashier-performance', [AnalyticsController::class, 'cashierPerformance'])->name('analytics.cashier-performance');
+        Route::get('analytics/cashier-performance/export', [AnalyticsController::class, 'exportPerformance'])->name('analytics.cashier-performance.export');
         Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
         Route::get('analytics/restock-suggestions', [AnalyticsController::class, 'restockSuggestions'])->name('analytics.restock-suggestions');
 

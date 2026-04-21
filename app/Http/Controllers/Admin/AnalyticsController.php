@@ -19,38 +19,48 @@ class AnalyticsController extends Controller
 {
     public function index(Request $request)
     {
-        $range     = $request->input('range', 7);
-        $startDate = Carbon::now()->subDays((int) $range);
+        $range     = (int) $request->input('range', 7);
+        $startDate = Carbon::now()->subDays($range);
         $today     = Carbon::today();
 
         $branches = Branch::orderBy('name')->get();
 
-        // ─── Global Stats (aggregate over all branches) ───────────────────────
-        $stats = [
-            'total_revenue'   => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('total'),
-            'total_profit'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('profit'),
+        return Inertia::render('Admin/Dashboard', [
+            'stats'                => $this->getGlobalStats($startDate),
+            'branchStats'          => $this->getBranchStats($branches, $startDate, $today),
+            'salesOverTime'        => $this->getSalesOverTime($range, $startDate),
+            'salesPerProduct'      => $this->getTopProducts($startDate),
+            'salesByPaymentMethod' => $this->getSalesByPayment($startDate),
+            'range'                => $range,
+        ]);
+    }
+
+    private function getGlobalStats($startDate)
+    {
+        return [
+            'total_revenue'   => (float) Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('total'),
+            'total_profit'    => (float) Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('profit'),
             'total_orders'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->count(),
             'low_stock_items' => IngredientStock::whereHas('ingredient')->whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
+    }
 
-        // ─── Per-Branch Stats (for the split dashboard view) ─────────────────
-        $branchStats = $branches->map(function (Branch $branch) use ($startDate, $today) {
+    private function getBranchStats($branches, $startDate, $today)
+    {
+        return $branches->map(function (Branch $branch) use ($startDate, $today) {
             $salesQuery = Sale::where('branch_id', $branch->id)->where('status', 'completed');
 
-            $lowStockRows = IngredientStock::with('ingredient')
+            $lowStockIngredients = IngredientStock::with('ingredient')
                 ->whereHas('ingredient')
                 ->where('branch_id', $branch->id)
                 ->whereColumn('stock', '<=', 'low_stock_level')
-                ->get();
-
-            $lowStockIngredients = $lowStockRows->map(function($row) {
-                return [
+                ->get()
+                ->map(fn($row) => [
                     'name'            => $row->ingredient->name ?? 'Unknown',
                     'stock'           => $row->stock,
                     'unit'            => $row->ingredient->unit ?? 'pcs',
                     'low_stock_level' => $row->low_stock_level,
-                ];
-            });
+                ]);
 
             return [
                 'id'                   => $branch->id,
@@ -65,8 +75,10 @@ class AnalyticsController extends Controller
                 'low_stock_ingredients'=> $lowStockIngredients,
             ];
         });
+    }
 
-        // ─── Line Chart: Sales over time (Padded with zeros) ───────────────────
+    private function getSalesOverTime($range, $startDate)
+    {
         $salesData = Sale::where('status', 'completed')
             ->where('created_at', '>=', $startDate)
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total) as revenue'), DB::raw('SUM(profit) as profit'))
@@ -76,7 +88,7 @@ class AnalyticsController extends Controller
             ->keyBy('date');
 
         $salesOverTime = collect();
-        for ($i = (int) $range; $i >= 0; $i--) {
+        for ($i = $range; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i)->format('Y-m-d');
             $data = $salesData->get($date);
             
@@ -86,9 +98,12 @@ class AnalyticsController extends Controller
                 'profit'  => (float) ($data->profit ?? 0),
             ]);
         }
+        return $salesOverTime;
+    }
 
-        // ─── Bar Chart: Top 10 selling products ───────────────────────────────
-        $salesPerProduct = DB::table('sale_items')
+    private function getTopProducts($startDate)
+    {
+        return DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->where('sales.status', 'completed')
@@ -103,9 +118,11 @@ class AnalyticsController extends Controller
                 $item->revenue = (float) $item->revenue;
                 return $item;
             });
+    }
 
-        // ─── Pie Chart: Sales by payment method ───────────────────────────────
-        $salesByPaymentMethod = Sale::where('status', 'completed')
+    private function getSalesByPayment($startDate)
+    {
+        return Sale::where('status', 'completed')
             ->where('created_at', '>=', $startDate)
             ->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as revenue'))
             ->groupBy('payment_method')
@@ -115,15 +132,6 @@ class AnalyticsController extends Controller
                 $item->revenue = (float) $item->revenue;
                 return $item;
             });
-
-        return Inertia::render('Admin/Dashboard', [
-            'stats'                => $stats,
-            'branchStats'          => $branchStats,
-            'salesOverTime'        => $salesOverTime,
-            'salesPerProduct'      => $salesPerProduct,
-            'salesByPaymentMethod' => $salesByPaymentMethod,
-            'range'                => (int) $range,
-        ]);
     }
     public function cashierPerformance(Request $request)
     {
@@ -170,6 +178,72 @@ class AnalyticsController extends Controller
             'filters'     => $request->only(['range', 'branch_id']),
         ]);
     }
+    public function exportPerformance(Request $request)
+    {
+        $range = $request->input('range', '7');
+        $branchId = $request->input('branch_id');
+
+        $query = DB::table('sales')
+            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->join('branches', 'sales.branch_id', '=', 'branches.id')
+            ->where('users.role', 'cashier')
+            ->where('sales.status', 'completed');
+
+        if ($range !== 'all') {
+            $startDate = match ($range) {
+                'today' => Carbon::today(),
+                'yesterday' => Carbon::yesterday(),
+                '30' => Carbon::now()->subDays(30),
+                default => Carbon::now()->subDays((int)$range),
+            };
+            $query->where('sales.created_at', '>=', $startDate);
+        }
+
+        if ($branchId && $branchId !== 'all') {
+            $query->where('sales.branch_id', $branchId);
+        }
+
+        $data = $query->select(
+            'users.name as cashier',
+            'branches.name as branch',
+            DB::raw('COUNT(sales.id) as transactions'),
+            DB::raw('SUM(sales.total) as total_sales'),
+            DB::raw('AVG(sales.total) as avg_order')
+        )
+        ->groupBy('users.id', 'users.name', 'branches.name')
+        ->orderByDesc('total_sales')
+        ->get();
+
+        $filename = "cashier-performance-" . now()->format('Y-m-d') . ".csv";
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = ['Cashier', 'Branch', 'Transactions', 'Total Sales', 'Avg Order Value'];
+
+        $callback = function() use($data, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($data as $row) {
+                fputcsv($file, [
+                    $row->cashier,
+                    $row->branch,
+                    $row->transactions,
+                    number_format((float)$row->total_sales, 2, '.', ''),
+                    number_format((float)$row->avg_order, 2, '.', '')
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function salesForecast(Request $request)
     {
         $days     = (int) $request->input('days', 30);

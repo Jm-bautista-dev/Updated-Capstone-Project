@@ -340,7 +340,11 @@ export default function CashierPerformance() {
                                     <p className="text-xs text-indigo-200/80 dark:text-zinc-300/80 leading-relaxed font-medium">
                                         Rankings are updated in real-time. Performance logic is strictly read-only and does not affect inventory or commission calculations.
                                     </p>
-                                    <Button variant="outline" className="w-full mt-6 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold uppercase tracking-widest h-10 text-[10px]">
+                                    <Button
+                                        variant="outline"
+                                        className="w-full mt-6 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold uppercase tracking-widest h-10 text-[10px]"
+                                        onClick={() => window.open(`/analytics/cashier-performance/export?range=${range}&branch_id=${branchId}`, '_blank')}
+                                    >
                                         Export Detailed Logs
                                     </Button>
                                 </CardContent>
