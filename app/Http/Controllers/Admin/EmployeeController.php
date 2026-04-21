@@ -15,7 +15,11 @@ class EmployeeController extends Controller
     public function index()
     {
         return Inertia::render('Admin/Employees/Index', [
-            'employees' => User::with('branch')->where('id', '!=', Auth::id())->latest()->get(),
+            'employees' => User::with('branch')
+                ->where('id', '!=', Auth::id())
+                ->where('role', '!=', User::ROLE_CUSTOMER)
+                ->latest()
+                ->get(),
             'branches'  => Branch::orderBy('name')->get(),
         ]);
     }

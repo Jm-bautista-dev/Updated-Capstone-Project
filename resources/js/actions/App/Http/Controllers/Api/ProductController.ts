@@ -174,6 +174,84 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
         })
     
     show.form = showForm
-const ProductController = { index, show }
+/**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+export const getUnifiedMenu = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getUnifiedMenu.url(options),
+    method: 'get',
+})
+
+getUnifiedMenu.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/customer/menu',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+getUnifiedMenu.url = (options?: RouteQueryOptions) => {
+    return getUnifiedMenu.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+getUnifiedMenu.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getUnifiedMenu.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+getUnifiedMenu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getUnifiedMenu.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+    const getUnifiedMenuForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getUnifiedMenu.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+        getUnifiedMenuForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getUnifiedMenu.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\ProductController::getUnifiedMenu
+ * @see app/Http/Controllers/Api/ProductController.php:134
+ * @route '/api/v1/customer/menu'
+ */
+        getUnifiedMenuForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getUnifiedMenu.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getUnifiedMenu.form = getUnifiedMenuForm
+const ProductController = { index, show, getUnifiedMenu }
 
 export default ProductController
