@@ -138,8 +138,8 @@ export default function CashierPerformance() {
                 {/* Main Content */}
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     {/* Top Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-stretch">
+                        <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 h-full">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div className="size-12 rounded-2xl bg-primary/5 dark:bg-primary/10 flex items-center justify-center">
@@ -169,7 +169,7 @@ export default function CashierPerformance() {
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
+                        <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 h-full">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div className="size-12 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 flex items-center justify-center">
@@ -200,9 +200,9 @@ export default function CashierPerformance() {
                         </Card>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
                         {/* Leaderboard Table */}
-                        <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden">
+                        <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden h-full">
                             <CardHeader className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800">
                                 <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground dark:text-white flex items-center gap-2">
                                     <FiUsers className="text-primary dark:text-primary-foreground" />
@@ -278,8 +278,8 @@ export default function CashierPerformance() {
                         </Card>
 
                          {/* Top Performers Chart */}
-                        <div className="space-y-8">
-                            <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
+                        <div className="space-y-8 flex flex-col h-full">
+                            <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 flex flex-col min-w-0">
                                 <CardHeader>
                                     <CardTitle className="text-sm font-black uppercase tracking-widest text-foreground dark:text-white flex items-center gap-2">
                                         <FiBarChart2 className="text-primary dark:text-primary-foreground" />
@@ -287,8 +287,8 @@ export default function CashierPerformance() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="h-[280px] w-full min-h-[280px]">
-                                        <ResponsiveContainer width="100%" height={280}>
+                                    <div className="h-[180px] w-full min-h-[180px]">
+                                        <ResponsiveContainer width="100%" height={180}>
                                             <BarChart data={chartData} layout="vertical">
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
                                                 <XAxis type="number" hide />
@@ -333,7 +333,7 @@ export default function CashierPerformance() {
                             </Card>
 
                             {/* Additional Info / Tips */}
-                            <Card className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white border-none space-y-4">
+                            <Card className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white border-none space-y-4 mt-auto">
                                 <CardContent className="p-6">
                                     <FiAward className="text-amber-400 dark:text-amber-500 size-8 mb-4" />
                                     <h4 className="text-lg font-black tracking-tight text-white">System Notice</h4>

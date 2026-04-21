@@ -90,7 +90,7 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, subtitle, color
 // ── Decision Intelligence Mini Card ────────────────────────────────────────────
 function IntelligenceCard({ label, value, subtext, icon: Icon, trendColor }: any) {
     return (
-        <div className="bg-muted/30 dark:bg-zinc-900/40 p-3.5 rounded-2xl border border-border/40 flex items-center justify-between group hover:bg-muted/50 transition-colors cursor-default">
+        <div className="bg-muted/30 dark:bg-zinc-900/40 p-3.5 rounded-2xl border border-border/40 flex items-center justify-between group hover:bg-muted/50 transition-colors cursor-default h-full min-h-[64px]">
             <div className="flex items-center gap-3">
                 <div className={cn("size-9 rounded-xl flex items-center justify-center text-white shadow-lg", trendColor)}>
                     <Icon className="size-4" />
@@ -266,7 +266,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
 
                 {/* ── Zone 1: KPI Intelligence ── */}
                 <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
                         <StatCard 
                             title="Total Capital Inflow" 
                             value={formatCurrency(stats.total_revenue)} 
@@ -310,7 +310,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                     </div>
 
                     {/* ── Decision Intelligence Panel ── */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-stretch">
                         <IntelligenceCard 
                             label="Fastest Seller"
                             value={topProduct?.name || '---'}
@@ -352,9 +352,9 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                 <div className="h-px bg-border/40 w-full" />
 
                 {/* ── Zone 2: Core Analytics ── */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch min-w-0">
                     {/* Primary Area Chart (Hero) */}
-                    <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden group">
+                    <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden group h-full flex flex-col min-w-0">
                         <CardHeader className="flex flex-row items-center justify-between p-8">
                             <div className="space-y-1">
                                 <CardTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-2">
@@ -373,9 +373,9 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="h-[420px] w-full px-6 pb-6 min-h-[420px]">
-                                <ResponsiveContainer width="100%" height={400}>
+                        <CardContent className="p-0 flex-1">
+                            <div className="h-[480px] w-full px-6 pb-6 min-h-[480px]">
+                                <ResponsiveContainer width="100%" height={460}>
                                     <AreaChart data={salesOverTime} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                                         <defs>
                                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -438,16 +438,16 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                     </Card>
 
                     {/* Secondary Metrics Column */}
-                    <div className="xl:col-span-4 space-y-8 h-full">
+                    <div className="xl:col-span-4 flex flex-col gap-8 h-full min-w-0">
                         {/* Market Demand (Bar Chart) */}
-                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-[calc(50%-16px)]">
+                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col flex-1 h-[calc(50%-16px)] min-w-0">
                             <CardHeader className="p-6">
                                 <CardTitle className="text-base font-black italic uppercase tracking-tighter">Market Demand</CardTitle>
                                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Top Volume Drivers</CardDescription>
                             </CardHeader>
-                            <CardContent className="px-4 pb-4 flex-1">
-                                <div className="h-full w-full min-h-[200px]">
-                                    <ResponsiveContainer width="100%" height={280}>
+                            <CardContent className="px-4 pb-4 flex-1 flex flex-col min-h-0 min-w-0">
+                                <div className="h-[180px] w-full min-h-[180px] min-w-0">
+                                    <ResponsiveContainer width="100%" height={180}>
                                         <BarChart data={salesPerProduct.slice(0, 6)} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
                                             <XAxis type="number" hide />
@@ -478,13 +478,14 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </Card>
 
                         {/* Revenue Distribution (Pie Chart) */}
-                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 h-[calc(50%-16px)]">
-                            <CardHeader className="p-6">
+                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex-1 flex flex-col h-[calc(50%-16px)] min-w-0">
+                            <CardHeader className="p-6 shrink-0">
                                 <CardTitle className="text-base font-black italic uppercase tracking-tighter">Distribution Widget</CardTitle>
                                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Platform Revenue Mix</CardDescription>
                             </CardHeader>
-                            <CardContent className="px-4 pb-4 relative h-[200px] min-h-[200px]">
-                                <ResponsiveContainer width="100%" height={200}>
+                            <CardContent className="px-4 pb-4 relative flex-1 min-h-[160px] min-w-0">
+                                <div className="h-[160px] w-full min-w-0">
+                                    <ResponsiveContainer width="100%" height={160}>
                                     <PieChart>
                                         <Pie
                                             data={salesByPaymentMethod}
@@ -503,6 +504,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                                         <Tooltip content={<CustomTooltip />} />
                                     </PieChart>
                                 </ResponsiveContainer>
+                            </div>
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[45%] text-center pointer-events-none">
                                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Total</p>
                                     <p className="text-[13px] font-black tabular-nums text-foreground dark:text-white leading-none">
@@ -513,6 +515,8 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </Card>
                     </div>
                 </div>
+
+                <div className="h-px bg-border/40 w-full" />
 
                 {/* ── Zone 3: Operations Layer ── */}
                 <div className="space-y-8">
@@ -526,7 +530,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                     </div>
                     
                     {/* Branch Horizontal Scroll */}
-                    <div className="flex gap-6 overflow-x-auto pb-6 -mx-4 px-4 scrollbar-hide no-scrollbar scroll-smooth">
+                    <div className="flex gap-6 overflow-x-auto pb-6 -mx-4 px-4 scrollbar-hide no-scrollbar scroll-smooth items-stretch min-h-[350px]">
                         {branchStats?.map((branch: any) => (
                             <BranchStatCard key={branch.id} branch={branch} />
                         ))}

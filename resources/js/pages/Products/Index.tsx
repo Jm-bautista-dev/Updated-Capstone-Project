@@ -17,6 +17,7 @@ import {
     FiRefreshCw
 } from 'react-icons/fi';
 import { FiZap } from 'react-icons/fi';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
 import { ValidationErrorModal } from '@/components/validation-error-modal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -389,64 +390,133 @@ export default function ProductsIndex() {
 
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground dark:text-white">Products</h1>
-                        <p className="text-sm text-muted-foreground dark:text-zinc-400">Manage your product inventory and pricing.</p>
+                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0 transition-all duration-300">
+                    <div className="flex items-center gap-2">
+                        <FiPackage className="text-primary size-5 sm:size-7" />
+                        <div>
+                            <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white leading-none">Products</h1>
+                            <p className="hidden sm:block text-sm text-muted-foreground dark:text-zinc-400 mt-1">Manage your product inventory and pricing.</p>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        {isAdmin && (
+
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Desktop Bar - EXACT REPLICA OF ORIGINAL (HIDDEN ON MOBILE) */}
+                        <div className="hidden md:flex items-center gap-3">
+                            {isAdmin && (
+                                <Select
+                                    value={currentBranchId ? String(currentBranchId) : 'all'}
+                                    onValueChange={handleBranchFilter}
+                                >
+                                    <SelectTrigger className="w-48 h-10 bg-muted/50 dark:bg-zinc-800/50 dark:text-zinc-300">
+                                        <SelectValue placeholder="All Branches" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Branches</SelectItem>
+                                        {branches?.map((b: any) => (
+                                            <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            <div className="relative w-64">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search products..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="pl-9 h-10 bg-muted/50 dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-colors border-none ring-1 ring-border dark:ring-zinc-700"
+                                />
+                            </div>
                             <Select
-                                value={currentBranchId ? String(currentBranchId) : 'all'}
-                                onValueChange={handleBranchFilter}
+                                value={String(filterCategory)}
+                                onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}
                             >
-                                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50 dark:bg-zinc-800/50 dark:text-zinc-300">
-                                    <SelectValue placeholder="All Branches" />
+                                <SelectTrigger className="w-48 h-10 bg-muted/50 dark:bg-zinc-800/50 dark:text-zinc-300">
+                                    <SelectValue placeholder="All Categories" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All Branches</SelectItem>
-                                    {branches?.map((b: any) => (
-                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                    <SelectItem value="all">All Categories</SelectItem>
+                                    {categories.map((c: any) => (
+                                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                        )}
-                        <div className="relative w-full sm:w-64">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search products..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-9 h-10 bg-muted/50 dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-colors border-none ring-1 ring-border dark:ring-zinc-700"
-                            />
                         </div>
-                        <Select
-                            value={String(filterCategory)}
-                            onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}
+
+                        {/* Mobile Trigger (HIDDEN ON DESKTOP) */}
+                        <MobileFilter
+                            title="Product Filters"
+                            description="Refine your catalog view"
+                            activeFilterCount={(search ? 1 : 0) + (currentBranchId && currentBranchId !== 'all' ? 1 : 0) + (filterCategory ? 1 : 0)}
+                            activeFilterSummary={`${search ? `"${search}" • ` : ''}${currentBranchId && currentBranchId !== 'all' ? (branches?.find((b: any) => String(b.id) === String(currentBranchId))?.name || 'Branch') : 'All Branches'} • ${filterCategory ? (categories.find((c: any) => String(c.id) === String(filterCategory))?.name || 'Category') : 'All Categories'}`}
+                            onClear={() => {
+                                setSearch('');
+                                handleBranchFilter('all');
+                                setFilterCategory('');
+                            }}
                         >
-                            <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50 dark:bg-zinc-800/50 dark:text-zinc-300">
-                                <SelectValue placeholder="All Categories" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Categories</SelectItem>
-                                {categories.map((c: any) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            <div className="flex flex-col gap-6 w-full">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Search Catalog</label>
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Type product name..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner"
+                                        />
+                                    </div>
+                                </div>
+
+                                {isAdmin && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Branch Location</label>
+                                        <Select value={currentBranchId ? String(currentBranchId) : 'all'} onValueChange={handleBranchFilter}>
+                                            <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
+                                                <SelectValue placeholder="All Branches" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Branches</SelectItem>
+                                                {branches?.map((b: any) => (
+                                                    <SelectItem key={b.id} value={String(b.id)} className="font-bold py-3 uppercase text-[10px] tracking-widest">{b.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Product Category</label>
+                                    <Select value={String(filterCategory || 'all')} onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}>
+                                        <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black text-primary">
+                                            <SelectValue placeholder="All Categories" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Categories</SelectItem>
+                                            {categories.map((c: any) => (
+                                                <SelectItem key={c.id} value={String(c.id)} className="font-bold py-3 uppercase text-[10px] tracking-widest">{c.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </MobileFilter>
+
                         {isAdmin && (
-                            <Button onClick={openAddModal} className="h-10 gap-2 shadow-lg shadow-primary/20">
-                                <FiPlus className="size-4" /> <span className="hidden lg:inline">Add Product</span>
+                            <Button onClick={openAddModal} className="h-10 sm:h-11 w-10 sm:w-auto p-0 sm:px-5 gap-2 shadow-lg shadow-primary/20 rounded-xl font-black uppercase text-[10px] tracking-widest italic shrink-0">
+                                <FiPlus className="size-4" /> <span className="hidden sm:inline-block">Add Product</span>
                             </Button>
                         )}
                     </div>
                 </div>
 
+
                 {/* Content Area */}
                 <div className="flex-1 overflow-hidden p-4 sm:p-6 flex flex-col gap-6">
                     {/* Summary Row */}
-                    <div className="grid gap-4 md:grid-cols-3 flex-shrink-0">
-                        <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 shadow-sm group">
+                    <div className="grid gap-4 md:grid-cols-3 flex-shrink-0 items-stretch">
+                        <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 shadow-sm group h-full">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Total Products</CardTitle>
                                 <FiPackage className="size-4 text-primary dark:text-primary-foreground group-hover:scale-110 transition-transform" />
@@ -457,7 +527,7 @@ export default function ProductsIndex() {
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 shadow-sm group">
+                        <Card className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 shadow-sm group h-full">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Low Stock Items</CardTitle>
                                 <FiAlertTriangle className="size-4 text-amber-500 group-hover:scale-110 transition-transform" />
@@ -468,7 +538,7 @@ export default function ProductsIndex() {
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-sm group">
+                        <Card className="bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-sm group h-full">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">Out of Stock</CardTitle>
                                 <FiSlash className="size-4 text-destructive group-hover:scale-110 transition-transform" />

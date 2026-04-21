@@ -24,6 +24,7 @@ import {
   FiMinimize2,
   FiZap
 } from 'react-icons/fi';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
 import { WastageModal } from '@/components/wastage-modal';
 import { MassRestockModal } from '@/components/mass-restock-modal';
@@ -350,67 +351,133 @@ export default function InventoryIndex() {
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
 
           {/* ── Header Layer ── */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-6 sm:px-8 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <FiPackage className="text-primary size-5" />
-                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white">Inventory</h1>
+          <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:gap-6 sm:px-8 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <FiPackage className="text-primary size-5 sm:size-6" />
+              <div>
+                <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white leading-none">Inventory</h1>
+                <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest mt-1">
+                  Keep track of your ingredients and stock levels across shops.
+                </p>
               </div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">
-                Keep track of your ingredients and stock levels across shops.
-              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {isAdmin && (
-                <Select
-                  value={currentBranchId ? String(currentBranchId) : 'all'}
-                  onValueChange={handleBranchFilter}
-                >
-                  <SelectTrigger className="w-full sm:w-48 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                    <SelectValue placeholder="All Branches" />
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Desktop Filter Bar - EXACT REPLICA OF ORIGINAL (HIDDEN ON MOBILE) */}
+              <div className="hidden md:flex items-center gap-3">
+                {isAdmin && (
+                  <Select
+                    value={currentBranchId ? String(currentBranchId) : 'all'}
+                    onValueChange={handleBranchFilter}
+                  >
+                    <SelectTrigger className="w-48 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
+                      <SelectValue placeholder="All Branches" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-border shadow-2xl">
+                      <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Branches</SelectItem>
+                      {branchList.map(b => (
+                        <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase tracking-widest py-3">{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="relative w-64">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground dark:text-zinc-500" />
+                  <Input
+                    placeholder="Search item or location..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9 h-11 bg-card dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-all border-none ring-1 ring-border group-hover:ring-primary/40 text-[11px] font-bold uppercase tracking-tight"
+                  />
+                </div>
+                <Select value={filterUnit} onValueChange={setFilterUnit}>
+                  <SelectTrigger className="w-32 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
+                    <SelectValue placeholder="Unit" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-border shadow-2xl">
-                    <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Branches</SelectItem>
-                    {branchList.map(b => (
-                      <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase tracking-widest py-3">{b.name}</SelectItem>
-                    ))}
+                    <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Units</SelectItem>
+                    <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Grams)</SelectItem>
+                    <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Milliliters)</SelectItem>
+                    <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Pieces)</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
-              <div className="relative w-full sm:w-64">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground dark:text-zinc-500" />
-                <Input
-                  placeholder="Search item or location..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-9 h-11 bg-card dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-all border-none ring-1 ring-border group-hover:ring-primary/40 text-[11px] font-bold uppercase tracking-tight"
-                />
               </div>
-              <Select value={filterUnit} onValueChange={setFilterUnit}>
-                <SelectTrigger className="w-full sm:w-32 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                  <SelectValue placeholder="Unit" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-border shadow-2xl">
-                  <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Units</SelectItem>
-                  <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Grams)</SelectItem>
-                  <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Milliliters)</SelectItem>
-                  <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Pieces)</SelectItem>
-                </SelectContent>
-              </Select>
+
+              {/* Mobile Filter Trigger (HIDDEN ON DESKTOP) */}
+              <MobileFilter
+                title="Inventory Filters"
+                description="Refine your view by branch or unit"
+                activeFilterCount={(search ? 1 : 0) + (currentBranchId && currentBranchId !== 'all' ? 1 : 0) + (filterUnit !== 'all' ? 1 : 0)}
+                activeFilterSummary={`${search ? `"${search}" • ` : ''}${currentBranchId && currentBranchId !== 'all' ? (branchList.find(b => String(b.id) === String(currentBranchId))?.name || 'Branch') : 'All Branches'} • ${filterUnit === 'all' ? 'All Units' : filterUnit === 'g' ? 'g' : filterUnit === 'ml' ? 'ml' : 'pcs'}`}
+                onClear={() => {
+                  setSearch('');
+                  handleBranchFilter('all');
+                  setFilterUnit('all');
+                }}
+              >
+                <div className="flex flex-col gap-6 w-full">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Search Stock</label>
+                    <div className="relative">
+                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                      <Input
+                        placeholder="Type to search..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner"
+                      />
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Branch Location</label>
+                      <Select value={currentBranchId ? String(currentBranchId) : 'all'} onValueChange={handleBranchFilter}>
+                        <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
+                          <SelectValue placeholder="All Branches" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Branches</SelectItem>
+                          {branchList.map(b => (
+                            <SelectItem key={b.id} value={String(b.id)} className="font-bold py-3 uppercase text-[10px] tracking-widest">{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Stock Unit</label>
+                    <Select value={filterUnit} onValueChange={setFilterUnit}>
+                      <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
+                        <SelectValue placeholder="Unit" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Units</SelectItem>
+                        <SelectItem value="g" className="font-bold py-3 uppercase text-[10px] tracking-widest text-primary">g (Grams)</SelectItem>
+                        <SelectItem value="ml" className="font-bold py-3 uppercase text-[10px] tracking-widest text-primary">ml (Milliliters)</SelectItem>
+                        <SelectItem value="pcs" className="font-bold py-3 uppercase text-[10px] tracking-widest text-primary">pcs (Pieces)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </MobileFilter>
+
               {isAdmin && (
-                <Button onClick={handleAdd} className="h-11 gap-2 shadow-lg shadow-primary/20 rounded-xl px-5 font-black uppercase text-[10px] tracking-widest italic">
+                <Button onClick={handleAdd} className="h-10 sm:h-11 w-10 sm:w-auto p-0 sm:px-5 gap-2 shadow-lg shadow-primary/20 rounded-xl font-black uppercase text-[10px] tracking-widest italic shrink-0">
                   <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Item</span>
                 </Button>
               )}
             </div>
           </div>
 
+
           {/* ── Content Layer ── */}
           <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-8 scroll-smooth no-scrollbar">
             
             {/* Global Stats Matrix */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <div className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+                 <div className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group h-full">
                                 <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-10" />
                                 <div className="flex items-center justify-between mb-4">
                                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Total Items</p>
@@ -419,7 +486,7 @@ export default function InventoryIndex() {
                                 <h3 className="text-3xl font-black text-foreground dark:text-white tabular-nums">{stats.total}</h3>
                                 <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Ingredients across all branches</p>
                  </div>
-                 <div className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group">
+                 <div className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group h-full">
                                 <div className="absolute top-0 right-0 size-24 bg-amber-500 blur-3xl opacity-10" />
                                 <div className="flex items-center justify-between mb-4">
                                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/70 dark:text-amber-500/70">Low Stock</p>
@@ -428,7 +495,7 @@ export default function InventoryIndex() {
                                 <h3 className="text-3xl font-black text-amber-600 dark:text-amber-500 tabular-nums">{stats.low_stock}</h3>
                                 <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Items running low</p>
                  </div>
-                 <div className="bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/20 dark:border-rose-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group">
+                 <div className="bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/20 dark:border-rose-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group h-full">
                                 <div className="absolute top-0 right-0 size-24 bg-rose-500 blur-3xl opacity-10" />
                                 <div className="flex items-center justify-between mb-4">
                                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-600/70 dark:text-rose-500/70">Out of Stock</p>

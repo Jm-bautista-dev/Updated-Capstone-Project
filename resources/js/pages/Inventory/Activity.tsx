@@ -8,8 +8,10 @@ import {
     FiBox, 
     FiMapPin, 
     FiArrowLeft,
-    FiSearch
+    FiSearch,
+    FiActivity
 } from 'react-icons/fi';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -69,19 +71,77 @@ export default function Activity() {
         <AppLayout breadcrumbs={[{ title: 'Inventory', href: '/inventory' }, { title: 'Activity Log', href: '/inventory/activity' }]}>
             <Head title="Inventory Activity Log" />
 
-            <div className="p-6 max-w-7xl mx-auto space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-black tracking-tight">Inventory Activity</h1>
-                        <p className="text-muted-foreground text-sm">Real-time monitoring of stock changes across all branches.</p>
+            <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <FiActivity className="md:hidden text-primary size-5" />
+                        <div>
+                            <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter leading-none">Inventory Activity</h1>
+                            <p className="hidden md:block text-muted-foreground text-sm">Real-time monitoring of stock changes across all branches.</p>
+                        </div>
                     </div>
-                    <Button variant="outline" onClick={() => window.history.back()} className="gap-2">
-                        <FiArrowLeft /> Back
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <MobileFilter
+                            title="Activity Filters"
+                            description="Filter by branch, employee, or date"
+                            activeFilterCount={(branchFilter !== 'all' ? 1 : 0) + (employeeFilter !== 'all' ? 1 : 0) + (dateFilter ? 1 : 0)}
+                            onClear={resetFilters}
+                            onApply={handleFilterChange}
+                        >
+                            <div className="flex flex-col gap-6 w-full">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Branch Location</label>
+                                    <Select value={branchFilter} onValueChange={setBranchFilter}>
+                                        <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
+                                            <SelectValue placeholder="All Branches" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Branches</SelectItem>
+                                            {branches.map((b: any) => (
+                                                <SelectItem key={b.id} value={String(b.id)} className="font-bold py-3 uppercase text-[10px] tracking-widest">{b.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Employee</label>
+                                    <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+                                        <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
+                                            <SelectValue placeholder="All Employees" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Employees</SelectItem>
+                                            {employees.map((e: any) => (
+                                                <SelectItem key={e.id} value={String(e.id)} className="font-bold py-3 uppercase text-[10px] tracking-widest">{e.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Select Date</label>
+                                    <div className="relative">
+                                        <FiCalendar className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5" />
+                                        <Input 
+                                            type="date" 
+                                            className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner" 
+                                            value={dateFilter}
+                                            onChange={(e) => setDateFilter(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </MobileFilter>
+
+                        <Button variant="outline" onClick={() => window.history.back()} className="h-10 sm:h-auto gap-2 text-[10px] sm:text-sm font-bold uppercase tracking-widest px-3 sm:px-4">
+                            <FiArrowLeft /> <span className="hidden sm:inline">Back</span>
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Filters */}
-                <Card className="border-none shadow-sm ring-1 ring-black/5">
+                {/* Filters - DESKTOP ONLY */}
+                <Card className="hidden md:block border-none shadow-sm ring-1 ring-black/5">
                     <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Branch</label>
@@ -136,6 +196,7 @@ export default function Activity() {
                         </div>
                     </CardContent>
                 </Card>
+
 
                 {/* Activity Table */}
                 <Card className="border-none shadow-xl ring-1 ring-black/5 overflow-hidden">

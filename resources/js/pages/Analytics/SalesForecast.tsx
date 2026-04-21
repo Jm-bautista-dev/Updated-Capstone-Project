@@ -255,7 +255,7 @@ export default function SalesForecast() {
                             >
 
                                 {/* ── Row 1: KPI Cards ─────────────────────────── */}
-                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
 
                                     {/* Tomorrow Prediction */}
                                     <Card className="bg-primary text-white shadow-xl shadow-primary/20 border-none relative overflow-hidden">
@@ -338,7 +338,7 @@ export default function SalesForecast() {
                                 </div>
 
                                 {/* ── Row 2: Chart + Table ─────────────────────── */}
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
 
                                     {/* Main Chart */}
                                     <Card className="lg:col-span-2 border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">
@@ -446,7 +446,7 @@ export default function SalesForecast() {
                                 </div>
 
                                 {/* ── Row 3: Insights + Seasonality ────────────── */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
 
                                     {/* Smart Insights */}
                                     <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50">

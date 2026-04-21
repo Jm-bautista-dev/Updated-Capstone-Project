@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
+import { MobileFilter } from '@/components/shared/mobile-filter';
+
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Inventory Dashboard', href: '/inventory-items' },
 ];
@@ -70,16 +72,18 @@ export default function ItemDashboard() {
       
       <div className="p-4 sm:p-6 lg:p-8 space-y-8 bg-background dark:bg-zinc-950 min-h-screen">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
-              <FiPackage className="text-primary dark:text-primary-foreground" />
-               Stock Intelligence
-            </h1>
-            <p className="text-muted-foreground dark:text-zinc-400 mt-1 font-medium">Auto-converting weight and volume inventory management.</p>
+        <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-0 bg-background dark:bg-zinc-950/0 transition-all duration-300">
+          <div className="flex items-center gap-2">
+            <FiPackage className="text-primary size-6 sm:size-8" />
+            <div>
+              <h1 className="text-lg sm:text-3xl font-black italic uppercase tracking-tighter text-foreground dark:text-white leading-none">Stock Intelligence</h1>
+              <p className="hidden md:block text-muted-foreground dark:text-zinc-400 mt-1 font-medium italic">Auto-converting weight and volume inventory management.</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-             <div className="relative">
+
+          <div className="flex items-center gap-2 sm:gap-3">
+             {/* Desktop Search (HIDDEN ON MOBILE) */}
+             <div className="hidden md:block relative">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500" />
                 <Input 
                   placeholder="Search materials..." 
@@ -88,14 +92,40 @@ export default function ItemDashboard() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
              </div>
-             <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
-               <FiPlus /> New Record
+
+             {/* Mobile Search/Filter (HIDDEN ON DESKTOP) */}
+             <MobileFilter
+                title="Search Intelligence"
+                description="Find specific ingredients or items"
+                activeFilterCount={search ? 1 : 0}
+                activeFilterSummary={search ? `Search: ${search}` : undefined}
+                onClear={() => setSearch('')}
+             >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Material Search</label>
+                    <div className="relative">
+                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                      <Input
+                        placeholder="Type material name..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner"
+                      />
+                    </div>
+                  </div>
+                </div>
+             </MobileFilter>
+
+             <Button onClick={() => setIsAddModalOpen(true)} className="h-10 sm:h-11 w-10 sm:w-auto p-0 sm:px-5 gap-2 shadow-lg shadow-primary/20 rounded-xl font-black uppercase text-[10px] tracking-widest shrink-0 italic">
+               <FiPlus className="size-4" /> <span className="hidden sm:inline">New Record</span>
              </Button>
           </div>
         </div>
 
+
         {/* Inventory Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
           <AnimatePresence mode="popLayout">
             {filteredInventory.map((item: any) => (
               <motion.div
@@ -106,7 +136,7 @@ export default function ItemDashboard() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className="overflow-hidden border-none shadow-xl ring-1 ring-black/5 dark:ring-white/5 hover:ring-primary/30 dark:hover:ring-primary/50 transition-all group bg-card dark:bg-zinc-900/50">
+                <Card className="overflow-hidden border-none shadow-xl ring-1 ring-black/5 dark:ring-white/5 hover:ring-primary/30 dark:hover:ring-primary/50 transition-all group bg-card dark:bg-zinc-900/50 h-full flex flex-col">
                   <div className={cn(
                     "h-2 w-full",
                     item.type === 'solid' ? "bg-amber-500" : "bg-blue-500"
