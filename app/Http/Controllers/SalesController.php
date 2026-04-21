@@ -72,7 +72,13 @@ class SalesController extends Controller
             'status' => 'required|in:pending,preparing,completed,cancelled',
         ]);
 
-        $sale->update($validated);
+        $saleService = app(\App\Services\SaleService::class);
+
+        if ($validated['status'] === 'cancelled' && $sale->status !== 'cancelled') {
+            $saleService->voidSale($sale);
+        } else {
+            $sale->update($validated);
+        }
 
         return back()->with('success', "Order #{$sale->order_number} status updated to {$validated['status']}");
     }

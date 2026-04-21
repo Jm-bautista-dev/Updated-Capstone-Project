@@ -11,9 +11,14 @@ import {
     FiMoreHorizontal,
     FiShoppingCart,
     FiPrinter,
-    FiEye
+    FiEye,
+    FiHash,
+    FiUserCheck,
+    FiShieldOff,
+    FiAlertTriangle
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
+import AppLogo from '@/components/app-logo';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +30,22 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -53,6 +74,9 @@ type Sale = {
     cashier: {
         name: string;
     };
+    branch?: {
+        name: string;
+    };
 };
 
 export default function SalesIndex() {
@@ -62,6 +86,13 @@ export default function SalesIndex() {
     const [search, setSearch] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
     const [branchFilter, setBranchFilter] = useState(filters.branch_id || 'all');
+
+    // Modal States
+    const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    
+    const [saleToVoid, setSaleToVoid] = useState<Sale | null>(null);
+    const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
 
     // --- Sync Logic ---
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
@@ -239,7 +270,7 @@ export default function SalesIndex() {
                                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Status</th>
                                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right">Items</th>
                                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right" >Total</th>
-                                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-center">Actions</th>
+                                        {isAdmin && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-center">Actions</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -272,23 +303,80 @@ export default function SalesIndex() {
                                                     <div className="font-black text-primary dark:text-primary-foreground">{formatCurrency(sale.total)}</div>
                                                     <div className="text-[9px] uppercase font-bold text-muted-foreground dark:text-zinc-500">{sale.payment_method}</div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        {sale.status === 'pending' && (
-                                                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase tracking-wider" onClick={() => updateStatus(sale.id, 'preparing')}>
-                                                                Prepare
-                                                            </Button>
-                                                        )}
-                                                        {sale.status === 'preparing' && (
-                                                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase tracking-wider bg-green-500/5 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20 dark:border-green-500/30 hover:bg-green-500/10 dark:hover:bg-green-500/20" onClick={() => updateStatus(sale.id, 'completed')}>
-                                                                Complete
-                                                            </Button>
-                                                        )}
-                                                        <Button size="icon" variant="ghost" className="size-8">
-                                                            <FiEye className="size-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
+                                                {isAdmin && (
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            {/* Primary Action: Status Progression */}
+                                                            {sale.status === 'pending' && (
+                                                                <Button size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest px-4 shadow-md shadow-primary/20" onClick={() => updateStatus(sale.id, 'preparing')}>
+                                                                    Prepare Order
+                                                                </Button>
+                                                            )}
+                                                            {sale.status === 'preparing' && (
+                                                                <Button size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest px-4 bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-500/20" onClick={() => updateStatus(sale.id, 'completed')}>
+                                                                    Complete
+                                                                </Button>
+                                                            )}
+
+                                                            {/* Secondary Actions: Professional Suite */}
+                                                            {/* Secondary Actions: Professional Suite */}
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-muted dark:hover:bg-zinc-800">
+                                                                        <FiMoreHorizontal className="size-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-56 rounded-xl border-none shadow-2xl ring-1 ring-black/5 dark:ring-white/10 p-1.5">
+                                                                    <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 py-2">Administrative Suite</DropdownMenuLabel>
+                                                                    <DropdownMenuItem 
+                                                                        className="rounded-lg h-10 gap-3 px-2 cursor-pointer font-bold text-xs" 
+                                                                        onClick={() => {
+                                                                            setSelectedSale(sale);
+                                                                            setIsDetailsModalOpen(true);
+                                                                            // Small delay to ensure modal is open before printing
+                                                                            setTimeout(() => window.print(), 500);
+                                                                        }}
+                                                                    >
+                                                                        <div className="size-7 rounded-md bg-blue-500/10 flex items-center justify-center text-blue-600">
+                                                                            <FiPrinter className="size-3.5" />
+                                                                        </div>
+                                                                        Print PDF Receipt
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem 
+                                                                        className="rounded-lg h-10 gap-3 px-2 cursor-pointer font-bold text-xs"
+                                                                        onClick={() => {
+                                                                            setSelectedSale(sale);
+                                                                            setIsDetailsModalOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <div className="size-7 rounded-md bg-primary/10 flex items-center justify-center text-primary">
+                                                                            <FiEye className="size-3.5" />
+                                                                        </div>
+                                                                        Full Profit Audit
+                                                                    </DropdownMenuItem>
+                                                                    
+                                                                    <DropdownMenuSeparator className="my-1.5 opacity-50" />
+                                                                    
+                                                                    <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 py-2">Correction Tools</DropdownMenuLabel>
+                                                                    {sale.status !== 'cancelled' && (
+                                                                        <DropdownMenuItem 
+                                                                            className="rounded-lg h-10 gap-3 px-2 cursor-pointer font-bold text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                                                            onClick={() => {
+                                                                                setSaleToVoid(sale);
+                                                                                setIsVoidModalOpen(true);
+                                                                            }}
+                                                                        >
+                                                                            <div className="size-7 rounded-md bg-destructive/10 flex items-center justify-center">
+                                                                                <FiXCircle className="size-3.5" />
+                                                                            </div>
+                                                                            Void Transaction
+                                                                        </DropdownMenuItem>
+                                                                    )}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </motion.tr>
                                         ))}
                                     </AnimatePresence>
@@ -319,6 +407,273 @@ export default function SalesIndex() {
                     </Card>
                 </div>
             </div>
+
+            {/* Sale Details & Receipt Modal */}
+            <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+                <DialogContent className="max-w-xl max-h-[95vh] overflow-y-auto p-0 border-none bg-transparent shadow-none">
+                    <DialogTitle className="sr-only">Sale Receipt for Order #{selectedSale?.order_number}</DialogTitle>
+                    <DialogDescription className="sr-only">Detailed breakdown of sale items, financial totals, and transaction audit data.</DialogDescription>
+                    <div className="relative mx-auto w-[400px] print:w-full print-receipt-body">
+                        {/* Zigzag Top Edge */}
+                        <div className="h-4 w-full bg-background dark:bg-zinc-900 overflow-hidden print:hidden" style={{ clipPath: 'polygon(0% 100%, 5% 0%, 10% 100%, 15% 0%, 20% 100%, 25% 0%, 30% 100%, 35% 0%, 40% 100%, 45% 0%, 50% 100%, 55% 0%, 60% 100%, 65% 0%, 70% 100%, 75% 0%, 80% 100%, 85% 0%, 90% 100%, 95% 0%, 100% 100%)' }} />
+                        
+                        <div className="bg-background dark:bg-zinc-900 shadow-2xl print:shadow-none p-0 relative overflow-hidden group">
+                            {/* Brand Header */}
+                            <div className="bg-primary/5 dark:bg-primary/20 p-10 border-b border-dashed dark:border-zinc-800 text-center space-y-4 relative overflow-hidden">
+                                <div className="absolute -top-4 -right-4 size-32 bg-primary/10 rounded-full blur-3xl opacity-50" />
+                                <div className="flex justify-center">
+                                    <div className="p-4 bg-white dark:bg-zinc-800 rounded-3xl shadow-2xl shadow-primary/10 ring-1 ring-black/5 flex items-center justify-center">
+                                        <div className="h-16">
+                                            <AppLogo />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-center gap-2 pt-2">
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/5 rounded-full">
+                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Terminal ID</span>
+                                        <span className="text-[10px] font-black text-primary">#TRS-09</span>
+                                    </div>
+                                    <p className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em]">{selectedSale?.branch?.name || 'Maki Desu Victoria'}</p>
+                                </div>
+                            </div>
+
+                            {/* Ticket Core Info */}
+                            <div className="p-8 space-y-6">
+                                <div className="flex justify-between items-start border-b border-dashed dark:border-zinc-800 pb-6">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Sales Document</p>
+                                        <p className="text-lg font-black tracking-tighter text-foreground dark:text-white">#{selectedSale?.order_number}</p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <Badge className="bg-primary text-white text-[9px] font-black uppercase tracking-widest h-5">{selectedSale?.type}</Badge>
+                                            {selectedSale && getStatusBadge(selectedSale.status)}
+                                        </div>
+                                    </div>
+                                    <div className="text-right space-y-1">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Temporal Intel</p>
+                                        <p className="text-xs font-black text-foreground dark:text-zinc-200">
+                                            {selectedSale && format(new Date(selectedSale.created_at), 'MMM dd, yyyy')}
+                                        </p>
+                                        <p className="text-xs font-bold text-muted-foreground">
+                                            {selectedSale && format(new Date(selectedSale.created_at), 'HH:mm:ss')}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Items Container */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between px-2">
+                                        <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+                                            <FiHash className="size-2.5" /> Item Specification
+                                        </div>
+                                        <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Value</div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {selectedSale?.items.map((item) => (
+                                            <div key={item.id} className="flex justify-between items-end group hover:bg-muted/30 dark:hover:bg-zinc-800/30 p-2 rounded-xl transition-all">
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-black text-foreground dark:text-zinc-200">{item.product.name}</p>
+                                                    <p className="text-[10px] font-bold text-muted-foreground">{item.quantity} × {formatCurrency(item.unit_price)}</p>
+                                                </div>
+                                                <p className="font-black tabular-nums text-sm">{formatCurrency(item.subtotal)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Mathematical Breakdown */}
+                                <div className="pt-6 border-t-2 border-dashed dark:border-zinc-800 space-y-4">
+                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">
+                                        <span>Merchandise Subtotal</span>
+                                        <span className="tabular-nums">{selectedSale && formatCurrency(selectedSale.total)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">
+                                        <span>Inventory Adjustment Fee</span>
+                                        <span className="tabular-nums">₱0.00</span>
+                                    </div>
+                                    <div className="bg-primary p-4 rounded-2xl flex justify-between items-center shadow-xl shadow-primary/30">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Grand Total</p>
+                                            <p className="text-xs font-bold text-white/40 italic">VAT Exclusive</p>
+                                        </div>
+                                        <p className="text-3xl font-black text-white tabular-nums drop-shadow-md">{selectedSale && formatCurrency(selectedSale.total)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Financial Settlement */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-muted/50 dark:bg-zinc-800/50 p-4 rounded-2xl border dark:border-zinc-800 space-y-1">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Input Method</p>
+                                        <p className="text-sm font-black uppercase tracking-tighter text-foreground dark:text-white">{selectedSale?.payment_method}</p>
+                                    </div>
+                                    <div className="bg-muted/50 dark:bg-zinc-800/50 p-4 rounded-2xl border dark:border-zinc-800 space-y-1">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Change Settled</p>
+                                        <p className="text-sm font-black text-amber-600">{selectedSale && formatCurrency(selectedSale.change_amount)}</p>
+                                    </div>
+                                </div>
+
+                                {/* Audit & Security Footer */}
+                                <div className="pt-6 border-t border-dashed dark:border-zinc-800 flex flex-col items-center gap-6 text-center">
+                                    <div className="flex items-center gap-4 bg-primary/5 p-3 rounded-2xl w-full">
+                                        <div className="size-10 rounded-xl bg-white dark:bg-zinc-800 flex items-center justify-center shadow-sm">
+                                            <FiUserCheck className="size-5 text-primary" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Served By</p>
+                                            <p className="text-sm font-black uppercase italic tracking-tighter text-primary">{selectedSale?.cashier.name}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Verification QR (Placeholder style) */}
+                                    <div className="space-y-3">
+                                        <div className="size-24 bg-white p-2 rounded-xl border group-hover:scale-110 transition-transform duration-500 mx-auto">
+                                            <div className="w-full h-full bg-zinc-200 animate-pulse rounded border-2 border-dashed border-zinc-300 flex items-center justify-center">
+                                                <div className="size-10 border-4 border-zinc-100 rounded-sm" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest italic text-muted-foreground/40">Secure Transaction Verified</p>
+                                            <p className="text-[8px] font-bold text-muted-foreground/30 uppercase mt-1">Order Index: {selectedSale?.id.toString().padStart(8, '0')}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Zigzag Bottom Edge */}
+                        <div className="h-4 w-full bg-background dark:bg-zinc-900 overflow-hidden print:hidden" style={{ clipPath: 'polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)' }} />
+                        
+                        {/* Print Quick Controls Floating */}
+                        <div className="absolute bottom-8 right-[-100px] group-hover:right-8 transition-all duration-500 print:hidden flex flex-col gap-2">
+                             <Button size="icon" className="size-12 rounded-2xl shadow-2xl" onClick={() => window.print()}>
+                                <FiPrinter className="size-5" />
+                             </Button>
+                             <Button variant="outline" size="icon" className="size-12 rounded-2xl bg-background shadow-2xl" onClick={() => setIsDetailsModalOpen(false)}>
+                                <FiXCircle className="size-5" />
+                             </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Void Transaction Confirmation Modal */}
+            <Dialog open={isVoidModalOpen} onOpenChange={setIsVoidModalOpen}>
+                <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-transparent shadow-none">
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl overflow-hidden shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
+                        <div className="p-8 text-center space-y-6">
+                            <div className="flex justify-center">
+                                <div className="size-20 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive animate-pulse">
+                                    <FiShieldOff className="size-10" />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <DialogTitle className="text-2xl font-black tracking-tight text-foreground dark:text-white">Void Transaction?</DialogTitle>
+                                <DialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">
+                                    You are about to nullify <span className="font-black text-foreground dark:text-white">Order #{saleToVoid?.order_number}</span>. This will reverse all financial gains and restore ingredient stocks across the branch.
+                                </DialogDescription>
+                            </div>
+
+                            <div className="flex items-center gap-2 p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-600 dark:text-amber-500 text-left">
+                                <FiAlertTriangle className="size-5 shrink-0" />
+                                <p className="text-[10px] font-black uppercase tracking-widest leading-tight">
+                                    Inventory truth will be restored. This action is permanently logged in the audit trail.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <Button 
+                                    variant="destructive" 
+                                    className="h-12 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-destructive/20"
+                                    onClick={() => {
+                                        if(saleToVoid) {
+                                            updateStatus(saleToVoid.id, 'cancelled');
+                                            setIsVoidModalOpen(false);
+                                        }
+                                    }}
+                                >
+                                    Confirm Global Void
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    className="h-12 rounded-xl font-black uppercase tracking-widest text-xs text-muted-foreground"
+                                    onClick={() => setIsVoidModalOpen(false)}
+                                >
+                                    Abort Operation
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <style>{`
+                @media print {
+                    /* Reset everything */
+                    html, body {
+                        height: 100%;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: hidden;
+                    }
+
+                    /* Hide ALL items in the main application tree */
+                    #app, [data-sidebar-root], header, nav, main, footer {
+                        display: none !important;
+                    }
+
+                    /* 
+                       Isolate the Radix Portal layer. 
+                       Radix usually renders dialogs here.
+                    */
+                    div[data-radix-portal] {
+                        display: block !important;
+                        position: fixed !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                        z-index: 9999999 !important;
+                        background: white !important;
+                    }
+
+                    /* The actual Receipt Container */
+                    .print-receipt-body {
+                        visibility: visible !important;
+                        display: block !important;
+                        width: 80mm !important;
+                        margin: 0 auto !important;
+                        position: relative !important;
+                        left: 0 !important;
+                        transform: none !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    /* Force all children of the receipt to be visible and colored */
+                    .print-receipt-body * {
+                        visibility: visible !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    /* Hide interactive UI elements inside the modal */
+                    .print\\:hidden, button, [role="button"] {
+                        display: none !important;
+                    }
+
+                    /* Preserve the zigzag designs explicitly */
+                    div[style*="clipPath"] {
+                        display: block !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    @page {
+                        margin: 0;
+                        size: auto;
+                    }
+                }
+            `}</style>
         </AppLayout>
     );
 }

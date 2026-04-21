@@ -236,6 +236,78 @@ class SaleService
     }
 
     /**
+     * Void a sale and restore ingredient stocks.
+     *
+     * @param Sale $sale
+     * @throws \Exception
+     */
+    public function voidSale(Sale $sale): void
+    {
+        DB::transaction(function () use ($sale) {
+            // Only allow voiding if not already cancelled
+            if ($sale->status === 'cancelled') {
+                return;
+            }
+
+            $branchId = $sale->branch_id;
+            
+            // Loop through sale items and restore stock
+            foreach ($sale->items as $item) {
+                $product = $item->product()->with('ingredients')->first();
+                if (!$product) continue;
+
+                if ($product->ingredients->isNotEmpty()) {
+                    foreach ($product->ingredients as $ingredient) {
+                        $qtyInput = (float) $ingredient->pivot->quantity_required;
+                        $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+                        
+                        $baseRestoringPerProduct = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                            $qtyInput, 
+                            $unitInput, 
+                            $ingredient->unit, 
+                            $ingredient->avg_weight_per_piece
+                        );
+                        
+                        $restoringTotal = $baseRestoringPerProduct * $item->quantity;
+
+                        // Restore to the branch's specific stock row
+                        $stockRow = IngredientStock::where('ingredient_id', $ingredient->id)
+                            ->where('branch_id', $branchId)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($stockRow) {
+                            $previousStock = (float) $stockRow->stock;
+                            $stockRow->add($restoringTotal);
+
+                            // Audit log for restoration
+                            StockLog::create([
+                                'storable_type'  => Ingredient::class,
+                                'storable_id'    => $ingredient->id,
+                                'branch_id'      => $branchId,
+                                'user_id'        => Auth::id(),
+                                'action_type'    => 'sale_void_restoration',
+                                'quantity'       => $restoringTotal,
+                                'quantity_base'  => $restoringTotal,
+                                'unit'           => $ingredient->unit,
+                                'previous_stock' => $previousStock,
+                                'new_stock'      => (float) $stockRow->stock,
+                                'reference'      => "Void Sale: {$sale->order_number}",
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // Update status
+            $sale->update(['status' => 'cancelled']);
+            
+            // 🔥 BROADCAST: Inventory restored
+            broadcast(new StockUpdated($branchId, null, null))->toOthers();
+        });
+    }
+
+    /**
      * Update is_low_stock_notified / is_out_of_stock_notified flags on a stock row
      * and create an IngredientLog alert entry if needed.
      */
