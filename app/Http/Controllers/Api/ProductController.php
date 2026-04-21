@@ -128,6 +128,52 @@ class ProductController extends Controller
     }
 
     /**
+     * Unified Menu Fetch — get EVERYTHING in one call based on location.
+     * GET /api/v1/customer/menu
+     */
+    public function getUnifiedMenu(Request $request): JsonResponse
+    {
+        $lat = $request->float('lat');
+        $lng = $request->float('lng');
+
+        if (!$lat || !$lng) {
+            return response()->json(['success' => false, 'message' => 'Coordinates required'], 400);
+        }
+
+        // 1. Find Nearest Branch within its own radius
+        $nearestBranch = \App\Models\Branch::select('*')
+            ->selectRaw("(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance", [$lat, $lng, $lat])
+            ->havingRaw('distance <= delivery_radius_km')
+            ->orderBy('distance', 'asc')
+            ->first();
+
+        if (!$nearestBranch) {
+            return response()->json(['success' => false, 'message' => 'No delivery available in your area'], 404);
+        }
+
+        // 2. Fetch Strictly local data (Categories and Products)
+        $categories = \App\Models\Category::whereHas('branches', function($q) use ($nearestBranch) {
+            $q->where('branches.id', $nearestBranch->id);
+        })->get(['id', 'name', 'image_path']);
+
+        $products = Product::whereHas('branches', function($q) use ($nearestBranch) {
+            $q->where('branches.id', $nearestBranch->id);
+        })->with(['unit_model', 'category'])->get();
+
+        return response()->json([
+            'success'    => true,
+            'branch'     => $nearestBranch,
+            'distance'   => round($nearestBranch->distance, 2),
+            'categories' => $categories->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'image' => $this->resolveImageUrl($c->image_path)
+            ]),
+            'products'   => $products->map(fn($p) => $this->formatProduct($p, $nearestBranch->id)),
+        ]);
+    }
+
+    /**
      * Format a single product for the mobile API response.
      */
     private function formatProduct(Product $product, ?int $branchId = null): array
