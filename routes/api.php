@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Api\ApiOrderController;
+use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\BranchController;
 
 // ─── External Operations API (Mobile App Entry) ──────────────────
@@ -14,6 +15,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('orders', [ApiOrderController::class, 'index']);
     Route::post('orders', [ApiOrderController::class, 'store']);
     Route::get('orders/{id}', [ApiOrderController::class, 'show']);
+
+    // Cart System
+    Route::get('cart', [CartController::class, 'index']);
+    Route::post('cart/add', [CartController::class, 'addItem']);
+    Route::put('cart/items/{itemId}', [CartController::class, 'updateItem']);
+    Route::delete('cart/items/{itemId}', [CartController::class, 'removeItem']);
+    Route::delete('cart/clear', [CartController::class, 'clear']);
 });
 
 /*

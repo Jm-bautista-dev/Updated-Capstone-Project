@@ -53,6 +53,17 @@ class ApiOrderController extends Controller
         $branchId = $validated['branch_id'] ?? 1; // Default to main branch if not provided
         $userId = $request->user()?->id;
 
+        // --- BRANCH CONSISTENCY VALIDATION ---
+        foreach ($validated['items'] as $item) {
+            $product = Product::find($item['product_id']);
+            if ($product && $product->branch_id && $product->branch_id != $branchId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Product '{$product->name}' belongs to a different branch. You cannot mix branches in a single order."
+                ], 400);
+            }
+        }
+
         try {
             return DB::transaction(function () use ($validated, $branchId, $userId) {
                 // 1. Create Order
