@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import {
   Dialog,
   DialogContent,
@@ -68,31 +69,57 @@ export default function ItemDashboard() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Inventory - Weight & Volume" />
       
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8 bg-background dark:bg-zinc-950 min-h-screen">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 bg-background dark:bg-zinc-950 min-h-screen">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
-              <FiPackage className="text-primary dark:text-primary-foreground" />
-               Stock Intelligence
-            </h1>
-            <p className="text-muted-foreground dark:text-zinc-400 mt-1 font-medium">Auto-converting weight and volume inventory management.</p>
-          </div>
+        <div className="flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-             <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500" />
-                <Input 
-                  placeholder="Search materials..." 
-                  className="pl-10 w-64 bg-background dark:bg-zinc-900 shadow-sm border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200" 
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-             </div>
-             <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
-               <FiPlus /> New Record
-             </Button>
+            <FiPackage className="text-primary dark:text-primary-foreground size-5 sm:size-8" />
+            <div>
+              <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground dark:text-white uppercase leading-none">
+                Stock Intel
+              </h1>
+              <p className="hidden sm:block text-muted-foreground dark:text-zinc-400 mt-1 font-medium text-sm">Auto-converting weight and volume inventory management.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden md:block relative">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500" />
+              <Input 
+                placeholder="Search materials..." 
+                className="pl-10 w-64 bg-background dark:bg-zinc-900 shadow-sm border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200" 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <MobileFilter
+                title="Search Materials"
+                activeFilterCount={search ? 1 : 0}
+                activeFilterSummary={search ? `"${search}"` : 'All Materials'}
+                onClear={() => setSearch('')}
+                className="md:hidden"
+            >
+                <div className="flex flex-col gap-4 w-full">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Find Ingredient</span>
+                    <div className="relative">
+                        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                        <Input 
+                            placeholder="Type to search..." 
+                            className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner" 
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </MobileFilter>
+
+            <Button onClick={() => setIsAddModalOpen(true)} className="h-10 sm:h-auto gap-2 shadow-lg shadow-primary/20 rounded-xl font-bold text-xs">
+              <FiPlus className="size-4" /> <span className="hidden sm:inline">New Record</span>
+            </Button>
           </div>
         </div>
+
 
         {/* Inventory Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

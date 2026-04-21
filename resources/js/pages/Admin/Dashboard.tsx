@@ -20,6 +20,8 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileFilter } from '@/components/shared/mobile-filter';
+import { Button } from '@/components/ui/button';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#ec4899'];
 
@@ -218,7 +220,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
         <AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
             <Head title="Maki Desu Ops Intelligence" />
 
-            <div className="p-4 sm:p-6 lg:p-8 space-y-10 bg-background dark:bg-zinc-950 min-h-[calc(100vh-64px)] overflow-x-hidden">
+            <div className="p-3 sm:p-6 lg:p-8 space-y-6 sm:space-y-10 bg-background dark:bg-zinc-950 min-h-[calc(100vh-64px)] overflow-x-hidden">
                 
                 {/* ── Header Layer ── */}
                 <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 border-b border-border/40 pb-8">
@@ -250,18 +252,47 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                              </div>
                          </div>
 
-                        <Select disabled={isLoading} defaultValue={range.toString()} onValueChange={handleRangeChange}>
-                            <SelectTrigger className="w-[200px] h-12 bg-card dark:bg-zinc-900 border-none ring-1 ring-border shadow-md rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all hover:ring-primary/50 focus:ring-primary/50 cursor-pointer">
-                                <FiCalendar className="size-4 text-primary mr-2" />
-                                <SelectValue placeholder="Control Period" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-border shadow-2xl p-2 bg-card/95 backdrop-blur-xl">
-                                <SelectItem value="7" className="rounded-xl font-bold uppercase text-[10px] tracking-widest py-3 mb-1">Standard 7D</SelectItem>
-                                <SelectItem value="30" className="rounded-xl font-bold uppercase text-[10px] tracking-widest py-3 mb-1">Monthly 30D</SelectItem>
-                                <SelectItem value="365" className="rounded-xl font-bold uppercase text-[10px] tracking-widest py-3">Annual 365D</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="hidden md:block">
+                            <Select disabled={isLoading} defaultValue={range.toString()} onValueChange={handleRangeChange}>
+                                <SelectTrigger className="w-[200px] h-12 bg-card dark:bg-zinc-900 border-none ring-1 ring-border shadow-md rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all hover:ring-primary/50 focus:ring-primary/50 cursor-pointer">
+                                    <FiCalendar className="size-4 text-primary mr-2" />
+                                    <SelectValue placeholder="Control Period" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-border shadow-2xl p-2 bg-card/95 backdrop-blur-xl">
+                                    <SelectItem value="7" className="rounded-xl font-bold uppercase text-[10px] tracking-widest py-3 mb-1">Standard 7D</SelectItem>
+                                    <SelectItem value="30" className="rounded-xl font-bold uppercase text-[10px] tracking-widest py-3 mb-1">Monthly 30D</SelectItem>
+                                    <SelectItem value="365" className="rounded-xl font-bold uppercase text-[10px] tracking-widest py-3">Annual 365D</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <MobileFilter
+                            title="Dashboard Trends"
+                            activeFilterCount={1}
+                            activeFilterSummary={getRangeLabel(range)}
+                        >
+                            <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Control Period</span>
+                                <div className="flex flex-col gap-2">
+                                    {[
+                                        { label: 'Standard 7 Days', value: '7' },
+                                        { label: 'Monthly 30 Days', value: '30' },
+                                        { label: 'Annual 365 Days', value: '365' }
+                                    ].map((r) => (
+                                        <Button
+                                            key={r.value}
+                                            variant={range.toString() === r.value ? "default" : "outline"}
+                                            onClick={() => handleRangeChange(r.value)}
+                                            className={cn("h-12 justify-start font-black uppercase text-[10px] tracking-widest px-4 rounded-xl", range.toString() === r.value ? "bg-primary text-white" : "")}
+                                        >
+                                            {r.label}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                        </MobileFilter>
                     </div>
+
                 </div>
 
                 {/* ── Zone 1: KPI Intelligence ── */}
@@ -374,8 +405,8 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="h-[420px] w-full px-6 pb-6 min-h-[420px]">
-                                <ResponsiveContainer width="100%" height={400}>
+                            <div className="h-[300px] md:h-[420px] w-full px-3 md:px-6 pb-6">
+                                <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={salesOverTime} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                                         <defs>
                                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -438,9 +469,9 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                     </Card>
 
                     {/* Secondary Metrics Column */}
-                    <div className="xl:col-span-4 space-y-8 h-full">
+                    <div className="xl:col-span-4 space-y-6 sm:space-y-8 h-full">
                         {/* Market Demand (Bar Chart) */}
-                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-[calc(50%-16px)]">
+                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col min-h-[350px] xl:h-[calc(50%-16px)]">
                             <CardHeader className="p-6">
                                 <CardTitle className="text-base font-black italic uppercase tracking-tighter">Market Demand</CardTitle>
                                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Top Volume Drivers</CardDescription>
@@ -478,7 +509,7 @@ export default function Dashboard({ stats, branchStats, salesOverTime, salesPerP
                         </Card>
 
                         {/* Revenue Distribution (Pie Chart) */}
-                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 h-[calc(50%-16px)]">
+                        <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 min-h-[300px] xl:h-[calc(50%-16px)]">
                             <CardHeader className="p-6">
                                 <CardTitle className="text-base font-black italic uppercase tracking-tighter">Distribution Widget</CardTitle>
                                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Platform Revenue Mix</CardDescription>

@@ -92,7 +92,7 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                         </Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest ml-1">Waste Quantity</label>
                             <Input
@@ -133,7 +133,7 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                             </Select>
                         </div>
 
-                        <div className="col-span-2 space-y-1.5">
+                        <div className="sm:col-span-2 space-y-1.5">
                             <label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest ml-1">Primary Reason</label>
                             <Select value={data.reason} onValueChange={(v) => setData('reason', v)}>
                                 <SelectTrigger className="h-11 rounded-xl bg-muted/20 border-none ring-1 ring-border font-black text-xs">

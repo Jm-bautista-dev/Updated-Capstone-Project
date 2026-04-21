@@ -1,18 +1,8 @@
 import { Head, usePage, router } from '@inertiajs/react';
 import React, { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
-import {
-    FiSearch,
-    FiFilter,
-    FiClock,
-    FiCheckCircle,
-    FiAlertCircle,
-    FiXCircle,
-    FiMoreHorizontal,
-    FiShoppingCart,
-    FiPrinter,
-    FiEye
-} from 'react-icons/fi';
+import { FiSearch, FiFilter, FiClock, FiCheckCircle, FiAlertCircle, FiXCircle, FiMoreHorizontal, FiShoppingCart, FiPrinter, FiEye } from 'react-icons/fi';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -134,60 +124,82 @@ export default function SalesIndex() {
 
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
                 {/* Header Bar */}
-                <div className="h-16 border-b dark:border-zinc-800 bg-background/50 dark:bg-zinc-900/50 backdrop-blur-md px-6 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-4">
+                <div className="h-auto min-h-16 border-b dark:border-zinc-800 bg-background/50 dark:bg-zinc-900/50 backdrop-blur-md px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-shrink-0">
+                    <div className="flex items-center justify-between w-full md:w-auto gap-4">
                         <h1 className="text-xl font-black tracking-tight flex items-center gap-2 text-foreground dark:text-white">
                             <FiShoppingCart className="text-primary dark:text-primary-foreground" />
-                            Sales & Orders
+                            Sales
                         </h1>
-                        <div className="flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-lg p-1">
-                            <button
-                                onClick={() => handleFilterChange('all')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'all' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
-                            >All</button>
-                            <button
-                                onClick={() => handleFilterChange('pending')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'pending' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
-                            >Pending</button>
-                            <button
-                                onClick={() => handleFilterChange('preparing')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'preparing' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
-                            >Preparing</button>
-                            <button
-                                onClick={() => handleFilterChange('completed')}
-                                className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all", statusFilter === 'completed' ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
-                            >Completed</button>
+                        <div className="hidden md:flex items-center bg-muted/50 dark:bg-zinc-800/50 rounded-lg p-1">
+                            {['all', 'pending', 'preparing', 'completed'].map((s) => (
+                                <button
+                                    key={s}
+                                    onClick={() => handleFilterChange(s)}
+                                    className={cn("px-3 py-1 text-xs font-bold rounded-md transition-all capitalize", statusFilter === s ? "bg-background dark:bg-zinc-800 shadow-sm text-foreground dark:text-white" : "text-muted-foreground dark:text-zinc-500 hover:text-foreground")}
+                                >{s}</button>
+                            ))}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {isAdmin && (
-                            <Select value={branchFilter} onValueChange={handleBranchFilter}>
-                                <SelectTrigger className="w-44 h-9 bg-background/50 dark:bg-zinc-800/50 border-none ring-1 ring-black/5 dark:ring-white/10 dark:text-zinc-300">
-                                    <SelectValue placeholder="All Branches" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Branches</SelectItem>
-                                    {branches?.map((b: any) => (
-                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                        <div className="relative">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-64">
                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
                             <Input
-                                placeholder="Search order ID..."
-                                className="pl-9 w-64 h-9 bg-background/50 dark:bg-zinc-800/50 border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200"
+                                placeholder="Search orders..."
+                                className="pl-9 h-10 bg-background/50 dark:bg-zinc-800/50 border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200"
                                 value={search}
                                 onChange={handleSearchChange}
                             />
                         </div>
-                        <Button variant="outline" size="sm" className="h-9 gap-2">
-                            <FiFilter className="size-4" /> Filter
-                        </Button>
+                        
+                        <MobileFilter
+                            title="Sales Filters"
+                            activeFilterCount={(statusFilter !== 'all' ? 1 : 0) + (branchFilter !== 'all' ? 1 : 0)}
+                            activeFilterSummary={`${statusFilter.toUpperCase()} • ${branchFilter !== 'all' ? (branches?.find((b: any) => String(b.id) === branchFilter)?.name || 'Selected Branch') : 'All Branches'}`}
+                            onClear={() => {
+                                setStatusFilter('all');
+                                setBranchFilter('all');
+                                router.get('/sales', { status: 'all', search, branch_id: '' }, { preserveState: true, replace: true });
+                            }}
+                        >
+                            <div className="flex flex-col gap-6 w-full">
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Order Status</span>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {['all', 'pending', 'preparing', 'completed', 'cancelled'].map((s) => (
+                                            <Button
+                                                key={s}
+                                                variant={statusFilter === s ? "default" : "outline"}
+                                                onClick={() => handleFilterChange(s)}
+                                                className={cn("h-12 justify-start font-bold uppercase text-[10px] tracking-widest px-4 rounded-xl transition-all", statusFilter === s ? "bg-primary text-white shadow-lg shadow-primary/20" : "")}
+                                            >
+                                                {s}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {isAdmin && (
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Branch Location</span>
+                                        <Select value={branchFilter} onValueChange={handleBranchFilter}>
+                                            <SelectTrigger className="w-full h-12 bg-background/50 dark:bg-zinc-800/50 border-none ring-1 ring-black/5 dark:ring-white/10 text-foreground dark:text-zinc-200 font-bold">
+                                                <SelectValue placeholder="All Branches" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="all" className="font-bold py-3">All Branches</SelectItem>
+                                                {branches?.map((b: any) => (
+                                                    <SelectItem key={b.id} value={String(b.id)} className="font-bold py-3">{b.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+                        </MobileFilter>
                     </div>
                 </div>
+
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-hidden p-6 flex flex-col gap-6">

@@ -181,4 +181,16 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
+
+  /* Mobile Responsive Table Wrapper */
+  .responsive-table-container {
+    @apply w-full overflow-x-auto relative;
+  }
+
+  /* Tap Target Helpers */
+  @media (max-width: 640px) {
+    .btn-mobile-large {
+      @apply h-12 px-6 text-sm;
+    }
+  }
 }

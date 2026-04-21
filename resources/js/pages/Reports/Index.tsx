@@ -21,6 +21,7 @@ import {
   FiMapPin,
   FiRefreshCw
 } from 'react-icons/fi';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
@@ -115,7 +116,7 @@ export default function Reports() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Maki Desu Reports Intelligence" />
       
-      <div className="p-6 lg:p-8 space-y-8 bg-background dark:bg-zinc-950 min-h-[calc(100vh-64px)]">
+      <div className="p-3 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 bg-background dark:bg-zinc-950 min-h-[calc(100vh-64px)]">
         
         {/* ── Header Section ── */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -233,7 +234,7 @@ export default function Reports() {
                             </Select>
                         </CardHeader>
                         <CardContent className="p-0">
-                             <div className="h-[380px] w-full px-6 pb-6">
+                             <div className="h-[280px] md:h-[380px] w-full px-3 md:px-6 pb-6">
                                 <ResponsiveContainer width="99%" height="100%">
                                     <AreaChart data={SALES_MOCK} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
                                         <defs>
@@ -261,8 +262,8 @@ export default function Reports() {
                             <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Market Share</CardTitle>
                             <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Category Distribution</CardDescription>
                          </CardHeader>
-                         <CardContent className="flex-1 flex flex-col items-center justify-center pb-8 pt-0">
-                             <div className="h-[240px] w-full relative">
+                         <CardContent className="flex-1 flex flex-col items-center justify-center pb-8 pt-0 min-h-[400px] sm:min-h-0">
+                             <div className="h-[200px] sm:h-[240px] w-full relative">
                                 <ResponsiveContainer width="99%" height="100%">
                                     <PieChart>
                                         <Pie data={CATEGORY_MOCK} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value" stroke="none">
@@ -300,13 +301,55 @@ export default function Reports() {
                            <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Terminal Stream</CardTitle>
                            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Real-time Sale Events</CardDescription>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="relative w-full sm:w-64">
+                        <div className="flex items-center gap-3 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-64">
                                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                                <Input placeholder="Search records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border rounded-xl text-[10px] font-bold uppercase" />
+                                <Input 
+                                    placeholder="Search records..." 
+                                    value={search} 
+                                    onChange={(e) => setSearch(e.target.value)} 
+                                    className="pl-9 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border rounded-xl text-[10px] font-bold uppercase transition-all focus:ring-primary/40" 
+                                />
                             </div>
-                            <Button variant="outline" className="h-11 w-11 p-0 rounded-xl border-border"><FiFilter className="size-4" /></Button>
+
+                            <MobileFilter
+                                title="Report Filters"
+                                description="Filter through the real-time terminal stream"
+                                activeFilterCount={search ? 1 : 0}
+                                activeFilterSummary={search ? `Search: ${search}` : "Showing All Live Events"}
+                                onClear={() => setSearch('')}
+                            >
+                                <div className="flex flex-col gap-6 w-full">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Global Search</span>
+                                        <div className="relative">
+                                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                                            <Input 
+                                                placeholder="Order ID, Item, or Status..." 
+                                                value={search} 
+                                                onChange={(e) => setSearch(e.target.value)} 
+                                                className="pl-9 h-12 bg-muted/30 border-none ring-1 ring-border rounded-xl text-xs font-bold" 
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Time Projection</span>
+                                        <Select defaultValue="7d">
+                                            <SelectTrigger className="w-full h-12 bg-muted/30 border-none ring-1 ring-border rounded-xl text-xs font-bold uppercase italic">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="24h" className="font-bold py-3 text-xs">Last 24 Hours</SelectItem>
+                                                <SelectItem value="7d" className="font-bold py-3 text-xs">Standard 7D</SelectItem>
+                                                <SelectItem value="30d" className="font-bold py-3 text-xs">Monthly 30D</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </MobileFilter>
                         </div>
+
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">

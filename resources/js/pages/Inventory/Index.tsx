@@ -24,6 +24,7 @@ import {
   FiMinimize2,
   FiZap
 } from 'react-icons/fi';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
 import { WastageModal } from '@/components/wastage-modal';
 import { MassRestockModal } from '@/components/mass-restock-modal';
@@ -348,57 +349,98 @@ export default function InventoryIndex() {
       <Head title="Maki Desu Inventory Intelligence" />
       <TooltipProvider>
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
-
           {/* ── Header Layer ── */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-6 sm:px-8 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <FiPackage className="text-primary size-5" />
-                <h1 className="text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white">Inventory</h1>
+          <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <FiPackage className="text-primary size-5 sm:size-6" />
+              <div>
+                <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white">Inventory</h1>
+                <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest mt-0.5">
+                  Keep track of your ingredients and stock levels across shops.
+                </p>
               </div>
-              <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest">
-                Keep track of your ingredients and stock levels across shops.
-              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {isAdmin && (
-                <Select
-                  value={currentBranchId ? String(currentBranchId) : 'all'}
-                  onValueChange={handleBranchFilter}
-                >
-                  <SelectTrigger className="w-full sm:w-48 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                    <SelectValue placeholder="All Branches" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border shadow-2xl">
-                    <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Branches</SelectItem>
-                    {branchList.map(b => (
-                      <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase tracking-widest py-3">{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="relative w-full sm:w-64">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground dark:text-zinc-500" />
-                <Input
-                  placeholder="Search item or location..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-9 h-11 bg-card dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-all border-none ring-1 ring-border group-hover:ring-primary/40 text-[11px] font-bold uppercase tracking-tight"
-                />
+
+            <div className="flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-3">
+                <div className="relative w-64">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground dark:text-zinc-500" />
+                  <Input
+                    placeholder="Search ingredients..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9 h-10 bg-card dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-all border-none ring-1 ring-border text-[11px] font-bold uppercase tracking-tight"
+                  />
+                </div>
               </div>
-              <Select value={filterUnit} onValueChange={setFilterUnit}>
-                <SelectTrigger className="w-full sm:w-32 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                  <SelectValue placeholder="Unit" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-border shadow-2xl">
-                  <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Units</SelectItem>
-                  <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Grams)</SelectItem>
-                  <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Milliliters)</SelectItem>
-                  <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Pieces)</SelectItem>
-                </SelectContent>
-              </Select>
+
+              <MobileFilter
+                title="Inventory Filters"
+                description="Optimize your view by branch or unit"
+                activeFilterCount={(search ? 1 : 0) + (currentBranchId && currentBranchId !== 'all' ? 1 : 0) + (filterUnit !== 'all' ? 1 : 0)}
+                activeFilterSummary={`${search ? `"${search}" • ` : ''}${currentBranchId && currentBranchId !== 'all' ? (branchList.find(b => String(b.id) === String(currentBranchId))?.name || 'Selected Branch') : 'All Branches'} • ${filterUnit === 'all' ? 'All Units' : filterUnit === 'g' ? 'Grams' : filterUnit === 'ml' ? 'Milliliters' : 'Pieces'}`}
+                onClear={() => {
+                  setSearch('');
+                  handleBranchFilter('all');
+                  setFilterUnit('all');
+                }}
+              >
+                <div className="flex flex-col gap-6 w-full">
+                  {/* Search - Mobile Only */}
+                  <div className="flex flex-col gap-2 md:hidden">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Search Inventory</span>
+                    <div className="relative">
+                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+                      <Input
+                        placeholder="Type to search..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row items-center gap-6 md:gap-3 w-full">
+                    {isAdmin && (
+                      <div className="flex flex-col gap-2 w-full md:w-auto">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Branch Location</span>
+                        <Select
+                          value={currentBranchId ? String(currentBranchId) : 'all'}
+                          onValueChange={handleBranchFilter}
+                        >
+                          <SelectTrigger className="w-full md:w-48 h-12 md:h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic rounded-xl">
+                            <SelectValue placeholder="All Branches" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl border-border shadow-2xl">
+                            <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Branches</SelectItem>
+                            {branchList.map(b => (
+                              <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase tracking-widest py-3">{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-col gap-2 w-full md:w-auto">
+                      <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Metric Unit</span>
+                      <Select value={filterUnit} onValueChange={setFilterUnit}>
+                        <SelectTrigger className="w-full md:w-32 h-12 md:h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic rounded-xl">
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl border-border shadow-2xl">
+                          <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Units</SelectItem>
+                          <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Grams)</SelectItem>
+                          <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Milliliters)</SelectItem>
+                          <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Pieces)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </MobileFilter>
+
               {isAdmin && (
-                <Button onClick={handleAdd} className="h-11 gap-2 shadow-lg shadow-primary/20 rounded-xl px-5 font-black uppercase text-[10px] tracking-widest italic">
+                <Button onClick={handleAdd} className="h-10 sm:h-11 w-10 sm:w-auto p-0 sm:px-5 gap-2 shadow-lg shadow-primary/20 rounded-xl font-black uppercase text-[10px] tracking-widest italic">
                   <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Item</span>
                 </Button>
               )}
@@ -406,6 +448,7 @@ export default function InventoryIndex() {
           </div>
 
           {/* ── Content Layer ── */}
+
           <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-8 scroll-smooth no-scrollbar">
             
             {/* Global Stats Matrix */}
@@ -465,24 +508,24 @@ export default function InventoryIndex() {
                       <div className="absolute top-0 left-0 h-full w-1 bg-primary transform origin-bottom transition-transform duration-500" style={{ transform: expandedBranches.includes(branchName) ? 'scaleY(1)' : 'scaleY(0)' }} />
                       
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4">
                            <div className={cn(
-                             "size-12 rounded-2xl flex items-center justify-center transition-all duration-500",
+                             "size-10 sm:size-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-500",
                              expandedBranches.includes(branchName) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted/50 dark:bg-zinc-800 text-muted-foreground"
                            )}>
-                              <FiMapPin className="size-5" />
+                              <FiMapPin className="size-4 sm:size-5" />
                            </div>
                            <div>
-                              <h2 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+                              <h2 className="text-lg sm:text-xl font-black italic uppercase tracking-tighter flex items-center gap-2 sm:gap-3">
                                 {branchName}
                                 {items.some(i => i.is_out_of_stock) && <Badge className="bg-rose-500 text-white border-none font-black text-[9px] uppercase tracking-widest shadow-lg shadow-rose-500/30 ring-1 ring-rose-500/20">Critical</Badge>}
                               </h2>
-                              <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mt-0.5">Store Stock</p>
+                              <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mt-0.5">Store Stock</p>
                            </div>
                         </div>
 
-                        <div className="flex items-center gap-6">
-                           <div className="flex items-center gap-8 px-8 border-x border-border/40">
+                        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                           <div className="flex items-center gap-4 sm:gap-8 px-0 sm:px-8 border-none sm:border-x border-border/40 w-full sm:w-auto justify-between sm:justify-start">
                                 <div className="text-center">
                                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">Total</p>
                                     <p className="text-sm font-black italic text-foreground dark:text-white tabular-nums leading-none">{items.length}</p> 
@@ -608,31 +651,31 @@ export default function InventoryIndex() {
                                                    </div>
                                                 </td>
                                                 <td className="px-6 align-middle">
-                                                   <div className="flex">
+                                                    <div className="flex">
                                                       {item.is_out_of_stock ? (
-                                                        <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full ring-1 ring-rose-500/20">Depleted</Badge>
+                                                        <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-none font-black text-[9px] uppercase tracking-widest px-2 sm:px-3 py-1 rounded-full ring-1 ring-rose-500/20">Depleted</Badge>
                                                       ) : item.is_low_stock ? (
-                                                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-500 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full ring-1 ring-amber-500/20">Critical Alert</Badge>
+                                                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-500 border-none font-black text-[9px] uppercase tracking-widest px-2 sm:px-3 py-1 rounded-full ring-1 ring-amber-500/20">Alert</Badge>
                                                       ) : (
-                                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full ring-1 ring-emerald-500/20">Optimal</Badge>
+                                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-none font-black text-[9px] uppercase tracking-widest px-2 sm:px-3 py-1 rounded-full ring-1 ring-emerald-500/20">Optimal</Badge>
                                                       )}
-                                                   </div>
-                                                </td>
-                                                <td className="px-6 align-middle text-right">
-                                                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform scale-95 group-hover:scale-100 duration-200" onClick={e => e.stopPropagation()}>
-                                                      <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30" onClick={() => openStockInModal(item)}>
+                                                    </div>
+                                                 </td>
+                                                <td className="px-6 align-middle text-right min-w-[200px]">
+                                                   <div className="flex justify-end gap-2 lg:opacity-0 group-hover:opacity-100 transition-all transform scale-95 lg:group-hover:scale-100 duration-200" onClick={e => e.stopPropagation()}>
+                                                      <Button variant="outline" size="icon" className="size-10 lg:size-9 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30" onClick={() => openStockInModal(item)}>
                                                           <FiRefreshCw className="size-4" />
                                                       </Button>
-                                                      <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => openWastageModal(item)}>
+                                                      <Button variant="outline" size="icon" className="size-10 lg:size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => openWastageModal(item)}>
                                                           <FiTrash2 className="size-4" />
                                                       </Button>
                                                       {isAdmin && (
-                                                        <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-indigo-500/10 hover:text-indigo-500 hover:border-indigo-500/30" onClick={() => handleEdit(item)}>
+                                                        <Button variant="outline" size="icon" className="size-10 lg:size-9 rounded-xl border-border/40 hover:bg-indigo-500/10 hover:text-indigo-500 hover:border-indigo-500/30" onClick={() => handleEdit(item)}>
                                                             <FiEdit2 className="size-4" />
                                                         </Button>
                                                       )}
                                                       {isAdmin && (
-                                                        <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => handleDelete(item)}>
+                                                        <Button variant="outline" size="icon" className="size-10 lg:size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => handleDelete(item)}>
                                                             <FiTrash2 className="size-4" />
                                                         </Button>
                                                       )}
