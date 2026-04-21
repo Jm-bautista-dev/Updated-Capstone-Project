@@ -289,6 +289,8 @@ export default function ProductsIndex() {
         return total;
     };
 
+    const computedCost = useMemo(() => calculateComputedCost(), [data.recipe, data.branch_id, data.branch_option, ingredients]);
+
     const formatName = (name: string, limit: number = 25) => {
         return name.length > limit ? name.substring(0, limit) + '...' : name;
     };
@@ -300,7 +302,9 @@ export default function ProductsIndex() {
     const filteredData = useMemo(() => {
         return products.filter(product => {
             const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
-                (product.sku && product.sku.toLowerCase().includes(search.toLowerCase()));
+                (product.sku && product.sku.toLowerCase().includes(search.toLowerCase())) ||
+                (product.category?.name?.toLowerCase().includes(search.toLowerCase())) ||
+                (product.branch?.name?.toLowerCase().includes(search.toLowerCase()));
             const matchesCategory = !filterCategory || product.category_id.toString() === filterCategory;
             return matchesSearch && matchesCategory;
         });
@@ -613,6 +617,9 @@ export default function ProductsIndex() {
                                     <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
                                         <tr className="bg-muted/30">
                                             <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground">Product Details</th>
+                                            {isAdmin && (
+                                                <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground hidden xl:table-cell">Branch</th>
+                                            )}
                                             <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground hidden lg:table-cell">Category</th>
                                             <th className="h-12 px-6 text-center font-black uppercase tracking-widest text-[10px] text-muted-foreground">Stock Status</th>
                                             <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground hidden sm:table-cell">Price</th>
@@ -646,6 +653,13 @@ export default function ProductsIndex() {
                                                             </div>
                                                         </div>
                                                     </td>
+                                                    {isAdmin && (
+                                                        <td className="p-4 hidden xl:table-cell">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-black uppercase text-primary/60 tracking-wider italic">{product.branch?.name || 'N/A'}</span>
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                     <td className="p-4 hidden lg:table-cell">
                                                         <Badge variant="outline" className="bg-primary/5 text-[10px] font-black uppercase tracking-tighter border-none px-2">{product.category?.name || 'GENERIC'}</Badge>
                                                     </td>
@@ -718,7 +732,15 @@ export default function ProductsIndex() {
                                                     <Badge variant="outline" className="text-[8px] font-black text-muted-foreground p-0 uppercase">#{product.id}</Badge>
                                                 </div>
                                                 <h3 className="text-lg font-black tracking-tighter leading-tight group-hover:text-primary transition-colors line-clamp-1">{product.name}</h3>
-                                                <p className="text-[10px] text-muted-foreground font-mono font-bold">{product.sku || 'N/A'}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[10px] text-muted-foreground font-mono font-bold">{product.sku || 'N/A'}</p>
+                                                    {isAdmin && product.branch && (
+                                                        <>
+                                                            <span className="text-[10px] text-muted-foreground/30">•</span>
+                                                            <span className="text-[9px] font-black uppercase text-primary/60 tracking-wider italic">{product.branch.name}</span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-4 items-center pt-3 border-t border-muted/30 mt-auto">
@@ -1113,23 +1135,94 @@ export default function ProductsIndex() {
                     <form onSubmit={handleEditSubmit} className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 space-y-2">
-                                    <label className="text-sm font-medium">Product Name</label>
-                                    <Input value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-10 rounded-lg" />
+                                <div className="col-span-2 space-y-2.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Product Details</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                                            <FiPackage className="size-4" />
+                                        </div>
+                                        <Input 
+                                            value={data.name} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setData('name', val);
+                                                validateField('name', val);
+                                            }} 
+                                            className="h-11 pl-10 rounded-xl border-input/50 bg-muted/5 font-bold focus:ring-2 focus:ring-primary/20 transition-all" 
+                                            placeholder="Product Name"
+                                        />
+                                    </div>
+                                    {localErrors.name && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.name}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Selling Price (₱)</label>
-                                    <Input type="number" step="0.01" value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-10 rounded-lg" />
+
+                                <div className="space-y-2.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Selling Price</label>
+                                    <div className="relative group">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-muted-foreground group-focus-within:text-primary">₱</span>
+                                        <Input 
+                                            type="number" step="0.01" 
+                                            value={data.selling_price} 
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setData('selling_price', val);
+                                                validateField('selling_price', val);
+                                            }} 
+                                            className="h-11 pl-8 rounded-xl bg-muted/5 font-black text-lg tracking-tighter" 
+                                        />
+                                    </div>
+                                    {localErrors.selling_price && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.selling_price}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Unit</label>
-                                    <select value={data.unit} onChange={(e) => setData('unit', e.target.value)} className="w-full h-10 px-3 rounded-lg border border-input text-sm">
+
+                                <div className="space-y-2.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Sales Unit</label>
+                                    <select 
+                                        value={data.unit} 
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setData('unit', val);
+                                            validateField('unit', val);
+                                        }} 
+                                        className="w-full h-11 px-4 rounded-xl border border-input/50 bg-muted/5 text-sm font-black uppercase appearance-none focus:ring-2 focus:ring-primary/20"
+                                    >
                                         {allowedUnits?.map((u: string) => (<option key={u} value={u}>{u.toUpperCase()}</option>))}
                                     </select>
+                                    {localErrors.unit && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.unit}</p>}
                                 </div>
+                                {/* Financial Insights Panel */}
+                                <div className="col-span-2 p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black uppercase tracking-tighter text-primary/60">Live Financial Insight</span>
+                                        <Badge variant="outline" className="bg-background/50 border-primary/20 text-[9px] font-black uppercase tracking-widest">MARKUP %</Badge>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Computed Cost</p>
+                                            <p className="text-lg font-black tracking-tighter">₱{Number(computedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Profit Margin</p>
+                                            <p className={cn(
+                                                "text-lg font-black tracking-tighter",
+                                                Number(data.selling_price) - computedCost > 0 ? "text-emerald-600" : "text-rose-600"
+                                            )}>
+                                                ₱{(Number(data.selling_price) - computedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1 text-right">
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Rate (%)</p>
+                                            <p className={cn(
+                                                "text-lg font-black tracking-tighter",
+                                                ((Number(data.selling_price) - computedCost) / (Number(data.selling_price) || 1) * 100) > 20 ? "text-emerald-600" : "text-amber-600"
+                                            )}>
+                                                {((Number(data.selling_price) - computedCost) / (Number(data.selling_price) || 1) * 100).toFixed(1)}%
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="col-span-2 border-t pt-5 space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic">Recipe Adjustment</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Recipe Construction</label>
                                         <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-7 text-[9px] gap-1.5 font-bold uppercase border-primary/20 hover:bg-primary/5 transition-all">
                                             <FiPlus className="size-3" /> Add Material
                                         </Button>
@@ -1141,7 +1234,7 @@ export default function ProductsIndex() {
                                             const units = getAvailableUnits(selectedIng);
 
                                             return (
-                                                <div key={idx} className="flex gap-2 items-center group animate-in fade-in slide-in-from-top-1 duration-200">
+                                                <div key={idx} className="flex gap-2 items-center group animate-in fade-in slide-in-from-top-1">
                                                     <select
                                                         value={item.ingredient_id}
                                                         onChange={(e) => {
@@ -1149,43 +1242,56 @@ export default function ProductsIndex() {
                                                             const ing = ingredients.find(i => i.id.toString() === newId);
                                                             updateRecipeItem(idx, 'ingredient_id', newId);
                                                             if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
+                                                            validateField('recipe', data.recipe);
                                                         }}
-                                                        className="flex-1 h-9 px-3 rounded-lg border border-input bg-muted/10 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                                        className="flex-1 h-10 px-3 rounded-xl border border-input/50 bg-muted/5 text-[11px] font-black focus:ring-2 focus:ring-primary/20"
                                                     >
-                                                        <option value="">Choose Material</option>
+                                                        <option value="">-- Choose Material --</option>
                                                         {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
                                                     </select>
-                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                                                    <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
                                                         <Input 
                                                             type="number" step="0.001" 
                                                             value={item.quantity_required} 
-                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)} 
-                                                            className="w-16 h-8 border-none bg-transparent text-center text-[11px] font-black focus-visible:ring-0 px-1"
+                                                            onChange={(e) => {
+                                                                updateRecipeItem(idx, 'quantity_required', e.target.value);
+                                                                validateField('recipe', data.recipe);
+                                                            }} 
+                                                            className="w-16 h-10 border-none bg-transparent text-center text-[11px] font-black focus-visible:ring-0 px-1"
                                                         />
                                                     </div>
-                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                                                    <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                                          <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
                                                          <select
                                                             value={item.unit}
-                                                            onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
-                                                            className="w-16 h-8 border-none bg-transparent text-[10px] font-black uppercase text-center focus:outline-none"
+                                                            onChange={(e) => {
+                                                                updateRecipeItem(idx, 'unit', e.target.value);
+                                                                validateField('recipe', data.recipe);
+                                                            }}
+                                                            className="w-16 h-10 border-none bg-transparent text-[10px] font-black uppercase text-center focus:outline-none"
                                                         >
                                                             {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
                                                         </select>
                                                     </div>
-                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-opacity"><FiTrash2 className="size-3.5" /></Button>
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-10 text-destructive/40 hover:text-destructive hover:bg-destructive/5 rounded-xl"><FiTrash2 className="size-4" /></Button>
                                                 </div>
                                             );
                                         })}
+                                        {localErrors.recipe && <p className="text-[10px] text-destructive font-bold italic ml-1">{localErrors.recipe}</p>}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <DialogFooter className="p-6 border-t bg-muted/10 mt-auto flex-shrink-0">
-                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
-                            <Button type="submit" disabled={processing} className="rounded-xl h-12 flex-1 bg-primary font-bold shadow-lg shadow-primary/20 transition-all gap-2">
-                                {processing ? 'Pushing Updates...' : 'Push Updates'}
+                        <DialogFooter className="p-6 border-t bg-muted/5 gap-2">
+                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl font-bold">Discard</Button>
+                            <Button type="submit" disabled={processing} className="bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-tighter rounded-xl px-8 shadow-lg shadow-primary/20 transition-all active:scale-95">
+                                {processing ? (
+                                    <div className="flex items-center gap-2">
+                                        <div className="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                                        SAVING...
+                                    </div>
+                                ) : 'Update Product'}
                             </Button>
                         </DialogFooter>
                     </form>
