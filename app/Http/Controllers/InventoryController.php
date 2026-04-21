@@ -54,56 +54,60 @@ class InventoryController extends Controller
             }
 
             foreach ($stocks as $stockRow) {
-                // For cashiers, strictly enforce they never see a null branch row
-                if (!$user->isAdmin() && !$stockRow->branch_id) {
+                // Skip any stock row that has no resolvable branch (orphaned FK).
+                // The cleanup migration removes these; this guard prevents any future
+                // race-condition or manual DB edit from bleeding into the UI.
+                if (! $stockRow->branch_id || ! $stockRow->branch) {
                     continue;
                 }
 
-                $displayUnit = $ingredient->unit;
+                $displayUnit  = $ingredient->unit;
                 $displayStock = (float) $stockRow->stock;
 
-                // Robust price calculation with fallback to global cost
-                $baseUnitPrice = (float) $stockRow->cost_per_unit > 0 
-                    ? (float) $stockRow->cost_per_unit 
+                // Price: prefer the branch-level cost, fall back to global cost
+                $baseUnitPrice = (float) $stockRow->cost_per_unit > 0
+                    ? (float) $stockRow->cost_per_unit
                     : (float) $ingredient->cost_per_base_unit;
 
                 $displayPrice = $baseUnitPrice;
 
                 if ($ingredient->unit === 'g') {
-                    $displayUnit = 'kg';
+                    $displayUnit  = 'kg';
                     $displayStock = (float) $stockRow->stock / 1000;
                     $displayPrice = $baseUnitPrice * 1000;
                 } elseif ($ingredient->unit === 'ml') {
-                    $displayUnit = 'L';
+                    $displayUnit  = 'L';
                     $displayStock = (float) $stockRow->stock / 1000;
                     $displayPrice = $baseUnitPrice * 1000;
                 }
 
                 $inventory[] = [
-                    'id'              => $ingredient->id,
-                    'stock_id'        => $stockRow->id,
-                    'name'            => $ingredient->name,
-                    'unit'            => $ingredient->unit, // storage unit
-                    'display_unit'    => $displayUnit,     // UI unit
-                    'branch_id'       => $stockRow->branch_id,
-                    'branch_name'     => $stockRow->branch ? $stockRow->branch->name : 'UNASSIGNED (ORPHANED)',
-                    'stock'           => (float) $stockRow->stock,
-                    'display_stock'   => $displayStock,
-                    'low_stock_level' => (float) $stockRow->low_stock_level,
-                    'is_low_stock'    => $stockRow->isLowStock(),
-                    'is_out_of_stock' => $stockRow->isOutOfStock(),
-                    'status'          => 'valid',
+                    'id'                   => $ingredient->id,
+                    'stock_id'             => $stockRow->id,
+                    'name'                 => $ingredient->name,
+                    'unit'                 => $ingredient->unit,
+                    'display_unit'         => $displayUnit,
+                    'branch_id'            => $stockRow->branch_id,
+                    'branch_name'          => $stockRow->branch->name,
+                    'stock'                => (float) $stockRow->stock,
+                    'display_stock'        => $displayStock,
+                    'low_stock_level'      => (float) $stockRow->low_stock_level,
+                    'is_low_stock'         => $stockRow->isLowStock(),
+                    'is_out_of_stock'      => $stockRow->isOutOfStock(),
+                    'status'               => 'valid',
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
-                    'cost_per_unit'   => (float) $stockRow->cost_per_unit,
-                    'display_price'   => $displayPrice,
+                    'cost_per_unit'        => (float) $stockRow->cost_per_unit,
+                    'display_price'        => $displayPrice,
                 ];
             }
 
-            // If a global ingredient has NO stock row for THIS branch yet,
-            // we attach the target branch_name so it groups within the cashier's active node
-            // seamlessly, preventing "UNASSIGNED" UI bleed.
+            // If filtering by a specific branch and no stock row exists yet for that
+            // ingredient, surface it as out-of-stock so the user can restock it.
+            // (The cleanup migration + new-branch listener ensure this rarely happens;
+            //  this is the last-resort fallback to prevent silent omissions.)
             if ($branchId && $stocks->isEmpty()) {
-                $displayUnit = $ingredient->unit;
+                $displayUnit  = $ingredient->unit;
+                $displayStock = 0;
                 $displayPrice = 0;
 
                 if ($ingredient->unit === 'g') {
@@ -112,45 +116,34 @@ class InventoryController extends Controller
                     $displayUnit = 'L';
                 }
 
-                $inventory[] = [
-                    'id'              => $ingredient->id,
-                    'stock_id'        => null,
-                    'name'            => $ingredient->name,
-                    'unit'            => $ingredient->unit,
-                    'display_unit'    => $displayUnit,
-                    'branch_id'       => (int) $branchId,
-                    'branch_name'     => $targetBranchName, 
-                    'stock'           => 0,
-                    'display_stock'   => 0,
-                    'low_stock_level' => 5,
-                    'is_low_stock'    => false,
-                    'is_out_of_stock' => true,
-                    'status'          => 'valid',
-                    'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
-                    'cost_per_unit'   => 0,
-                    'display_price'   => 0,
-                ];
-            }
+                // Auto-create the missing stock row so it won't be missing again
+                IngredientStock::firstOrCreate(
+                    ['ingredient_id' => $ingredient->id, 'branch_id' => (int) $branchId],
+                    ['stock' => 0, 'low_stock_level' => 5, 'cost_per_unit' => 0]
+                );
 
-            // If Admin is viewing ALL branches, but an ingredient has ZERO stock mappings globally,
-            // expose it as orphaned for data integrity correction.
-            if (!$branchId && $stocks->isEmpty() && $user->isAdmin()) {
                 $inventory[] = [
-                    'id'              => $ingredient->id,
-                    'stock_id'        => null,
-                    'name'            => $ingredient->name,
-                    'unit'            => $ingredient->unit,
-                    'branch_id'       => null,
-                    'branch_name'     => 'UNASSIGNED (ORPHANED)',
-                    'stock'           => 0,
-                    'low_stock_level' => 5,
-                    'is_low_stock'    => false,
-                    'is_out_of_stock' => true,
-                    'status'          => 'invalid', // Marks needing alignment
+                    'id'                   => $ingredient->id,
+                    'stock_id'             => null,
+                    'name'                 => $ingredient->name,
+                    'unit'                 => $ingredient->unit,
+                    'display_unit'         => $displayUnit,
+                    'branch_id'            => (int) $branchId,
+                    'branch_name'          => $targetBranchName,
+                    'stock'                => 0,
+                    'display_stock'        => 0,
+                    'low_stock_level'      => 5,
+                    'is_low_stock'         => false,
+                    'is_out_of_stock'      => true,
+                    'status'               => 'valid',
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
-                    'cost_per_unit'   => 0,
+                    'cost_per_unit'        => 0,
+                    'display_price'        => 0,
                 ];
             }
+            // NOTE: The "orphaned global ingredient" block has been intentionally removed.
+            // The cleanup migration seeds zero-stock rows for every ingredient × branch,
+            // so an ingredient with zero stock rows in the DB should never occur in production.
         }
 
         // Stats based on visible inventory
@@ -255,6 +248,19 @@ class InventoryController extends Controller
                     'reason'        => 'initial stock',
                 ]);
             }
+        }
+
+        // Gap-fill: ensure every branch has at least a zero-stock row so the
+        // ingredient never shows as UNASSIGNED in the admin "All Branches" view.
+        // This covers the case where the admin chose to stock only a specific branch.
+        $allBranchIds = Branch::pluck('id')->toArray();
+        $missingBranchIds = array_diff($allBranchIds, array_map('intval', $targetBranchIds));
+
+        foreach ($missingBranchIds as $missingBranchId) {
+            IngredientStock::firstOrCreate(
+                ['ingredient_id' => $ingredient->id, 'branch_id' => $missingBranchId],
+                ['stock' => 0, 'low_stock_level' => $lowStockLevel, 'cost_per_unit' => 0]
+            );
         }
 
         return redirect()->back()->with('success', 'Ingredient added successfully.');
