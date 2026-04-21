@@ -36,14 +36,18 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                     {delivery.status_label}
                                 </Badge>
                                 <div className="min-w-0">
-                                    <p className="font-black text-sm tracking-tight truncate">{delivery.sale?.order_number}</p>
+                                    <p className="font-black text-sm tracking-tight truncate">
+                                        {delivery.sale?.order_number || (delivery.order && `#ORD-${delivery.order.id}`)}
+                                    </p>
                                     <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                                         <Clock className="size-2.5" />
                                         {formatTime(delivery.created_at)}
                                     </p>
                                 </div>
                             </div>
-                            <p className="text-base font-black text-primary shrink-0 tabular-nums">{formatCurrency(delivery.sale?.total ?? 0)}</p>
+                            <p className="text-base font-black text-primary shrink-0 tabular-nums">
+                                {formatCurrency(delivery.sale?.total ?? delivery.order?.total_amount ?? 0)}
+                            </p>
                         </div>
 
                         {/* Middle row: Customer + Type */}
@@ -70,7 +74,9 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         {/* Branch */}
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                             <Building2 className="size-3" />
-                            <span className="font-medium">{delivery.sale?.branch?.name}</span>
+                            <span className="font-bold">
+                                {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Victoria Plains'}
+                            </span>
                             {delivery.distance_km && (
                                 <>
                                     <span>•</span>
@@ -83,7 +89,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 pt-1">
-                            {delivery.next_statuses.length > 0 && (
+                            {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (
                                 <Button
                                     size="sm"
                                     className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 shadow-md shadow-primary/10"
