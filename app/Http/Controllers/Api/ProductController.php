@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -12,60 +11,98 @@ use Illuminate\Support\Facades\Storage;
 class ProductController extends Controller
 {
     /**
-     * List latest products for the mobile POS menu (No Caching).
+     * List products for the mobile app.
      * GET /api/v1/products
+     *
+     * Modes:
+     *   ?mode=merged        → All branches, grouped by product name
+     *   ?branch_id=1        → Filter to a specific branch
+     *   (no params)         → All branches, flat list with branch info
      */
     public function index(Request $request): JsonResponse
     {
-        // Use optional sanctum auth to identify user even on public routes
-        $user = auth('sanctum')->user();
-        
-        // Priority: Request Param -> User Profile -> Default to Branch 1 (Victoria)
-        $branchId = $request->branch_id ?? $user?->branch_id ?? 1;
+        $query = Product::with(['unit_model', 'category', 'branch'])
+            ->orderBy('name');
 
-        $query = Product::with(['unit_model', 'category'])
-            ->where(function($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                  ->orWhereHas('branches', fn($bq) => $bq->where('branches.id', $branchId));
-            });
-
-        // Filter by category if requested
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+        // ── Branch filter ─────────────────────────────────────────────────
+        if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->integer('branch_id'));
         }
 
-        $products = $query->latest()
-            ->get()
-            ->map(fn(Product $product) => $this->formatForMobileMenu($product));
+        // ── Category filter ───────────────────────────────────────────────
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->integer('category_id'));
+        }
 
-        return response()->json($products);
-    }
+        // ── Search filter ─────────────────────────────────────────────────
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
 
-    /**
-     * Get a single product (Detailed).
-     */
-    public function show(int $id): JsonResponse
-    {
-        $product = Product::with(['category', 'ingredients', 'branches', 'unit_model'])
-            ->findOrFail($id);
+        $products = $query->get();
+
+        // ── Mode: merged — group by product name across branches ──────────
+        if ($request->input('mode') === 'merged') {
+            $grouped = $products
+                ->groupBy('name')
+                ->map(function ($group, $name) {
+                    /** @var Product $first */
+                    $first = $group->first();
+                    return [
+                        'name'        => $name,
+                        'category_id' => $first->category_id,
+                        'category'    => $first->category?->name ?? 'Uncategorized',
+                        'description' => $first->description,
+                        'image'       => $this->resolveImageUrl($first->image_path),
+                        'unit'        => $first->unit_model?->abbreviation ?? ($first->unit ?? 'pcs'),
+                        'branches'    => $group->map(fn(Product $p) => [
+                            'branch_id'   => $p->branch_id,
+                            'branch_name' => $p->branch?->name ?? 'Unknown',
+                            'product_id'  => $p->id,
+                            'price'       => (float) ($p->selling_price ?? 0),
+                            'sku'         => $p->sku,
+                        ])->values(),
+                    ];
+                })
+                ->values();
+
+            return response()->json([
+                'mode'     => 'merged',
+                'count'    => $grouped->count(),
+                'products' => $grouped,
+            ]);
+        }
+
+        // ── Default: flat list with branch info ───────────────────────────
+        $formatted = $products->map(fn(Product $p) => $this->formatProduct($p));
 
         return response()->json([
-            'success' => true,
-            'data'    => $this->formatForMobileMenu($product),
+            'mode'     => $request->filled('branch_id') ? 'branch' : 'all',
+            'count'    => $formatted->count(),
+            'products' => $formatted,
         ]);
     }
 
     /**
-     * Format product data exactly as requested for mobile POS menu.
+     * Get a single product (detailed).
+     * GET /api/v1/products/{id}
      */
-    private function formatForMobileMenu(Product $product): array
+    public function show(int $id): JsonResponse
     {
-        $imagePath = $product->image_path;
-        
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-        $disk = Storage::disk('public');
-        $imageUrl = $imagePath ? $disk->url($imagePath) : null;
+        $product = Product::with(['category', 'ingredients', 'branch', 'unit_model'])
+            ->findOrFail($id);
 
+        return response()->json([
+            'success' => true,
+            'data'    => $this->formatProduct($product),
+        ]);
+    }
+
+    /**
+     * Format a single product for the mobile API response.
+     */
+    private function formatProduct(Product $product): array
+    {
         return [
             'id'            => $product->id,
             'name'          => $product->name,
@@ -73,12 +110,30 @@ class ProductController extends Controller
             'price'         => (float) ($product->selling_price ?? 0),
             'selling_price' => (float) ($product->selling_price ?? 0),
             'cost_price'    => (float) ($product->cost_price ?? 0),
-            'image'         => $imageUrl,
+            'image'         => $this->resolveImageUrl($product->image_path),
             'category_id'   => $product->category_id,
-            'category'      => $product->category ? $product->category->name : 'Uncategorized',
+            'category'      => $product->category?->name ?? 'Uncategorized',
             'description'   => $product->description,
-            'unit'          => $product->unit_model ? $product->unit_model->abbreviation : ($product->unit ?? 'pcs'),
-            'stock'         => (float) $product->computed_stock,
+            'unit'          => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
+            'stock'         => (float) ($product->computed_stock ?? 0),
+            'branch_id'     => $product->branch_id,
+            'branch_name'   => $product->branch?->name ?? 'Unknown',
         ];
+    }
+
+    /**
+     * Resolve a stored image path to a public URL.
+     * Works on both local (symlinked) and Hostinger shared hosting.
+     */
+    private function resolveImageUrl(?string $imagePath): ?string
+    {
+        if (! $imagePath) return null;
+
+        try {
+            return Storage::disk('public')->url($imagePath);
+        } catch (\Exception $e) {
+            // Fallback: build URL manually using APP_URL
+            return rtrim(config('app.url'), '/') . '/storage/' . $imagePath;
+        }
     }
 }
