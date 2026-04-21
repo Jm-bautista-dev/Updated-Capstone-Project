@@ -11,53 +11,21 @@ use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\BranchController;
 
 // ─── External Operations API (Mobile App Entry) ──────────────────
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('orders', [ApiOrderController::class, 'index']);
-    Route::post('orders', [ApiOrderController::class, 'store']);
-    Route::get('orders/{id}', [ApiOrderController::class, 'show']);
-
-    // Cart System
-    Route::get('cart', [CartController::class, 'index']);
-    Route::post('cart/add', [CartController::class, 'addItem']);
-    Route::put('cart/items/{itemId}', [CartController::class, 'updateItem']);
-    Route::delete('cart/items/{itemId}', [CartController::class, 'removeItem']);
-    Route::delete('cart/clear', [CartController::class, 'clear']);
-});
-
-/*
-|--------------------------------------------------------------------------
-| API Routes — Mobile App (Laravel Sanctum Token Auth)
-|--------------------------------------------------------------------------
-|
-| These routes are for the React Native mobile app.
-| All responses are JSON. Authentication uses Sanctum personal access tokens.
-|
-*/
-
-// ─── Public Routes (no auth required) ────────────────────────────────────────
 Route::prefix('v1')->group(function () {
 
+    // ─── Public Routes (no auth required) ────────────────────────────────────────
+    
     // Auth
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
 
-    // Branches — public (used by mobile for nearest-branch detection)
+    // Branches — public
     Route::get('branches', [BranchController::class, 'apiIndex']);
 
-    // Public Menu (Guest Access Allowed)
+    // Public Menu
     Route::get('products',       [ProductController::class, 'index']);
     Route::get('products/{id}',  [ProductController::class, 'show']);
     Route::get('categories',     [CategoryController::class, 'index']);
-
-    // Customer App Specific (Clean & Safe)
-    Route::prefix('customer')->group(function () {
-        Route::get('categories', [\App\Http\Controllers\Customer\CategoryController::class, 'index']);
-        Route::get('products',   [\App\Http\Controllers\Customer\ProductController::class, 'index']);
-    });
-
-    // Email Verification
-    Route::post('verify-email/request', [VerificationController::class, 'requestEmail']);
-    Route::post('verify-email/verify',  [VerificationController::class, 'verify']);
 
     // ─── Protected Routes (Sanctum token required) ────────────────────────────
     Route::middleware('auth:sanctum')->group(function () {
@@ -66,9 +34,20 @@ Route::prefix('v1')->group(function () {
         Route::get('user',    [AuthController::class, 'user']);
         Route::post('logout', [AuthController::class, 'logout']);
 
-        // Branch location update (admin only — update coordinates from web or SSH)
-        Route::patch('branches/{id}/location', [BranchController::class, 'updateLocation']);
+        // Orders System
+        Route::get('orders', [ApiOrderController::class, 'index']);
+        Route::post('orders', [ApiOrderController::class, 'store']);
+        Route::get('orders/{id}', [ApiOrderController::class, 'show']);
 
+        // Cart System
+        Route::get('cart', [CartController::class, 'index']);
+        Route::post('cart/add', [CartController::class, 'addItem']);
+        Route::put('cart/items/{itemId}', [CartController::class, 'updateItem']);
+        Route::delete('cart/items/{itemId}', [CartController::class, 'removeItem']);
+        Route::delete('cart/clear', [CartController::class, 'clear']);
+
+        // Branch location update
+        Route::patch('branches/{id}/location', [BranchController::class, 'updateLocation']);
     });
 });
 
