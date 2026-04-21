@@ -180,7 +180,7 @@ export default function ProductsIndex() {
                 if (!value || String(value).trim().length === 0) error = 'Product name is required';
                 else if (String(value).trim().length < 3) error = 'Must be at least 3 characters';
                 else if (String(value).trim().length > 80) error = 'Too long (max 80 characters)';
-                else if (/^[^a-zA-Z]+$/.test(String(value).trim())) error = 'Invalid product name';
+                else if (!/^[A-Za-z0-9\s\-\.\(\)\'\&\/]+$/.test(String(value).trim())) error = 'Invalid name (Allowed: A-Z, 0-9, -, ., (), \', &, /)';
                 break;
             case 'sku':
                 if (value && value.trim().length > 0) {
@@ -212,9 +212,15 @@ export default function ProductsIndex() {
                 }
                 break;
             case 'recipe':
-                if (Array.isArray(value)) {
+                if (!value || value.length === 0) {
+                    error = 'At least one ingredient is required to build a recipe';
+                } else {
                     for (const item of value) {
-                        if (item.ingredient_id && (Number(item.quantity_required) <= 0 || isNaN(Number(item.quantity_required)))) {
+                        if (!item.ingredient_id) {
+                            error = 'Please select a material for all rows';
+                            break;
+                        }
+                        if (Number(item.quantity_required) <= 0 || isNaN(Number(item.quantity_required))) {
                             error = 'Quantity must be greater than 0';
                             break;
                         }
@@ -827,9 +833,9 @@ export default function ProductsIndex() {
                                         maxLength={80}
                                         value={data.name} 
                                         onChange={(e) => {
-                                            const cleaned = e.target.value.replace(/[^A-Za-z0-9\s\-]/g, '');
-                                            setData('name', cleaned);
-                                            validateField('name', cleaned);
+                                            const val = e.target.value;
+                                            setData('name', val);
+                                            validateField('name', val);
                                         }} 
                                         onBlur={() => validateField('name', data.name)}
                                         placeholder="e.g. Chicken Burger Deluxe" 
@@ -1028,41 +1034,63 @@ export default function ProductsIndex() {
                                     />
                                     {localErrors.image && <p className="text-[10px] text-destructive font-bold">{localErrors.image}</p>}
                                 </div>
-                                <div className="col-span-2 space-y-2">
-                                    <label className="text-sm font-medium">Ingredients Recipe</label>
-                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1">
-                                        <FiPlus className="size-3" /> Add Ingredient
-                                    </Button>
-                                    <div className="space-y-2 mt-2">
-                                        {data.recipe.map((item, idx) => (
-                                            <div key={idx} className="flex gap-2 items-center">
-                                                <select
-                                                    value={item.ingredient_id}
-                                                    onChange={(e) => {
-                                                        updateRecipeItem(idx, 'ingredient_id', e.target.value);
-                                                        validateField('recipe', data.recipe);
-                                                    }}
-                                                    className="flex-1 h-9 px-2 rounded-lg border text-[10px]"
-                                                >
-                                                    <option value="">Choose Material</option>
-                                                    {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
-                                                </select>
-                                                <Input 
-                                                    type="number" step="0.001" 
-                                                    value={item.quantity_required} 
-                                                    onChange={(e) => {
-                                                        updateRecipeItem(idx, 'quantity_required', e.target.value);
-                                                        validateField('recipe', [...data.recipe.slice(0, idx), { ...data.recipe[idx], quantity_required: e.target.value }, ...data.recipe.slice(idx + 1)]);
-                                                    }} 
-                                                    className={cn(
-                                                        "w-20 h-9 text-[10px]",
-                                                        localErrors.recipe && Number(item.quantity_required) <= 0 ? "border-destructive ring-1 ring-destructive" : ""
-                                                    )}
-                                                />
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive"><FiTrash2 className="size-4" /></Button>
-                                            </div>
-                                        ))}
-                                        {localErrors.recipe && <p className="text-[10px] text-destructive font-bold">{localErrors.recipe}</p>}
+                                <div className="col-span-2 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Ingredients Recipe</label>
+                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-7 text-[9px] gap-1.5 font-bold uppercase border-muted-foreground/20 hover:bg-muted transition-all">
+                                            <FiPlus className="size-3" /> Add Material
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {data.recipe.map((item, idx) => {
+                                            const selectedIng = ingredients.find(ing => ing.id.toString() === item.ingredient_id);
+                                            const units = getAvailableUnits(selectedIng);
+                                            return (
+                                                <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    <select
+                                                        value={item.ingredient_id}
+                                                        onChange={(e) => {
+                                                            const newId = e.target.value;
+                                                            const ing = ingredients.find(i => i.id.toString() === newId);
+                                                            updateRecipeItem(idx, 'ingredient_id', newId);
+                                                            if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
+                                                            validateField('recipe', data.recipe);
+                                                        }}
+                                                        className="flex-1 h-9 px-3 rounded-lg border border-input bg-muted/10 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                                    >
+                                                        <option value="">Choose Material</option>
+                                                        {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
+                                                    </select>
+                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                                                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
+                                                        <Input 
+                                                            type="number" step="0.001" 
+                                                            value={item.quantity_required} 
+                                                            onChange={(e) => {
+                                                                updateRecipeItem(idx, 'quantity_required', e.target.value);
+                                                                validateField('recipe', data.recipe);
+                                                            }} 
+                                                            className="w-16 h-8 border-none bg-transparent text-center text-[11px] font-black focus-visible:ring-0 px-1"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
+                                                         <select
+                                                            value={item.unit}
+                                                            onChange={(e) => {
+                                                                updateRecipeItem(idx, 'unit', e.target.value);
+                                                                validateField('recipe', data.recipe);
+                                                            }}
+                                                            className="w-16 h-8 border-none bg-transparent text-[10px] font-black uppercase text-center focus:outline-none"
+                                                        >
+                                                            {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5"><FiTrash2 className="size-3.5" /></Button>
+                                                </div>
+                                            );
+                                        })}
+                                        {localErrors.recipe && <p className="text-[10px] text-destructive font-bold italic mt-1">{localErrors.recipe}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -1099,20 +1127,57 @@ export default function ProductsIndex() {
                                         {allowedUnits?.map((u: string) => (<option key={u} value={u}>{u.toUpperCase()}</option>))}
                                     </select>
                                 </div>
-                                <div className="col-span-2 border-t pt-4">
-                                    <h4 className="text-sm font-bold mb-2">Recipe Composition</h4>
-                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs mb-3">Add Ingredient</Button>
+                                <div className="col-span-2 border-t pt-5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic">Recipe Adjustment</label>
+                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-7 text-[9px] gap-1.5 font-bold uppercase border-primary/20 hover:bg-primary/5 transition-all">
+                                            <FiPlus className="size-3" /> Add Material
+                                        </Button>
+                                    </div>
+                                    
                                     <div className="space-y-2">
-                                        {data.recipe.map((item, idx) => (
-                                            <div key={idx} className="flex gap-2 items-center">
-                                                <select value={item.ingredient_id} onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)} className="flex-1 h-9 px-2 rounded-lg border text-[10px]">
-                                                    <option value="">Material</option>
-                                                    {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
-                                                </select>
-                                                <Input type="number" step="0.001" value={item.quantity_required} onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)} className="w-20 h-9 text-[10px]" />
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive"><FiTrash2 className="size-4" /></Button>
-                                            </div>
-                                        ))}
+                                        {data.recipe.map((item, idx) => {
+                                            const selectedIng = ingredients.find(ing => ing.id.toString() === item.ingredient_id);
+                                            const units = getAvailableUnits(selectedIng);
+
+                                            return (
+                                                <div key={idx} className="flex gap-2 items-center group animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    <select
+                                                        value={item.ingredient_id}
+                                                        onChange={(e) => {
+                                                            const newId = e.target.value;
+                                                            const ing = ingredients.find(i => i.id.toString() === newId);
+                                                            updateRecipeItem(idx, 'ingredient_id', newId);
+                                                            if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
+                                                        }}
+                                                        className="flex-1 h-9 px-3 rounded-lg border border-input bg-muted/10 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                                    >
+                                                        <option value="">Choose Material</option>
+                                                        {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
+                                                    </select>
+                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                                                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
+                                                        <Input 
+                                                            type="number" step="0.001" 
+                                                            value={item.quantity_required} 
+                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)} 
+                                                            className="w-16 h-8 border-none bg-transparent text-center text-[11px] font-black focus-visible:ring-0 px-1"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
+                                                         <select
+                                                            value={item.unit}
+                                                            onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                            className="w-16 h-8 border-none bg-transparent text-[10px] font-black uppercase text-center focus:outline-none"
+                                                        >
+                                                            {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-opacity"><FiTrash2 className="size-3.5" /></Button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
