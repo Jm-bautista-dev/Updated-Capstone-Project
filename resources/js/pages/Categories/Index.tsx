@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
     Dialog,
     DialogContent,
@@ -92,8 +93,44 @@ export default function CategoriesIndex() {
 
     const { data, setData, processing, reset } = useForm({ name: '', description: '' });
 
+    const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+
+    const validateField = (name: string, value: any) => {
+        let error = '';
+
+        switch (name) {
+            case 'name':
+                const trimmed = String(value || '').trim();
+                if (!trimmed) error = 'Category name is required';
+                else if (trimmed.length < 2) error = 'Must be at least 2 characters';
+                else if (trimmed.length > 50) error = 'Too long (max 50 characters)';
+                else if (/^[^a-zA-Z]+$/.test(trimmed)) error = 'Invalid category name';
+                break;
+            case 'description':
+                if (value && String(value).length > 150) error = 'Description is too long (max 150 characters)';
+                break;
+            case 'image':
+                if (value) {
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                    if (!allowedTypes.includes(value.type)) error = 'Invalid file type (JPG, PNG, WEBP only)';
+                    else if (value.size > 2 * 1024 * 1024) error = 'Image must be less than 2MB';
+                }
+                break;
+        }
+
+        setLocalErrors(prev => {
+            const next = { ...prev };
+            if (error) next[name] = error;
+            else delete next[name];
+            return next;
+        });
+
+        return error;
+    };
+
     const openAddModal = () => {
         reset();
+        setLocalErrors({});
         setImageFile(null);
         setImagePreview(null);
         setIsAddModalOpen(true);
@@ -102,6 +139,7 @@ export default function CategoriesIndex() {
     const openEditModal = (category: Category) => {
         setSelectedCategory(category);
         setData({ name: category.name, description: category.description || '' });
+        setLocalErrors({});
         setImageFile(null);
         setImagePreview(category.image_url || null);
         setIsEditModalOpen(true);
@@ -114,34 +152,52 @@ export default function CategoriesIndex() {
 
     const handleAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Final Validation pass
+        const nameErr = validateField('name', data.name);
+        if (nameErr) return;
+
         router.post('/categories', { name: data.name, description: data.description, image: imageFile } as any, {
             forceFormData: true,
             onSuccess: () => {
                 setIsAddModalOpen(false);
                 reset();
+                setLocalErrors({});
                 setImageFile(null);
                 setImagePreview(null);
                 stateChannel.postMessage({ type: 'categories-updated' });
                 setResultModal({ type: 'success', title: 'Category created', message: 'The new category has been added successfully.' });
                 setIsResultModalOpen(true);
             },
+            onError: (errs) => {
+                setLocalErrors(prev => ({ ...prev, ...errs }));
+            }
         });
     };
 
     const handleEditSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedCategory) return;
+
+        // Final Validation pass
+        const nameErr = validateField('name', data.name);
+        if (nameErr) return;
+
         router.post(`/categories/${selectedCategory.id}`, { _method: 'PUT', name: data.name, description: data.description, image: imageFile } as any, {
             forceFormData: true,
             onSuccess: () => {
                 setIsEditModalOpen(false);
                 reset();
+                setLocalErrors({});
                 setImageFile(null);
                 setImagePreview(null);
                 stateChannel.postMessage({ type: 'categories-updated' });
                 setResultModal({ type: 'success', title: 'Category updated', message: 'Changes have been applied across all branches.' });
                 setIsResultModalOpen(true);
             },
+            onError: (errs) => {
+                setLocalErrors(prev => ({ ...prev, ...errs }));
+            }
         });
     };
 
@@ -161,7 +217,10 @@ export default function CategoriesIndex() {
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
         setImageFile(file);
-        if (file) setImagePreview(URL.createObjectURL(file));
+        if (file) {
+            setImagePreview(URL.createObjectURL(file));
+            validateField('image', file);
+        }
     };
 
     return (
@@ -417,21 +476,36 @@ export default function CategoriesIndex() {
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Name</label>
                             <Input
-                                required
                                 value={data.name}
-                                onChange={e => setData('name', e.target.value)}
+                                onChange={e => {
+                                    setData('name', e.target.value);
+                                    if (localErrors.name) validateField('name', e.target.value);
+                                }}
+                                onBlur={() => validateField('name', data.name)}
                                 placeholder="e.g. Beverages"
-                                className="h-11 rounded-xl bg-muted/20 border-none ring-1 ring-border focus:ring-2 focus:ring-primary/20"
+                                className={cn(
+                                    "h-11 rounded-xl bg-muted/20 border-none ring-1 transition-all",
+                                    localErrors.name ? "ring-destructive" : "ring-border focus:ring-2 focus:ring-primary/20"
+                                )}
                             />
+                            {localErrors.name && <p className="text-[10px] text-destructive font-bold ml-1">{localErrors.name}</p>}
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Description</label>
                             <Input
                                 value={data.description}
-                                onChange={e => setData('description', e.target.value)}
+                                onChange={e => {
+                                    setData('description', e.target.value);
+                                    if (localErrors.description) validateField('description', e.target.value);
+                                }}
+                                onBlur={() => validateField('description', data.description)}
                                 placeholder="Short description"
-                                className="h-11 rounded-xl bg-muted/20 border-none ring-1 ring-border focus:ring-2 focus:ring-primary/20"
+                                className={cn(
+                                    "h-11 rounded-xl bg-muted/20 border-none ring-1 transition-all",
+                                    localErrors.description ? "ring-destructive" : "ring-border focus:ring-2 focus:ring-primary/20"
+                                )}
                             />
+                            {localErrors.description && <p className="text-[10px] text-destructive font-bold ml-1">{localErrors.description}</p>}
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Thumbnail</label>
@@ -440,14 +514,23 @@ export default function CategoriesIndex() {
                                     <img src={imagePreview} className="w-full h-full object-cover rounded-xl" />
                                     <button
                                         type="button"
-                                        onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                        onClick={() => { setImageFile(null); setImagePreview(null); setLocalErrors(prev => { const n = {...prev}; delete n.image; return n; }); }}
                                         className="absolute top-2 right-2 bg-background shadow-lg rounded-full h-6 w-6 flex items-center justify-center text-xs text-muted-foreground hover:text-rose-600 transition-colors"
                                     >
                                         ×
                                     </button>
                                 </div>
                             )}
-                            <Input type="file" accept="image/*" onChange={handleImageChange} className="h-11 rounded-xl text-xs py-2.5" />
+                            <Input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleImageChange} 
+                                className={cn(
+                                    "h-11 rounded-xl text-xs py-2.5 transition-all",
+                                    localErrors.image ? "border-destructive ring-1 ring-destructive" : ""
+                                )} 
+                            />
+                            {localErrors.image && <p className="text-[10px] text-destructive font-bold ml-1">{localErrors.image}</p>}
                         </div>
                         <DialogFooter className="pt-4 gap-2">
                             <Button type="button" variant="outline" className="h-11 rounded-xl font-bold flex-1" onClick={() => setIsAddModalOpen(false)}>

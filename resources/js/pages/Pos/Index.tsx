@@ -447,7 +447,7 @@ export default function PosIndex() {
                       {/* Info at bottom */}
                       <div className="absolute bottom-0 left-0 right-0 p-2.5">
                         <p className="text-white font-bold text-xs leading-tight truncate drop-shadow-md">{p.name}</p>
-                        <p className="text-primary font-black text-sm leading-tight drop-shadow-md">{formatCurrency(p.selling_price)}</p>
+                        <p className="text-white font-black text-sm leading-tight drop-shadow-md">{formatCurrency(p.selling_price)}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -508,7 +508,7 @@ export default function PosIndex() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate text-sm">{item.name}</p>
-                      <p className="text-xs text-primary font-bold">{formatCurrency(item.selling_price)}</p>
+                      <p className="text-xs text-white font-bold">{formatCurrency(item.selling_price)}</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <div className="flex items-center bg-background rounded-lg px-1 border">
@@ -684,7 +684,7 @@ export default function PosIndex() {
 
                   <div className="pt-1 flex justify-between items-center bg-white/50 rounded-lg p-2 border border-black/5">
                     <span className="text-[10px] font-bold text-muted-foreground">Delivery Fee</span>
-                    <span className="text-sm font-black text-primary">{formatCurrency(deliveryFee)}</span>
+                    <span className="text-sm font-black text-white">{formatCurrency(deliveryFee)}</span>
                   </div>
                 </div>
               )}
@@ -706,7 +706,7 @@ export default function PosIndex() {
             <div className="pt-2 border-t">
               <div className="flex justify-between items-end mb-4">
                 <span className="text-sm font-medium text-muted-foreground">Total</span>
-                <span className="text-2xl font-bold text-primary">{formatCurrency(cartTotal)}</span>
+                <span className="text-2xl font-bold text-white">{formatCurrency(cartTotal)}</span>
               </div>
               <Button
                 className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform"
@@ -731,7 +731,7 @@ export default function PosIndex() {
           <div className="space-y-6 py-4">
             <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border border-primary/10">
               <span className="text-muted-foreground font-medium">Total Payable</span>
-              <span className="text-3xl font-black text-primary">{formatCurrency(cartTotal)}</span>
+              <span className="text-3xl font-black text-white">{formatCurrency(cartTotal)}</span>
             </div>
 
             {paymentMethod === 'cash' && (

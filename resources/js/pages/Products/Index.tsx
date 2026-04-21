@@ -169,6 +169,81 @@ export default function ProductsIndex() {
         image: null as File | null,
     });
 
+    const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+    const [costWarning, setCostWarning] = useState<string | null>(null);
+
+    const validateField = (name: string, value: any) => {
+        let error = '';
+
+        switch (name) {
+            case 'name':
+                if (!value || String(value).trim().length === 0) error = 'Product name is required';
+                else if (String(value).trim().length < 3) error = 'Must be at least 3 characters';
+                else if (String(value).trim().length > 80) error = 'Too long (max 80 characters)';
+                else if (/^[^a-zA-Z]+$/.test(String(value).trim())) error = 'Invalid product name';
+                break;
+            case 'sku':
+                if (value && value.trim().length > 0) {
+                    if (/\s/.test(value)) error = 'SKU must not contain spaces';
+                    else if (!/^[A-Za-z0-9\-]+$/.test(value)) error = 'Invalid SKU format (Alphanumeric + dashes only)';
+                }
+                break;
+            case 'category_id':
+                if (!value) error = 'Please select a category';
+                break;
+            case 'branch_id':
+                if (data.branch_option === 'single' && !value) error = 'Please select a branch';
+                break;
+            case 'selling_price':
+                if (!value) error = 'Selling price is required';
+                else if (isNaN(Number(value))) error = 'Must be a valid number';
+                else if (Number(value) <= 0) error = 'Price must be greater than 0';
+                else if (Number(value) > 100000) error = 'Suspiciously high price detected';
+                break;
+            case 'unit':
+                if (!value) error = 'Unit label is required';
+                else if (String(value).length > 10) error = 'Too long (max 10 characters)';
+                break;
+            case 'image':
+                if (value) {
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                    if (!allowedTypes.includes(value.type)) error = 'Invalid file type (JPG, PNG, WEBP only)';
+                    else if (value.size > 2 * 1024 * 1024) error = 'Image must be less than 2MB';
+                }
+                break;
+            case 'recipe':
+                if (Array.isArray(value)) {
+                    for (const item of value) {
+                        if (item.ingredient_id && (Number(item.quantity_required) <= 0 || isNaN(Number(item.quantity_required)))) {
+                            error = 'Quantity must be greater than 0';
+                            break;
+                        }
+                    }
+                }
+                break;
+        }
+
+        setLocalErrors(prev => {
+            const next = { ...prev };
+            if (error) next[name] = error;
+            else delete next[name];
+            return next;
+        });
+
+        return error;
+    };
+
+    // Recipe Cost Warning Logic
+    useEffect(() => {
+        const cost = calculateComputedCost();
+        const price = Number(data.selling_price) || 0;
+        if (cost > 0 && price > 0 && cost > price) {
+            setCostWarning(`Warning: Recipe cost (₱${cost.toFixed(2)}) exceeds selling price`);
+        } else {
+            setCostWarning(null);
+        }
+    }, [data.recipe, data.selling_price]);
+
     const [ingredientSearch, setIngredientSearch] = useState('');
 
     const getAvailableUnits = (ing?: any) => {
@@ -233,6 +308,7 @@ export default function ProductsIndex() {
 
     const openAddModal = () => {
         reset();
+        setLocalErrors({});
         setIngredientSearch('');
         setImageFile(null);
         setImagePreview(null);
@@ -261,6 +337,7 @@ export default function ProductsIndex() {
         });
         setImageFile(null);
         setImagePreview(product.image_url || null);
+        setLocalErrors({});
         setIsEditModalOpen(true);
     };
 
@@ -276,6 +353,21 @@ export default function ProductsIndex() {
 
     const handleAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Final Validation
+        const fields = ['name', 'sku', 'category_id', 'branch_id', 'selling_price', 'unit', 'recipe'];
+        let hasError = false;
+        fields.forEach(f => {
+            const err = validateField(f, (data as any)[f]);
+            if (err) hasError = true;
+        });
+        if (imageFile) {
+            const imgErr = validateField('image', imageFile);
+            if (imgErr) hasError = true;
+        }
+
+        if (hasError) return;
+
         transform((data) => ({ ...data, image: imageFile }));
         post('/products', {
             forceFormData: true,
@@ -283,15 +375,14 @@ export default function ProductsIndex() {
                 setSearch('');
                 setIsAddModalOpen(false);
                 reset();
+                setLocalErrors({});
                 setSuccessMessage({ title: 'Product Added!', message: 'The product has been registered successfully.' });
                 setIsSuccessModalOpen(true);
                 setImageFile(null);
                 setImagePreview(null);
             },
-            onError: (err) => {
-                const firstError = Object.values(err)[0] as string;
-                setErrorInfo({ title: 'Material Conflict', message: firstError || 'Please check your recipe.' });
-                setIsErrorModalOpen(true);
+            onError: (errs) => {
+                setLocalErrors(prev => ({ ...prev, ...errs }));
             }
         });
     };
@@ -299,21 +390,35 @@ export default function ProductsIndex() {
     const handleEditSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProduct) return;
+
+        // Final Validation
+        const fields = ['name', 'sku', 'category_id', 'selling_price', 'unit', 'recipe'];
+        let hasError = false;
+        fields.forEach(f => {
+            const err = validateField(f, (data as any)[f]);
+            if (err) hasError = true;
+        });
+        if (imageFile) {
+            const imgErr = validateField('image', imageFile);
+            if (imgErr) hasError = true;
+        }
+
+        if (hasError) return;
+
         transform((data) => ({ ...data, image: imageFile, _method: 'PUT' }));
         post(`/products/${selectedProduct.id}`, {
             forceFormData: true,
             onSuccess: () => {
                 setIsEditModalOpen(false);
                 reset();
+                setLocalErrors({});
                 setImageFile(null);
                 setImagePreview(null);
                 setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
                 setIsSuccessModalOpen(true);
             },
-            onError: (err) => {
-                const firstError = Object.values(err)[0] as string;
-                setErrorInfo({ title: 'Update Rejected', message: firstError || 'Validation failed.' });
-                setIsErrorModalOpen(true);
+            onError: (errs) => {
+                setLocalErrors(prev => ({ ...prev, ...errs }));
             }
         });
     };
@@ -719,20 +824,26 @@ export default function ProductsIndex() {
                                         </span>
                                     </div>
                                     <Input 
-                                        required
                                         maxLength={80}
                                         value={data.name} 
                                         onChange={(e) => {
                                             const cleaned = e.target.value.replace(/[^A-Za-z0-9\s\-]/g, '');
                                             setData('name', cleaned);
+                                            validateField('name', cleaned);
                                         }} 
+                                        onBlur={() => validateField('name', data.name)}
                                         placeholder="e.g. Chicken Burger Deluxe" 
                                         className={cn(
-                                            "h-10 rounded-lg",
-                                            errors.name && "border-destructive focus-visible:ring-destructive"
+                                            "h-10 rounded-lg transition-all",
+                                            localErrors.name ? "border-destructive ring-1 ring-destructive" : ""
                                         )} 
                                     />
-                                    {errors.name && <p className="text-[10px] text-destructive font-bold">{errors.name}</p>}
+                                    {localErrors.name && (
+                                        <div className="flex items-center gap-1 mt-1 animate-in slide-in-from-top-1 fade-in">
+                                            <FiAlertTriangle className="size-3 text-destructive" />
+                                            <p className="text-[10px] text-destructive font-bold">{localErrors.name}</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">SKU</label>
@@ -797,15 +908,21 @@ export default function ProductsIndex() {
                                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Select Owner Branch</label>
                                                 <select
                                                     value={data.branch_id}
-                                                    onChange={(e) => setData(d => ({ ...d, branch_id: e.target.value }))}
-                                                    className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-bold shadow-sm"
+                                                    onChange={(e) => {
+                                                        setData(d => ({ ...d, branch_id: e.target.value }));
+                                                        validateField('branch_id', e.target.value);
+                                                    }}
+                                                    className={cn(
+                                                        "w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none appearance-none font-bold shadow-sm transition-all",
+                                                        localErrors.branch_id ? "border-destructive ring-1 ring-destructive" : "border-input focus:ring-2 focus:ring-primary/20"
+                                                    )}
                                                 >
                                                     <option value="">-- Choose Branch --</option>
                                                     {branches?.map((b: any) => (
                                                         <option key={b.id} value={b.id}>{b.name}</option>
                                                     ))}
                                                 </select>
-                                                {errors.branch_id && <p className="text-xs text-destructive font-bold">{errors.branch_id}</p>}
+                                                {localErrors.branch_id && <p className="text-[10px] text-destructive font-bold mt-1">{localErrors.branch_id}</p>}
                                             </div>
                                         )}
                                         {data.branch_option === 'both' && (
@@ -869,10 +986,18 @@ export default function ProductsIndex() {
                                     <Input 
                                         type="number" step="0.01" 
                                         value={data.selling_price} 
-                                        onChange={(e) => setData('selling_price', e.target.value)} 
-                                        className="h-10 rounded-lg"
+                                        onChange={(e) => {
+                                            setData('selling_price', e.target.value);
+                                            validateField('selling_price', e.target.value);
+                                        }} 
+                                        onBlur={() => validateField('selling_price', data.selling_price)}
+                                        className={cn(
+                                            "h-10 rounded-lg",
+                                            localErrors.selling_price ? "border-destructive ring-1 ring-destructive" : ""
+                                        )}
                                     />
-                                    {errors.selling_price && <p className="text-[10px] text-destructive font-bold">{errors.selling_price}</p>}
+                                    {localErrors.selling_price && <p className="text-[10px] text-destructive font-bold">{localErrors.selling_price}</p>}
+                                    {costWarning && <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1 italic"><FiAlertTriangle className="size-3" /> {costWarning}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Unit Label</label>
@@ -894,10 +1019,14 @@ export default function ProductsIndex() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0] || null;
                                             setImageFile(file);
-                                            if (file) setImagePreview(URL.createObjectURL(file));
+                                            if (file) {
+                                                setImagePreview(URL.createObjectURL(file));
+                                                validateField('image', file);
+                                            }
                                         }}
                                         className="w-full text-xs"
                                     />
+                                    {localErrors.image && <p className="text-[10px] text-destructive font-bold">{localErrors.image}</p>}
                                 </div>
                                 <div className="col-span-2 space-y-2">
                                     <label className="text-sm font-medium">Ingredients Recipe</label>
@@ -909,7 +1038,10 @@ export default function ProductsIndex() {
                                             <div key={idx} className="flex gap-2 items-center">
                                                 <select
                                                     value={item.ingredient_id}
-                                                    onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                    onChange={(e) => {
+                                                        updateRecipeItem(idx, 'ingredient_id', e.target.value);
+                                                        validateField('recipe', data.recipe);
+                                                    }}
                                                     className="flex-1 h-9 px-2 rounded-lg border text-[10px]"
                                                 >
                                                     <option value="">Choose Material</option>
@@ -918,12 +1050,19 @@ export default function ProductsIndex() {
                                                 <Input 
                                                     type="number" step="0.001" 
                                                     value={item.quantity_required} 
-                                                    onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)} 
-                                                    className="w-20 h-9 text-[10px]"
+                                                    onChange={(e) => {
+                                                        updateRecipeItem(idx, 'quantity_required', e.target.value);
+                                                        validateField('recipe', [...data.recipe.slice(0, idx), { ...data.recipe[idx], quantity_required: e.target.value }, ...data.recipe.slice(idx + 1)]);
+                                                    }} 
+                                                    className={cn(
+                                                        "w-20 h-9 text-[10px]",
+                                                        localErrors.recipe && Number(item.quantity_required) <= 0 ? "border-destructive ring-1 ring-destructive" : ""
+                                                    )}
                                                 />
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive"><FiTrash2 className="size-4" /></Button>
                                             </div>
                                         ))}
+                                        {localErrors.recipe && <p className="text-[10px] text-destructive font-bold">{localErrors.recipe}</p>}
                                     </div>
                                 </div>
                             </div>

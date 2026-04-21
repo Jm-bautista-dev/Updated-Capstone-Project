@@ -43,6 +43,65 @@ export default function EmployeeIndex({ employees, branches }: any) {
         branch_id: '' as string | number,
     });
 
+    const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+    const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string } | null>(null);
+
+    const checkPasswordStrength = (pass: string) => {
+        if (!pass) return null;
+        let score = 0;
+        if (pass.length >= 8) score++;
+        if (/[A-Z]/.test(pass) || /[!@#$%^&*(),.?":{}|<>]/.test(pass)) score++;
+        if (/[0-9]/.test(pass) && /[a-z]/.test(pass)) score++;
+
+        if (score === 1) return { score: 1, label: 'Weak', color: 'text-rose-500' };
+        if (score === 2) return { score: 2, label: 'Medium', color: 'text-amber-500' };
+        return { score: 3, label: 'Strong', color: 'text-emerald-500' };
+    };
+
+    const validateField = (name: string, value: any) => {
+        let error = '';
+
+        switch (name) {
+            case 'name':
+                const trimmed = String(value || '').trim();
+                if (!trimmed) error = 'Full name is required';
+                else if (trimmed.length < 3) error = 'Must be at least 3 characters';
+                else if (trimmed.length > 80) error = 'Too long (max 80 characters)';
+                else if (!/[a-zA-Z]/.test(trimmed)) error = 'Invalid name format';
+                break;
+            case 'email':
+                const email = String(value || '').trim();
+                if (!email) error = 'Email is required';
+                else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) error = 'Invalid email format';
+                break;
+            case 'password':
+                if (!editingEmployee) {
+                    if (!value) error = 'Password is required';
+                    else if (value.length < 8) error = 'Minimum 8 characters required';
+                    else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';
+                } else if (value && value.length > 0) {
+                    if (value.length < 8) error = 'Minimum 8 characters required';
+                    else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';
+                }
+                break;
+            case 'role':
+                if (!value) error = 'Please select a role';
+                break;
+            case 'branch_id':
+                if (!value) error = 'Please select a branch';
+                break;
+        }
+
+        setLocalErrors(prev => {
+            const next = { ...prev };
+            if (error) next[name] = error;
+            else delete next[name];
+            return next;
+        });
+
+        return error;
+    };
+
     const filteredEmployees = useMemo(() => {
         return employees.filter((e: any) => 
             e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,6 +112,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
     const openCreateModal = () => {
         setEditingEmployee(null);
         reset();
+        setLocalErrors({});
+        setPasswordStrength(null);
         setIsModalOpen(true);
     };
 
@@ -66,6 +127,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
             branch_id: employee.branch_id ?? '',
         });
         setIsModalOpen(true);
+        setLocalErrors({});
+        setPasswordStrength(null);
     };
 
     const handleModalChange = (open: boolean) => {
@@ -102,13 +165,34 @@ export default function EmployeeIndex({ employees, branches }: any) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Final Comprehensive Validation
+        const fields = ['name', 'email', 'password', 'role', 'branch_id'];
+        let hasLocalError = false;
+        fields.forEach(f => {
+            const err = validateField(f, (data as any)[f]);
+            if (err) hasLocalError = true;
+        });
+
+        if (hasLocalError) return;
+
         if (editingEmployee) {
             put(`/employees/${editingEmployee.id}`, {
-                onSuccess: () => setIsModalOpen(false),
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    setLocalErrors({});
+                    toast.success("Employee updated successfully");
+                },
+                onError: (errs) => setLocalErrors(prev => ({ ...prev, ...errs }))
             });
         } else {
             post('/employees', {
-                onSuccess: () => setIsModalOpen(false),
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    setLocalErrors({});
+                    toast.success("New employee authorized");
+                },
+                onError: (errs) => setLocalErrors(prev => ({ ...prev, ...errs }))
             });
         }
     };
@@ -260,16 +344,21 @@ export default function EmployeeIndex({ employees, branches }: any) {
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Full Identity <span className="text-destructive">*</span></label>
                             <Input
                                 placeholder="e.g. Victor Amante"
-                                className={cn("h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 ring-offset-background placeholder:text-muted-foreground/50 font-bold dark:text-white", errors.name && "ring-2 ring-destructive")}
+                                className={cn(
+                                    "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 ring-offset-background placeholder:text-muted-foreground/50 font-bold dark:text-white",
+                                    localErrors.name ? "ring-2 ring-destructive" : (errors.name && "ring-2 ring-destructive")
+                                )}
                                 value={data.name}
                                 onChange={(e) => {
                                     const cleaned = e.target.value.replace(/[^A-Za-z\s]/g, '');
                                     setData('name', cleaned);
+                                    if (localErrors.name) validateField('name', cleaned);
                                 }}
+                                onBlur={() => validateField('name', data.name)}
                                 maxLength={50}
                                 autoFocus
                             />
-                            {errors.name && <p className="text-[11px] text-destructive font-bold ml-1">{errors.name}</p>}
+                            {localErrors.name && <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.name}</p>}
                         </div>
 
                         <div className="space-y-2">
@@ -277,39 +366,78 @@ export default function EmployeeIndex({ employees, branches }: any) {
                             <Input
                                 type="email"
                                 placeholder="victor@pos.system"
-                                className={cn("h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 lowercase dark:text-white", errors.email && "ring-2 ring-destructive")}
+                                className={cn(
+                                    "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 lowercase dark:text-white",
+                                    localErrors.email ? "ring-2 ring-destructive" : (errors.email && "ring-2 ring-destructive")
+                                )}
                                 value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
+                                onChange={(e) => {
+                                    setData('email', e.target.value.toLowerCase());
+                                    if (localErrors.email) validateField('email', e.target.value);
+                                }}
+                                onBlur={() => validateField('email', data.email)}
                                 maxLength={100}
                             />
-                            {errors.email && <p className="text-[11px] text-destructive font-bold ml-1">{errors.email}</p>}
+                            {localErrors.email ? (
+                                <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.email}</p>
+                            ) : (
+                                errors.email && <p className="text-[11px] text-destructive font-bold ml-1">{errors.email}</p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">
-                                Secure Key {!editingEmployee && <span className="text-destructive">*</span>}
-                            </label>
+                            <div className="flex justify-between items-center ml-1">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">
+                                    Secure Key {!editingEmployee && <span className="text-destructive">*</span>}
+                                </label>
+                                {passwordStrength && (
+                                    <span className={cn("text-[9px] font-black uppercase tracking-widest italic animate-in slide-in-from-right-2", passwordStrength.color)}>
+                                        [{passwordStrength.label}]
+                                    </span>
+                                )}
+                            </div>
                             <Input
                                 type="password"
                                 placeholder="••••••••••••"
-                                className={cn("h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 dark:text-white", errors.password && "ring-2 ring-destructive")}
+                                className={cn(
+                                    "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 dark:text-white",
+                                    localErrors.password ? "ring-2 ring-destructive" : (errors.password && "ring-2 ring-destructive")
+                                )}
                                 value={data.password}
-                                onChange={(e) => setData('password', e.target.value)}
+                                onChange={(e) => {
+                                    setData('password', e.target.value);
+                                    setPasswordStrength(checkPasswordStrength(e.target.value));
+                                    if (localErrors.password) validateField('password', e.target.value);
+                                }}
+                                onBlur={() => validateField('password', data.password)}
                                 minLength={8}
                                 maxLength={100}
                             />
-                            {errors.password ? (
-                                <p className="text-[11px] text-destructive font-bold ml-1">{errors.password}</p>
+                            {localErrors.password ? (
+                                <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.password}</p>
                             ) : (
-                                <p className="text-[10px] text-muted-foreground italic ml-1 opacity-60">Minimum 8 characters required.</p>
+                                errors.password ? (
+                                    <p className="text-[11px] text-destructive font-bold ml-1">{errors.password}</p>
+                                ) : (
+                                    <p className="text-[10px] text-muted-foreground italic ml-1 opacity-60">Minimum 8 characters with letters and numbers.</p>
+                                )
                             )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 pt-1">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Authority <span className="text-destructive">*</span></label>
-                                <Select value={data.role} onValueChange={(val) => setData('role', val)}>
-                                    <SelectTrigger className={cn("h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 font-bold uppercase text-xs tracking-tighter italic dark:text-white", errors.role && "ring-2 ring-destructive")}>
+                                <Select 
+                                    value={data.role} 
+                                    onValueChange={(val) => {
+                                        setData('role', val);
+                                        validateField('role', val);
+                                    }}
+                                >
+                                    <SelectTrigger className={cn(
+                                        "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 font-bold uppercase text-xs tracking-tighter italic dark:text-white",
+                                        localErrors.role ? "ring-2 ring-destructive" : (errors.role && "ring-2 ring-destructive")
+                                    )}>
                                         <SelectValue placeholder="Access Level" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
@@ -317,15 +445,23 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                         <SelectItem value="cashier" className="font-bold text-xs italic uppercase dark:text-zinc-300">Frontline Cashier</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                {localErrors.role && <p className="text-[9px] text-destructive font-bold ml-1 mt-1 font-mono uppercase">{localErrors.role}</p>}
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Work HQ <span className="text-destructive">*</span></label>
                                 <Select
                                     value={data.branch_id ? String(data.branch_id) : ''}
-                                    onValueChange={(val) => setData('branch_id', val ? Number(val) : '')}
+                                    onValueChange={(val) => {
+                                        const bId = val ? Number(val) : '';
+                                        setData('branch_id', bId);
+                                        validateField('branch_id', bId);
+                                    }}
                                 >
-                                    <SelectTrigger className={cn("h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 font-bold uppercase text-xs tracking-tighter italic dark:text-white", errors.branch_id && "ring-2 ring-destructive")}>
+                                    <SelectTrigger className={cn(
+                                        "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 font-bold uppercase text-xs tracking-tighter italic dark:text-white",
+                                        localErrors.branch_id ? "ring-2 ring-destructive" : (errors.branch_id && "ring-2 ring-destructive")
+                                    )}>
                                         <SelectValue placeholder="Branch" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
@@ -334,6 +470,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {localErrors.branch_id && <p className="text-[9px] text-destructive font-bold ml-1 mt-1 font-mono uppercase">{localErrors.branch_id}</p>}
                             </div>
                         </div>
 

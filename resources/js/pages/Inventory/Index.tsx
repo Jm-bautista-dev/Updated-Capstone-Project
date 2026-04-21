@@ -162,6 +162,70 @@ export default function InventoryIndex() {
     branch_ids: [] as string[],
   });
 
+  const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+
+  const validateField = (name: string, value: any) => {
+    let error = '';
+
+    switch (name) {
+      case 'name':
+        if (!value || String(value).trim().length === 0) error = 'Item name is required';
+        else if (String(value).trim().length < 2) error = 'Item name must be at least 2 characters';
+        else if (/^\d+$/.test(String(value).trim())) error = 'Invalid item name (cannot be only numbers)';
+        break;
+      case 'unit':
+        if (!value) error = 'Please select a unit';
+        break;
+      case 'stock':
+        if (value === '' || value === undefined) error = 'Stock is required';
+        else if (isNaN(Number(value))) error = 'Stock must be a valid number';
+        else if (Number(value) < 0) error = 'Stock cannot be negative';
+        break;
+      case 'low_stock_level':
+        if (value === '' || value === undefined) error = 'Low stock mark is required';
+        else if (isNaN(Number(value))) error = 'Must be a valid number';
+        else if (Number(value) < 0) error = 'Cannot be negative';
+        break;
+      case 'cost_per_base_unit':
+        if (value === '' || value === undefined) error = 'Total cost is required';
+        else if (isNaN(Number(value))) error = 'Invalid amount';
+        else if (Number(value) <= 0) error = 'Must be greater than 0';
+        break;
+      case 'branch_ids':
+        if (!isEditModalOpen && value.length === 0 && isAdmin) {
+            // If admin is adding, and no branches selected, we assume all, but user requested "At least one branch must be selected"
+            // Wait, the current logic says "If none, apply to all". 
+            // The prompt says "At least one branch must be selected". I will follow the prompt.
+            error = 'Select at least one branch';
+        }
+        break;
+      case 'avg_weight_per_piece':
+        if (data.unit === 'pcs') {
+            if (!value) error = 'Avg weight is required for piece measurements';
+            else if (Number(value) <= 0) error = 'Must be greater than 0';
+        }
+        break;
+    }
+
+    setLocalErrors(prev => {
+        const next = { ...prev };
+        if (error) next[name] = error;
+        else delete next[name];
+        return next;
+    });
+
+    return error;
+  };
+
+  const costPerUnitPreview = useMemo(() => {
+    const totalCost = Number(data.cost_per_base_unit);
+    const totalStock = Number(data.stock);
+    if (totalStock > 0 && totalCost > 0) {
+        return (totalCost / totalStock).toFixed(4);
+    }
+    return '0.00';
+  }, [data.cost_per_base_unit, data.stock]);
+
   // --- Stats ---
   const stats = useMemo(() => {
     if (serverStats) return serverStats;
@@ -257,6 +321,23 @@ export default function InventoryIndex() {
 
   const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Final Validation
+    const fields = ['name', 'unit', 'stock', 'low_stock_level', 'cost_per_base_unit', 'branch_ids'];
+    if (data.unit === 'pcs') fields.push('avg_weight_per_piece');
+    
+    let hasError = false;
+    fields.forEach(f => {
+        const err = validateField(f, (data as any)[f]);
+        if (err) hasError = true;
+    });
+
+    if (hasError) return;
+
+    const calculatedCostPerUnit = Number(data.stock) > 0 
+        ? Number(data.cost_per_base_unit) / Number(data.stock)
+        : Number(data.cost_per_base_unit);
+
     router.post('/inventory', {
       name: data.name,
       unit: data.unit,
@@ -264,22 +345,40 @@ export default function InventoryIndex() {
       low_stock_level: Number(data.low_stock_level),
       avg_weight_per_piece: data.avg_weight_per_piece ? Number(data.avg_weight_per_piece) : undefined,
       cost_per_base_unit: Number(data.cost_per_base_unit),
-      cost_per_unit: Number(data.cost_per_unit),
+      cost_per_unit: calculatedCostPerUnit,
       branch_id: data.branch_id ? Number(data.branch_id) : undefined,
-      branch_ids: data.branch_ids.length > 0 ? data.branch_ids.map(Number) : undefined,
+      branch_ids: data.branch_ids.map(Number),
     }, {
       onSuccess: () => {
         setIsAddModalOpen(false);
         reset();
+        setLocalErrors({});
         stateChannel.postMessage({ type: 'inventory-updated' });
         setResultModal({ type: 'success', title: 'Ingredient Added', message: 'The global ingredient and its branch stock have been created.' });
         setIsResultModalOpen(true);
       },
+      onError: (errs) => {
+          // If server returns validation errors, show them too
+          setLocalErrors(prev => ({ ...prev, ...errs }));
+      }
     });
   };
 
   const submitEdit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Final Validation
+    const fields = ['name', 'unit', 'stock', 'low_stock_level', 'cost_per_unit'];
+    if (data.unit === 'pcs') fields.push('avg_weight_per_piece');
+    
+    let hasError = false;
+    fields.forEach(f => {
+        const err = validateField(f, (data as any)[f]);
+        if (err) hasError = true;
+    });
+
+    if (hasError) return;
+
     router.put(`/inventory/${selectedRow?.id}`, {
       name: data.name,
       unit: data.unit,
@@ -292,10 +391,14 @@ export default function InventoryIndex() {
       onSuccess: () => {
         setIsEditModalOpen(false);
         reset();
+        setLocalErrors({});
         stateChannel.postMessage({ type: 'inventory-updated' });
         setResultModal({ type: 'success', title: 'Ingredient Updated', message: 'Ingredient and stock record have been updated.' });
         setIsResultModalOpen(true);
       },
+      onError: (errs) => {
+          setLocalErrors(prev => ({ ...prev, ...errs }));
+      }
     });
   };
 
@@ -857,7 +960,7 @@ export default function InventoryIndex() {
 
       {/* ── Add/Edit Ingredient Modal ────────────────────────────────────── */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={open => {
-        if (!open) { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }
+        if (!open) { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); setLocalErrors({}); }
       }}>
         <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl">
           <DialogHeader>
@@ -880,17 +983,26 @@ export default function InventoryIndex() {
                     <div className="size-1 rounded-full bg-primary" /> Item Name
                 </label>
                 <Input
-                    required
                     maxLength={50}
                     value={data.name}
                     onChange={e => {
-                    const cleaned = e.target.value.replace(/[^A-Za-z0-9\s]/g, '');
-                    setData('name', cleaned);
+                        const cleaned = e.target.value.replace(/[^A-Za-z0-9\s]/g, '');
+                        setData('name', cleaned);
+                        validateField('name', cleaned);
                     }}
+                    onBlur={() => validateField('name', data.name)}
                     placeholder="e.g. Flour"
-                    className={cn("h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border focus:ring-primary/50 font-bold", errors.name && "ring-destructive/50")}
+                    className={cn(
+                        "h-11 bg-muted/50 rounded-xl border-none ring-1 transition-all font-bold", 
+                        localErrors.name ? "ring-destructive animate-shake" : "ring-border focus:ring-primary/50"
+                    )}
                 />
-                {errors.name && <p className="text-[9px] text-destructive font-bold uppercase tracking-widest mt-1 ml-1">{errors.name}</p>}
+                {localErrors.name && (
+                    <div className="flex items-center gap-1.5 mt-1 ml-1 text-destructive animate-in fade-in slide-in-from-top-1">
+                        <FiAlertTriangle className="size-3" />
+                        <p className="text-[9px] font-black uppercase tracking-widest">{localErrors.name}</p>
+                    </div>
+                )}
                 </div>
 
                 {/* Unit */}
@@ -905,8 +1017,12 @@ export default function InventoryIndex() {
                         unit: val, 
                         avg_weight_per_piece: (val === 'pcs') ? prev.avg_weight_per_piece : ''
                      }));
+                     validateField('unit', val);
                   }}>
-                      <SelectTrigger className={cn("w-full h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border shadow-none font-bold", errors.unit && "ring-destructive/50")}>
+                      <SelectTrigger className={cn(
+                          "w-full h-11 bg-muted/50 rounded-xl border-none ring-1 transition-all font-bold", 
+                          localErrors.unit ? "ring-destructive" : "ring-border"
+                      )}>
                     <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl shadow-2xl">
@@ -917,6 +1033,9 @@ export default function InventoryIndex() {
                     <SelectItem value="liters" className="text-xs font-bold py-2.5">liters (Liters)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {localErrors.unit && (
+                    <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.unit}</p>
+                  )}
                   <p className="text-[9px] text-muted-foreground font-bold italic opacity-70 mt-1 pl-1">
                     Garlic: 1 clove = 5g | Onion: 1 piece = 10g | Milk: measured in liters | Flour: measured in kg
                   </p>
@@ -930,31 +1049,45 @@ export default function InventoryIndex() {
                             <div className="size-1 rounded-full bg-primary" /> Current Stock
                         </label>
                         <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1000000"
-                        required
-                        value={data.stock}
-                        onChange={e => setData('stock', e.target.value)}
-                        className={cn("h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border font-bold tabular-nums")}
+                            type="number"
+                            step="0.01"
+                            value={data.stock}
+                            onChange={e => {
+                                setData('stock', e.target.value);
+                                validateField('stock', e.target.value);
+                            }}
+                            onBlur={() => validateField('stock', data.stock)}
+                            className={cn(
+                                "h-11 bg-muted/50 rounded-xl border-none ring-1 font-bold tabular-nums transition-all",
+                                localErrors.stock ? "ring-destructive" : "ring-border"
+                            )}
                         />
+                        {localErrors.stock && (
+                            <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.stock}</p>
+                        )}
                     </div>
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                             <div className="size-1 rounded-full bg-rose-500" /> Low Stock Mark
                         </label>
                         <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="10000"
-                        required
-                        value={data.low_stock_level}
-                        onChange={e => setData('low_stock_level', e.target.value)}
-                        placeholder="e.g. 500"
-                        className={cn("h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border font-bold tabular-nums")}
+                            type="number"
+                            step="0.01"
+                            value={data.low_stock_level}
+                            onChange={e => {
+                                setData('low_stock_level', e.target.value);
+                                validateField('low_stock_level', e.target.value);
+                            }}
+                            onBlur={() => validateField('low_stock_level', data.low_stock_level)}
+                            placeholder="e.g. 500"
+                            className={cn(
+                                "h-11 bg-muted/50 rounded-xl border-none ring-1 font-bold tabular-nums transition-all",
+                                localErrors.low_stock_level ? "ring-destructive" : "ring-border"
+                            )}
                         />
+                        {localErrors.low_stock_level && (
+                            <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.low_stock_level}</p>
+                        )}
                     </div>
                 </div>
 
@@ -974,26 +1107,43 @@ export default function InventoryIndex() {
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Total Purchase Cost (Batch Total)</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-emerald-600">₱</span>
+                                <span className={cn(
+                                    "absolute left-3 top-1/2 -translate-y-1/2 font-bold transition-colors",
+                                    localErrors.cost_per_base_unit ? "text-destructive" : "text-emerald-600"
+                                )}>₱</span>
                                 <Input
                                     type="number"
                                     step="0.01"
-                                    min="0"
-                                    required
                                     value={data.cost_per_base_unit}
                                     onChange={e => {
                                         const val = e.target.value;
                                         setData(d => ({
                                             ...d,
                                             cost_per_base_unit: val,
-                                            cost_per_unit: val // Keep branch cost synced in initial creation
+                                            cost_per_unit: val 
                                         }));
+                                        validateField('cost_per_base_unit', val);
                                     }}
+                                    onBlur={() => validateField('cost_per_base_unit', data.cost_per_base_unit)}
                                     placeholder="0.00"
-                                    className={cn("h-11 bg-muted/50 rounded-xl pl-8 border-none ring-1 ring-border font-bold tabular-nums", errors.cost_per_base_unit && "ring-destructive/50")}
+                                    className={cn(
+                                        "h-11 bg-muted/50 rounded-xl pl-8 border-none ring-1 font-bold tabular-nums transition-all",
+                                        localErrors.cost_per_base_unit ? "ring-destructive" : "ring-border"
+                                    )}
                                 />
                             </div>
-                            {errors.cost_per_base_unit && <p className="text-[9px] text-destructive font-bold uppercase tracking-widest mt-1 ml-1">{String(errors.cost_per_base_unit)}</p>}
+                            <div className="flex justify-between items-center px-1">
+                                {localErrors.cost_per_base_unit ? (
+                                    <p className="text-[9px] text-destructive font-black uppercase tracking-widest leading-none mt-1">{localErrors.cost_per_base_unit}</p>
+                                ) : (
+                                    <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-500">
+                                        <div className="size-1 rounded-full bg-emerald-500" />
+                                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                                            Auto-Calculated: ₱{costPerUnitPreview} per {data.unit || 'unit'}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1006,19 +1156,23 @@ export default function InventoryIndex() {
                                <div className="size-1 rounded-full bg-indigo-500" /> Average weight per Piece (g / pc)
                            </label>
                         <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={data.avg_weight_per_piece}
-                        onChange={e => setData('avg_weight_per_piece', e.target.value)}
-                        placeholder="e.g. 5 (for 5g/clove)"
-                        className={cn("h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border font-bold tabular-nums", errors.avg_weight_per_piece && "ring-destructive/50")}
+                            type="number"
+                            step="0.01"
+                            value={data.avg_weight_per_piece}
+                            onChange={e => {
+                                setData('avg_weight_per_piece', e.target.value);
+                                validateField('avg_weight_per_piece', e.target.value);
+                            }}
+                            onBlur={() => validateField('avg_weight_per_piece', data.avg_weight_per_piece)}
+                            placeholder="e.g. 5 (for 5g/clove)"
+                            className={cn(
+                                "h-11 bg-muted/50 rounded-xl border-none ring-1 font-bold tabular-nums transition-all",
+                                localErrors.avg_weight_per_piece ? "ring-destructive" : "ring-border"
+                            )}
                         />
-                        <p className="text-[9px] text-muted-foreground font-bold italic opacity-70 mt-1 pl-1">
-                            This is CRITICAL. If you use 'pcs' in recipes, we need this to calculate gram-based cost accurately.
-                        </p>
-                        {errors.avg_weight_per_piece && <p className="text-[9px] text-destructive font-bold uppercase tracking-widest mt-1 ml-1">{String(errors.avg_weight_per_piece)}</p>}
-                        {!data.avg_weight_per_piece && <p className="text-[9px] text-destructive font-bold uppercase mt-1 pl-1">Average weight per piece is required for piece-based items.</p>}
+                        {localErrors.avg_weight_per_piece && (
+                            <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.avg_weight_per_piece}</p>
+                        )}
                        </div>
                    </div>
                 )}
@@ -1063,13 +1217,10 @@ export default function InventoryIndex() {
                             </div>
                         );
                     })}
-                    {data.branch_ids.length === 0 && (
-                        <div className="w-full flex items-center gap-2 bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/10">
-                            <FiCheckCircle className="size-4 text-emerald-500" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-600">Note: Applied to all branches</span>
-                        </div>
-                    )}
                     </div>
+                    {localErrors.branch_ids && (
+                        <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.branch_ids}</p>
+                    )}
                 </div>
                 )}
 
@@ -1099,7 +1250,7 @@ export default function InventoryIndex() {
               </Button>
               <Button 
                 type="submit" 
-                disabled={processing || !data.name || !data.stock || !data.low_stock_level || !!errors.name || !!errors.stock || !!errors.low_stock_level || (!data.avg_weight_per_piece && data.unit === 'pcs')}
+                disabled={processing}
                 className="rounded-xl h-11 px-8 gap-3 shadow-[0_10px_25px_-5px_rgba(99,102,241,0.4)] font-black uppercase text-[10px] tracking-widest italic"
               >
                 {processing ? <FiRefreshCw className="size-4 animate-spin" /> : <FiZap className="size-4" />}
