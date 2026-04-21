@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
@@ -11,13 +11,13 @@ export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 index.definition = {
     methods: ["get","head"],
-    url: '/api/orders',
+    url: '/api/v1/orders',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 index.url = (options?: RouteQueryOptions) => {
     return index.definition.url + queryParams(options)
@@ -26,7 +26,7 @@ index.url = (options?: RouteQueryOptions) => {
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(options),
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
         action: index.url(options),
@@ -55,7 +55,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
             action: index.url(options),
@@ -64,7 +64,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::index
  * @see app/Http/Controllers/Api/ApiOrderController.php:21
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
             action: index.url({
@@ -80,7 +80,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
  * @see app/Http/Controllers/Api/ApiOrderController.php:39
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
@@ -89,13 +89,13 @@ export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
 store.definition = {
     methods: ["post"],
-    url: '/api/orders',
+    url: '/api/v1/orders',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
  * @see app/Http/Controllers/Api/ApiOrderController.php:39
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 store.url = (options?: RouteQueryOptions) => {
     return store.definition.url + queryParams(options)
@@ -104,7 +104,7 @@ store.url = (options?: RouteQueryOptions) => {
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
  * @see app/Http/Controllers/Api/ApiOrderController.php:39
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
@@ -114,7 +114,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
  * @see app/Http/Controllers/Api/ApiOrderController.php:39
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: store.url(options),
@@ -124,7 +124,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
  * @see app/Http/Controllers/Api/ApiOrderController.php:39
- * @route '/api/orders'
+ * @route '/api/v1/orders'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: store.url(options),
@@ -135,7 +135,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
 export const show = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
@@ -144,13 +144,13 @@ export const show = (args: { id: string | number } | [id: string | number ] | st
 
 show.definition = {
     methods: ["get","head"],
-    url: '/api/orders/{id}',
+    url: '/api/v1/orders/{id}',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
 show.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -178,7 +178,7 @@ show.url = (args: { id: string | number } | [id: string | number ] | string | nu
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
 show.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
@@ -187,7 +187,7 @@ show.get = (args: { id: string | number } | [id: string | number ] | string | nu
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
 show.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
@@ -197,7 +197,7 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
     const showForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
         action: show.url(args, options),
@@ -207,7 +207,7 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
         showForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
             action: show.url(args, options),
@@ -216,7 +216,7 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
  * @see app/Http/Controllers/Api/ApiOrderController.php:122
- * @route '/api/orders/{id}'
+ * @route '/api/v1/orders/{id}'
  */
         showForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
             action: show.url(args, {

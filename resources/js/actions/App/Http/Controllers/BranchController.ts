@@ -79,7 +79,7 @@ apiIndex.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     apiIndex.form = apiIndexForm
 /**
 * @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:89
+ * @see app/Http/Controllers/BranchController.php:91
  * @route '/api/v1/branches/{id}/location'
  */
 export const updateLocation = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -94,7 +94,7 @@ updateLocation.definition = {
 
 /**
 * @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:89
+ * @see app/Http/Controllers/BranchController.php:91
  * @route '/api/v1/branches/{id}/location'
  */
 updateLocation.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -122,7 +122,7 @@ updateLocation.url = (args: { id: string | number } | [id: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:89
+ * @see app/Http/Controllers/BranchController.php:91
  * @route '/api/v1/branches/{id}/location'
  */
 updateLocation.patch = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -132,7 +132,7 @@ updateLocation.patch = (args: { id: string | number } | [id: string | number ] |
 
     /**
 * @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:89
+ * @see app/Http/Controllers/BranchController.php:91
  * @route '/api/v1/branches/{id}/location'
  */
     const updateLocationForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -147,7 +147,7 @@ updateLocation.patch = (args: { id: string | number } | [id: string | number ] |
 
             /**
 * @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:89
+ * @see app/Http/Controllers/BranchController.php:91
  * @route '/api/v1/branches/{id}/location'
  */
         updateLocationForm.patch = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

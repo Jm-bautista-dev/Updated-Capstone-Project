@@ -67,13 +67,15 @@ class BranchController extends Controller
     public function apiIndex(): JsonResponse
     {
         $branches = Branch::orderBy('name')
-            ->get(['id', 'name', 'address', 'latitude', 'longitude'])
+            ->get(['id', 'name', 'address', 'latitude', 'longitude', 'delivery_radius_km', 'base_delivery_fee'])
             ->map(fn(Branch $b) => [
                 'id'        => $b->id,
                 'name'      => $b->name,
                 'address'   => $b->address,
                 'latitude'  => $b->latitude  ? (float) $b->latitude  : null,
                 'longitude' => $b->longitude ? (float) $b->longitude : null,
+                'delivery_radius_km' => $b->delivery_radius_km ? (float) $b->delivery_radius_km : 0,
+                'base_delivery_fee'  => $b->base_delivery_fee   ? (float) $b->base_delivery_fee   : 0,
             ]);
 
         return response()->json([
