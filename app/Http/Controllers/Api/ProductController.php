@@ -30,17 +30,26 @@ class ProductController extends Controller
             $lat = $request->float('lat');
             $lng = $request->float('lng');
 
+            // Find nearest branch WHERE distance is within its delivery_radius_km
             $resolvedBranch = \App\Models\Branch::select('*')
                 ->selectRaw(
                     "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
                     [$lat, $lng, $lat]
                 )
+                ->havingRaw('distance <= delivery_radius_km') // 👈 KEY FIX: Check radius here
                 ->orderBy('distance')
                 ->first();
 
             if ($resolvedBranch) {
                 $branchId = $resolvedBranch->id;
                 $distanceKm = round($resolvedBranch->distance, 2);
+            } else {
+                // If the nearest branches are all too far away for their radius
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your location is outside our delivery zones.',
+                    'products' => []
+                ], 200); 
             }
         }
 
