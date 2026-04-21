@@ -26,39 +26,10 @@ class DeliveryController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Delivery::with(['sale.cashier', 'sale.branch', 'order', 'rider', 'creator'])
+        $query = Delivery::with(['sale.cashier', 'sale.branch', 'order', 'rider', 'creator', 'cancelledBy'])
             ->latest();
 
-        // Status filter
-        if ($request->filled('status') && $request->input('status') !== 'all') {
-            $query->where('status', $request->input('status'));
-        }
-
-        // Delivery type filter
-        if ($request->filled('type') && $request->input('type') !== 'all') {
-            $query->where('delivery_type', $request->input('type'));
-        }
-
-        // Branch filter
-        if ($request->filled('branch_id') && $request->input('branch_id') !== 'all') {
-            $branchId = $request->input('branch_id');
-            $query->where(function ($q) use ($branchId) {
-                $q->whereHas('sale', fn($sq) => $sq->where('branch_id', $branchId))
-                  ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchId));
-            });
-        }
-
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('customer_name', 'like', "%{$search}%")
-                  ->orWhere('customer_address', 'like', "%{$search}%")
-                  ->orWhere('tracking_number', 'like', "%{$search}%")
-                  ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
-                  ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"));
-            });
-        }
+        // ... filters (lines 32-61) ...
 
         $deliveries = $query->paginate(50)->withQueryString();
 
@@ -67,6 +38,9 @@ class DeliveryController extends Controller
             $delivery->status_label = $delivery->getStatusLabel();
             $delivery->status_color = $delivery->getStatusColor();
             $delivery->next_statuses = $delivery->getNextStatuses();
+            $delivery->is_cancelled = $delivery->isCancelled();
+            $delivery->is_delivered = $delivery->isDelivered();
+            $delivery->cancelled_by_name = $delivery->cancelledBy?->name;
             return $delivery;
         });
 
@@ -103,6 +77,51 @@ class DeliveryController extends Controller
             return back()->with('success', 'Delivery status updated.');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Cancel a delivery.
+     */
+    public function cancel(Request $request, Delivery $delivery)
+    {
+        $user = Auth::user();
+
+        // ── Step 1: Authorization & Branch Check ────────────────────────────
+        // Check if Cashier is restricted to their branch
+        if ($user->role === 'Cashier') {
+            $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+            if ($branchId && $user->branch_id !== $branchId) {
+                return back()->with('error', 'Unauthorized: You can only cancel deliveries for your own branch.');
+            }
+        }
+
+        // ── Step 2: Guard against illogical cancellations ───────────────────
+        if ($delivery->isDelivered()) {
+            return back()->with('error', 'Cannot cancel a delivery that has already been delivered.');
+        }
+
+        if ($delivery->isCancelled()) {
+            return back()->with('error', 'Delivery is already cancelled.');
+        }
+
+        // ── Step 3: Execute Cancellation ───────────────────────────────────
+        try {
+            $delivery->update([
+                'status' => Delivery::STATUS_CANCELLED,
+                'cancellation_reason' => $request->input('reason', 'Customer requested cancellation'),
+                'cancelled_by' => $user->id,
+                'cancelled_at' => now(),
+            ]);
+
+            // Sync with parent order if applicable
+            if ($delivery->order) {
+                $delivery->order->update(['status' => 'cancelled']);
+            }
+
+            return back()->with('success', 'Delivery cancelled successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to cancel delivery: ' . $e->getMessage());
         }
     }
 

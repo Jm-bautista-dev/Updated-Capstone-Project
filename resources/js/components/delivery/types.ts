@@ -14,6 +14,11 @@ export interface Delivery {
     delivery_fee: number;
     created_at: string;
     next_statuses: string[];
+    is_cancelled: boolean;
+    is_delivered: boolean;
+    cancellation_reason?: string | null;
+    cancelled_at?: string | null;
+    cancelled_by_name?: string | null;
     sale?: {
         order_number: string;
         total: number;
@@ -65,6 +70,7 @@ export const STATUS_GROUPS = [
     { key: 'preparing', label: 'Preparing', statuses: ['preparing'], color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', ring: 'ring-blue-500/20' },
     { key: 'in_transit', label: 'In Transit', statuses: ['out_for_delivery'], color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200', ring: 'ring-violet-500/20' },
     { key: 'delivered', label: 'Delivered', statuses: ['delivered'], color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', ring: 'ring-emerald-500/20' },
+    { key: 'cancelled', label: 'Cancelled', statuses: ['cancelled'], color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', ring: 'ring-rose-500/20' },
 ] as const;
 
 export const formatCurrency = (amount: number) =>

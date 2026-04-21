@@ -2,6 +2,7 @@ import React from 'react';
 import {
     Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
 } from '@/components/ui/sheet';
+import { router } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -203,26 +204,47 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                 </a>
                             </InfoRow>
                         )}
+
+                        {delivery.is_cancelled && (
+                            <div className="bg-rose-50 dark:bg-rose-950/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-900/30">
+                                <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Cancellation Reason</p>
+                                <p className="text-sm font-semibold text-rose-700 dark:text-rose-300 italic">
+                                    "{delivery.cancellation_reason || 'No reason provided'}"
+                                </p>
+                                <p className="text-[9px] text-rose-600/60 mt-2 font-bold uppercase">
+                                    Cancelled by {delivery.cancelled_by_name || 'System'} • {delivery.cancelled_at}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Footer Actions */}
-                <SheetFooter className="p-6 pt-6 border-t mt-6 gap-2">
-                    {delivery.next_statuses.length > 0 && (
+                <SheetFooter className="p-6 pt-6 border-t mt-6 grid grid-cols-2 gap-3">
+                    {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (
                         <Button
-                            className="flex-1 h-11 rounded-2xl font-black gap-2 shadow-lg shadow-primary/20"
+                            className="col-span-2 h-12 rounded-2xl font-black gap-2 shadow-lg shadow-primary/20"
                             onClick={() => onUpdateStatus(delivery.id)}
                         >
                             Mark as {delivery.next_statuses[0].replace(/_/g, ' ').toUpperCase()}
                             <ChevronRight className="size-4" />
                         </Button>
                     )}
-                    <Button variant="outline" className="rounded-2xl gap-2">
-                        <ExternalLink className="size-4" />
-                        Print Waybill
+
+                    <Button variant="outline" className="rounded-2xl gap-2 font-bold">
+                        <FileText className="size-4" />
+                        Waybill
                     </Button>
-                    <Button variant="ghost" className="rounded-2xl gap-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50">
-                        <AlertCircle className="size-4" />
+
+                    {!delivery.is_delivered && !delivery.is_cancelled && (
+                        <CancelOrderDialog 
+                            deliveryId={delivery.id} 
+                            onSuccess={onClose}
+                        />
+                    )}
+
+                    <Button variant="ghost" className="col-span-2 rounded-2xl gap-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 text-xs font-bold">
+                        <AlertCircle className="size-3.5" />
                         Report Issue
                     </Button>
                 </SheetFooter>
@@ -230,5 +252,81 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
         </Sheet>
     );
 });
+
+// Separate component for the Cancel Dialog to keep the sheet clean
+function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSuccess: () => void }) {
+    const [open, setOpen] = React.useState(false);
+    const [reason, setReason] = React.useState('Customer requested cancellation');
+    const [processing, setProcessing] = React.useState(false);
+
+    const handleCancel = () => {
+        setProcessing(true);
+        router.post(`/deliveries/${deliveryId}/cancel`, { reason }, {
+            onSuccess: () => {
+                setOpen(false);
+                onSuccess();
+            },
+            onFinish: () => setProcessing(false)
+        });
+    };
+
+    return (
+        <Sheet open={open} onOpenChange={setOpen}>
+            <Button 
+                variant="outline" 
+                onClick={() => setOpen(true)}
+                className="rounded-2xl gap-2 font-bold text-rose-500 border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+            >
+                <AlertCircle className="size-4" />
+                Cancel
+            </Button>
+
+            <SheetContent side="bottom" className="rounded-t-[32px] p-8 sm:max-w-lg mx-auto">
+                <div className="max-w-md mx-auto space-y-6">
+                    <div className="flex flex-col items-center text-center gap-2">
+                        <div className="size-16 rounded-full bg-rose-100 flex items-center justify-center mb-2">
+                            <AlertCircle className="size-8 text-rose-600" />
+                        </div>
+                        <h2 className="text-2xl font-black tracking-tight">Cancel Delivery?</h2>
+                        <p className="text-muted-foreground">
+                            This will permanently stop the delivery process. <br/>
+                            This action is final and will be logged.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Reason for Cancellation</label>
+                            <textarea
+                                value={reason}
+                                onChange={e => setReason(e.target.value)}
+                                className="w-full mt-1.5 p-4 rounded-2xl border bg-muted/20 text-sm min-h-[100px] focus:ring-2 focus:ring-rose-500/20 transition-all outline-none"
+                                placeholder="Why is this order being cancelled?"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                            <Button 
+                                variant="outline" 
+                                className="h-12 rounded-2xl font-bold"
+                                onClick={() => setOpen(false)}
+                            >
+                                NEVERMIND
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                className="h-12 rounded-2xl font-black shadow-lg shadow-rose-500/20 bg-rose-600"
+                                disabled={processing}
+                                onClick={handleCancel}
+                            >
+                                {processing ? 'CANCELLING...' : 'CONFIRM CANCEL'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
 
 export default DeliveryDetailSheet;

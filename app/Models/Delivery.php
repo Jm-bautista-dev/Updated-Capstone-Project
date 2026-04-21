@@ -30,6 +30,9 @@ class Delivery extends Model
         'external_notes',
         'proof_of_delivery',
         'status',
+        'cancellation_reason',
+        'cancelled_by',
+        'cancelled_at',
         'created_by',
         'updated_by',
     ];
@@ -42,6 +45,7 @@ class Delivery extends Model
     const STATUS_READY            = 'ready_for_pickup';
     const STATUS_OUT_FOR_DELIVERY = 'out_for_delivery';
     const STATUS_DELIVERED         = 'delivered';
+    const STATUS_CANCELLED         = 'cancelled';
 
     // External delivery flow
     const STATUS_BOOKED    = 'booked';
@@ -79,6 +83,11 @@ class Delivery extends Model
         return $this->belongsTo(Rider::class);
     }
 
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -106,11 +115,20 @@ class Delivery extends Model
         return $this->status === self::STATUS_DELIVERED;
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
     /**
      * Get the next valid statuses for this delivery.
      */
     public function getNextStatuses(): array
     {
+        if ($this->isCancelled() || $this->isDelivered()) {
+            return [];
+        }
+
         $flow = $this->isInternal() ? self::INTERNAL_STATUSES : self::EXTERNAL_STATUSES;
         $currentIndex = array_search($this->status, $flow);
 
@@ -134,6 +152,7 @@ class Delivery extends Model
             self::STATUS_READY            => 'Ready for Pickup',
             self::STATUS_OUT_FOR_DELIVERY => 'Out for Delivery',
             self::STATUS_DELIVERED         => 'Delivered',
+            self::STATUS_CANCELLED         => 'Cancelled',
             self::STATUS_BOOKED           => 'Booked',
             self::STATUS_PICKED_UP        => 'Picked Up',
             default                       => ucfirst($this->status),
@@ -165,6 +184,7 @@ class Delivery extends Model
             self::STATUS_OUT_FOR_DELIVERY, self::STATUS_PICKED_UP => 'bg-violet-100 text-violet-700',
             self::STATUS_BOOKED                         => 'bg-sky-100 text-sky-700',
             self::STATUS_DELIVERED                       => 'bg-emerald-100 text-emerald-700',
+            self::STATUS_CANCELLED                       => 'bg-rose-100 text-rose-700',
             default                                     => 'bg-gray-100 text-gray-600',
         };
     }
