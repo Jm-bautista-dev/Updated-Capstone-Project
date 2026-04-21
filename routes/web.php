@@ -67,6 +67,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
         Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 
+        // Branch location/settings update (Admin only)
+        Route::put('branches/{id}', [BranchController::class, 'update'])->name('branches.update');
+
         // Administrative Inventory & Product Management
         Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');
         Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
@@ -117,8 +120,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
 
-        // Branches (for dropdowns)
-        Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
+        // Branches — returns Inertia page for admin
+        Route::get('branches', [BranchController::class, 'adminIndex'])->name('branches.index');
         Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');
         Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
 

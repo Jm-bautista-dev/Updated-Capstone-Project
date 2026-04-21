@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Api\ApiOrderController;
+use App\Http\Controllers\BranchController;
 
 // ─── External Operations API (Mobile App Entry) ──────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -32,6 +33,9 @@ Route::prefix('v1')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
 
+    // Branches — public (used by mobile for nearest-branch detection)
+    Route::get('branches', [BranchController::class, 'apiIndex']);
+
     // Public Menu (Guest Access Allowed)
     Route::get('products',       [ProductController::class, 'index']);
     Route::get('products/{id}',  [ProductController::class, 'show']);
@@ -51,11 +55,15 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
 
         // Auth
-        Route::get('user',   [AuthController::class, 'user']);
+        Route::get('user',    [AuthController::class, 'user']);
         Route::post('logout', [AuthController::class, 'logout']);
+
+        // Branch location update (admin only — update coordinates from web or SSH)
+        Route::patch('branches/{id}/location', [BranchController::class, 'updateLocation']);
 
     });
 });
+
 
 /*
 |--------------------------------------------------------------------------

@@ -16,6 +16,7 @@ import {
     Bike,
     TrendingUp,
     Zap,
+    MapPin,
 } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -106,7 +107,12 @@ const mainNavItems: NavItem[] = [
         title: 'Employees',
         href: '/employees',
         icon: Users,
-    }
+    },
+    {
+        title: 'Branches',
+        href: '/branches',
+        icon: MapPin,
+    },
 ];
 
 const footerNavItems: NavItem[] = [
@@ -132,7 +138,7 @@ export function AppSidebar() {
         { label: 'Sales', titles: ['Sales', 'Reports'] },
         { label: 'Analytics', titles: ['Performance', 'Forecast', 'Suggestions'] },
         { label: 'Logistics', titles: ['Delivery', 'Riders'] },
-        { label: 'Management', titles: ['Employees'] },
+        { label: 'Management', titles: ['Employees', 'Branches'] },
     ];
 
     return (

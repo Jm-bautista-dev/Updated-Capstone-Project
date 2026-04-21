@@ -14,72 +14,91 @@ class ProductController extends Controller
      * List products for the mobile app.
      * GET /api/v1/products
      *
-     * Modes:
-     *   ?mode=merged        → All branches, grouped by product name
-     *   ?branch_id=1        → Filter to a specific branch
-     *   (no params)         → All branches, flat list with branch info
+     * Logic:
+     *   1. If lat/lng provided → detect nearest branch.
+     *   2. If branch_id provided → use specific branch.
+     *   3. Scopes products via branch_product relationship (No duplication).
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Product::with(['unit_model', 'category', 'branch'])
-            ->orderBy('name');
+        $branchId = $request->integer('branch_id');
+        $resolvedBranch = null;
+        $distanceKm = null;
 
-        // ── Branch filter ─────────────────────────────────────────────────
-        if ($request->filled('branch_id')) {
-            $query->where('branch_id', $request->integer('branch_id'));
+        // ── Step 1: Resolve Nearest Branch if coordinates provided ──────────
+        if ($request->filled(['lat', 'lng'])) {
+            $lat = $request->float('lat');
+            $lng = $request->float('lng');
+
+            $resolvedBranch = \App\Models\Branch::select('*')
+                ->selectRaw(
+                    "(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
+                    [$lat, $lng, $lat]
+                )
+                ->orderBy('distance')
+                ->first();
+
+            if ($resolvedBranch) {
+                $branchId = $resolvedBranch->id;
+                $distanceKm = round($resolvedBranch->distance, 2);
+            }
         }
 
-        // ── Category filter ───────────────────────────────────────────────
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->integer('category_id'));
+        // ── Step 2: Fetch Products (Branch-Aware Scoping) ───────────────────
+        $query = Product::with(['unit_model', 'category', 'branches']);
+
+        if ($branchId) {
+            // Scope to specific branch via pivot table
+            $query->whereHas('branches', function ($q) use ($branchId) {
+                $q->where('branches.id', $branchId);
+            });
         }
 
-        // ── Search filter ─────────────────────────────────────────────────
+        // Search filter
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $products = $query->get();
+        // Category filter
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->integer('category_id'));
+        }
+
+        $products = $query->orderBy('name')->get();
 
         // ── Mode: merged — group by product name across branches ──────────
         if ($request->input('mode') === 'merged') {
             $grouped = $products
                 ->groupBy('name')
                 ->map(function ($group, $name) {
-                    /** @var Product $first */
                     $first = $group->first();
                     return [
                         'name'        => $name,
-                        'category_id' => $first->category_id,
                         'category'    => $first->category?->name ?? 'Uncategorized',
-                        'description' => $first->description,
                         'image'       => $this->resolveImageUrl($first->image_path),
-                        'unit'        => $first->unit_model?->abbreviation ?? ($first->unit ?? 'pcs'),
                         'branches'    => $group->map(fn(Product $p) => [
                             'branch_id'   => $p->branch_id,
-                            'branch_name' => $p->branch?->name ?? 'Unknown',
-                            'product_id'  => $p->id,
-                            'price'       => (float) ($p->selling_price ?? 0),
-                            'sku'         => $p->sku,
+                            'price'       => (float) $p->selling_price,
                         ])->values(),
                     ];
-                })
-                ->values();
+                })->values();
 
             return response()->json([
                 'mode'     => 'merged',
-                'count'    => $grouped->count(),
                 'products' => $grouped,
             ]);
         }
 
-        // ── Default: flat list with branch info ───────────────────────────
-        $formatted = $products->map(fn(Product $p) => $this->formatProduct($p));
+        // ── Default: Return scoped menu with location context ─────────────
+        $formatted = $products->map(fn(Product $p) => $this->formatProduct($p, $branchId));
 
         return response()->json([
-            'mode'     => $request->filled('branch_id') ? 'branch' : 'all',
-            'count'    => $formatted->count(),
-            'products' => $formatted,
+            'success'     => true,
+            'branch'      => $resolvedBranch ? $resolvedBranch->name : ($branchId ? \App\Models\Branch::find($branchId)?->name : 'Global'),
+            'branch_id'   => $branchId,
+            'distance_km' => $distanceKm,
+            'count'       => $formatted->count(),
+            'products'    => $formatted,
         ]);
     }
 
@@ -87,37 +106,38 @@ class ProductController extends Controller
      * Get a single product (detailed).
      * GET /api/v1/products/{id}
      */
-    public function show(int $id): JsonResponse
+    public function show(int $id, Request $request): JsonResponse
     {
-        $product = Product::with(['category', 'ingredients', 'branch', 'unit_model'])
+        $branchId = $request->integer('branch_id');
+        $product = Product::with(['category', 'ingredients', 'branches', 'unit_model'])
             ->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data'    => $this->formatProduct($product),
+            'data'    => $this->formatProduct($product, $branchId),
         ]);
     }
 
     /**
      * Format a single product for the mobile API response.
      */
-    private function formatProduct(Product $product): array
+    private function formatProduct(Product $product, ?int $branchId = null): array
     {
+        // Compute availability based on branch context
+        $availability = $product->dynamicAvailability($branchId);
+
         return [
             'id'            => $product->id,
             'name'          => $product->name,
             'sku'           => $product->sku,
             'price'         => (float) ($product->selling_price ?? 0),
-            'selling_price' => (float) ($product->selling_price ?? 0),
-            'cost_price'    => (float) ($product->cost_price ?? 0),
             'image'         => $this->resolveImageUrl($product->image_path),
-            'category_id'   => $product->category_id,
             'category'      => $product->category?->name ?? 'Uncategorized',
             'description'   => $product->description,
             'unit'          => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
-            'stock'         => (float) ($product->computed_stock ?? 0),
-            'branch_id'     => $product->branch_id,
-            'branch_name'   => $product->branch?->name ?? 'Unknown',
+            'stock'         => (float) $availability['available'],
+            'is_low_stock'  => $availability['is_low_stock'],
+            'limiting_item' => $availability['limiting_ingredient'],
         ];
     }
 
@@ -130,7 +150,9 @@ class ProductController extends Controller
         if (! $imagePath) return null;
 
         try {
-            return Storage::disk('public')->url($imagePath);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('public');
+            return $disk->url($imagePath);
         } catch (\Exception $e) {
             // Fallback: build URL manually using APP_URL
             return rtrim(config('app.url'), '/') . '/storage/' . $imagePath;
