@@ -61,7 +61,9 @@ const TableRow = React.memo(function TableRow({
 
             {/* Order # */}
             <div className="w-[120px] shrink-0">
-                <p className="font-bold text-xs truncate">{delivery.sale?.order_number}</p>
+                <p className="font-bold text-xs truncate">
+                    {delivery.sale?.order_number || `MOB-${delivery.order?.id?.toString().padStart(4, '0')}` || 'N/A'}
+                </p>
             </div>
 
             {/* Customer */}
@@ -79,12 +81,16 @@ const TableRow = React.memo(function TableRow({
 
             {/* Branch */}
             <div className="w-[120px] shrink-0 hidden xl:block">
-                <p className="text-xs text-muted-foreground truncate">{delivery.sale?.branch?.name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                    {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Main Branch'}
+                </p>
             </div>
 
             {/* Amount */}
             <div className="w-[100px] shrink-0 text-right">
-                <p className="font-bold text-xs tabular-nums">{formatCurrency(delivery.sale?.total ?? 0)}</p>
+                <p className="font-black text-xs tabular-nums text-primary">
+                    {formatCurrency(delivery.sale?.total || delivery.order?.total_amount || 0)}
+                </p>
             </div>
 
             {/* Date */}
@@ -198,7 +204,9 @@ const DeliveryTable = React.memo(function DeliveryTable({
                     cmp = a.status.localeCompare(b.status);
                     break;
                 case 'amount':
-                    cmp = (a.sale?.total || 0) - (b.sale?.total || 0);
+                    const totalA = a.sale?.total || a.order?.total_amount || 0;
+                    const totalB = b.sale?.total || b.order?.total_amount || 0;
+                    cmp = totalA - totalB;
                     break;
                 case 'date':
                     cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -246,19 +254,21 @@ const DeliveryTable = React.memo(function DeliveryTable({
             </div>
 
             {/* Virtualized Rows */}
-            <List
-                listRef={listRef}
-                style={{ height: listHeight }}
-                rowCount={sortedDeliveries.length}
-                rowHeight={ROW_HEIGHT}
-                overscanCount={5}
-                rowComponent={TableRow as any}
-                rowProps={{
-                    deliveries: sortedDeliveries,
-                    onSelect,
-                    onUpdateStatus
-                } as any}
-            />
+            <div className="relative">
+                <List
+                    listRef={listRef}
+                    style={{ height: listHeight, overflowX: 'hidden' }}
+                    rowCount={sortedDeliveries.length}
+                    rowHeight={ROW_HEIGHT}
+                    overscanCount={5}
+                    rowComponent={TableRow as any}
+                    rowProps={{
+                        deliveries: sortedDeliveries,
+                        onSelect,
+                        onUpdateStatus
+                    } as any}
+                />
+            </div>
         </div>
     );
 });
