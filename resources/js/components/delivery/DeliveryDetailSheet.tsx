@@ -2,6 +2,9 @@ import React from 'react';
 import {
     Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
 } from '@/components/ui/sheet';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
 import { router } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -231,7 +234,11 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </Button>
                     )}
 
-                    <Button variant="outline" className="rounded-2xl gap-2 font-bold">
+                    <Button 
+                        variant="outline" 
+                        className="rounded-2xl gap-2 font-bold"
+                        onClick={() => window.print()}
+                    >
                         <FileText className="size-4" />
                         Waybill
                     </Button>
@@ -253,7 +260,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
     );
 });
 
-// Separate component for the Cancel Dialog to keep the sheet clean
+// Separate component for the Cancel Dialog - now using centered Dialog
 function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSuccess: () => void }) {
     const [open, setOpen] = React.useState(false);
     const [reason, setReason] = React.useState('Customer requested cancellation');
@@ -271,7 +278,7 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
     };
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={setOpen}>
             <Button 
                 variant="outline" 
                 onClick={() => setOpen(true)}
@@ -281,14 +288,14 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
                 Cancel
             </Button>
 
-            <SheetContent side="bottom" className="rounded-t-[32px] p-8 sm:max-w-lg mx-auto">
-                <div className="max-w-md mx-auto space-y-6">
+            <DialogContent className="sm:max-w-[425px] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl">
+                <div className="p-8 space-y-6">
                     <div className="flex flex-col items-center text-center gap-2">
-                        <div className="size-16 rounded-full bg-rose-100 flex items-center justify-center mb-2">
+                        <div className="size-16 rounded-full bg-rose-50 flex items-center justify-center mb-2">
                             <AlertCircle className="size-8 text-rose-600" />
                         </div>
                         <h2 className="text-2xl font-black tracking-tight">Cancel Delivery?</h2>
-                        <p className="text-muted-foreground">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                             This will permanently stop the delivery process. <br/>
                             This action is final and will be logged.
                         </p>
@@ -300,7 +307,7 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
                             <textarea
                                 value={reason}
                                 onChange={e => setReason(e.target.value)}
-                                className="w-full mt-1.5 p-4 rounded-2xl border bg-muted/20 text-sm min-h-[100px] focus:ring-2 focus:ring-rose-500/20 transition-all outline-none"
+                                className="w-full mt-1.5 p-4 rounded-2xl border bg-muted/20 text-sm min-h-[100px] focus:ring-2 focus:ring-rose-500/20 transition-all outline-none resize-none"
                                 placeholder="Why is this order being cancelled?"
                             />
                         </div>
@@ -311,21 +318,21 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
                                 className="h-12 rounded-2xl font-bold"
                                 onClick={() => setOpen(false)}
                             >
-                                NEVERMIND
+                                BACK
                             </Button>
                             <Button
                                 variant="destructive"
-                                className="h-12 rounded-2xl font-black shadow-lg shadow-rose-500/20 bg-rose-600"
+                                className="h-12 rounded-2xl font-black shadow-lg shadow-rose-500/20 bg-rose-600 hover:bg-rose-700"
                                 disabled={processing}
                                 onClick={handleCancel}
                             >
-                                {processing ? 'CANCELLING...' : 'CONFIRM CANCEL'}
+                                {processing ? '...' : 'CONFIRM'}
                             </Button>
                         </div>
                     </div>
                 </div>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     );
 }
 
