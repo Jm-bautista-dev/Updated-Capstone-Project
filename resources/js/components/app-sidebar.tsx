@@ -128,7 +128,7 @@ export function AppSidebar() {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees', 'Performance', 'Forecast', 'Suggestions'];
+        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees', 'Performance', 'Forecast', 'Suggestions', 'Branches'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 
