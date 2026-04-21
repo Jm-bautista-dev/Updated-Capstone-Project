@@ -62,18 +62,28 @@ export function NotificationBell() {
     return (
         <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
-                <button className="relative p-2 rounded-full hover:bg-muted/50 transition-colors focus:outline-none">
-                    <FiBell className="size-5 text-muted-foreground" />
+                <button className="relative p-2 rounded-full hover:bg-muted/50 transition-colors focus:outline-none group">
+                    <FiBell className="size-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                     <AnimatePresence>
                         {unreadCount > 0 && (
                             <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                exit={{ scale: 0 }}
+                                key={unreadCount} // Re-trigger animation on count change
+                                initial={{ scale: 0.5, opacity: 0 }}
+                                animate={{ 
+                                    scale: [1, 1.2, 1],
+                                    opacity: 1 
+                                }}
+                                transition={{ 
+                                    scale: { duration: 0.3 },
+                                    opacity: { duration: 0.2 }
+                                }}
                                 className="absolute top-1 right-1"
                             >
-                                <Badge className="min-w-[18px] h-[18px] flex items-center justify-center p-0 text-[10px] font-bold bg-destructive text-destructive-foreground border-none">
-                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                <Badge 
+                                    variant="destructive"
+                                    className="min-w-[17px] h-[17px] rounded-full flex items-center justify-center p-0.5 text-[9px] font-black bg-rose-600 text-white border-white border-[1.5px] shadow-sm tabular-nums"
+                                >
+                                    {unreadCount > 99 ? '99+' : unreadCount}
                                 </Badge>
                             </motion.div>
                         )}

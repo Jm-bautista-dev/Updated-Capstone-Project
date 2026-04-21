@@ -24,6 +24,43 @@ class StockInController extends Controller
      * For ingredients: updates ingredient_stocks WHERE ingredient_id=X AND branch_id=Y.
      * NEVER allows cross-branch restocking.
      */
+    /**
+     * Handle bulk manual restocking for multiple ingredients or products.
+     * Atomic transaction via InventoryService.
+     */
+    public function massStore(Request $request)
+    {
+        $request->validate([
+            'branch_id' => 'required|exists:branches,id',
+            'items'     => 'required|array|min:1',
+            'items.*.id'       => 'required|integer',
+            'items.*.type'     => 'required|in:ingredient,product',
+            'items.*.quantity' => 'required|numeric|gt:0|max:10000',
+            'items.*.unit'     => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+        ]);
+
+        $user         = Auth::user();
+        $isAdmin      = $user->role === 'admin';
+        $userBranchId = $user->branch_id;
+
+        if (!$isAdmin && (int) $request->branch_id !== (int) $userBranchId) {
+            return back()->withErrors([
+                'branch_id' => 'You can only restock for your own branch.',
+            ]);
+        }
+
+        try {
+            $this->inventoryService->massStockIn(
+                $request->items,
+                (int) $request->branch_id
+            );
+
+            return back()->with('success', 'Mass restock completed successfully.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
     public function store(Request $request)
     {
         $request->validate([

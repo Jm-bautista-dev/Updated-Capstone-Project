@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FiFilter, FiDownload, FiSearch, FiFileText, FiDatabase, FiTrendingUp, FiDollarSign, FiShoppingBag, FiActivity, FiRefreshCw, FiAlertTriangle, FiZap } from 'react-icons/fi';
-import { useState } from 'react';
-import { format } from 'date-fns';
+import { FiFilter, FiDownload, FiSearch, FiFileText, FiDatabase, FiTrendingUp, FiDollarSign, FiShoppingBag, FiActivity, FiRefreshCw, FiAlertTriangle, FiZap, FiCalendar, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
+import { useState, useMemo } from 'react';
+import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, isBefore, parseISO } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -17,6 +18,108 @@ import {
 function formatCurrency(amount: number) {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 }
+
+// ── DATE RANGE PICKER COMPONENT ──
+const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onUpdate: (from: string, to: string) => void }) => {
+    const [open, setOpen] = useState(false);
+
+    const presets = [
+        { label: 'Today', getValue: () => ({ from: format(new Date(), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
+        { label: 'Yesterday', getValue: () => ({ from: format(subDays(new Date(), 1), 'yyyy-MM-dd'), to: format(subDays(new Date(), 1), 'yyyy-MM-dd') }) },
+        { label: 'Last 7 Days', getValue: () => ({ from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
+        { label: 'Last 30 Days', getValue: () => ({ from: format(subDays(new Date(), 30), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
+        { label: 'This Month', getValue: () => ({ from: format(startOfMonth(new Date()), 'yyyy-MM-dd'), to: format(endOfMonth(new Date()), 'yyyy-MM-dd') }) },
+    ];
+
+    const currentLabel = useMemo(() => {
+        if (!from || !to) return 'Select Date Range';
+        const fromDate = parseISO(from);
+        const toDate = parseISO(to);
+        const formatStr = 'MMM d, yyyy';
+        if (from === to) return format(fromDate, formatStr);
+        return `${format(fromDate, 'MMM d')} – ${format(toDate, formatStr)}`;
+    }, [from, to]);
+
+    const handlePreset = (preset: any) => {
+        const { from, to } = preset.getValue();
+        onUpdate(from, to);
+        setOpen(false);
+    };
+
+    const handleReset = () => {
+        onUpdate('', '');
+        setOpen(false);
+    };
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 px-4 rounded-xl font-bold text-[11px] justify-start gap-3 border-border/50 bg-background hover:bg-muted/50 min-w-[240px] transition-all">
+                    <FiCalendar className="size-4 text-primary" />
+                    <span className="truncate">{currentLabel}</span>
+                    <div className="ml-auto flex items-center gap-2">
+                        {from && (
+                            <div className="size-1.5 rounded-full bg-primary animate-pulse" />
+                        )}
+                    </div>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-0 rounded-2xl border-border/50 shadow-2xl overflow-hidden backdrop-blur-xl" align="end">
+                <div className="flex flex-col">
+                    <div className="p-4 border-b border-border/40 bg-muted/20">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 mb-3">Predefined Periods</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {presets.map((preset) => (
+                                <Button
+                                    key={preset.label}
+                                    variant="ghost"
+                                    onClick={() => handlePreset(preset)}
+                                    className="h-9 justify-start px-3 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all"
+                                >
+                                    {preset.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    <div className="p-5 space-y-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Custom Analytics Interval</p>
+                        <div className="space-y-3">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[9px] font-black uppercase text-muted-foreground/80 px-1">Start Point</label>
+                                <Input 
+                                    type="date" 
+                                    value={from} 
+                                    onChange={(e) => onUpdate(e.target.value, to)} 
+                                    className="h-10 rounded-xl bg-muted/30 border-none font-bold text-xs" 
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[9px] font-black uppercase text-muted-foreground/80 px-1">End Point</label>
+                                <Input 
+                                    type="date" 
+                                    value={to} 
+                                    min={from}
+                                    onChange={(e) => onUpdate(from, e.target.value)} 
+                                    className="h-10 rounded-xl bg-muted/30 border-none font-bold text-xs" 
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-2 pt-2">
+                            <Button variant="ghost" onClick={handleReset} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                Reset
+                            </Button>
+                            <Button onClick={() => setOpen(false)} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">
+                                Apply
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+};
 
 // ── CUSTOM RECHARTS TOOLTIP ──
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -74,8 +177,13 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo,   setDateTo]   = useState(filters.date_to   || '');
 
-    const handleFilter = () => {
-        router.get('/reports', { date_from: dateFrom, date_to: dateTo }, { preserveState: true });
+    const updateRange = (from: string, to: string) => {
+        setDateFrom(from);
+        setDateTo(to);
+        // Instant apply for presets
+        if (from !== dateFrom || to !== dateTo) {
+             router.get('/reports', { date_from: from, date_to: to }, { preserveState: true });
+        }
     };
 
     const handleExport = (type: 'pdf' | 'excel') => {
@@ -101,26 +209,20 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                     <p className="text-muted-foreground dark:text-zinc-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
-                            : 'Live data · Last 14 days'}
+                            : 'Live data · Strategic Overview'}
                     </p>
                 </div>
 
                 <div className="flex flex-col items-center xl:items-end gap-3 w-full xl:w-auto">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center xl:justify-end gap-2">
                         <Button variant="outline" onClick={() => handleExport('pdf')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
                             <FiFileText className="size-3.5 mr-2" /> PDF
                         </Button>
                         <Button variant="outline" onClick={() => handleExport('excel')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
                             <FiDatabase className="size-3.5 mr-2" /> Excel
                         </Button>
-                    </div>
-                    <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-xl border border-border/50 w-full xl:w-auto">
-                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 w-full xl:w-32 rounded-lg text-[10px] font-bold bg-background border-none shadow-sm" />
-                        <span className="text-muted-foreground/40 text-[10px] font-black">–</span>
-                        <Input type="date" value={dateTo}   onChange={(e) => setDateTo(e.target.value)}   className="h-9 w-full xl:w-32 rounded-lg text-[10px] font-bold bg-background border-none shadow-sm" />
-                        <Button onClick={handleFilter} variant="secondary" className="h-9 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest shrink-0">
-                            <FiFilter className="size-3 mr-2" /> Apply
-                        </Button>
+                        <div className="h-4 w-px bg-border/40 mx-1 hidden sm:block" />
+                        <DateRangePicker from={dateFrom} to={dateTo} onUpdate={updateRange} />
                     </div>
                 </div>
             </div>
@@ -168,80 +270,148 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
                     {/* Revenue + Profit area chart */}
-                    <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden h-[400px]">
-                        <CardHeader className="flex flex-row items-center justify-between p-6 pb-2">
+                    <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden group flex flex-col min-w-0">
+                        <CardHeader className="flex flex-row items-center justify-between p-8 shrink-0">
                             <div className="space-y-1">
                                 <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Revenue Growth Vector</CardTitle>
                                 <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                                     {filters.date_from ? 'Filtered Range' : 'Last 14 Days'} · {TREND_DATA.length} days
                                 </CardDescription>
                             </div>
+                            <div className="hidden sm:flex items-center gap-6">
+                                <div className="flex items-center gap-2 text-primary">
+                                    <div className="size-2.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Revenue</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-emerald-500">
+                                    <div className="size-2.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Profit</span>
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent className="p-0 h-[320px] min-h-[320px]">
+                        <CardContent className="p-0">
                             {hasChart ? (
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <AreaChart data={TREND_DATA} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.2} />
-                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}   />
-                                            </linearGradient>
-                                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%"  stopColor="#10b981" stopOpacity={0.15} />
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}    />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
-                                        <XAxis dataKey="date" stroke="currentColor" className="text-muted-foreground dark:text-zinc-600" fontSize={10} fontWeight="black" axisLine={false} tickLine={false} tickMargin={10} minTickGap={20} />
-                                        <YAxis stroke="currentColor" className="text-muted-foreground dark:text-zinc-600" fontSize={10} fontWeight="black" axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Area type="monotone" dataKey="Revenue" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRev)" />
-                                        <Area type="monotone" dataKey="Profit"  stroke="#10b981" strokeWidth={1.5} fillOpacity={1} fill="url(#colorProfit)" strokeDasharray="4 2" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <div className="w-full px-6 pb-6" style={{ height: 400, minWidth: 0 }}>
+                                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                        <AreaChart data={TREND_DATA} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                                            <defs>
+                                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.2} />
+                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}   />
+                                                </linearGradient>
+                                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.15} />
+                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}    />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                                            <XAxis 
+                                                dataKey="date" 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tick={{ fontSize: 10, fontWeight: "900", fill: '#94a3b8' }}
+                                                dy={10}
+                                            />
+                                            <YAxis 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tick={{ fontSize: 10, fontWeight: "900", fill: '#94a3b8' }}
+                                                dx={-10}
+                                                tickFormatter={(v) => `₱${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`} 
+                                            />
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Area 
+                                                type="monotone" 
+                                                dataKey="Revenue" 
+                                                name="Revenue"
+                                                stroke="#6366f1" 
+                                                strokeWidth={4} 
+                                                fillOpacity={1} 
+                                                fill="url(#colorRev)" 
+                                                animationDuration={1000}
+                                                dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#6366f1' }}
+                                                activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }}
+                                            />
+                                            <Area 
+                                                type="monotone" 
+                                                dataKey="Profit"  
+                                                name="Profit"
+                                                stroke="#10b981" 
+                                                strokeWidth={3} 
+                                                fillOpacity={1} 
+                                                fill="url(#colorProfit)" 
+                                                strokeDasharray="5 5" 
+                                                animationDuration={1000}
+                                                dot={{ r: 3, strokeWidth: 2, fill: '#fff', stroke: '#10b981' }}
+                                                activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981' }}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
                             ) : (
-                                <div className="h-full flex items-center justify-center">
-                                    <p className="text-sm font-bold text-muted-foreground italic">No sales data for this period.</p>
+                                <div className="h-[400px] flex flex-col items-center justify-center p-12 text-center">
+                                    <div className="size-16 rounded-3xl bg-muted flex items-center justify-center mb-4">
+                                        <FiActivity className="size-8 text-muted-foreground/40" />
+                                    </div>
+                                    <p className="text-sm font-black uppercase italic tracking-widest text-muted-foreground/60">No data points detected</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground/40 mt-1 uppercase">Telemetry stream is currently empty for this vector</p>
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
                     {/* Product revenue pie */}
-                    <Card className="xl:col-span-4 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-[400px]">
-                        <CardHeader className="p-6 pb-2">
+                    <Card className="xl:col-span-4 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-full min-h-[450px] min-w-0 overflow-hidden">
+                        <CardHeader className="p-8 pb-4 shrink-0">
                             <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Revenue Mix</CardTitle>
                             <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Top Products by Revenue</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-1 flex flex-col items-center justify-center p-6 pt-0">
+                        <CardContent className="flex-1 flex flex-col items-center justify-center p-8 pt-0 min-h-0">
                             {CAT_DATA.length > 0 ? (
                                 <>
-                                    <div className="h-[200px] w-full relative min-h-[200px]">
-                                        <ResponsiveContainer width="100%" height={200}>
+                                    <div className="w-full relative shrink-0 focus:outline-none" style={{ height: 240, minWidth: 0 }}>
+                                        <ResponsiveContainer width="100%" height="100%" debounce={50}>
                                             <PieChart>
-                                                <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={8} dataKey="value" stroke="none">
+                                                <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={8} dataKey="value" stroke="none" isAnimationActive={true}>
                                                     {CAT_DATA.map((entry: any, index: number) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                        <Cell key={`cell-${index}`} fill={entry.color} className="focus:outline-none" />
                                                     ))}
                                                 </Pie>
                                                 <Tooltip content={<CustomTooltip />} />
                                             </PieChart>
                                         </ResponsiveContainer>
+                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total</p>
+                                            <p className="text-xl font-black italic text-foreground leading-none">100%</p>
+                                        </div>
                                     </div>
-                                    <div className="w-full grid grid-cols-2 gap-x-4 gap-y-3 mt-4">
-                                        {CAT_DATA.map((cat: any) => (
-                                            <div key={cat.name} className="flex justify-between items-center group">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="size-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors truncate max-w-[64px]">{cat.name}</span>
-                                                </div>
-                                                <span className="text-[10px] font-black tabular-nums">{cat.value}%</span>
+
+                                    {/* Legend with scrollable area */}
+                                    <div className="w-full mt-6 px-2 overflow-hidden flex-1 min-h-0 flex flex-col">
+                                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+                                            <div className="grid grid-cols-2 xl:grid-cols-1 gap-x-6 gap-y-3">
+                                                {CAT_DATA.map((cat: any) => (
+                                                    <div key={cat.name} className="flex items-center justify-between group cursor-default gap-3 min-w-0 transition-all duration-200 hover:translate-x-1">
+                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                            <div className="size-2 rounded-full shrink-0 shadow-[0_0_5px_rgba(0,0,0,0.1)]" style={{ backgroundColor: cat.color }} />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors truncate">
+                                                                {cat.name}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-[10px] font-black tabular-nums shrink-0 text-muted-foreground group-hover:text-primary transition-colors">
+                                                            {cat.value}%
+                                                        </span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
+                                        </div>
                                     </div>
                                 </>
                             ) : (
-                                <p className="text-sm font-bold text-muted-foreground italic">No product data yet.</p>
+                                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-40">
+                                    <FiActivity className="size-10 mb-4" />
+                                    <p className="text-[10px] font-black uppercase tracking-widest italic">Mix Distribution Null</p>
+                                </div>
                             )}
                         </CardContent>
                     </Card>

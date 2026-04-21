@@ -137,7 +137,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/Admin/DeliveryController.php:99
  * @route '/deliveries/{delivery}/status'
  */
-export const updateStatus = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+export const updateStatus = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: updateStatus.url(args, options),
     method: 'put',
 })
@@ -152,7 +152,7 @@ updateStatus.definition = {
  * @see app/Http/Controllers/Admin/DeliveryController.php:99
  * @route '/deliveries/{delivery}/status'
  */
-updateStatus.url = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+updateStatus.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { delivery: args }
     }
@@ -185,7 +185,7 @@ updateStatus.url = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:99
  * @route '/deliveries/{delivery}/status'
  */
-updateStatus.put = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+updateStatus.put = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: updateStatus.url(args, options),
     method: 'put',
 })
@@ -195,7 +195,7 @@ updateStatus.put = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:99
  * @route '/deliveries/{delivery}/status'
  */
-    const updateStatusForm = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const updateStatusForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: updateStatus.url(args, {
                     [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                         _method: 'PUT',
@@ -210,7 +210,7 @@ updateStatus.put = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:99
  * @route '/deliveries/{delivery}/status'
  */
-        updateStatusForm.put = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        updateStatusForm.put = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: updateStatus.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'PUT',

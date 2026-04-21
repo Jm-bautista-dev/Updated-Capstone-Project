@@ -100,6 +100,28 @@ class InventoryService
     }
 
     /**
+     * Perform bulk stock-in for multiple items in a single transaction.
+     */
+    public function massStockIn(array $items, int $branchId, ?int $userId = null)
+    {
+        return DB::transaction(function () use ($items, $branchId, $userId) {
+            $results = [];
+            foreach ($items as $item) {
+                $results[] = $this->stockIn(
+                    $item['type'] ?? 'ingredient',
+                    (int) $item['id'],
+                    (float) $item['quantity'],
+                    $item['unit'],
+                    $branchId,
+                    (float) ($item['purchase_price'] ?? 0),
+                    $userId
+                );
+            }
+            return $results;
+        });
+    }
+
+    /**
      * Stock-in Product logic...
      */
     protected function stockInProduct($productId, $quantity, $quantityBase, $rawUnit, $branchId, $userId) {

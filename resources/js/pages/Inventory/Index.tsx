@@ -26,6 +26,7 @@ import {
 } from 'react-icons/fi';
 import { StockInModal } from '@/components/stock-in-modal';
 import { WastageModal } from '@/components/wastage-modal';
+import { MassRestockModal } from '@/components/mass-restock-modal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -130,6 +131,8 @@ export default function InventoryIndex() {
     type: 'success', title: '', message: '',
   });
   const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
+  const [isMassRestockModalOpen, setIsMassRestockModalOpen] = useState(false);
+  const [activeRestockBranch, setActiveRestockBranch] = useState<{ id: number; name: string } | null>(null);
 
   const openStockInModal = (row: InventoryRow) => {
     setSelectedRow(row);
@@ -139,6 +142,11 @@ export default function InventoryIndex() {
   const openWastageModal = (row: InventoryRow) => {
     setSelectedRow(row);
     setIsWastageModalOpen(true);
+  };
+
+  const openMassRestockModal = (branchId: number, branchName: string) => {
+    setActiveRestockBranch({ id: branchId, name: branchName });
+    setIsMassRestockModalOpen(true);
   };
 
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
@@ -489,34 +497,28 @@ export default function InventoryIndex() {
                                 </div>
                            </div>
 
-                           <div className="flex items-center gap-3">
-                              {items.some(i => i.is_low_stock || i.is_out_of_stock) && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const firstCritical = items.find(i => i.is_out_of_stock) || items.find(i => i.is_low_stock);
-                                        if (firstCritical) openStockInModal(firstCritical);
-                                      }}
-                                    >
-                                      <FiRefreshCw className="size-3 animate-spin-slow" /> Restock Item
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="bg-primary text-white border-none font-bold text-[10px] uppercase">Restock the item with the lowest stock</TooltipContent>
-                                </Tooltip>
-                              )}
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className={cn("size-9 rounded-xl transition-all duration-300", expandedBranches.includes(branchName) ? "bg-primary/10 text-primary rotate-180" : "bg-muted/30")}
-                              >
-                                <FiChevronDown className="size-4" />
-                              </Button>
-                           </div>
+                               <div className="flex items-center gap-3">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const bId = items[0]?.branch_id;
+                                      if (bId) openMassRestockModal(bId, branchName);
+                                    }}
+                                  >
+                                    <FiZap className="size-3 text-amber-500 fill-amber-500" /> Mass Restock
+                                  </Button>
+
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className={cn("size-9 rounded-xl transition-all duration-300", expandedBranches.includes(branchName) ? "bg-primary/10 text-primary rotate-180" : "bg-muted/30")}
+                                  >
+                                    <FiChevronDown className="size-4" />
+                                  </Button>
+                               </div>
                         </div>
                       </div>
                     </CardHeader>
@@ -776,6 +778,14 @@ export default function InventoryIndex() {
         onOpenChange={setIsWastageModalOpen}
         item={selectedRow}
         type="ingredient"
+      />
+
+      <MassRestockModal
+        open={isMassRestockModalOpen}
+        onOpenChange={setIsMassRestockModalOpen}
+        branchName={activeRestockBranch?.name || ''}
+        branchId={activeRestockBranch?.id || 0}
+        inventory={inventory}
       />
 
       {/* ── Add/Edit Ingredient Modal ────────────────────────────────────── */}

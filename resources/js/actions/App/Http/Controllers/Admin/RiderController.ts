@@ -409,7 +409,7 @@ edit.head = (args: { rider: string | number } | [rider: string | number ] | stri
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-export const update = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+export const update = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: update.url(args, options),
     method: 'put',
 })
@@ -424,7 +424,7 @@ update.definition = {
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-update.url = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+update.url = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { rider: args }
     }
@@ -457,7 +457,7 @@ update.url = (args: { rider: string | number | { id: string | number } } | [ride
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-update.put = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+update.put = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: update.url(args, options),
     method: 'put',
 })
@@ -466,7 +466,7 @@ update.put = (args: { rider: string | number | { id: string | number } } | [ride
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-update.patch = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -476,7 +476,7 @@ update.patch = (args: { rider: string | number | { id: string | number } } | [ri
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-    const updateForm = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const updateForm = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: update.url(args, {
                     [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                         _method: 'PUT',
@@ -491,7 +491,7 @@ update.patch = (args: { rider: string | number | { id: string | number } } | [ri
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-        updateForm.put = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        updateForm.put = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: update.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'PUT',
@@ -505,7 +505,7 @@ update.patch = (args: { rider: string | number | { id: string | number } } | [ri
  * @see app/Http/Controllers/Admin/RiderController.php:56
  * @route '/riders/{rider}'
  */
-        updateForm.patch = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        updateForm.patch = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: update.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'PATCH',
@@ -521,7 +521,7 @@ update.patch = (args: { rider: string | number | { id: string | number } } | [ri
  * @see app/Http/Controllers/Admin/RiderController.php:70
  * @route '/riders/{rider}'
  */
-export const destroy = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -536,7 +536,7 @@ destroy.definition = {
  * @see app/Http/Controllers/Admin/RiderController.php:70
  * @route '/riders/{rider}'
  */
-destroy.url = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { rider: args }
     }
@@ -569,7 +569,7 @@ destroy.url = (args: { rider: string | number | { id: string | number } } | [rid
  * @see app/Http/Controllers/Admin/RiderController.php:70
  * @route '/riders/{rider}'
  */
-destroy.delete = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -579,7 +579,7 @@ destroy.delete = (args: { rider: string | number | { id: string | number } } | [
  * @see app/Http/Controllers/Admin/RiderController.php:70
  * @route '/riders/{rider}'
  */
-    const destroyForm = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const destroyForm = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: destroy.url(args, {
                     [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                         _method: 'DELETE',
@@ -594,7 +594,7 @@ destroy.delete = (args: { rider: string | number | { id: string | number } } | [
  * @see app/Http/Controllers/Admin/RiderController.php:70
  * @route '/riders/{rider}'
  */
-        destroyForm.delete = (args: { rider: string | number | { id: string | number } } | [rider: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        destroyForm.delete = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: destroy.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'DELETE',

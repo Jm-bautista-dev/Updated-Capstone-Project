@@ -96,6 +96,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Inventory
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
         Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
+        Route::post('/inventory/mass-stock-in', [App\Http\Controllers\StockInController::class, 'massStore'])->name('inventory.mass-stock-in');
         Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
 
         // Reports
