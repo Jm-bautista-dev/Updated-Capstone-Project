@@ -123,9 +123,9 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                         </Badge>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                         {isAdmin && (
-                            <div className="sm:col-span-2 space-y-1.5">
+                            <div className="col-span-2 space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Destination Branch</label>
                                 <Select value={data.branch_id} onValueChange={(v) => setData('branch_id', v)}>
                                     <SelectTrigger className="h-11 rounded-xl bg-muted/20 border-none ring-1 ring-muted">

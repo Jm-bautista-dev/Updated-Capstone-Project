@@ -6,8 +6,6 @@ import {
     FiFilter, FiCheckCircle, FiPlusCircle, FiBarChart2, FiInfo,
     FiAlertTriangle, FiShield, FiMinus, FiActivity, FiZap,
 } from 'react-icons/fi';
-import { MobileFilter } from '@/components/shared/mobile-filter';
-import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -177,8 +175,8 @@ export default function RestockSuggestions() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto no-scrollbar">
-                        <div className="hidden md:flex items-center bg-emerald-50/50 dark:bg-emerald-500/10 rounded-xl p-1 gap-1 border border-emerald-100 dark:border-emerald-500/20">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center bg-emerald-50/50 dark:bg-emerald-500/10 rounded-xl p-1 gap-1 border border-emerald-100 dark:border-emerald-500/20">
                             <FiFilter className="text-emerald-600 dark:text-emerald-400 ml-2 size-4" />
                             <Select value={branchId} onValueChange={v => { setBranchId(v); handleFilterChange('branch_id', v); }}>
                                 <SelectTrigger className="w-56 bg-transparent border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-tight text-emerald-900 dark:text-emerald-200">
@@ -191,55 +189,12 @@ export default function RestockSuggestions() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        
-                        <MobileFilter
-                            title="Restock AI Filters"
-                            activeFilterCount={(branchId ? 1 : 0) + (activeFilter !== 'All' ? 1 : 0)}
-                            activeFilterSummary={`${branchId ? (branches?.find((b: any) => String(b.id) === branchId)?.name || 'Selected Branch') : 'All Branches'} • ${activeFilter}`}
-                            onClear={() => {
-                                setBranchId('');
-                                setFilter('All');
-                                handleFilterChange('branch_id', '');
-                            }}
-                        >
-                            <div className="flex flex-col gap-6 w-full">
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Shop Location</span>
-                                    <Select value={branchId} onValueChange={v => { setBranchId(v); handleFilterChange('branch_id', v); }}>
-                                        <SelectTrigger className="w-full h-12 bg-emerald-50/50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20 rounded-xl text-xs font-black uppercase tracking-tight text-emerald-900 dark:text-emerald-200">
-                                            <SelectValue placeholder="Select Branch" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            <SelectItem value="all" className="font-bold py-3">All Branches</SelectItem>
-                                            {branches?.map((b: any) => (
-                                                <SelectItem key={b.id} value={String(b.id)} className="font-bold py-3">{b.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Urgency Level</span>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {(['All', 'Out of Stock', 'Critical', 'Warning', 'Safe'] as const).map(f => (
-                                            <Button
-                                                key={f}
-                                                variant={activeFilter === f ? "default" : "outline"}
-                                                onClick={() => setFilter(f as any)}
-                                                className={cn("h-12 justify-start font-black uppercase text-[10px] tracking-widest px-4 rounded-xl transition-all", activeFilter === f ? "bg-primary text-white shadow-lg shadow-primary/20" : "")}
-                                            >
-                                                {f}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </MobileFilter>
                     </div>
                 </div>
 
                 {/* ── Body ───────────────────────────────────────────────────── */}
                 <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
+
                     {/* Error */}
                     {error && (
                         <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 rounded-2xl">
@@ -259,6 +214,7 @@ export default function RestockSuggestions() {
                                 transition={{ duration: 0.3 }}
                                 className="space-y-6"
                             >
+
                                 {/* ── Forecast Context Banner ───────────────── */}
                                 <div className={cn(
                                     'flex flex-wrap items-start gap-4 p-5 rounded-2xl border',
@@ -333,7 +289,8 @@ export default function RestockSuggestions() {
                                     />
                                 </div>
 
-                                <div className="hidden md:flex flex-wrap gap-2">
+                                {/* ── Urgency Filter Tabs ──────────────────── */}
+                                <div className="flex flex-wrap gap-2">
                                     {(['All', 'Out of Stock', 'Critical', 'Warning', 'Safe'] as const).map(f => (
                                         <button
                                             key={f}
@@ -351,6 +308,7 @@ export default function RestockSuggestions() {
                                     ))}
                                 </div>
 
+                                {/* ── Main Table ────────────────────────────── */}
                                 <Card className="border-none shadow-sm ring-1 ring-border dark:ring-zinc-800 bg-card dark:bg-zinc-900/50 overflow-hidden">
                                     <CardHeader className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4">
                                         <div className="flex items-center justify-between">

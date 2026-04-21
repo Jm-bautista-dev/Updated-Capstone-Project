@@ -3,10 +3,9 @@ import { router } from '@inertiajs/core';
 import { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { ResultModal } from '@/components/result-modal';
-import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage, FiFilter } from 'react-icons/fi';
+import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { MobileFilter } from '@/components/shared/mobile-filter';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -61,7 +60,6 @@ export default function PosIndex() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderType, setOrderType] = useState('dine-in');
   const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // Modal States
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -298,17 +296,13 @@ export default function PosIndex() {
     <AppLayout breadcrumbs={[{ title: 'POS', href: '/pos' }]}>
       <Head title="Point of Sale" />
 
-        {/* Main POS Container */}
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden bg-muted/20 relative">
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-muted/20">
         {/* Left: Product Catalog */}
-        <div className={cn(
-          "flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300",
-          isMobileCartOpen ? "hidden lg:flex" : "flex"
-        )}>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
           {/* Header: Search & Branch */}
-          <div className="p-4 bg-background border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="hidden md:flex flex-1 relative">
+          <div className="p-4 bg-background border-b flex items-center justify-between gap-4">
+            <div className="flex-1 relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
               <Input
                 placeholder="Search products..."
@@ -317,78 +311,17 @@ export default function PosIndex() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-                <MobileFilter
-                    title="Menu Navigation"
-                    activeFilterCount={(search ? 1 : 0) + (selectedCategory ? 1 : 0)}
-                    activeFilterSummary={`${search ? `"${search}"` : 'All Products'} • ${selectedCategory ? (categories.find((c: any) => c.id === selectedCategory)?.name || 'Category') : 'All categories'}`}
-                    onClear={() => {
-                        setSearch('');
-                        setSelectedCategory(null);
-                    }}
-                >
-                    <div className="flex flex-col gap-6 w-full">
-                        <div className="flex flex-col gap-2">
-                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">Search Menu</span>
-                            <div className="relative">
-                                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5" />
-                                <Input
-                                    placeholder="Find a product..."
-                                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-none shadow-inner text-base font-bold"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                           <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">Food Category</span>
-                           <div className="grid grid-cols-3 gap-2">
-                                <Button
-                                    variant={selectedCategory === null ? "default" : "outline"}
-                                    onClick={() => setSelectedCategory(null)}
-                                    className={cn("h-20 flex-col gap-1 rounded-2xl font-black uppercase text-[10px] tracking-widest", selectedCategory === null ? "bg-primary text-white" : "")}
-                                >
-                                    <FiLayers className="size-5" />
-                                    <span>All Items</span>
-                                </Button>
-                                {categories.map((c: Category) => (
-                                    <Button
-                                        key={c.id}
-                                        variant={selectedCategory === c.id ? "default" : "outline"}
-                                        onClick={() => setSelectedCategory(c.id)}
-                                        className={cn("h-20 flex-col gap-1 rounded-2xl font-black uppercase text-[10px] tracking-widest", selectedCategory === c.id ? "bg-primary text-white" : "")}
-                                    >
-                                        <div className="size-8 rounded-full overflow-hidden border border-white/20 mb-1">
-                                            {c.image_url ? (
-                                                <img src={c.image_url} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full bg-muted flex items-center justify-center">
-                                                    <FiLayers className="size-4 text-muted-foreground/30" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <span className="truncate w-full text-center">{c.name}</span>
-                                    </Button>
-                                ))}
-                           </div>
-                        </div>
-                    </div>
-                </MobileFilter>
-
-                {branch && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 shrink-0">
-                        <FiPackage className="size-3.5 text-primary" />
-                        <span className="text-xs font-black text-primary uppercase tracking-tight">{branch.name}</span>
-                    </div>
-                )}
-            </div>
+            {branch && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 shrink-0">
+                <FiPackage className="size-3.5 text-primary" />
+                <span className="text-xs font-black text-primary uppercase tracking-tight">{branch.name}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {/* Category Navigation (Hidden on mobile via MobileFilter handle above, but we keep the row layout for desktop) */}
-            <div className="hidden md:block bg-background/80 backdrop-blur-md border-b px-4 py-4 sticky top-0 z-10 shadow-sm overflow-hidden">
+            {/* Category Navigation (McDonald's Style) */}
+            <div className="bg-background/80 backdrop-blur-md border-b px-4 py-4 sticky top-0 z-10 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide px-2">
                     {/* All Items Card */}
                     <motion.button
@@ -450,14 +383,13 @@ export default function PosIndex() {
                 </div>
             </div>
 
-
             {/* Product Grid */}
             <div>
-              <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mb-3 px-2 sm:px-0">
+              <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mb-3">
                 Menu <span className="text-primary">({filteredProducts.length})</span>
               </p>
               <AnimatePresence mode="popLayout">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {filteredProducts.map((p: Product) => (
                     <motion.div
                       key={p.id}
@@ -537,23 +469,14 @@ export default function PosIndex() {
         </div>
 
         {/* Right: Cart */}
-        <div className={cn(
-          "fixed inset-0 z-50 lg:relative lg:inset-auto lg:flex bg-background border-l w-full lg:w-80 xl:w-96 flex-col transition-all duration-300 transform",
-          isMobileCartOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0",
-          !isMobileCartOpen && "hidden lg:flex"
-        )}>
-          {/* Cart Header (Mobile Close Button) */}
-          <div className="p-4 border-b flex items-center justify-between bg-background sticky top-0 z-10">
-            <div className="flex items-center gap-2 font-black italic uppercase tracking-tighter text-lg">
+        <div className="w-80 lg:w-96 flex flex-col bg-background border-l">
+          {/* Cart Header */}
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold">
               <FiShoppingCart className="text-primary" />
-              Cart
+              Current Order
             </div>
-            <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-black tabular-nums">{cart.length}</Badge>
-                <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileCartOpen(false)}>
-                    <FiMinus className="size-5" />
-                </Button>
-            </div>
+            <Badge variant="secondary">{cart.length} items</Badge>
           </div>
 
           {/* Cart Items */}
@@ -796,25 +719,6 @@ export default function PosIndex() {
           </div>
         </div>
       </div>
-
-      {/* Mobile Cart FAB */}
-      <motion.div 
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: cart.length > 0 ? 1 : 0, opacity: cart.length > 0 ? 1 : 0 }}
-        className="fixed bottom-6 right-6 z-40 lg:hidden"
-      >
-        <Button 
-          onClick={() => setIsMobileCartOpen(true)}
-          className="size-16 rounded-full shadow-2xl shadow-primary/40 flex flex-col items-center justify-center gap-1 border-4 border-white dark:border-zinc-900"
-        >
-          <div className="relative">
-            <FiShoppingCart className="size-6" />
-            <span className="absolute -top-3 -right-3 size-6 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-900 animate-in zoom-in">
-                {cart.reduce((s, i) => s + i.quantity, 0)}
-            </span>
-          </div>
-        </Button>
-      </motion.div>
 
       {/* Payment Modal */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>

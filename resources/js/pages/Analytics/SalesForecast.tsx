@@ -187,7 +187,7 @@ export default function SalesForecast() {
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
 
                 {/* ── Header ─────────────────────────────────────────────────── */}
-                <div className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-4 sm:px-8 py-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shrink-0">
+                <div className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
                     <div>
                         <h1 className="text-2xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
                             <FiTarget className="text-primary" />
@@ -232,7 +232,7 @@ export default function SalesForecast() {
                 </div>
 
                 {/* ── Body ───────────────────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-8 no-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-8">
 
                     {/* Error */}
                     {error && (

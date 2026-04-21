@@ -78,8 +78,8 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     login.form = loginForm
 /**
-* @see \App\Http\Controllers\Auth\LogoutController::__invoke
- * @see app/Http/Controllers/Auth/LogoutController.php:14
+* @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
+ * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
  * @route '/logout'
  */
 export const logout = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -93,8 +93,8 @@ logout.definition = {
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\Auth\LogoutController::__invoke
- * @see app/Http/Controllers/Auth/LogoutController.php:14
+* @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
+ * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
  * @route '/logout'
  */
 logout.url = (options?: RouteQueryOptions) => {
@@ -102,8 +102,8 @@ logout.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \App\Http\Controllers\Auth\LogoutController::__invoke
- * @see app/Http/Controllers/Auth/LogoutController.php:14
+* @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
+ * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
  * @route '/logout'
  */
 logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -112,8 +112,8 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
     /**
-* @see \App\Http\Controllers\Auth\LogoutController::__invoke
- * @see app/Http/Controllers/Auth/LogoutController.php:14
+* @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
+ * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
  * @route '/logout'
  */
     const logoutForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -122,8 +122,8 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     })
 
             /**
-* @see \App\Http\Controllers\Auth\LogoutController::__invoke
- * @see app/Http/Controllers/Auth/LogoutController.php:14
+* @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
+ * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
  * @route '/logout'
  */
         logoutForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -133,7 +133,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     
     logout.form = logoutForm
 /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -147,7 +147,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
 home.url = (options?: RouteQueryOptions) => {
@@ -155,7 +155,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -163,7 +163,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -172,7 +172,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
     const homeForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -181,7 +181,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
         homeForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -189,7 +189,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
- * @see routes/web.php:25
+ * @see [serialized-closure]:2
  * @route '/'
  */
         homeForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -204,7 +204,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     home.form = homeForm
 /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
 export const menu = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -218,7 +218,7 @@ menu.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
 menu.url = (options?: RouteQueryOptions) => {
@@ -226,7 +226,7 @@ menu.url = (options?: RouteQueryOptions) => {
 }
 
 /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
 menu.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -234,7 +234,7 @@ menu.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
 menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -243,7 +243,7 @@ menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
     const menuForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -252,7 +252,7 @@ menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
         menuForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -260,7 +260,7 @@ menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
- * @see routes/web.php:36
+ * @see [serialized-closure]:2
  * @route '/menu'
  */
         menuForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
