@@ -7,11 +7,13 @@ return [
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
     |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
+    | The mobile app (React Native) authenticates via Sanctum Bearer tokens —
+    | it is stateless and does NOT need credentials (cookies). Setting
+    | supports_credentials=true with allowed_origins=['*'] is invalid per
+    | the CORS spec and causes browsers/apps to reject the response.
     |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    | Fix: supports_credentials=false for API routes (token-based mobile auth).
+    | The web SPA is same-domain so it is not subject to CORS at all.
     |
     */
 
@@ -19,16 +21,20 @@ return [
 
     'allowed_methods' => ['*'],
 
+    // '*' is valid only when supports_credentials is false.
+    // Mobile app uses Bearer token — no cookies, no credentials needed.
     'allowed_origins' => ['*'],
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['Content-Type', 'X-Requested-With', 'Authorization', 'Accept', 'X-XSRF-TOKEN'],
+    'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    'max_age' => 86400,
 
-    'supports_credentials' => true,
+    // IMPORTANT: Must be false when allowed_origins is '*'.
+    // Mobile Bearer-token auth does not require cookies/credentials.
+    'supports_credentials' => false,
 
 ];
