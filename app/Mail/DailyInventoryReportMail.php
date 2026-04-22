@@ -28,7 +28,7 @@ class DailyInventoryReportMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '📊 Maki POS - Daily Operations Report (' . now()->format('M d, Y') . ')',
+            subject: 'Daily Business Summary – ' . now()->format('M d, Y'),
         );
     }
 

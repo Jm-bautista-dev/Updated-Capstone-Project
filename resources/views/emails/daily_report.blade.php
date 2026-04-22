@@ -2,142 +2,116 @@
 <html>
 <head>
     <style>
-        body { font-family: 'Inter', sans-serif; color: #1f2937; line-height: 1.5; background: #f3f4f6; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: transparent; }
-        .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .header { text-align: center; margin-bottom: 30px; }
-        .title { font-size: 24px; font-weight: 800; color: #111827; margin: 0; }
-        .subtitle { color: #6b7280; font-size: 14px; }
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-        .stat-card { border: 1px solid #f3f4f6; border-radius: 8px; padding: 16px; background: #f9fafb; display: inline-block; width: 45%; vertical-align: top; }
-        .stat-label { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; }
-        .stat-value { font-size: 20px; font-weight: 800; color: #111827; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th { text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
-        td { padding: 12px 8px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; }
-        .badge-out { background: #fee2e2; color: #ef4444; }
-        .badge-low { background: #fef3c7; color: #d97706; }
-        .badge-good { background: #d1fae5; color: #059669; }
-        .branch-header { background: #f3f4f6; padding: 8px 12px; font-size: 14px; font-weight: 800; color: #374151; margin-top: 20px; border-radius: 6px; }
-        .footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 40px; }
+        body { font-family: 'Inter', -apple-system, sans-serif; color: #1f2937; line-height: 1.6; background: #f8fafc; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; padding: 32px 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
+        .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
+        .content { padding: 32px 24px; }
+        .section { margin-bottom: 32px; }
+        .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 16px; display: flex; align-items: center; }
+        
+        .branch-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+        .branch-name { font-weight: 800; color: #0f172a; margin-bottom: 4px; font-size: 16px; }
+        .branch-stats { font-size: 14px; color: #475569; }
+        .branch-top-product { font-size: 12px; color: #64748b; font-style: italic; margin-top: 4px; }
+
+        .inventory-list { list-style: none; padding: 0; margin: 0; }
+        .inventory-item { padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; display: flex; justify-content: space-between; }
+        .inventory-item:last-child { border-bottom: none; }
+        .status-pill { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .status-out { background: #fee2e2; color: #991b1b; }
+        .status-low { background: #fef3c7; color: #92400e; }
+
+        .insight-card { background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 16px; }
+        .insight-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; }
+        .insight-row:last-child { margin-bottom: 0; }
+        .insight-label { color: #166534; font-weight: 600; }
+        .insight-value { font-weight: 800; color: #14532d; }
+
+        .footer { background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; }
+        .no-data { color: #94a3b8; font-style: italic; font-size: 14px; padding: 12px 0; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1 class="title">Daily Operations Report</h1>
-            <p class="subtitle">{{ now()->format('l, F d, Y') }} • Maki POS System</p>
+            <h1>📊 DAILY SUMMARY</h1>
+            <p>{{ $data['date'] }} • Maki POS Business Report</p>
         </div>
 
-        <!-- Sales Performance -->
-        <div class="card">
-            <h2 style="font-size: 16px; margin-top: 0; color: #059669;">💰 Sales Performance</h2>
-            <div style="width: 100%;">
-                <div class="stat-card">
-                    <div class="stat-label">Total Revenue</div>
-                    <div class="stat-value">₱{{ number_format($data['total_revenue'], 2) }}</div>
-                </div>
-                <div class="stat-card" style="margin-left: 5%;">
-                    <div class="stat-label">Total Transactions</div>
-                    <div class="stat-value">{{ $data['total_transactions'] }}</div>
-                </div>
+        <div class="content">
+            <!-- SALES PERFORMANCE -->
+            <div class="section">
+                <div class="section-title">🏪 SALES PERFORMANCE</div>
+                @forelse($data['branch_summaries'] as $summary)
+                    <div class="branch-card">
+                        <div class="branch-name">{{ $summary['name'] }}</div>
+                        <div class="branch-stats">
+                            <strong>₱{{ number_format($summary['total_sales'], 2) }}</strong> | {{ $summary['orders_count'] }} orders
+                        </div>
+                        <div class="branch-top-product">
+                            ✨ Top Product: {{ $summary['top_product'] }}
+                        </div>
+                    </div>
+                @empty
+                    <div class="no-data">No sales recorded today.</div>
+                @endforelse
             </div>
 
-            <h3 style="font-size: 13px; margin: 24px 0 10px; text-transform: uppercase; color: #6b7280;">🏆 Top Selling Products</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product Name</th>
-                        <th style="text-align: right;">Qty Sold</th>
-                        <th style="text-align: right;">Revenue</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($data['top_products'] as $product)
-                    <tr>
-                        <td><strong>{{ $product->name }}</strong></td>
-                        <td style="text-align: right;">{{ $product->total_qty }}</td>
-                        <td style="text-align: right;">₱{{ number_format($product->total_revenue, 2) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Branch-Specific Inventory -->
-        <div class="card">
-            <h2 style="font-size: 16px; margin-top: 0; color: #3b82f6;">📦 Ingredient Inventory</h2>
-            
-            @forelse($data['ingredient_inventory'] as $branchName => $stocks)
-                <div class="branch-header">📍 {{ $branchName }}</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ingredient</th>
-                            <th>Stock</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($stocks as $stock)
-                        <tr>
-                            <td><strong>{{ $stock->ingredient->name }}</strong></td>
-                            <td>{{ number_format($stock->stock, 2) }} {{ $stock->ingredient->unit }}</td>
-                            <td>
-                                @if($stock->stock <= 0)
-                                    <span class="badge badge-out">OUT</span>
-                                @elseif($stock->stock <= $stock->low_stock_level)
-                                    <span class="badge badge-low">LOW</span>
-                                @else
-                                    <span class="badge badge-good">OK</span>
-                                @endif
-                            </td>
-                        </tr>
+            <!-- INVENTORY ALERTS -->
+            <div class="section">
+                <div class="section-title">📦 INVENTORY ALERTS</div>
+                
+                @if($data['out_of_stock']->isNotEmpty())
+                    <p style="font-size: 13px; font-weight: 700; color: #ef4444; margin-bottom: 8px;">🔴 Out of Stock</p>
+                    <ul class="inventory-list" style="margin-bottom: 20px;">
+                        @foreach($data['out_of_stock'] as $item)
+                            <li class="inventory-item">
+                                <span>{{ $item->ingredient->name }} ({{ $item->branch->name }})</span>
+                                <span class="status-pill status-out">OUT</span>
+                            </li>
                         @endforeach
-                    </tbody>
-                </table>
-            @empty
-                <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">No ingredient stocks found.</p>
-            @endforelse
-        </div>
+                    </ul>
+                @endif
 
-        @if($data['legacy_inventory']->isNotEmpty())
-        <!-- Legacy Inventory Items -->
-        <div class="card">
-            <h2 style="font-size: 16px; margin-top: 0; color: #6b7280;">🏷️ Other Items (Legacy)</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Stock</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($data['legacy_inventory'] as $item)
-                    <tr>
-                        <td>{{ $item->name }}</td>
-                        <td>{{ number_format($item->quantity, 2) }} {{ $item->unit }}</td>
-                        <td>
-                            @if($item->quantity <= 0)
-                                <span class="badge badge-out">OUT</span>
-                            @elseif($item->quantity <= $item->low_stock_threshold)
-                                <span class="badge badge-low">LOW</span>
-                            @else
-                                <span class="badge badge-good">OK</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                @if($data['low_stock']->isNotEmpty())
+                    <p style="font-size: 13px; font-weight: 700; color: #f59e0b; margin-bottom: 8px;">🟡 Low Stock</p>
+                    <ul class="inventory-list">
+                        @foreach($data['low_stock'] as $item)
+                            <li class="inventory-item">
+                                <span>{{ $item->ingredient->name }} ({{ $item->branch->name }})</span>
+                                <span style="color: #64748b;">{{ number_format($item->stock, 1) }} {{ $item->ingredient->unit }} left</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if($data['out_of_stock']->isEmpty() && $data['low_stock']->isEmpty())
+                    <div class="no-data">No inventory alerts today. All stocks are healthy! ✅</div>
+                @endif
+            </div>
+
+            <!-- KEY INSIGHTS -->
+            <div class="section" style="margin-bottom: 0;">
+                <div class="section-title">📈 OVERVIEW</div>
+                <div class="insight-card">
+                    <div class="insight-row">
+                        <span class="insight-label">Total Sales Today</span>
+                        <span class="insight-value">₱{{ number_format($data['overall_total'], 2) }}</span>
+                    </div>
+                    <div class="insight-row">
+                        <span class="insight-label">Best Performing Branch</span>
+                        <span class="insight-value">{{ $data['best_branch'] }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        @endif
 
         <div class="footer">
-            <p>Generated automatically at {{ now()->format('h:i A') }}</p>
-            <p>&copy; {{ date('Y') }} Maki POS System. All rights reserved.</p>
+            <p>Generated automatically at 7:00 PM (Server Time)</p>
+            <p>This is an automated system report. Please do not reply.</p>
+            <p>&copy; {{ date('Y') }} Maki POS System</p>
         </div>
     </div>
 </body>
