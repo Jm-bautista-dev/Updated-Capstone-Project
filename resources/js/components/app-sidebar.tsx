@@ -95,7 +95,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Delivery',
-        href: '/delivery',
+        href: '/deliveries',
         icon: Navigation,
     },
     {

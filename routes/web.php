@@ -113,7 +113,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
         // Deliveries
-        Route::get('delivery', [DeliveryController::class, 'index'])->name('delivery.index');
+        Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
         Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
         Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
         Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');

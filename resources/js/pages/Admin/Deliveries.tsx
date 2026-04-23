@@ -81,11 +81,11 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
     }, []);
 
     const handleFilterChange = useCallback((updates: Partial<FilterType>) => {
-        router.get('/delivery', { ...filters, ...updates }, { preserveState: true, replace: true });
+        router.get('/deliveries', { ...filters, ...updates }, { preserveState: true, replace: true });
     }, [filters]);
 
     const handleClearFilters = useCallback(() => {
-        router.get('/delivery', {}, { preserveState: true, replace: true });
+        router.get('/deliveries', {}, { preserveState: true, replace: true });
     }, []);
 
     const handleUpdateStatus = useCallback((id: number) => {
@@ -127,7 +127,7 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
         const nextPage = currentPage + 1;
 
         router.get(
-            '/delivery',
+            '/deliveries',
             { ...filters, page: nextPage },
             {
                 preserveState: true,
@@ -154,7 +154,7 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
     const hasMore = currentPage < deliveries.last_page;
 
     return (
-        <AppLayout breadcrumbs={[{ title: 'Delivery Dashboard', href: '/delivery' }]}>
+        <AppLayout breadcrumbs={[{ title: 'Delivery Dashboard', href: '/deliveries' }]}>
             <Head title="Delivery Management" />
 
             <div className="flex flex-col h-full">

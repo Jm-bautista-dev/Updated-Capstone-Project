@@ -66,7 +66,7 @@ export function useRealTime(branchId?: number | null) {
                     duration: 10000,
                     action: {
                         label: 'View Order',
-                        onClick: () => router.visit('/orders') // Adjust route if needed
+                        onClick: () => router.visit('/deliveries') // Fixed from /orders to /deliveries
                     }
                 });
 
