@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\Delivery;
 use App\Models\Rider;
+use App\Models\Order;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -174,9 +176,15 @@ class DeliveryService
 
             // Sync status with linked Order if exists
             if ($delivery->order_id) {
-                // Map delivery status to a likely order status if they differ
-                // For now, we'll keep them 1:1 as the mobile app expects
-                $delivery->order()->update(['status' => $newStatus]);
+                $order = $delivery->order()->with('items.product')->first();
+                if ($order instanceof Order) {
+                    $order->update(['status' => $newStatus]);
+
+                    // Record as Sale if DELIVERED
+                    if ($newStatus === Delivery::STATUS_DELIVERED) {
+                        $this->recordOrderAsSale($order, $delivery);
+                    }
+                }
             }
 
             if ($newStatus === Delivery::STATUS_DELIVERED && $delivery->rider_id) {
@@ -189,5 +197,61 @@ class DeliveryService
 
             return $delivery->fresh();
         });
+    }
+
+    /**
+     * Convert an Order to a Sale record for analytics.
+     */
+    private function recordOrderAsSale($order, $delivery)
+    {
+        $orderNum = 'MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT);
+
+        // Prevent duplicate sales for the same order
+        if (Sale::where('order_number', $orderNum)->exists()) {
+            return;
+        }
+
+        // Calculate cost and profit
+        $costTotal = 0;
+        foreach ($order->items as $item) {
+            $itemCost = $item->product->computeProductCost($order->branch_id) ?? 0;
+            $costTotal += $itemCost * $item->quantity;
+        }
+
+        $profit = (float) $order->total_amount - (float) $costTotal;
+
+        // Create Sale
+        $sale = Sale::create([
+            'order_number'   => $orderNum,
+            'user_id'        => Auth::id() ?? $order->user_id ?? 1,
+            'branch_id'      => $order->branch_id,
+            'type'           => 'delivery',
+            'total'          => $order->total_amount,
+            'cost_total'     => $costTotal,
+            'profit'         => $profit,
+            'paid_amount'    => $order->total_amount,
+            'change_amount'  => 0,
+            'payment_method' => 'online',
+            'status'         => 'completed',
+            'created_at'     => $order->created_at,
+        ]);
+
+        // Create Sale Items
+        foreach ($order->items as $item) {
+            $itemCost = $item->product->computeProductCost($order->branch_id) ?? 0;
+            SaleItem::create([
+                'sale_id'    => $sale->id,
+                'product_id' => $item->product_id,
+                'quantity'   => $item->quantity,
+                'unit_price' => $item->price,
+                'cost_price' => $itemCost,
+                'subtotal'   => $item->price * $item->quantity,
+                'profit'     => ($item->price - $itemCost) * $item->quantity,
+                'created_at' => $order->created_at,
+            ]);
+        }
+
+        // Link delivery to this sale
+        $delivery->update(['sale_id' => $sale->id]);
     }
 }
