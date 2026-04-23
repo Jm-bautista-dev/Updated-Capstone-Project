@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -38,7 +39,6 @@ class ProductController extends Controller
                 (float) $branch->longitude
             );
 
-            // Check if distance is within delivery radius and is the closest so far
             if ($distance <= (float) $branch->delivery_radius_km && $distance < $minDistance) {
                 $nearestBranch = $branch;
                 $minDistance = $distance;
@@ -54,35 +54,60 @@ class ProductController extends Controller
         }
 
         // Get products belonging to the nearest branch
-        // Note: Using with('category') for better React Native integration if needed
         $products = Product::where('branch_id', $nearestBranch->id)
             ->whereNull('deleted_at')
+            ->with(['category', 'unit_model'])
             ->get();
+
+        // Format products to include dynamic stock calculation
+        $formattedProducts = $products->map(function ($product) use ($nearestBranch) {
+            $availability = $product->dynamicAvailability($nearestBranch->id);
+            
+            return [
+                'id'            => $product->id,
+                'name'          => $product->name,
+                'price'         => (float) $product->selling_price,
+                'description'   => $product->description,
+                'image'         => $this->resolveImageUrl($product->image_path),
+                'category'      => $product->category?->name ?? 'Uncategorized',
+                'unit'          => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
+                'stock'         => (float) $availability['available'], // This is the calculated stock
+                'is_low_stock'  => $availability['is_low_stock'],
+                'limiting_item' => $availability['limiting_ingredient'],
+            ];
+        });
 
         return response()->json([
             'status' => 'success',
-            'branch' => $nearestBranch,
+            'branch' => [
+                'id' => $nearestBranch->id,
+                'name' => $nearestBranch->name,
+                'address' => $nearestBranch->address,
+            ],
             'distance_km' => round($minDistance, 2),
-            'products' => $products
+            'products' => $formattedProducts
         ]);
     }
 
-    /**
-     * Helper function to calculate distance between two GPS coordinates using Haversine formula.
-     */
+    private function resolveImageUrl(?string $imagePath): ?string
+    {
+        if (!$imagePath) return null;
+        try {
+            return Storage::disk('public')->url($imagePath);
+        } catch (\Exception $e) {
+            return rtrim(config('app.url'), '/') . '/storage/' . $imagePath;
+        }
+    }
+
     private function haversine($lat1, $lon1, $lat2, $lon2)
     {
-        $earthRadius = 6371; // Earth's radius in kilometers
-
+        $earthRadius = 6371;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
-
         $a = sin($dLat / 2) * sin($dLat / 2) +
              cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
              sin($dLon / 2) * sin($dLon / 2);
-
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
         return $earthRadius * $c;
     }
 }
