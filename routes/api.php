@@ -11,6 +11,9 @@ use App\Http\Controllers\Api\ApiOrderController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\BranchController;
 
+// Compatibility route for mobile app (some apps hit /api/orders directly)
+Route::post('orders', [ApiOrderController::class, 'store']);
+
 // ─── External Operations API (Mobile App Entry) ──────────────────
 Route::prefix('v1')->group(function () {
 
