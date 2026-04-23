@@ -3,92 +3,84 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Mail\VerificationCodeMail;
+use App\Models\EmailVerification;
+use App\Mail\SendOtpMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 
 class VerificationController extends Controller
 {
     /**
-     * Request a verification email.
-     * POST /api/v1/verify-email/request
+     * Send OTP to the provided email.
+     * POST /api/v1/send-otp
      */
-    public function requestEmail(Request $request): JsonResponse
+    public function sendOtp(Request $request): JsonResponse
     {
         $request->validate([
             'email' => 'required|email',
         ]);
 
-        $email = $request->email;
-        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expiresAt = Carbon::now()->addMinutes(15);
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Store or update the code in the database
-        DB::table('verification_codes')->updateOrInsert(
-            ['email' => $email],
+        EmailVerification::updateOrCreate(
+            ['email' => $request->email],
             [
-                'code'       => $code,
-                'expires_at' => $expiresAt,
-                'created_at' => Carbon::now(),
+                'otp' => $otp,
+                'expires_at' => now()->addMinutes(5),
+                'is_verified' => false
             ]
         );
 
-        // Send the email
         try {
-            Mail::to($email)->send(new VerificationCodeMail($code));
+            Mail::to($request->email)->send(new SendOtpMail($otp));
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to send verification email. Please try again later.',
-                'error'   => $e->getMessage(),
+                'message' => 'Failed to send OTP. Please check your SMTP settings.',
+                'error' => $e->getMessage()
             ], 500);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Verification code sent to your email.',
+            'message' => 'OTP sent successfully to ' . $request->email
         ]);
     }
 
     /**
-     * Verify the provided code.
-     * POST /api/v1/verify-email/verify
+     * Verify the provided OTP.
+     * POST /api/v1/verify-otp
      */
-    public function verify(Request $request): JsonResponse
+    public function verifyOtp(Request $request): JsonResponse
     {
         $request->validate([
             'email' => 'required|email',
-            'code'  => 'required|string|size:6',
+            'otp' => 'required|string|size:6',
         ]);
 
-        $record = DB::table('verification_codes')
-            ->where('email', $request->email)
-            ->where('code', $request->code)
-            ->first();
+        $record = EmailVerification::where('email', $request->email)->first();
 
-        if (!$record) {
+        if (!$record || $record->otp !== $request->otp) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid verification code.',
-            ], 422);
+                'message' => 'Invalid OTP'
+            ], 400);
         }
 
-        if (Carbon::parse($record->expires_at)->isPast()) {
+        if (now()->greaterThan($record->expires_at)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Verification code has expired.',
-            ], 422);
+                'message' => 'OTP has expired'
+            ], 400);
         }
 
-        // Optional: Clean up the code after successful verification
-        // DB::table('verification_codes')->where('email', $request->email)->delete();
+        $record->update(['is_verified' => true]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Email verified successfully.',
+            'message' => 'Email verified successfully'
         ]);
     }
 }

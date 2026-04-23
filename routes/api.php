@@ -19,6 +19,9 @@ Route::prefix('v1')->group(function () {
     // Auth
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
+    Route::post('send-otp', [VerificationController::class, 'sendOtp']);
+    Route::post('verify-otp', [VerificationController::class, 'verifyOtp']);
+    Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
     // Branches — public
     Route::get('branches', [BranchController::class, 'apiIndex']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\EmailVerification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,18 @@ class AuthController extends Controller
             'email'         => 'required|email|unique:users,email',
             'password'      => 'required|string|min:6',
         ]);
+
+        // Verify OTP
+        $verified = EmailVerification::where('email', $validated['email'])
+            ->where('is_verified', true)
+            ->first();
+
+        if (!$verified) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email not verified. Please verify your OTP first.'
+            ], 403);
+        }
 
         $user = User::create([
             'first_name'    => $validated['first_name'],
@@ -99,6 +112,42 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'user'    => $this->formatUser($request->user()),
+        ]);
+    }
+
+    /**
+     * Reset user password.
+     * POST /api/v1/reset-password
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $verified = EmailVerification::where('email', $request->email)
+            ->where('is_verified', true)
+            ->first();
+
+        if (!$verified) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OTP not verified. Please verify your email first.'
+            ], 403);
+        }
+
+        User::where('email', $request->email)
+            ->update([
+                'password' => Hash::make($request->password)
+            ]);
+
+        // Consume verification
+        $verified->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password reset successful. You can now login.'
         ]);
     }
 
