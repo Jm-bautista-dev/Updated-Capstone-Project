@@ -48,11 +48,17 @@ class ApiOrderController extends Controller
             'items.*.quantity'   => 'required|numeric|min:0.1',
             'items.*.price'      => 'required|numeric|min:0',
             'total_amount'   => 'required|numeric|min:0',
+            'delivery_fee'   => 'nullable|numeric|min:0',
+            'distance_km'    => 'nullable|numeric|min:0',
             'branch_id'      => 'nullable|exists:branches,id' // Optional branch context
         ]);
 
         $branchId = $validated['branch_id'] ?? 1; // Default to main branch if not provided
         $userId = $request->user()?->id;
+
+        // Calculate delivery fee if not explicitly provided
+        $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
+        $deliveryFee = $validated['delivery_fee'] ?? max(0, $validated['total_amount'] - $itemsTotal);
 
         // --- BRANCH CONSISTENCY VALIDATION ---
         foreach ($validated['items'] as $item) {
@@ -66,7 +72,7 @@ class ApiOrderController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($validated, $branchId, $userId) {
+            return DB::transaction(function () use ($validated, $branchId, $userId, $deliveryFee) {
                 // 1. Create Order
                 $order = Order::create([
                     'user_id'        => $userId,
@@ -96,6 +102,8 @@ class ApiOrderController extends Controller
                     'customer_phone'   => $validated['mobile_number'],
                     'customer_address' => $validated['address'],
                     'delivery_type'    => 'internal', // Default for mobile orders
+                    'delivery_fee'     => $deliveryFee,
+                    'distance_km'      => $validated['distance_km'] ?? null,
                     'status'           => 'pending',
                 ]);
 
