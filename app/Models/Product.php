@@ -143,6 +143,11 @@ class Product extends Model
      */
     public function getComputedStockAttribute(): int|float
     {
+        // Safety check: If product is new or doesn't have a branch context, return 0
+        if (!$this->exists || !$this->branch_id) {
+            return (float) ($this->stock ?? 0);
+        }
+
         $data = $this->dynamicAvailability($this->branch_id);
         return $data['available'];
     }
