@@ -1,6 +1,14 @@
 import { useEffect } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import echo from '@/echo';
+import { toast } from 'sonner';
+
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+
+const playNotificationSound = () => {
+    const audio = new Audio(NOTIFICATION_SOUND);
+    audio.play().catch(e => console.error('Audio play failed:', e));
+};
 
 export function useRealTime(branchId?: number | null) {
     const { auth } = usePage().props as any;
@@ -44,11 +52,47 @@ export function useRealTime(branchId?: number | null) {
                 });
         }
 
+        // 3. Listen for Orders (Admin or Branch Specific)
+        if (echo) {
+            const handleOrderNotification = (e: any) => {
+                console.log('Real-time: New Order Received', e);
+                
+                // Play sound
+                playNotificationSound();
+
+                // Show Toast
+                toast.success('🛒 New Order Received', {
+                    description: `Order #${e.order_id} from ${e.branch_name} - ${e.customer_name}`,
+                    duration: 10000,
+                    action: {
+                        label: 'View Order',
+                        onClick: () => router.visit('/orders') // Adjust route if needed
+                    }
+                });
+
+                // Refresh relevant data
+                router.reload({ 
+                    only: ['summary', 'recentOrders', 'orders'],
+                    preserveScroll: true 
+                } as any);
+            };
+
+            if (auth?.user?.role === 'admin') {
+                echo.private('admin.orders').listen('OrderCreated', handleOrderNotification);
+            } else if (auth?.user?.branch_id) {
+                echo.private(`branch.${auth.user.branch_id}.orders`).listen('OrderCreated', handleOrderNotification);
+            }
+        }
+
         return () => {
             if (echo) {
                 echo.leave('global');
                 if (branchId || auth?.user?.branch_id) {
                     echo.leave(`branch.${branchId || auth?.user?.branch_id}`);
+                    echo.leave(`branch.${auth?.user?.branch_id}.orders`);
+                }
+                if (auth?.user?.role === 'admin') {
+                    echo.leave('admin.orders');
                 }
             }
         };

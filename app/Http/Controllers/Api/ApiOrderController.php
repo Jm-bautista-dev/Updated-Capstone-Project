@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Delivery;
 use App\Models\IngredientStock;
 use App\Utils\UnitConverter;
+use App\Events\OrderCreated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -97,6 +98,9 @@ class ApiOrderController extends Controller
                     'delivery_type'    => 'internal', // Default for mobile orders
                     'status'           => 'pending',
                 ]);
+
+                // 4. Broadcast Notification
+                broadcast(new OrderCreated($order->load('branch')))->toOthers();
 
                 return response()->json([
                     'success' => true,
