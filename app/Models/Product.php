@@ -16,6 +16,8 @@ class Product extends Model
     use BelongsToBranch, SoftDeletes;
     protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id'];
 
+    protected $appends = ['computed_stock'];
+
     public function branch()
     {
         return $this->belongsTo(Branch::class);
