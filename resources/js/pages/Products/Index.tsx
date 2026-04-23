@@ -377,7 +377,14 @@ export default function ProductsIndex() {
             if (imgErr) hasError = true;
         }
 
-        if (hasError) return;
+        if (hasError) {
+            setErrorInfo({
+                title: 'Validation Error',
+                message: 'Please check the form for errors. Some required fields might be missing or invalid.'
+            });
+            setIsErrorModalOpen(true);
+            return;
+        }
 
         transform((data) => ({ ...data, image: imageFile }));
         post('/products', {
@@ -414,7 +421,14 @@ export default function ProductsIndex() {
             if (imgErr) hasError = true;
         }
 
-        if (hasError) return;
+        if (hasError) {
+            setErrorInfo({
+                title: 'Validation Error',
+                message: 'Please check the form for errors before saving.'
+            });
+            setIsErrorModalOpen(true);
+            return;
+        }
 
         transform((data) => ({ ...data, image: imageFile, _method: 'PUT' }));
         post(`/products/${selectedProduct.id}`, {
@@ -1058,6 +1072,7 @@ export default function ProductsIndex() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0] || null;
                                             setImageFile(file);
+                                            setData('image', file); // Sync with useForm data
                                             if (file) {
                                                 setImagePreview(URL.createObjectURL(file));
                                                 validateField('image', file);
