@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
     Dialog,
@@ -1040,6 +1041,16 @@ export default function ProductsIndex() {
                                     </select>
                                 </div>
                                 <div className="col-span-2 space-y-2">
+                                    <label className="text-sm font-medium">Description</label>
+                                    <Textarea 
+                                        value={data.description} 
+                                        onChange={(e) => setData('description', e.target.value)} 
+                                        placeholder="Enter product description..." 
+                                        className="min-h-[80px] rounded-lg"
+                                    />
+                                    {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+                                </div>
+                                <div className="col-span-2 space-y-2">
                                     <label className="text-sm font-medium">Product Image</label>
                                     <input
                                         type="file"
@@ -1187,6 +1198,17 @@ export default function ProductsIndex() {
                                         {allowedUnits?.map((u: string) => (<option key={u} value={u}>{u.toUpperCase()}</option>))}
                                     </select>
                                     {localErrors.unit && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.unit}</p>}
+                                </div>
+
+                                <div className="col-span-2 space-y-2.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Description</label>
+                                    <Textarea 
+                                        value={data.description} 
+                                        onChange={(e) => setData('description', e.target.value)} 
+                                        placeholder="Enter product description..." 
+                                        className="min-h-[80px] rounded-xl border-input/50 bg-muted/5 font-medium focus:ring-2 focus:ring-primary/20 transition-all"
+                                    />
+                                    {errors.description && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{errors.description}</p>}
                                 </div>
                                 {/* Financial Insights Panel */}
                                 <div className="col-span-2 p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-3">
