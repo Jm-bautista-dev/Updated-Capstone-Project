@@ -292,7 +292,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                         <CardContent className="p-0">
                             {hasChart ? (
                                 <div className="w-full px-6 pb-6" style={{ height: 400, minWidth: 0 }}>
-                                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                    <ResponsiveContainer width="100%" height={400} debounce={50}>
                                         <AreaChart data={TREND_DATA} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
                                             <defs>
                                                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -370,7 +370,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                             {CAT_DATA.length > 0 ? (
                                 <>
                                     <div className="w-full relative shrink-0 focus:outline-none" style={{ height: 240, minWidth: 0 }}>
-                                        <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                                        <ResponsiveContainer width="100%" height={240} debounce={50}>
                                             <PieChart>
                                                 <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={8} dataKey="value" stroke="none" isAnimationActive={true}>
                                                     {CAT_DATA.map((entry: any, index: number) => (
