@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\V1\ProductController as V1ProductController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Api\ApiOrderController;
@@ -27,6 +28,7 @@ Route::prefix('v1')->group(function () {
     Route::get('products/{id}',  [ProductController::class, 'show']);
     Route::get('categories',     [CategoryController::class, 'index']);
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
+    Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
 
     // ─── Protected Routes (Sanctum token required) ────────────────────────────
     Route::middleware('auth:sanctum')->group(function () {
