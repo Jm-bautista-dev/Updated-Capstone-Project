@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
     Eye, ChevronRight, Bike, Truck, ArrowUpDown,
-    ChevronUp, ChevronDown
+    ChevronUp, ChevronDown, Package
 } from 'lucide-react';
 import type { Delivery } from './types';
 import { formatCurrency, formatTime, formatDate } from './types';
@@ -62,8 +62,35 @@ const TableRow = React.memo(function TableRow({
             {/* Order # */}
             <div className="w-[120px] shrink-0">
                 <p className="font-bold text-xs truncate">
-                    {delivery.sale?.order_number || `MOB-${delivery.order?.id?.toString().padStart(4, '0')}` || 'N/A'}
+                    {delivery.sale?.order_number || (delivery.order && `MOB-${delivery.order.id.toString().padStart(4, '0')}`) || 'N/A'}
                 </p>
+            </div>
+
+            {/* Items Summary (Hoverable) */}
+            <div className="w-[60px] shrink-0 flex items-center justify-center">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1.5 text-muted-foreground/60 hover:text-primary transition-colors cursor-help">
+                            <Package className="size-3.5" />
+                            <span className="text-[10px] font-black">
+                                {((delivery.sale?.items || delivery.order?.items) || []).length}
+                            </span>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="p-0 overflow-hidden rounded-xl border-none shadow-2xl bg-popover" side="right">
+                        <div className="p-3 min-w-[180px] space-y-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">Order Contents</p>
+                            <div className="space-y-1.5">
+                                {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
+                                    <div key={item.id} className="flex justify-between items-center gap-4 text-[11px]">
+                                        <span className="font-semibold truncate max-w-[110px]">{item.product.name}</span>
+                                        <span className="font-black text-primary shrink-0">×{item.quantity}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </TooltipContent>
+                </Tooltip>
             </div>
 
             {/* Customer */}
@@ -232,6 +259,9 @@ const DeliveryTable = React.memo(function DeliveryTable({
                 </div>
                 <div className="w-[120px] shrink-0">
                     <SortableHeader label="Order #" sortKey="order" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
+                </div>
+                <div className="w-[60px] shrink-0 flex justify-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Items</span>
                 </div>
                 <div className="flex-1 min-w-[140px]">
                     <SortableHeader label="Customer" sortKey="customer" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />

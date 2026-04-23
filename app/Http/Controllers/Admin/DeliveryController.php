@@ -26,7 +26,16 @@ class DeliveryController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Delivery::with(['sale.cashier', 'sale.branch', 'order', 'rider', 'creator', 'cancelledBy'])
+        $query = Delivery::with([
+            'sale.cashier', 
+            'sale.branch', 
+            'sale.items.product',
+            'order.items.product',
+            'order.branch',
+            'rider', 
+            'creator', 
+            'cancelledBy'
+        ])
             ->latest();
 
         // ... filters (lines 32-61) ...

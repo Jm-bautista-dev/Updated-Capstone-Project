@@ -87,6 +87,22 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                             <span>Fee: {formatCurrency(delivery.delivery_fee)}</span>
                         </div>
 
+                        {/* Items Summary */}
+                        {((delivery.sale?.items || delivery.order?.items) || []).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item: any) => (
+                                    <Badge key={item.id} variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
+                                        {item.quantity}× {item.product.name}
+                                    </Badge>
+                                ))}
+                                {((delivery.sale?.items || delivery.order?.items) || []).length > 3 && (
+                                    <span className="text-[9px] text-muted-foreground font-bold pl-0.5 self-center">
+                                        +{((delivery.sale?.items || delivery.order?.items) || []).length - 3} more
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
                         {/* Actions */}
                         <div className="flex items-center gap-2 pt-1">
                             {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (

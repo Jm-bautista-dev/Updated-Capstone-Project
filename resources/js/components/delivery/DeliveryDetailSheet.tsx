@@ -166,6 +166,42 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 
                     <Separator />
 
+                    {/* Order Items */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Order Items</h4>
+                            <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] font-bold">
+                                {((delivery.sale?.items || delivery.order?.items) || []).length} items
+                            </Badge>
+                        </div>
+
+                        <div className="space-y-2">
+                            {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
+                                <div key={item.id} className="flex items-center gap-3 bg-muted/20 p-2.5 rounded-xl border border-transparent hover:border-border transition-colors">
+                                    <div className="size-10 rounded-lg bg-background flex items-center justify-center shrink-0 border overflow-hidden">
+                                        <Package className="size-5 text-muted-foreground/40" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold truncate">{item.product.name}</p>
+                                        <p className="text-xs text-muted-foreground font-medium">
+                                            {formatCurrency(item.unit_price ?? item.price ?? 0)} × {item.quantity}
+                                        </p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-sm font-black tabular-nums">
+                                            {formatCurrency((item.unit_price ?? item.price ?? 0) * item.quantity)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                            {(!delivery.sale?.items && !delivery.order?.items) && (
+                                <p className="text-xs text-muted-foreground italic text-center py-4">No items listed for this order.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <Separator />
+
                     {/* Courier Info */}
                     <div className="space-y-4">
                         <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Courier Details</h4>

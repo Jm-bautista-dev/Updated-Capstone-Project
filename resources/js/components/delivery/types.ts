@@ -23,11 +23,24 @@ export interface Delivery {
         order_number: string;
         total: number;
         branch: { name: string };
+        items?: Array<{
+            id: number;
+            product: { name: string; image_url?: string };
+            quantity: number;
+            unit_price: number;
+            subtotal: number;
+        }>;
     } | null;
     order?: {
         id: number;
         total_amount: number;
         branch?: { name: string } | null;
+        items?: Array<{
+            id: number;
+            product: { name: string; image_url?: string };
+            quantity: number;
+            price: number;
+        }>;
     } | null;
     rider?: { name: string };
     external_notes?: string | null;
