@@ -182,7 +182,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                         <Package className="size-5 text-muted-foreground/40" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold truncate">{item.product.name}</p>
+                                        <p className="text-sm font-bold truncate">{item.product?.name || 'Product'}</p>
                                         <p className="text-xs text-muted-foreground font-medium">
                                             {formatCurrency(item.unit_price ?? item.price ?? 0)} × {item.quantity}
                                         </p>

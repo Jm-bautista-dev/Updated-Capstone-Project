@@ -83,7 +83,7 @@ const TableRow = React.memo(function TableRow({
                             <div className="space-y-1.5">
                                 {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
                                     <div key={item.id} className="flex justify-between items-center gap-4 text-[11px]">
-                                        <span className="font-semibold truncate max-w-[110px]">{item.product.name}</span>
+                                        <span className="font-semibold truncate max-w-[110px]">{item.product?.name || 'Product'}</span>
                                         <span className="font-black text-primary shrink-0">×{item.quantity}</span>
                                     </div>
                                 ))}
