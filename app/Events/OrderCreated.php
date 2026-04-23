@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\Order;
-|---
+
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
