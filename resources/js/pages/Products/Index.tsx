@@ -394,6 +394,7 @@ export default function ProductsIndex() {
                 setIsAddModalOpen(false);
                 reset();
                 setLocalErrors({});
+                router.reload({ only: ['products', 'summary'] });
                 setSuccessMessage({ title: 'Product Added!', message: 'The product has been registered successfully.' });
                 setIsSuccessModalOpen(true);
                 setImageFile(null);
@@ -437,6 +438,7 @@ export default function ProductsIndex() {
                 setIsEditModalOpen(false);
                 reset();
                 setLocalErrors({});
+                router.reload({ only: ['products', 'summary'] });
                 setImageFile(null);
                 setImagePreview(null);
                 setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
@@ -454,6 +456,7 @@ export default function ProductsIndex() {
             onSuccess: () => {
                 setIsDeleteModalOpen(false);
                 setSelectedProduct(null);
+                router.reload({ only: ['products', 'summary'] });
             },
         });
     };

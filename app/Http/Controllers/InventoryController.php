@@ -94,56 +94,43 @@ class InventoryController extends Controller
                     'low_stock_level'      => (float) $stockRow->low_stock_level,
                     'is_low_stock'         => $stockRow->isLowStock(),
                     'is_out_of_stock'      => $stockRow->isOutOfStock(),
-                    'status'               => 'valid',
+                    'status'               => 'active',
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
                     'cost_per_unit'        => (float) $stockRow->cost_per_unit,
                     'display_price'        => $displayPrice,
                 ];
             }
 
-            // If filtering by a specific branch and no stock row exists yet for that
-            // ingredient, surface it as out-of-stock so the user can restock it.
-            // (The cleanup migration + new-branch listener ensure this rarely happens;
-            //  this is the last-resort fallback to prevent silent omissions.)
-            if ($branchId && $stocks->isEmpty()) {
-                $displayUnit  = $ingredient->unit;
-                $displayStock = 0;
-                $displayPrice = 0;
-
-                if ($ingredient->unit === 'g') {
-                    $displayUnit = 'kg';
-                } elseif ($ingredient->unit === 'ml') {
-                    $displayUnit = 'L';
-                }
-
-                // Auto-create the missing stock row so it won't be missing again
-                IngredientStock::firstOrCreate(
-                    ['ingredient_id' => $ingredient->id, 'branch_id' => (int) $branchId],
-                    ['stock' => 0, 'low_stock_level' => 5, 'cost_per_unit' => 0]
-                );
-
+            // Fallback: If no stock rows were added (neither via branch filter nor global list),
+            // ensure the ingredient is still visible to the admin.
+            if (collect($inventory)->where('id', $ingredient->id)->isEmpty()) {
                 $inventory[] = [
                     'id'                   => $ingredient->id,
                     'stock_id'             => null,
                     'name'                 => $ingredient->name,
                     'unit'                 => $ingredient->unit,
-                    'display_unit'         => $displayUnit,
-                    'branch_id'            => (int) $branchId,
-                    'branch_name'          => $targetBranchName,
+                    'display_unit'         => $ingredient->unit === 'g' ? 'kg' : ($ingredient->unit === 'ml' ? 'L' : $ingredient->unit),
+                    'branch_id'            => $branchId ? (int) $branchId : 0,
+                    'branch_name'          => $targetBranchName ?: 'Unassigned',
                     'stock'                => 0,
                     'display_stock'        => 0,
                     'low_stock_level'      => 5,
                     'is_low_stock'         => false,
                     'is_out_of_stock'      => true,
-                    'status'               => 'valid',
+                    'status'               => 'active', // Standardizing status to 'active' as requested
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
                     'cost_per_unit'        => 0,
                     'display_price'        => 0,
                 ];
+
+                // Auto-create for the specific branch if we have context
+                if ($branchId) {
+                    IngredientStock::firstOrCreate(
+                        ['ingredient_id' => $ingredient->id, 'branch_id' => (int) $branchId],
+                        ['stock' => 0, 'low_stock_level' => 5, 'cost_per_unit' => 0]
+                    );
+                }
             }
-            // NOTE: The "orphaned global ingredient" block has been intentionally removed.
-            // The cleanup migration seeds zero-stock rows for every ingredient × branch,
-            // so an ingredient with zero stock rows in the DB should never occur in production.
         }
 
         // Stats based on visible inventory

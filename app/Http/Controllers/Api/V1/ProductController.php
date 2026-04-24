@@ -53,14 +53,17 @@ class ProductController extends Controller
             ]);
         }
 
-        // Get products belonging to the nearest branch
-        $products = Product::where('branch_id', $nearestBranch->id)
+        // Get products belonging to the nearest branch or global products
+        $products = Product::where(function($q) use ($nearestBranch) {
+                $q->where('branch_id', $nearestBranch->id)
+                  ->orWhereNull('branch_id');
+            })
             ->whereNull('deleted_at')
             ->with(['category', 'unit_model'])
             ->get();
 
         // Format products to include dynamic stock calculation
-        $formattedProducts = $products->map(function ($product) use ($nearestBranch) {
+        $formattedProducts = $products->map(function (Product $product) use ($nearestBranch) {
             $availability = $product->dynamicAvailability($nearestBranch->id);
             
             return [
@@ -93,7 +96,9 @@ class ProductController extends Controller
     {
         if (!$imagePath) return null;
         try {
-            return Storage::disk('public')->url($imagePath);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('public');
+            return $disk->url($imagePath);
         } catch (\Exception $e) {
             return rtrim(config('app.url'), '/') . '/storage/' . $imagePath;
         }

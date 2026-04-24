@@ -57,9 +57,13 @@ class ProductController extends Controller
         $query = Product::with(['unit_model', 'category', 'branches']);
 
         if ($branchId) {
-            // Scope to specific branch via pivot table
-            $query->whereHas('branches', function ($q) use ($branchId) {
-                $q->where('branches.id', $branchId);
+            // Scope to specific branch via pivot table OR direct ownership OR global
+            $query->where(function ($q) use ($branchId) {
+                $q->whereHas('branches', function ($sq) use ($branchId) {
+                    $sq->where('branches.id', $branchId);
+                })
+                ->orWhere('branch_id', $branchId)
+                ->orWhereNull('branch_id');
             });
         }
 

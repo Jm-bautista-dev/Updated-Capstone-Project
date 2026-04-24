@@ -354,6 +354,7 @@ export default function InventoryIndex() {
         reset();
         setLocalErrors({});
         stateChannel.postMessage({ type: 'inventory-updated' });
+        router.reload({ only: ['inventory', 'stats'] });
         setResultModal({ type: 'success', title: 'Ingredient Added', message: 'The global ingredient and its branch stock have been created.' });
         setIsResultModalOpen(true);
       },
@@ -393,6 +394,7 @@ export default function InventoryIndex() {
         reset();
         setLocalErrors({});
         stateChannel.postMessage({ type: 'inventory-updated' });
+        router.reload({ only: ['inventory', 'stats'] });
         setResultModal({ type: 'success', title: 'Ingredient Updated', message: 'Ingredient and stock record have been updated.' });
         setIsResultModalOpen(true);
       },
@@ -407,6 +409,7 @@ export default function InventoryIndex() {
       onSuccess: () => {
         setIsDeleteModalOpen(false);
         stateChannel.postMessage({ type: 'inventory-updated' });
+        router.reload({ only: ['inventory', 'stats'] });
         setResultModal({ type: 'success', title: 'Inventory Updated', message: `Ingredient removed from ${selectedRow?.branch_name}.` });
         setIsResultModalOpen(true);
       },

@@ -33,7 +33,10 @@ class PosController extends Controller
         // Load products scoped to the cashier's branch via direct branch_id ownership
         $productsQuery = Product::with(['category', 'ingredients']);
         if ($branchId) {
-            $productsQuery->where('branch_id', $branchId);
+            $productsQuery->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id');
+            });
         }
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId) {
