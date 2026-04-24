@@ -14,12 +14,12 @@ export default function AppSidebarLayout({
 
     return (
         <AppShell variant="sidebar">
-            <AppSidebar />
-            <AppContent variant="sidebar" className="overflow-x-hidden">
-                <AppSidebarHeader breadcrumbs={breadcrumbs} />
-                <FlashMessages />
-                {children}
-            </AppContent>
-        </AppShell>
+                <AppSidebar />
+                <AppContent variant="sidebar" className="overflow-x-hidden relative bg-transparent">
+                    <AppSidebarHeader breadcrumbs={breadcrumbs} />
+                    <FlashMessages />
+                    {children}
+                </AppContent>
+            </AppShell>
     );
 }

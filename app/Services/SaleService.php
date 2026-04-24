@@ -49,7 +49,12 @@ class SaleService
             $itemIds = array_column($data['items'], 'id');
             $productsQuery = Product::with(['ingredients.stocks'])
                 ->whereIn('id', $itemIds)
-                ->where('branch_id', $branchId); // Filter by the cashier's branch ownership
+                ->where(function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)
+                      ->orWhereHas('branches', function ($bq) use ($branchId) {
+                          $bq->where('branches.id', $branchId);
+                      });
+                });
 
 
             $products = $productsQuery->get()->keyBy('id');

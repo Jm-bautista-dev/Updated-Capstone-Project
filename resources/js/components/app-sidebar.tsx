@@ -142,20 +142,28 @@ export function AppSidebar() {
     ];
 
     return (
-        <Sidebar collapsible="icon" variant="inset" className="border-r-0">
-            <SidebarHeader className="bg-background">
+        <Sidebar collapsible="icon" variant="inset" className="border-r-0 border-l-[3px] border-primary/60 bg-[#fffcfd] dark:bg-[#1a1414]">
+            <SidebarHeader className="bg-transparent pb-8 pt-10 px-6">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
-                            <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex items-center gap-3">
-                                <AppLogo />
+                        <SidebarMenuButton size="lg" asChild className="hover:bg-transparent h-auto p-0">
+                            <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex flex-col items-start gap-1">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-7 bg-primary rounded-full glow-primary" />
+                                    <span className="font-black text-2xl tracking-tighter uppercase italic text-gray-900 dark:text-white leading-none">
+                                        Maki <span className="text-primary">Desu</span>
+                                    </span>
+                                </div>
+                                <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/30 ml-5">
+                                    Operations Gateway
+                                </span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent className="gap-0 py-2">
+            <SidebarContent className="gap-3 py-4">
                 {sidebarSections.map((section) => {
                     const items = filteredNavItems.filter((item) => section.titles.includes(item.title));
                     if (items.length === 0) return null;
@@ -163,9 +171,11 @@ export function AppSidebar() {
                 })}
             </SidebarContent>
 
-            <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
+            <SidebarFooter className="p-4 border-t border-primary/5">
+                <NavFooter items={footerNavItems} />
+                <div className="mt-4">
+                    <NavUser />
+                </div>
             </SidebarFooter>
         </Sidebar>
     );

@@ -18,7 +18,7 @@ class StockUpdated implements ShouldBroadcast
     public $storableType;
     public $storableId;
 
-    public function __construct(int $branchId, string $storableType, int $storableId)
+    public function __construct(int $branchId, ?string $storableType = null, ?int $storableId = null)
     {
         $this->branchId = $branchId;
         $this->storableType = $storableType;

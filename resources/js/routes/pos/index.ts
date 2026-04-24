@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:86
+ * @see app/Http/Controllers/PosController.php:89
  * @route '/pos'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:86
+ * @see app/Http/Controllers/PosController.php:89
  * @route '/pos'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:86
+ * @see app/Http/Controllers/PosController.php:89
  * @route '/pos'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:86
+ * @see app/Http/Controllers/PosController.php:89
  * @route '/pos'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:86
+ * @see app/Http/Controllers/PosController.php:89
  * @route '/pos'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

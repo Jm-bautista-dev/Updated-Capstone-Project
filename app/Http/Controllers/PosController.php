@@ -35,7 +35,10 @@ class PosController extends Controller
         if ($branchId) {
             $productsQuery->where(function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
-                  ->orWhereNull('branch_id');
+                  ->orWhereNull('branch_id')
+                  ->orWhereHas('branches', function ($bq) use ($branchId) {
+                      $bq->where('branches.id', $branchId);
+                  });
             });
         }
 
