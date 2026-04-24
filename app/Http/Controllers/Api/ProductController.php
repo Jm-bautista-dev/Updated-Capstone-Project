@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use App\Traits\HasImageResolution;
 
 class ProductController extends Controller
 {
+    use HasImageResolution;
+
     /**
      * List products for the mobile app.
      * GET /api/v1/products
@@ -91,7 +93,8 @@ class ProductController extends Controller
                         'image'       => $this->resolveImageUrl($first->image_path),
                         'branches'    => $group->map(fn(Product $p) => [
                             'branch_id'   => $p->branch_id,
-                            'price'       => (float) $p->selling_price,
+                            'price'       => (float) ($p->selling_price ?? 0),
+                            'selling_price' => (float) ($p->selling_price ?? 0),
                         ])->values(),
                     ];
                 })->values();
@@ -190,6 +193,7 @@ class ProductController extends Controller
             'name'          => $product->name,
             'sku'           => $product->sku,
             'price'         => (float) ($product->selling_price ?? 0),
+            'selling_price' => (float) ($product->selling_price ?? 0),
             'image'         => $this->resolveImageUrl($product->image_path),
             'category'      => $product->category?->name ?? 'Uncategorized',
             'description'   => $product->description,
@@ -198,39 +202,5 @@ class ProductController extends Controller
             'is_low_stock'  => $availability['is_low_stock'],
             'limiting_item' => $availability['limiting_ingredient'],
         ];
-    }
-
-    /**
-     * Resolve a stored image path to a public URL.
-     * Works on both local (symlinked) and Hostinger shared hosting.
-     */
-    private function resolveImageUrl(?string $imagePath): ?string
-    {
-        if (!$imagePath) return null;
-        
-        // If it's already a full URL, return it
-        if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
-            return $imagePath;
-        }
-
-        try {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk = Storage::disk('public');
-            $url = $disk->url($imagePath);
-            
-            // Fix for Hostinger/Shared hosting where APP_URL might be misconfigured
-            // If the generated URL contains localhost but the request is not from localhost
-            $requestHost = request()->getHttpHost();
-            if (str_contains($url, 'localhost') && !str_contains($requestHost, 'localhost')) {
-                $protocol = request()->isSecure() ? 'https://' : 'http://';
-                return $protocol . $requestHost . '/storage/' . ltrim($imagePath, '/');
-            }
-            
-            return $url;
-        } catch (\Exception $e) {
-            $protocol = request()->isSecure() ? 'https://' : 'http://';
-            $host = request()->getHttpHost();
-            return $protocol . $host . '/storage/' . ltrim($imagePath, '/');
-        }
     }
 }

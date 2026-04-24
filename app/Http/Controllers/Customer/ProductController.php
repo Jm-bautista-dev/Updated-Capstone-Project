@@ -7,8 +7,12 @@ use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
+use App\Traits\HasImageResolution;
+
 class ProductController extends Controller
 {
+    use HasImageResolution;
+
     /**
      * Display a listing of products for customers.
      * Safely scoped to prevent data leaks.
@@ -41,8 +45,9 @@ class ProductController extends Controller
                     'id'            => $product->id,
                     'name'          => $product->name,
                     'price'         => (float) $product->selling_price,
+                    'selling_price' => (float) $product->selling_price,
                     'description'   => $product->description,
-                    'image'         => $product->image_path ? asset('storage/' . $product->image_path) : null,
+                    'image'         => $this->resolveImageUrl($product->image_path),
                     'category_id'   => $product->category_id,
                     'available_to_sell' => $availability['available'],
                     'limiting_ingredient' => $availability['limiting_ingredient'],

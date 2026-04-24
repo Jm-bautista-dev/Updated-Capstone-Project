@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
+use App\Traits\HasImageResolution;
+
 class CategoryController extends Controller
 {
+    use HasImageResolution;
+
     /**
      * Display a listing of categories for customers.
      * ONLY public data exposed.
@@ -24,9 +28,7 @@ class CategoryController extends Controller
                     'id'    => $category->id,
                     'name'  => $category->name,
                     'slug'  => \Illuminate\Support\Str::slug($category->name),
-                    'image' => $category->image_path 
-                        ? (str_starts_with($category->image_path, 'http') ? $category->image_path : asset('storage/' . $category->image_path))
-                        : null,
+                    'image' => $this->resolveImageUrl($category->image_path),
                 ];
             });
 
