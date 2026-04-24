@@ -17,18 +17,43 @@ class CategoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        // For a restaurant app, categories are usually global or shared.
-        // We will return all categories to ensure they show up in the Expo app.
         $categories = Category::orderBy('name')
             ->get()
             ->map(function (Category $cat) {
                 return [
                     'id' => $cat->id,
                     'name' => $cat->name,
-                    'image_url' => $cat->image_path ? asset('storage/' . $cat->image_path) : null,
+                    'image_url' => $this->resolveImageUrl($cat->image_path),
                 ];
             });
 
         return response()->json($categories);
+    }
+
+    private function resolveImageUrl(?string $imagePath): ?string
+    {
+        if (!$imagePath) return null;
+        
+        if (filter_var($imagePath, FILTER_VALIDATE_URL)) {
+            return $imagePath;
+        }
+
+        try {
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('public');
+            $url = $disk->url($imagePath);
+            
+            $requestHost = request()->getHttpHost();
+            if (str_contains($url, 'localhost') && !str_contains($requestHost, 'localhost')) {
+                $protocol = request()->isSecure() ? 'https://' : 'http://';
+                return $protocol . $requestHost . '/storage/' . ltrim($imagePath, '/');
+            }
+            
+            return $url;
+        } catch (\Exception $e) {
+            $protocol = request()->isSecure() ? 'https://' : 'http://';
+            $host = request()->getHttpHost();
+            return $protocol . $host . '/storage/' . ltrim($imagePath, '/');
+        }
     }
 }
