@@ -60,9 +60,9 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function (Product $product) {
-            // Compute dynamic availability (ingredient-based truth)
-            $availability = $product->dynamicAvailability($product->branch_id);
+        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId) {
+            // Compute dynamic availability (ingredient-based truth) for the selected branch context
+            $availability = $product->dynamicAvailability($branchId ?: $product->branch_id);
             
             $product->stock = $availability['available'];
             $product->limiting_ingredient = $availability['limiting_ingredient'];
