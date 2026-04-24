@@ -30,7 +30,7 @@ class InventoryController extends Controller
 
         // Determine branch filter
         $branchId = $user->isAdmin()
-            ? $request->input('branch_id') // null = all branches
+            ? ($request->filled('branch_id') && $request->input('branch_id') !== 'all' ? (int) $request->input('branch_id') : null)
             : $user->branch_id;            // cashier locked to own branch
 
         $targetBranchName = null;
