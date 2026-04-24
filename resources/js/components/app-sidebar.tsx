@@ -142,8 +142,8 @@ export function AppSidebar() {
     ];
 
     return (
-        <Sidebar collapsible="icon" variant="inset" className="border-r-0 border-l-[3px] border-primary/60 bg-[#fffcfd] dark:bg-[#1a1414]">
-            <SidebarHeader className="bg-transparent pb-8 pt-10 px-6">
+        <Sidebar collapsible="icon" variant="inset" className="border-none">
+            <SidebarHeader className="bg-transparent pb-8 pt-10 px-5">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild className="hover:bg-transparent h-auto p-0">
