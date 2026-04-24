@@ -143,24 +143,24 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset" className="border-none">
-            <SidebarHeader className="bg-transparent pb-4 pt-6 px-5">
+            <SidebarHeader className="bg-transparent pb-2 pt-4 px-5">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild className="hover:bg-transparent h-auto p-0">
-                        <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex flex-col items-center w-full gap-2">
+                        <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex flex-col items-center w-full gap-1.5">
                                 <div className="relative group">
-                                    <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-0 group-hover:scale-125 transition-transform duration-500" />
+                                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-0 group-hover:scale-125 transition-transform duration-500" />
                                     <img 
                                         src="/images/maki-desu-logo.png" 
                                         alt="Maki Desu Logo" 
-                                        className="w-14 h-14 object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-110" 
+                                        className="w-12 h-12 object-contain relative z-10 drop-shadow-lg transition-transform duration-500 group-hover:scale-110" 
                                     />
                                 </div>
                                 <div className="flex flex-col items-center">
-                                    <span className="font-black text-lg tracking-tighter uppercase italic text-gray-900 dark:text-white leading-none">
+                                    <span className="font-black text-base tracking-tighter uppercase italic text-gray-900 dark:text-white leading-none">
                                         Maki <span className="text-primary">Desu</span>
                                     </span>
-                                    <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-primary/30 mt-1">
+                                    <span className="text-[7px] font-bold uppercase tracking-[0.4em] text-primary/30 mt-0.5">
                                         Operations Gateway
                                     </span>
                                 </div>
