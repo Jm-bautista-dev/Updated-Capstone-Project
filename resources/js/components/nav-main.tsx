@@ -38,7 +38,7 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
                                 <Link href={item.href} className="flex items-center gap-4">
                                     {/* Left Accent Bar for Active State */}
                                     {active && (
-                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full shadow-[0_0_8px_rgba(231,84,128,0.4)]" />
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full shadow-[0_0_8px_rgba(225,6,44,0.4)]" />
                                     )}
 
                                     {item.icon && (

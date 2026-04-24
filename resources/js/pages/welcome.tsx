@@ -122,17 +122,16 @@ export default function Welcome() {
                     initial={{ opacity: 0, y: 30, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: 1.2, ease: "easeOut" }}
-                    className="relative mb-12"
+                    className="relative mb-8"
                 >
-                    <motion.svg 
+                    <motion.img 
+                        src="/images/maki-desu-logo.png"
+                        alt="Maki Desu Mascot"
                         animate={{ scale: [1, 1.02, 1] }}
                         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                        width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary/10 transition-colors duration-500 hover:text-primary/20"
-                    >
-                        <path d="M20 40H220M40 60H200M70 60V160M170 60V160M10 20C40 30 200 30 230 20" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
-                        <path d="M70 80H170" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-                    </motion.svg>
-                    <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full scale-150 -z-10" />
+                        className="w-[320px] h-auto drop-shadow-[0_20px_50px_rgba(225,6,44,0.15)] rounded-[2.5rem]"
+                    />
+                    <div className="absolute inset-0 bg-primary/10 blur-[100px] rounded-full scale-110 -z-10" />
                 </motion.div>
 
                 {/* Hero Content */}

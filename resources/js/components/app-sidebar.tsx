@@ -147,16 +147,23 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild className="hover:bg-transparent h-auto p-0">
-                            <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex flex-col items-start gap-1">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-1.5 h-7 bg-primary rounded-full glow-primary" />
-                                    <span className="font-black text-2xl tracking-tighter uppercase italic text-gray-900 dark:text-white leading-none">
+                        <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex flex-col items-center w-full gap-4">
+                                <div className="relative group">
+                                    <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-0 group-hover:scale-125 transition-transform duration-500" />
+                                    <img 
+                                        src="/images/maki-desu-logo.png" 
+                                        alt="Maki Desu Logo" 
+                                        className="w-20 h-20 object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-110" 
+                                    />
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <span className="font-black text-xl tracking-tighter uppercase italic text-gray-900 dark:text-white leading-none">
                                         Maki <span className="text-primary">Desu</span>
                                     </span>
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/30 mt-1">
+                                        Operations Gateway
+                                    </span>
                                 </div>
-                                <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-primary/30 ml-5">
-                                    Operations Gateway
-                                </span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
