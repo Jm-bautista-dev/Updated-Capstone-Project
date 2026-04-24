@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
 export const getProductsByLocation = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ getProductsByLocation.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
 getProductsByLocation.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ getProductsByLocation.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
 getProductsByLocation.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ getProductsByLocation.get = (options?: RouteQueryOptions): RouteDefinition<'get'
 })
 /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
 getProductsByLocation.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ getProductsByLocation.head = (options?: RouteQueryOptions): RouteDefinition<'hea
 
     /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
     const getProductsByLocationForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ getProductsByLocation.head = (options?: RouteQueryOptions): RouteDefinition<'hea
 
             /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
         getProductsByLocationForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ getProductsByLocation.head = (options?: RouteQueryOptions): RouteDefinition<'hea
         })
             /**
 * @see \App\Http\Controllers\Api\V1\ProductController::getProductsByLocation
- * @see app/Http/Controllers/Api/V1/ProductController.php:16
+ * @see app/Http/Controllers/Api/V1/ProductController.php:18
  * @route '/api/v1/customer/products'
  */
         getProductsByLocationForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

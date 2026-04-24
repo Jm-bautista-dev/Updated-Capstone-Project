@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Customer\ProductController::index
- * @see app/Http/Controllers/Customer/ProductController.php:16
+ * @see app/Http/Controllers/Customer/ProductController.php:20
  * @route '/api/customer/products'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
