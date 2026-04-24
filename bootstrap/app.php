@@ -20,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'api/*',
+            'sanctum/*',
+            'v1/*',
         ]);
 
         $middleware->web(append: [
@@ -37,18 +39,17 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, $e) {
-            if ($request->is('api/*')) {
-                // Diagnostic: Log 401 reasons
-                if ($e instanceof \Illuminate\Auth\AuthenticationException) {
-                    $header = $request->header('Authorization');
-                    $tokenStart = $header ? substr($header, 0, 15) . '...' : 'NONE';
-                    \Illuminate\Support\Facades\Log::warning('[AUTH DEBUG] 401 Unauthenticated', [
+            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*')) {
+                // Diagnostic: Log 403 reasons
+                if ($e instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException || $e->getCode() == 403) {
+                    \Illuminate\Support\Facades\Log::warning('[SECURITY DEBUG] 403 Forbidden', [
                         'path' => $request->path(),
                         'method' => $request->method(),
-                        'header_present' => $header ? 'YES' : 'NO',
-                        'token_preview' => $tokenStart,
+                        'csrf_token_present' => $request->hasHeader('X-CSRF-TOKEN') ? 'YES' : 'NO',
+                        'requested_with' => $request->header('X-Requested-With'),
                         'origin' => $request->header('Origin') ?: 'NONE',
                         'ip' => $request->ip(),
+                        'error_message' => $e->getMessage(),
                     ]);
                 }
                 return true;

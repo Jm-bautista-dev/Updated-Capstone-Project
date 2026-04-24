@@ -127,8 +127,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
 
         // Notifications
-        Route::get('api/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-        Route::post('api/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
         Route::get('inventory/activity', [NotificationController::class, 'activity'])->name('inventory.activity');
 
         // New Weight/Volume Inventory System

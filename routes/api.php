@@ -57,6 +57,10 @@ Route::prefix('v1')->group(function () {
 
         // Branch location update
         Route::patch('branches/{id}/location', [BranchController::class, 'updateLocation']);
+
+        // Notifications
+        Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index']);
+        Route::post('notifications/mark-as-read', [App\Http\Controllers\NotificationController::class, 'markAsRead']);
     });
 });
 
