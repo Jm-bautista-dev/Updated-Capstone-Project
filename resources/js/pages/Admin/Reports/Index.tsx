@@ -147,7 +147,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 // ── ADMIN UI STAT CARD ──
 function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: any) {
     return (
-        <Card className="relative overflow-hidden group border-none shadow-sm ring-1 ring-border bg-card hover:ring-primary/40 transition-all duration-300">
+        <Card className="relative overflow-hidden group border-none shadow-lg ring-1 ring-primary/5 hover:ring-primary/40 transition-all duration-300">
             <div className={cn("absolute -top-4 -right-4 size-24 blur-3xl opacity-10", colorClass)} />
             <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -196,7 +196,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
     const hasChart = TREND_DATA.length > 0;
 
     return (
-        <div className="p-6 lg:p-8 space-y-10 bg-background dark:bg-zinc-950 min-h-[calc(100vh-64px)]">
+        <div className="p-6 lg:p-8 space-y-10 bg-background dark:bg-[#0B0B0F] min-h-[calc(100vh-64px)]">
             {/* 1. INSIGHT HEADER */}
             <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-border/40 pb-8">
                 <div className="space-y-1">

@@ -476,7 +476,7 @@ export default function InventoryIndex() {
                     value={currentBranchId ? String(currentBranchId) : 'all'}
                     onValueChange={handleBranchFilter}
                   >
-                    <SelectTrigger className="w-48 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
+                    <SelectTrigger className="w-48 h-11 bg-muted/20 border-none ring-1 ring-border/50 shadow-sm font-black text-[10px] uppercase tracking-widest italic">
                       <SelectValue placeholder="All Branches" />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-border shadow-2xl">
@@ -497,7 +497,7 @@ export default function InventoryIndex() {
                   />
                 </div>
                 <Select value={filterUnit} onValueChange={setFilterUnit}>
-                  <SelectTrigger className="w-32 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border shadow-sm font-black text-[10px] uppercase tracking-widest italic">
+                  <SelectTrigger className="w-32 h-11 bg-muted/20 border-none ring-1 ring-border/50 shadow-sm font-black text-[10px] uppercase tracking-widest italic">
                     <SelectValue placeholder="Unit" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-border shadow-2xl">

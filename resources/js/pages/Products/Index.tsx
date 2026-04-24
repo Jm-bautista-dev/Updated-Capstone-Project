@@ -899,25 +899,33 @@ export default function ProductsIndex() {
 
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Category</label>
-                                    <select
-                                        value={data.category_id}
-                                        onChange={(e) => setData('category_id', e.target.value)}
-                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
+                                    <Select 
+                                        value={data.category_id ? String(data.category_id) : ''} 
+                                        onValueChange={(val) => {
+                                            setData('category_id', val);
+                                            validateField('category_id', val);
+                                        }}
                                     >
-                                        <option value="">Select Category</option>
-                                        {categories
-                                            .filter((c: any) => {
-                                                if (!data.branch_id) return true;
-                                                const targetId = Number(data.branch_id);
-                                                const hasDirectMatch = c.branch_id && Number(c.branch_id) === targetId;
-                                                const hasRelationMatch = c.branches?.some((b: any) => Number(b.id) === targetId);
-                                                const isGlobal = !c.branch_id && (!c.branches || c.branches.length === 0);
-                                                return hasDirectMatch || hasRelationMatch || isGlobal;
-                                            })
-                                            .map((c: any) => (
-                                                <option key={c.id} value={c.id}>{c.name}</option>
-                                            ))}
-                                    </select>
+                                        <SelectTrigger className="w-full h-11 bg-muted/30 border-none ring-1 ring-border rounded-xl font-bold transition-all">
+                                            <SelectValue placeholder="Select Category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categories
+                                                .filter((c: any) => {
+                                                    if (!data.branch_id) return true;
+                                                    const targetId = Number(data.branch_id);
+                                                    const hasDirectMatch = c.branch_id && Number(c.branch_id) === targetId;
+                                                    const hasRelationMatch = c.branches?.some((b: any) => Number(b.id) === targetId);
+                                                    const isGlobal = !c.branch_id && (!c.branches || c.branches.length === 0);
+                                                    return hasDirectMatch || hasRelationMatch || isGlobal;
+                                                })
+                                                .map((c: any) => (
+                                                    <SelectItem key={c.id} value={String(c.id)} className="font-bold py-2.5">
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
                                     {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
                                 </div>
                                 {isAdmin && (
@@ -952,22 +960,27 @@ export default function ProductsIndex() {
                                         {data.branch_option === 'single' && (
                                             <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Select Owner Branch</label>
-                                                <select
-                                                    value={data.branch_id}
-                                                    onChange={(e) => {
-                                                        setData(d => ({ ...d, branch_id: e.target.value }));
-                                                        validateField('branch_id', e.target.value);
+                                                <Select
+                                                    value={data.branch_id ? String(data.branch_id) : ''}
+                                                    onValueChange={(val) => {
+                                                        setData(d => ({ ...d, branch_id: val }));
+                                                        validateField('branch_id', val);
                                                     }}
-                                                    className={cn(
-                                                        "w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none appearance-none font-bold shadow-sm transition-all",
-                                                        localErrors.branch_id ? "border-destructive ring-1 ring-destructive" : "border-input focus:ring-2 focus:ring-primary/20"
-                                                    )}
                                                 >
-                                                    <option value="">-- Choose Branch --</option>
-                                                    {branches?.map((b: any) => (
-                                                        <option key={b.id} value={b.id}>{b.name}</option>
-                                                    ))}
-                                                </select>
+                                                    <SelectTrigger className={cn(
+                                                        "w-full h-11 bg-muted/30 rounded-xl border-none ring-1 font-bold shadow-sm transition-all",
+                                                        localErrors.branch_id ? "ring-destructive" : "ring-border focus:ring-primary/20"
+                                                    )}>
+                                                        <SelectValue placeholder="-- Choose Branch --" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {branches?.map((b: any) => (
+                                                            <SelectItem key={b.id} value={String(b.id)} className="font-bold py-2.5">
+                                                                {b.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                                 {localErrors.branch_id && <p className="text-[10px] text-destructive font-bold mt-1">{localErrors.branch_id}</p>}
                                             </div>
                                         )}
@@ -1047,15 +1060,21 @@ export default function ProductsIndex() {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Unit Label</label>
-                                    <select
+                                    <Select
                                         value={data.unit}
-                                        onChange={(e) => setData('unit', e.target.value)}
-                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm appearance-none font-bold"
+                                        onValueChange={(val) => setData('unit', val)}
                                     >
-                                        {allowedUnits?.map((u: string) => (
-                                            <option key={u} value={u}>{u.toUpperCase()}</option>
-                                        ))}
-                                    </select>
+                                        <SelectTrigger className="w-full h-11 bg-muted/30 border-none ring-1 ring-border rounded-xl font-bold">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {allowedUnits?.map((u: string) => (
+                                                <SelectItem key={u} value={u} className="font-bold py-2.5">
+                                                    {u.toUpperCase()}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className="col-span-2 space-y-2">
                                     <label className="text-sm font-medium">Description</label>
@@ -1098,20 +1117,26 @@ export default function ProductsIndex() {
                                             const units = getAvailableUnits(selectedIng);
                                             return (
                                                 <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1 duration-200">
-                                                    <select
+                                                    <Select
                                                         value={item.ingredient_id}
-                                                        onChange={(e) => {
-                                                            const newId = e.target.value;
-                                                            const ing = ingredients.find(i => i.id.toString() === newId);
-                                                            updateRecipeItem(idx, 'ingredient_id', newId);
+                                                        onValueChange={(val) => {
+                                                            const ing = ingredients.find(i => i.id.toString() === val);
+                                                            updateRecipeItem(idx, 'ingredient_id', val);
                                                             if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
                                                             validateField('recipe', data.recipe);
                                                         }}
-                                                        className="flex-1 h-9 px-3 rounded-lg border border-input bg-muted/10 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-primary/30"
                                                     >
-                                                        <option value="">Choose Material</option>
-                                                        {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
-                                                    </select>
+                                                        <SelectTrigger className="flex-1 h-9 bg-muted/10 border-input/50 text-[11px] font-bold">
+                                                            <SelectValue placeholder="Choose Material" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {ingredients.map(ing => (
+                                                                <SelectItem key={ing.id} value={ing.id.toString()} className="text-[11px] font-bold">
+                                                                    {ing.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                     <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
                                                         <Input 
@@ -1126,16 +1151,24 @@ export default function ProductsIndex() {
                                                     </div>
                                                     <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
                                                          <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
-                                                         <select
+                                                         <Select
                                                             value={item.unit}
-                                                            onChange={(e) => {
-                                                                updateRecipeItem(idx, 'unit', e.target.value);
+                                                            onValueChange={(val) => {
+                                                                updateRecipeItem(idx, 'unit', val);
                                                                 validateField('recipe', data.recipe);
                                                             }}
-                                                            className="w-16 h-8 border-none bg-transparent text-[10px] font-black uppercase text-center focus:outline-none"
                                                         >
-                                                            {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
-                                                        </select>
+                                                            <SelectTrigger className="w-20 h-8 border-none bg-muted/20 text-[10px] font-black uppercase">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {units.map(u => (
+                                                                    <SelectItem key={u} value={u} className="text-[10px] font-black uppercase">
+                                                                        {u.toUpperCase()}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
                                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5"><FiTrash2 className="size-3.5" /></Button>
                                                 </div>
@@ -1275,20 +1308,26 @@ export default function ProductsIndex() {
 
                                             return (
                                                 <div key={idx} className="flex gap-2 items-center group animate-in fade-in slide-in-from-top-1">
-                                                    <select
+                                                    <Select
                                                         value={item.ingredient_id}
-                                                        onChange={(e) => {
-                                                            const newId = e.target.value;
-                                                            const ing = ingredients.find(i => i.id.toString() === newId);
-                                                            updateRecipeItem(idx, 'ingredient_id', newId);
+                                                        onValueChange={(val) => {
+                                                            const ing = ingredients.find(i => i.id.toString() === val);
+                                                            updateRecipeItem(idx, 'ingredient_id', val);
                                                             if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
                                                             validateField('recipe', data.recipe);
                                                         }}
-                                                        className="flex-1 h-10 px-3 rounded-xl border border-input/50 bg-muted/5 text-[11px] font-black focus:ring-2 focus:ring-primary/20"
                                                     >
-                                                        <option value="">-- Choose Material --</option>
-                                                        {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
-                                                    </select>
+                                                        <SelectTrigger className="flex-1 h-10 bg-muted/10 border-input/50 text-[11px] font-black">
+                                                            <SelectValue placeholder="-- Choose Material --" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {ingredients.map(ing => (
+                                                                <SelectItem key={ing.id} value={ing.id.toString()} className="text-[11px] font-bold">
+                                                                    {ing.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                     <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
                                                         <Input 
@@ -1303,16 +1342,24 @@ export default function ProductsIndex() {
                                                     </div>
                                                     <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                                          <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
-                                                         <select
+                                                         <Select
                                                             value={item.unit}
-                                                            onChange={(e) => {
-                                                                updateRecipeItem(idx, 'unit', e.target.value);
+                                                            onValueChange={(val) => {
+                                                                updateRecipeItem(idx, 'unit', val);
                                                                 validateField('recipe', data.recipe);
                                                             }}
-                                                            className="w-16 h-10 border-none bg-transparent text-[10px] font-black uppercase text-center focus:outline-none"
                                                         >
-                                                            {units.map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
-                                                        </select>
+                                                            <SelectTrigger className="w-20 h-10 border-none bg-muted/10 text-[10px] font-black uppercase">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {units.map(u => (
+                                                                    <SelectItem key={u} value={u} className="text-[10px] font-black uppercase">
+                                                                        {u.toUpperCase()}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
                                                     <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-10 text-destructive/40 hover:text-destructive hover:bg-destructive/5 rounded-xl"><FiTrash2 className="size-4" /></Button>
                                                 </div>

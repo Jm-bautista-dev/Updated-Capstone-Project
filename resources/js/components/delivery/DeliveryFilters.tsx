@@ -57,7 +57,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     <Input
                         id="delivery-search"
                         placeholder="Search by Order #, Customer, or Address..."
-                        className="pl-10 h-11 rounded-xl border-none bg-muted/50 focus-visible:bg-background transition-all"
+                        className="pl-10 h-11 rounded-xl border-none bg-muted/20 focus-visible:bg-background transition-all"
                         value={searchValue}
                         onChange={handleSearchChange}
                     />
@@ -66,7 +66,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                 {/* Filter Controls */}
                 <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
                     <Select value={filters.status || 'all'} onValueChange={(v: string) => onFilterChange({ status: v })}>
-                        <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/50 border-none text-xs font-bold shrink-0">
+                        <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/20 border-none text-xs font-bold shrink-0">
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -79,7 +79,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     </Select>
 
                     <Select value={filters.type || 'all'} onValueChange={(v: string) => onFilterChange({ type: v })}>
-                        <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/50 border-none text-xs font-bold shrink-0">
+                        <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/20 border-none text-xs font-bold shrink-0">
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -90,7 +90,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     </Select>
 
                     <Select value={filters.branch_id || 'all'} onValueChange={(v: string) => onFilterChange({ branch_id: v })}>
-                        <SelectTrigger className="h-10 w-[160px] rounded-xl bg-muted/50 border-none text-xs font-bold shrink-0">
+                        <SelectTrigger className="h-10 w-[160px] rounded-xl bg-muted/20 border-none text-xs font-bold shrink-0">
                             <Building2 className="size-3 mr-1" />
                             <SelectValue placeholder="Branch" />
                         </SelectTrigger>

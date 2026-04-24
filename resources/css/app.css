@@ -110,6 +110,7 @@
 }
 
 .dark {
+    color-scheme: dark;
     /* 60% — BASE BACKGROUND */
     --background: #0B0B0F;
     --foreground: #F5F5F7;
