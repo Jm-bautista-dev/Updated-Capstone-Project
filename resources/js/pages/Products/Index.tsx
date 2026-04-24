@@ -17,7 +17,9 @@ import {
     FiRefreshCw,
     FiGrid,
     FiList,
-    FiZap
+    FiZap,
+    FiCheck,
+    FiChevronDown
 } from 'react-icons/fi';
 import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
@@ -43,6 +45,11 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { 
@@ -97,6 +104,77 @@ type Summary = {
     total_products: number;
     low_stock: number;
     out_of_stock: number;
+};
+
+// --- Searchable Ingredient Select Component ---
+const SearchableIngredientSelect = ({ value, onValueChange, ingredients, placeholder = "Choose Material", className = "" }: { 
+    value: string; 
+    onValueChange: (val: string) => void; 
+    ingredients: Ingredient[]; 
+    placeholder?: string;
+    className?: string;
+}) => {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    
+    const filteredIngredients = ingredients.filter(ing => 
+        ing.name.toLowerCase().includes(search.toLowerCase())
+    );
+    
+    const selectedIng = ingredients.find(ing => ing.id.toString() === value);
+    
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button 
+                    variant="outline" 
+                    role="combobox" 
+                    aria-expanded={open} 
+                    className={cn("flex-1 h-9 bg-muted/10 border-input/50 text-[11px] font-bold justify-between px-3", className)}
+                >
+                    <span className="truncate">{selectedIng ? selectedIng.name : placeholder}</span>
+                    <FiChevronDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0 shadow-2xl border-primary/10 rounded-xl overflow-hidden" align="start">
+                <div className="flex items-center border-b border-border/50 px-3 bg-muted/5">
+                    <FiSearch className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <Input 
+                        placeholder="Search materials..." 
+                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-xs outline-none border-none focus-visible:ring-0 placeholder:text-muted-foreground/50 font-medium" 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        autoFocus
+                    />
+                </div>
+                <div className="max-h-[250px] overflow-y-auto p-1 custom-scrollbar">
+                    {filteredIngredients.length === 0 ? (
+                        <div className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 italic">No material found</div>
+                    ) : (
+                        filteredIngredients.map(ing => (
+                            <div
+                                key={ing.id}
+                                className={cn(
+                                    "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-[11px] font-bold outline-none transition-all",
+                                    value === ing.id.toString() 
+                                        ? "bg-primary text-primary-foreground" 
+                                        : "hover:bg-primary/10 hover:text-primary"
+                                )}
+                                onClick={() => {
+                                    onValueChange(ing.id.toString());
+                                    setOpen(false);
+                                    setSearch('');
+                                }}
+                            >
+                                <FiCheck className={cn("mr-2 h-3.5 w-3.5", value === ing.id.toString() ? "opacity-100" : "opacity-0")} />
+                                {ing.name}
+                            </div>
+                        ))
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
 };
 
 export default function ProductsIndex() {
@@ -1147,26 +1225,16 @@ export default function ProductsIndex() {
                                             const units = getAvailableUnits(selectedIng);
                                             return (
                                                 <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1 duration-200">
-                                                    <Select
+                                                    <SearchableIngredientSelect
                                                         value={item.ingredient_id}
+                                                        ingredients={ingredients}
                                                         onValueChange={(val) => {
                                                             const ing = ingredients.find(i => i.id.toString() === val);
                                                             updateRecipeItem(idx, 'ingredient_id', val);
                                                             if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
                                                             validateField('recipe', data.recipe);
                                                         }}
-                                                    >
-                                                        <SelectTrigger className="flex-1 h-9 bg-muted/10 border-input/50 text-[11px] font-bold">
-                                                            <SelectValue placeholder="Choose Material" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {ingredients.map(ing => (
-                                                                <SelectItem key={ing.id} value={ing.id.toString()} className="text-[11px] font-bold">
-                                                                    {ing.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                    />
                                                     <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
                                                         <Input 
@@ -1387,26 +1455,17 @@ export default function ProductsIndex() {
 
                                             return (
                                                 <div key={idx} className="flex gap-2 items-center group animate-in fade-in slide-in-from-top-1">
-                                                    <Select
+                                                    <SearchableIngredientSelect
                                                         value={item.ingredient_id}
+                                                        ingredients={ingredients}
                                                         onValueChange={(val) => {
                                                             const ing = ingredients.find(i => i.id.toString() === val);
                                                             updateRecipeItem(idx, 'ingredient_id', val);
                                                             if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
                                                             validateField('recipe', data.recipe);
                                                         }}
-                                                    >
-                                                        <SelectTrigger className="flex-1 h-10 bg-muted/10 border-input/50 text-[11px] font-black">
-                                                            <SelectValue placeholder="-- Choose Material --" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {ingredients.map(ing => (
-                                                                <SelectItem key={ing.id} value={ing.id.toString()} className="text-[11px] font-bold">
-                                                                    {ing.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        className="h-10 text-[11px] font-black"
+                                                    />
                                                     <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
                                                         <Input 
