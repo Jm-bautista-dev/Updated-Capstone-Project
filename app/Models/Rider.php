@@ -11,19 +11,38 @@ use Illuminate\Database\Eloquent\Builder;
 
 use App\Traits\BelongsToBranch;
 
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
+
 /**
  * @mixin \Illuminate\Database\Eloquent\Builder
  */
-class Rider extends Model
+class Rider extends Authenticatable
 {
-    use HasFactory, SoftDeletes, BelongsToBranch;
+    use HasFactory, SoftDeletes, BelongsToBranch, HasApiTokens, Notifiable;
 
     protected $fillable = [
         'name',
+        'email',
+        'password',
         'phone',
         'branch_id',
         'status',
+        'is_active',
+        'role',
         'last_active_at',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'password' => 'hashed',
+        'is_active' => 'boolean',
+        'last_active_at' => 'datetime',
     ];
 
     /* ── Relationships ─────────────────────────────── */

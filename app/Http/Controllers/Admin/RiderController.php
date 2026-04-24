@@ -43,24 +43,50 @@ class RiderController extends Controller
     {
         $validated = $request->validate([
             'name'      => 'required|string|max:255',
+            'email'     => 'required|email|unique:riders,email',
             'phone'     => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]{7,20}$/'],
             'branch_id' => 'required|exists:branches,id',
             'status'    => 'required|in:available,busy,offline',
+            'password'  => 'nullable|string|min:6',
         ]);
 
-        Rider::create($validated);
+        $plainPassword = $request->filled('password') 
+            ? $request->password 
+            : \Illuminate\Support\Str::random(10);
 
-        return back()->with('success', 'Rider added successfully.');
+        $validated['password'] = \Illuminate\Support\Facades\Hash::make($plainPassword);
+        $validated['role'] = 'rider';
+        $validated['is_active'] = true;
+
+        $rider = Rider::create($validated);
+
+        return back()->with([
+            'success' => 'Rider added successfully.',
+            'new_rider' => [
+                'name' => $rider->name,
+                'email' => $rider->email,
+                'password' => $plainPassword,
+            ]
+        ]);
     }
 
     public function update(Request $request, Rider $rider)
     {
         $validated = $request->validate([
             'name'      => 'required|string|max:255',
+            'email'     => 'required|email|unique:riders,email,' . $rider->id,
             'phone'     => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]{7,20}$/'],
             'branch_id' => 'required|exists:branches,id',
             'status'    => 'required|in:available,busy,offline',
+            'password'  => 'nullable|string|min:6',
+            'is_active' => 'required|boolean',
         ]);
+
+        if ($request->filled('password')) {
+            $validated['password'] = \Illuminate\Support\Facades\Hash::make($request->password);
+        } else {
+            unset($validated['password']);
+        }
 
         $rider->update($validated);
 

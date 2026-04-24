@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Rider;
 use App\Models\EmailVerification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,11 +73,25 @@ class AuthController extends Controller
         /** @var User $user */
         $user = User::where('email', $request->email)->first();
 
+        // If not found in users, check riders table
+        if (!$user) {
+            /** @var Rider $user */
+            $user = Rider::where('email', $request->email)->first();
+        }
+
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'The provided credentials are incorrect.',
             ], 401);
+        }
+
+        // Check if account is active (for both User and Rider)
+        if (isset($user->is_active) && !$user->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account has been deactivated.',
+            ], 403);
         }
 
         $token = $user->createToken('mobile-app')->plainTextToken;
@@ -175,15 +190,15 @@ class AuthController extends Controller
     /**
      * Format user data for API response.
      */
-    private function formatUser(User $user): array
+    private function formatUser($user): array
     {
         return [
             'id'            => $user->id,
-            'first_name'    => $user->first_name,
-            'last_name'     => $user->last_name,
+            'first_name'    => $user->first_name ?? $user->name,
+            'last_name'     => $user->last_name ?? '',
             'full_name'     => $user->name,
             'email'         => $user->email,
-            'mobile_number' => $user->mobile_number,
+            'mobile_number' => $user->mobile_number ?? $user->phone ?? '',
             'role'          => $user->role,
             'branch_id'     => $user->branch_id,
         ];

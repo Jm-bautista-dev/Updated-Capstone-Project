@@ -406,7 +406,7 @@ edit.head = (args: { rider: string | number } | [rider: string | number ] | stri
     edit.form = editForm
 /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
 export const update = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -421,7 +421,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
 update.url = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -454,7 +454,7 @@ update.url = (args: { rider: number | { id: number } } | [rider: number | { id: 
 
 /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
 update.put = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -463,7 +463,7 @@ update.put = (args: { rider: number | { id: number } } | [rider: number | { id: 
 })
 /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
 update.patch = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -473,7 +473,7 @@ update.patch = (args: { rider: number | { id: number } } | [rider: number | { id
 
     /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
     const updateForm = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -488,7 +488,7 @@ update.patch = (args: { rider: number | { id: number } } | [rider: number | { id
 
             /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
         updateForm.put = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -502,7 +502,7 @@ update.patch = (args: { rider: number | { id: number } } | [rider: number | { id
         })
             /**
 * @see \App\Http\Controllers\Admin\RiderController::update
- * @see app/Http/Controllers/Admin/RiderController.php:56
+ * @see app/Http/Controllers/Admin/RiderController.php:73
  * @route '/riders/{rider}'
  */
         updateForm.patch = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -518,7 +518,7 @@ update.patch = (args: { rider: number | { id: number } } | [rider: number | { id
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\Admin\RiderController::destroy
- * @see app/Http/Controllers/Admin/RiderController.php:70
+ * @see app/Http/Controllers/Admin/RiderController.php:96
  * @route '/riders/{rider}'
  */
 export const destroy = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -533,7 +533,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\RiderController::destroy
- * @see app/Http/Controllers/Admin/RiderController.php:70
+ * @see app/Http/Controllers/Admin/RiderController.php:96
  * @route '/riders/{rider}'
  */
 destroy.url = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -566,7 +566,7 @@ destroy.url = (args: { rider: number | { id: number } } | [rider: number | { id:
 
 /**
 * @see \App\Http\Controllers\Admin\RiderController::destroy
- * @see app/Http/Controllers/Admin/RiderController.php:70
+ * @see app/Http/Controllers/Admin/RiderController.php:96
  * @route '/riders/{rider}'
  */
 destroy.delete = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -576,7 +576,7 @@ destroy.delete = (args: { rider: number | { id: number } } | [rider: number | { 
 
     /**
 * @see \App\Http\Controllers\Admin\RiderController::destroy
- * @see app/Http/Controllers/Admin/RiderController.php:70
+ * @see app/Http/Controllers/Admin/RiderController.php:96
  * @route '/riders/{rider}'
  */
     const destroyForm = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -591,7 +591,7 @@ destroy.delete = (args: { rider: number | { id: number } } | [rider: number | { 
 
             /**
 * @see \App\Http\Controllers\Admin\RiderController::destroy
- * @see app/Http/Controllers/Admin/RiderController.php:70
+ * @see app/Http/Controllers/Admin/RiderController.php:96
  * @route '/riders/{rider}'
  */
         destroyForm.delete = (args: { rider: number | { id: number } } | [rider: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -607,7 +607,7 @@ destroy.delete = (args: { rider: number | { id: number } } | [rider: number | { 
     destroy.form = destroyForm
 /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
 export const available = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -622,7 +622,7 @@ available.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
 available.url = (options?: RouteQueryOptions) => {
@@ -631,7 +631,7 @@ available.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
 available.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -640,7 +640,7 @@ available.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
 available.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -650,7 +650,7 @@ available.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
     const availableForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -660,7 +660,7 @@ available.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
         availableForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -669,7 +669,7 @@ available.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\RiderController::available
- * @see app/Http/Controllers/Admin/RiderController.php:79
+ * @see app/Http/Controllers/Admin/RiderController.php:105
  * @route '/riders-available'
  */
         availableForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

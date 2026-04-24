@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
     Plus, Search, Edit2, Trash2, Phone, User, 
     MoreHorizontal, Filter, ChevronLeft, ChevronRight,
-    Building2, Bike, X
+    Building2, Bike, X, Eye, EyeOff, Lock, Mail, CheckCircle2, Copy
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePage } from '@inertiajs/react';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -22,8 +23,10 @@ import {
 interface Rider {
     id: number;
     name: string;
+    email: string;
     phone: string | null;
     status: 'available' | 'busy' | 'offline';
+    is_active: boolean;
     branch_id: number;
     branch?: { id: number; name: string };
     deliveries_count?: number;
@@ -48,16 +51,30 @@ interface Props {
 }
 
 export default function RiderIndex({ riders, branches, filters }: Props) {
+    const { props } = usePage<any>();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCredsModalOpen, setIsCredsModalOpen] = useState(false);
+    const [newRiderCreds, setNewRiderCreds] = useState<any>(null);
+    const [showPassword, setShowPassword] = useState(false);
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [search, setSearch] = useState(filters.search || '');
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
+        email: '',
         phone: '',
         status: 'available' as 'available' | 'busy' | 'offline',
         branch_id: '' as string | number,
+        password: '',
+        is_active: true,
     });
+
+    useEffect(() => {
+        if (props.flash?.new_rider) {
+            setNewRiderCreds(props.flash.new_rider);
+            setIsCredsModalOpen(true);
+        }
+    }, [props.flash?.new_rider]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,9 +95,12 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
         setEditingRider(rider);
         setData({
             name: rider.name,
+            email: rider.email,
             phone: rider.phone || '',
             status: rider.status,
             branch_id: rider.branch_id,
+            password: '',
+            is_active: rider.is_active,
         });
         setIsModalOpen(true);
     };
@@ -193,7 +213,9 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-foreground truncate">{rider.name}</p>
-                                                        <p className="text-[10px] text-muted-foreground uppercase font-black">ID: #{rider.id}</p>
+                                                        <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1">
+                                                            <Mail className="size-2.5" /> {rider.email}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
@@ -313,6 +335,19 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                                 {errors.name && <p className="text-xs text-destructive ml-1">{errors.name}</p>}
                             </div>
 
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address (Login Username) *</label>
+                                <Input 
+                                    type="email"
+                                    placeholder="rider@example.com" 
+                                    className="h-12 rounded-2xl" 
+                                    value={data.email} 
+                                    onChange={e => setData('email', e.target.value)} 
+                                    required 
+                                />
+                                {errors.email && <p className="text-xs text-destructive ml-1">{errors.email}</p>}
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</label>
@@ -337,6 +372,44 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                                         </SelectContent>
                                     </Select>
                                     {errors.branch_id && <p className="text-xs text-destructive ml-1">{errors.branch_id}</p>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                                        {editingRider ? 'New Password (Leave blank to keep current)' : 'Password (Leave blank for auto-generate)'}
+                                    </label>
+                                    <div className="relative">
+                                        <Input 
+                                            type={showPassword ? 'text' : 'password'}
+                                            placeholder="••••••••" 
+                                            className="h-12 rounded-2xl pr-10" 
+                                            value={data.password} 
+                                            onChange={e => setData('password', e.target.value)} 
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                        </button>
+                                    </div>
+                                    {errors.password && <p className="text-xs text-destructive ml-1">{errors.password}</p>}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Account Status *</label>
+                                    <Select value={data.is_active ? 'true' : 'false'} onValueChange={v => setData('is_active', v === 'true')}>
+                                        <SelectTrigger className="h-12 rounded-2xl">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="true">Active Account</SelectItem>
+                                            <SelectItem value="false">Suspended Account</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.is_active && <p className="text-xs text-destructive ml-1">{errors.is_active}</p>}
                                 </div>
                             </div>
 
@@ -365,6 +438,66 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+            {/* Credentials Display Modal */}
+            <Dialog open={isCredsModalOpen} onOpenChange={setIsCredsModalOpen}>
+                <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+                    <div className="p-8 bg-emerald-600 text-white text-center space-y-2">
+                        <div className="size-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="size-10" />
+                        </div>
+                        <DialogTitle className="text-2xl font-black">Rider Account Created!</DialogTitle>
+                        <p className="text-emerald-50 text-sm">Please copy these credentials and provide them to the rider. This is shown only once.</p>
+                    </div>
+
+                    <div className="p-8 space-y-6">
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-2xl bg-muted/50 border border-muted-foreground/10 space-y-1 relative group">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <Mail className="size-3" /> Email / Username
+                                </label>
+                                <p className="font-bold text-lg select-all">{newRiderCreds?.email}</p>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => navigator.clipboard.writeText(newRiderCreds?.email)}
+                                >
+                                    <Copy className="size-4" />
+                                </Button>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-muted/50 border border-muted-foreground/10 space-y-1 relative group">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <Lock className="size-3" /> Temporary Password
+                                </label>
+                                <p className="font-mono font-bold text-xl tracking-wider text-primary select-all">{newRiderCreds?.password}</p>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => navigator.clipboard.writeText(newRiderCreds?.password)}
+                                >
+                                    <Copy className="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex gap-3">
+                            <div className="size-5 rounded-full bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">!</div>
+                            <p className="font-medium leading-relaxed">
+                                For security reasons, this password was generated by the system. The rider can log in to the mobile app immediately using these credentials.
+                            </p>
+                        </div>
+
+                        <Button 
+                            className="w-full h-12 rounded-2xl font-black text-base shadow-lg shadow-emerald-600/20" 
+                            onClick={() => setIsCredsModalOpen(false)}
+                        >
+                            Got it, I've saved it
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </AppLayout>

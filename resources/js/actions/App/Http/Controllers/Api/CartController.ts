@@ -78,6 +78,61 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     index.form = indexForm
 /**
+* @see \App\Http\Controllers\Api\CartController::validate
+ * @see app/Http/Controllers/Api/CartController.php:178
+ * @route '/api/v1/cart/validate'
+ */
+export const validate = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: validate.url(options),
+    method: 'post',
+})
+
+validate.definition = {
+    methods: ["post"],
+    url: '/api/v1/cart/validate',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\CartController::validate
+ * @see app/Http/Controllers/Api/CartController.php:178
+ * @route '/api/v1/cart/validate'
+ */
+validate.url = (options?: RouteQueryOptions) => {
+    return validate.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CartController::validate
+ * @see app/Http/Controllers/Api/CartController.php:178
+ * @route '/api/v1/cart/validate'
+ */
+validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: validate.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CartController::validate
+ * @see app/Http/Controllers/Api/CartController.php:178
+ * @route '/api/v1/cart/validate'
+ */
+    const validateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: validate.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CartController::validate
+ * @see app/Http/Controllers/Api/CartController.php:178
+ * @route '/api/v1/cart/validate'
+ */
+        validateForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: validate.url(options),
+            method: 'post',
+        })
+    
+    validate.form = validateForm
+/**
 * @see \App\Http\Controllers\Api\CartController::addItem
  * @see app/Http/Controllers/Api/CartController.php:53
  * @route '/api/v1/cart/add'
@@ -365,6 +420,6 @@ clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
         })
     
     clear.form = clearForm
-const CartController = { index, addItem, updateItem, removeItem, clear }
+const CartController = { index, validate, addItem, updateItem, removeItem, clear }
 
 export default CartController
