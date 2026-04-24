@@ -51,6 +51,7 @@ Route::prefix('v1')->group(function () {
 
         // Cart System
         Route::get('cart', [CartController::class, 'index']);
+        Route::post('cart/validate', [CartController::class, 'validate']);
         Route::post('cart/add', [CartController::class, 'addItem']);
         Route::put('cart/items/{itemId}', [CartController::class, 'updateItem']);
         Route::delete('cart/items/{itemId}', [CartController::class, 'removeItem']);

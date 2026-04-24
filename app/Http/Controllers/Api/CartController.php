@@ -170,4 +170,48 @@ class CartController extends Controller
             'message' => 'Cart cleared'
         ]);
     }
+
+    /**
+     * Validate the current cart (check stock availability).
+     * POST /api/v1/cart/validate
+     */
+    public function validate(Request $request)
+    {
+        $cart = Cart::with(['items.product', 'branch'])
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (!$cart || $cart->items->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'is_valid' => true,
+                'messages' => []
+            ]);
+        }
+
+        $invalidItems = [];
+        $branchId = $cart->branch_id;
+
+        foreach ($cart->items as $item) {
+            $availability = $item->product->dynamicAvailability($branchId);
+            $availableQty = (float) $availability['available'];
+
+            if ($item->quantity > $availableQty) {
+                $invalidItems[] = [
+                    'id' => $item->id,
+                    'product_name' => $item->product->name,
+                    'requested_quantity' => $item->quantity,
+                    'available_quantity' => $availableQty,
+                    'message' => "Only {$availableQty} of '{$item->product->name}' available."
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'is_valid' => empty($invalidItems),
+            'invalid_items' => $invalidItems,
+            'message' => empty($invalidItems) ? 'Cart is valid' : 'Some items have insufficient stock'
+        ]);
+    }
 }
