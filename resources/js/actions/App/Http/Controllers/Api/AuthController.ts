@@ -59,12 +59,12 @@ register.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/Api/AuthController.php:66
  * @route '/api/v1/login'
  */
-export const login = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: login.url(options),
+const login49efc903aa0be885ed3d70a571b283f0 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: login49efc903aa0be885ed3d70a571b283f0.url(options),
     method: 'post',
 })
 
-login.definition = {
+login49efc903aa0be885ed3d70a571b283f0.definition = {
     methods: ["post"],
     url: '/api/v1/login',
 } satisfies RouteDefinition<["post"]>
@@ -74,8 +74,8 @@ login.definition = {
  * @see app/Http/Controllers/Api/AuthController.php:66
  * @route '/api/v1/login'
  */
-login.url = (options?: RouteQueryOptions) => {
-    return login.definition.url + queryParams(options)
+login49efc903aa0be885ed3d70a571b283f0.url = (options?: RouteQueryOptions) => {
+    return login49efc903aa0be885ed3d70a571b283f0.definition.url + queryParams(options)
 }
 
 /**
@@ -83,8 +83,8 @@ login.url = (options?: RouteQueryOptions) => {
  * @see app/Http/Controllers/Api/AuthController.php:66
  * @route '/api/v1/login'
  */
-login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: login.url(options),
+login49efc903aa0be885ed3d70a571b283f0.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: login49efc903aa0be885ed3d70a571b283f0.url(options),
     method: 'post',
 })
 
@@ -93,8 +93,8 @@ login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/Api/AuthController.php:66
  * @route '/api/v1/login'
  */
-    const loginForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: login.url(options),
+    const login49efc903aa0be885ed3d70a571b283f0Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: login49efc903aa0be885ed3d70a571b283f0.url(options),
         method: 'post',
     })
 
@@ -103,12 +103,73 @@ login.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/Api/AuthController.php:66
  * @route '/api/v1/login'
  */
-        loginForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: login.url(options),
+        login49efc903aa0be885ed3d70a571b283f0Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: login49efc903aa0be885ed3d70a571b283f0.url(options),
             method: 'post',
         })
     
-    login.form = loginForm
+    login49efc903aa0be885ed3d70a571b283f0.form = login49efc903aa0be885ed3d70a571b283f0Form
+    /**
+* @see \App\Http\Controllers\Api\AuthController::login
+ * @see app/Http/Controllers/Api/AuthController.php:66
+ * @route '/api/v1/rider/login'
+ */
+const login7b344313eefec9133a231b6b74f0b152 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: login7b344313eefec9133a231b6b74f0b152.url(options),
+    method: 'post',
+})
+
+login7b344313eefec9133a231b6b74f0b152.definition = {
+    methods: ["post"],
+    url: '/api/v1/rider/login',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\AuthController::login
+ * @see app/Http/Controllers/Api/AuthController.php:66
+ * @route '/api/v1/rider/login'
+ */
+login7b344313eefec9133a231b6b74f0b152.url = (options?: RouteQueryOptions) => {
+    return login7b344313eefec9133a231b6b74f0b152.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\AuthController::login
+ * @see app/Http/Controllers/Api/AuthController.php:66
+ * @route '/api/v1/rider/login'
+ */
+login7b344313eefec9133a231b6b74f0b152.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: login7b344313eefec9133a231b6b74f0b152.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\AuthController::login
+ * @see app/Http/Controllers/Api/AuthController.php:66
+ * @route '/api/v1/rider/login'
+ */
+    const login7b344313eefec9133a231b6b74f0b152Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: login7b344313eefec9133a231b6b74f0b152.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\AuthController::login
+ * @see app/Http/Controllers/Api/AuthController.php:66
+ * @route '/api/v1/rider/login'
+ */
+        login7b344313eefec9133a231b6b74f0b152Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: login7b344313eefec9133a231b6b74f0b152.url(options),
+            method: 'post',
+        })
+    
+    login7b344313eefec9133a231b6b74f0b152.form = login7b344313eefec9133a231b6b74f0b152Form
+
+export const login = {
+    '/api/v1/login': login49efc903aa0be885ed3d70a571b283f0,
+    '/api/v1/rider/login': login7b344313eefec9133a231b6b74f0b152,
+}
+
 /**
 * @see \App\Http\Controllers\Api\AuthController::resetPassword
  * @see app/Http/Controllers/Api/AuthController.php:170
@@ -243,61 +304,6 @@ user.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     user.form = userForm
 /**
-* @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:149
- * @route '/api/v1/token/refresh'
- */
-export const refreshToken = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: refreshToken.url(options),
-    method: 'post',
-})
-
-refreshToken.definition = {
-    methods: ["post"],
-    url: '/api/v1/token/refresh',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:149
- * @route '/api/v1/token/refresh'
- */
-refreshToken.url = (options?: RouteQueryOptions) => {
-    return refreshToken.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:149
- * @route '/api/v1/token/refresh'
- */
-refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: refreshToken.url(options),
-    method: 'post',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:149
- * @route '/api/v1/token/refresh'
- */
-    const refreshTokenForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: refreshToken.url(options),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:149
- * @route '/api/v1/token/refresh'
- */
-        refreshTokenForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: refreshToken.url(options),
-            method: 'post',
-        })
-    
-    refreshToken.form = refreshTokenForm
-/**
 * @see \App\Http\Controllers\Api\AuthController::logout
  * @see app/Http/Controllers/Api/AuthController.php:116
  * @route '/api/v1/logout'
@@ -352,6 +358,61 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
         })
     
     logout.form = logoutForm
-const AuthController = { register, login, resetPassword, user, refreshToken, logout }
+/**
+* @see \App\Http\Controllers\Api\AuthController::refreshToken
+ * @see app/Http/Controllers/Api/AuthController.php:149
+ * @route '/api/v1/token/refresh'
+ */
+export const refreshToken = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: refreshToken.url(options),
+    method: 'post',
+})
+
+refreshToken.definition = {
+    methods: ["post"],
+    url: '/api/v1/token/refresh',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\AuthController::refreshToken
+ * @see app/Http/Controllers/Api/AuthController.php:149
+ * @route '/api/v1/token/refresh'
+ */
+refreshToken.url = (options?: RouteQueryOptions) => {
+    return refreshToken.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\AuthController::refreshToken
+ * @see app/Http/Controllers/Api/AuthController.php:149
+ * @route '/api/v1/token/refresh'
+ */
+refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: refreshToken.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\AuthController::refreshToken
+ * @see app/Http/Controllers/Api/AuthController.php:149
+ * @route '/api/v1/token/refresh'
+ */
+    const refreshTokenForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: refreshToken.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\AuthController::refreshToken
+ * @see app/Http/Controllers/Api/AuthController.php:149
+ * @route '/api/v1/token/refresh'
+ */
+        refreshTokenForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: refreshToken.url(options),
+            method: 'post',
+        })
+    
+    refreshToken.form = refreshTokenForm
+const AuthController = { register, login, resetPassword, user, logout, refreshToken }
 
 export default AuthController
