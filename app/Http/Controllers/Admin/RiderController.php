@@ -46,7 +46,6 @@ class RiderController extends Controller
             'email'     => 'required|email|unique:riders,email',
             'phone'     => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]{7,20}$/'],
             'branch_id' => 'required|exists:branches,id',
-            'status'    => 'required|in:available,busy,offline',
             'password'  => 'nullable|string|min:6',
         ]);
 
@@ -57,6 +56,7 @@ class RiderController extends Controller
         $validated['password'] = \Illuminate\Support\Facades\Hash::make($plainPassword);
         $validated['role'] = 'rider';
         $validated['is_active'] = true;
+        $validated['status'] = 'offline'; // Force default offline for new accounts
 
         $rider = Rider::create($validated);
 
@@ -77,7 +77,6 @@ class RiderController extends Controller
             'email'     => 'required|email|unique:riders,email,' . $rider->id,
             'phone'     => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]{7,20}$/'],
             'branch_id' => 'required|exists:branches,id',
-            'status'    => 'required|in:available,busy,offline',
             'password'  => 'nullable|string|min:6',
             'is_active' => 'required|boolean',
         ]);

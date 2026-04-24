@@ -96,6 +96,11 @@ class AuthController extends Controller
 
         $token = $user->createToken('mobile-app')->plainTextToken;
 
+        // Auto-set status for Riders on Login
+        if ($user instanceof Rider) {
+            $user->update(['status' => 'available', 'last_active_at' => now()]);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Login successful.',
@@ -110,7 +115,14 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        
+        // Auto-set status for Riders on Logout
+        if ($user instanceof Rider) {
+            $user->update(['status' => 'offline']);
+        }
+
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'success' => true,

@@ -63,6 +63,10 @@ Route::prefix('v1')->group(function () {
         // Notifications
         Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index']);
         Route::post('notifications/mark-as-read', [App\Http\Controllers\NotificationController::class, 'markAsRead']);
+
+        // Rider Operations
+        Route::patch('rider/status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
+        Route::post('rider/ping', [App\Http\Controllers\Api\RiderController::class, 'ping']);
     });
 });
 

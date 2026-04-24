@@ -63,7 +63,6 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
         name: '',
         email: '',
         phone: '',
-        status: 'available' as 'available' | 'busy' | 'offline',
         branch_id: '' as string | number,
         password: '',
         is_active: true,
@@ -97,7 +96,6 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
             name: rider.name,
             email: rider.email,
             phone: rider.phone || '',
-            status: rider.status,
             branch_id: rider.branch_id,
             password: '',
             is_active: rider.is_active,
@@ -411,21 +409,6 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                                     </Select>
                                     {errors.is_active && <p className="text-xs text-destructive ml-1">{errors.is_active}</p>}
                                 </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Initial Status *</label>
-                                <Select value={data.status} onValueChange={(v: any) => setData('status', v)}>
-                                    <SelectTrigger className="h-12 rounded-2xl">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="available">Available</SelectItem>
-                                        <SelectItem value="busy">Busy</SelectItem>
-                                        <SelectItem value="offline">Offline</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {errors.status && <p className="text-xs text-destructive ml-1">{errors.status}</p>}
                             </div>
                         </div>
 
