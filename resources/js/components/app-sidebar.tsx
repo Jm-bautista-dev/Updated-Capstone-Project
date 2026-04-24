@@ -180,9 +180,6 @@ export function AppSidebar() {
 
             <SidebarFooter className="p-4 border-t border-primary/5">
                 <NavFooter items={footerNavItems} />
-                <div className="mt-4">
-                    <NavUser />
-                </div>
             </SidebarFooter>
         </Sidebar>
     );
