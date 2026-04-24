@@ -101,40 +101,7 @@ class InventoryController extends Controller
                 ];
             }
 
-            // Fallback: If no stock rows were added (neither via branch filter nor global list),
-            // ensure the ingredient is still visible.
-            if (collect($inventory)->where('id', $ingredient->id)->isEmpty()) {
-                $targetBranches = $branchId 
-                    ? Branch::where('id', $branchId)->get() 
-                    : Branch::all();
-
-                foreach ($targetBranches as $branch) {
-                    $inventory[] = [
-                        'id'                   => $ingredient->id,
-                        'stock_id'             => null,
-                        'name'                 => $ingredient->name,
-                        'unit'                 => $ingredient->unit,
-                        'display_unit'         => $ingredient->unit === 'g' ? 'kg' : ($ingredient->unit === 'ml' ? 'L' : $ingredient->unit),
-                        'branch_id'            => (int) $branch->id,
-                        'branch_name'          => $branch->name,
-                        'stock'                => 0,
-                        'display_stock'        => 0,
-                        'low_stock_level'      => 5,
-                        'is_low_stock'         => false,
-                        'is_out_of_stock'      => true,
-                        'status'               => 'active',
-                        'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
-                        'cost_per_unit'        => 0,
-                        'display_price'        => 0,
-                    ];
-
-                    // Auto-create missing stock row in DB to prevent future orphans
-                    IngredientStock::firstOrCreate(
-                        ['ingredient_id' => $ingredient->id, 'branch_id' => (int) $branch->id],
-                        ['stock' => 0, 'low_stock_level' => 5, 'cost_per_unit' => 0]
-                    );
-                }
-            }
+                // Removed fallback resurrection block to allow true deletion of branch stock records.
         }
 
         // Stats based on visible inventory
