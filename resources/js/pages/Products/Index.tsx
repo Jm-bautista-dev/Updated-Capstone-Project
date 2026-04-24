@@ -1086,23 +1086,53 @@ export default function ProductsIndex() {
                                     />
                                     {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
                                 </div>
-                                <div className="col-span-2 space-y-2">
+                                <div className="col-span-2 space-y-2.5">
                                     <label className="text-sm font-medium">Product Image</label>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0] || null;
-                                            setImageFile(file);
-                                            setData('image', file); // Sync with useForm data
-                                            if (file) {
-                                                setImagePreview(URL.createObjectURL(file));
-                                                validateField('image', file);
-                                            }
-                                        }}
-                                        className="w-full text-xs"
-                                    />
-                                    {localErrors.image && <p className="text-[10px] text-destructive font-bold">{localErrors.image}</p>}
+                                    <div className="flex flex-col gap-4">
+                                        {imagePreview && (
+                                            <div className="relative size-32 rounded-2xl overflow-hidden border border-border/40 group/img">
+                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setImageFile(null);
+                                                        setImagePreview(null);
+                                                        setData('image', null);
+                                                    }}
+                                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                                >
+                                                    <FiTrash2 className="size-6 text-white" />
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                id="add-product-image"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    setImageFile(file);
+                                                    setData('image', file);
+                                                    if (file) {
+                                                        setImagePreview(URL.createObjectURL(file));
+                                                        validateField('image', file);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                            <label 
+                                                htmlFor="add-product-image"
+                                                className="flex flex-col items-center justify-center w-full h-24 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
+                                            >
+                                                <FiPlus className="size-6 text-primary/40 mb-1" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
+                                                    {imagePreview ? 'Change Image' : 'Upload Image'}
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {localErrors.image && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.image}</p>}
                                 </div>
                                 <div className="col-span-2 space-y-3">
                                     <div className="flex items-center justify-between">
@@ -1260,6 +1290,55 @@ export default function ProductsIndex() {
                                         className="min-h-[80px] rounded-xl border-input/50 bg-muted/5 font-medium focus:ring-2 focus:ring-primary/20 transition-all"
                                     />
                                     {errors.description && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{errors.description}</p>}
+                                </div>
+
+                                <div className="col-span-2 space-y-2.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Product Image</label>
+                                    <div className="flex flex-col gap-4">
+                                        {imagePreview && (
+                                            <div className="relative size-32 rounded-2xl overflow-hidden border border-border/40 group/img">
+                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setImageFile(null);
+                                                        setImagePreview(null);
+                                                        setData('image', null);
+                                                    }}
+                                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                                >
+                                                    <FiTrash2 className="size-6 text-white" />
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                id="edit-product-image"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    setImageFile(file);
+                                                    setData('image', file);
+                                                    if (file) {
+                                                        setImagePreview(URL.createObjectURL(file));
+                                                        validateField('image', file);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                            <label 
+                                                htmlFor="edit-product-image"
+                                                className="flex flex-col items-center justify-center w-full h-24 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
+                                            >
+                                                <FiPlus className="size-6 text-primary/40 mb-1" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
+                                                    {imagePreview ? 'Change Image' : 'Upload Image'}
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {localErrors.image && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.image}</p>}
                                 </div>
                                 {/* Financial Insights Panel */}
                                 <div className="col-span-2 p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-3">

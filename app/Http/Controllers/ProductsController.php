@@ -242,7 +242,7 @@ class ProductsController extends Controller
                 'required',
                 'string',
                 'max:80',
-                'regex:/^[A-Za-z0-9\s\-]+$/'
+                'regex:/^[A-Za-z0-9\s\-\.\(\)\'\&\/]+$/'
             ],
             'sku'                        => 'nullable|string|unique:products,sku,' . $id,
             'description'                => 'nullable|string',
