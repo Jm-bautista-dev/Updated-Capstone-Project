@@ -116,6 +116,27 @@ class AuthController extends Controller
     }
 
     /**
+     * Refresh the current token (revoke old and issue new).
+     * POST /api/v1/token/refresh
+     */
+    public function refreshToken(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        // Revoke the current token
+        $user->currentAccessToken()->delete();
+
+        // Create a new one
+        $token = $user->createToken('mobile-app')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'token'   => $token,
+            'user'    => $this->formatUser($user),
+        ]);
+    }
+
+    /**
      * Reset user password.
      * POST /api/v1/reset-password
      */

@@ -41,6 +41,7 @@ Route::prefix('v1')->group(function () {
 
         // Auth
         Route::get('user',    [AuthController::class, 'user']);
+        Route::post('token/refresh', [AuthController::class, 'refreshToken']);
         Route::post('logout', [AuthController::class, 'logout']);
 
         // Orders System
