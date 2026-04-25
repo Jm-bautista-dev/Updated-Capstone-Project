@@ -156,7 +156,7 @@ export default function RestockSuggestions() {
 
     return (
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Restock Suggestions', href: '#' }]}>
-            <Head title="Prescriptive Restock AI" />
+            <Head title="Prescriptive Restock" />
 
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
 
@@ -165,7 +165,7 @@ export default function RestockSuggestions() {
                     <div>
                         <h1 className="text-2xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
                             <FiBox className="text-emerald-500" />
-                            Prescriptive Restock AI
+                            Prescriptive Restock
                             {isLoading && (
                                 <span className="size-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin ml-1" />
                             )}

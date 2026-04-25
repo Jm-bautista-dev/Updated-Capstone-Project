@@ -182,7 +182,7 @@ export default function SalesForecast() {
 
     return (
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Sales Forecast', href: '#' }]}>
-            <Head title="AI Sales Forecasting" />
+            <Head title="Sales Forecasting" />
 
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
 
@@ -191,7 +191,7 @@ export default function SalesForecast() {
                     <div>
                         <h1 className="text-2xl font-black tracking-tight flex items-center gap-3 text-foreground dark:text-white">
                             <FiTarget className="text-primary" />
-                            AI Sales Forecasting
+                            Sales Forecasting
                             {isLoading && <span className="size-4 rounded-full border-2 border-primary border-t-transparent animate-spin ml-1" />}
                         </h1>
                         <p className="text-sm text-muted-foreground dark:text-zinc-500 font-medium mt-1">
