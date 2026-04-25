@@ -116,7 +116,10 @@ class Product extends Model
                 $ingredient->avg_weight_per_piece
             );
 
-            if ($requiredPerUnit <= 0) continue;
+            if ($requiredPerUnit <= 0) {
+                \Log::warning("Product '{$this->name}' has ingredient '{$ingredient->name}' with zero base quantity requirement.");
+                continue;
+            }
 
             $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
             $availableInStock = $stockRow ? (float) $stockRow->stock : 0;
