@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\Api\DeliveryFeeController;
 
 // ─── External Operations API (Mobile App Entry) ──────────────────
 Route::prefix('v1')->group(function () {
@@ -32,6 +33,9 @@ Route::prefix('v1')->group(function () {
     Route::get('categories',     [CategoryController::class, 'index']);
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
+    
+    // Delivery
+    Route::post('delivery/check-fee', [DeliveryFeeController::class, 'checkFee']);
 
     // ─── Protected Routes (Multi-Auth Support) ──────────────────
     Route::middleware('auth:sanctum')->group(function () {

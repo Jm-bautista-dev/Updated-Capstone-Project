@@ -94,6 +94,14 @@ class ApiOrderController extends Controller
                 $calculatedDistance = $angle * $earthRadius;
                 $distanceKm = round($calculatedDistance, 2);
 
+                // STRICT DELIVERY RADIUS ENFORCEMENT
+                if (!$branch->isWithinRadius($distanceKm)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Out of delivery range. The maximum distance is ' . $branch->delivery_radius_km . 'km.'
+                    ], 400);
+                }
+
                 // Use branch delivery calculation logic if available
                 if (method_exists($branch, 'calculateDeliveryFee')) {
                     $deliveryFee = $branch->calculateDeliveryFee($distanceKm);
