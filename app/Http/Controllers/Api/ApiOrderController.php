@@ -62,6 +62,8 @@ class ApiOrderController extends Controller
                 'total_amount'   => 'required|numeric|min:0',
                 'delivery_fee'   => 'nullable|numeric|min:0',
                 'distance_km'    => 'nullable|numeric|min:0',
+                'latitude'       => 'nullable|numeric',
+                'longitude'      => 'nullable|numeric',
                 'branch_id'      => 'nullable|exists:branches,id'
             ]);
 
@@ -112,6 +114,8 @@ class ApiOrderController extends Controller
                     'customer_name'  => $validated['customer_name'],
                     'contact_number' => $validated['mobile_number'],
                     'address'        => $validated['address'],
+                    'latitude'       => $validated['latitude'] ?? null,
+                    'longitude'      => $validated['longitude'] ?? null,
                     'total_amount'   => $validated['total_amount'],
                     'status'         => 'pending',
                 ]);
@@ -129,6 +133,8 @@ class ApiOrderController extends Controller
                     'customer_name'    => $validated['customer_name'],
                     'customer_phone'   => $validated['mobile_number'],
                     'customer_address' => $validated['address'],
+                    'latitude'         => $validated['latitude'] ?? null,
+                    'longitude'        => $validated['longitude'] ?? null,
                     'delivery_type'    => 'internal', 
                     'delivery_fee'     => $deliveryFee,
                     'distance_km'      => $validated['distance_km'] ?? null,
