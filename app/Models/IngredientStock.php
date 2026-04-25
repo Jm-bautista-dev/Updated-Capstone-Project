@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Branch-scoped stock for a global ingredient.
@@ -34,6 +35,22 @@ class IngredientStock extends Model
         'is_low_stock_notified'    => 'boolean',
         'is_out_of_stock_notified' => 'boolean',
     ];
+
+    /* ── Global Scopes ──────────────────────────────── */
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Globally exclude stock records if the parent Ingredient is soft-deleted.
+        // This ensures mass restock, POS, and low stock alerts never see deleted items.
+        static::addGlobalScope('activeIngredient', function (Builder $builder) {
+            $builder->whereHas('ingredient', function ($query) {
+                // Because Ingredient uses SoftDeletes, whereHas automatically applies `deleted_at IS NULL`
+                // But we can be explicit if needed, though Laravel handles it natively.
+            });
+        });
+    }
 
     /* ── Relationships ──────────────────────────────── */
 

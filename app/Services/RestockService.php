@@ -25,15 +25,13 @@ class RestockService
     {
         $since = Carbon::now()->subDays(self::LOOKBACK_DAYS);
 
-        // 1. Load current stock levels for this branch
-        $stocks = DB::table('ingredient_stocks')
-            ->where('branch_id', $branchId)
+        // 1. Load current stock levels for this branch (Eloquent respects Global Scopes)
+        $stocks = \App\Models\IngredientStock::where('branch_id', $branchId)
             ->get()
             ->keyBy('ingredient_id');
 
-        // 2. Load ingredient metadata (name, unit, cost)
-        $ingredients = DB::table('ingredients')
-            ->whereIn('id', $stocks->keys()->toArray())
+        // 2. Load ingredient metadata (name, unit, cost) (Eloquent respects SoftDeletes)
+        $ingredients = \App\Models\Ingredient::whereIn('id', $stocks->keys()->toArray())
             ->get()
             ->keyBy('id');
 
