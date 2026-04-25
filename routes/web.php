@@ -118,6 +118,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
         Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
         Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
+        Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
 
 
         Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');

@@ -14,6 +14,7 @@ interface DeliveryStatusGroupProps {
     onToggleGroup: (key: string) => void;
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
+    onAssignRider: (delivery: Delivery) => void;
 }
 
 const StatusGroupSection = React.memo(function StatusGroupSection({
@@ -29,6 +30,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
     onToggle,
     onSelect,
     onUpdateStatus,
+    onAssignRider,
 }: {
     groupKey: string;
     label: string;
@@ -42,6 +44,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
     onToggle: () => void;
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
+    onAssignRider: (delivery: Delivery) => void;
 }) {
     if (deliveries.length === 0) return null;
 
@@ -69,6 +72,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
                         deliveries={deliveries}
                         onSelect={onSelect}
                         onUpdateStatus={onUpdateStatus}
+                        onAssignRider={onAssignRider}
                         containerHeight={Math.min(400, deliveries.length * 56)}
                     />
                 ) : (
@@ -79,6 +83,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
                                 delivery={delivery}
                                 onSelect={onSelect}
                                 onUpdateStatus={onUpdateStatus}
+                                onAssignRider={onAssignRider}
                             />
                         ))}
                     </div>
@@ -95,6 +100,7 @@ const DeliveryStatusGroup = React.memo(function DeliveryStatusGroup({
     onToggleGroup,
     onSelect,
     onUpdateStatus,
+    onAssignRider,
 }: DeliveryStatusGroupProps) {
     const grouped = useMemo(() => {
         const map = new Map<string, Delivery[]>();
@@ -132,6 +138,7 @@ const DeliveryStatusGroup = React.memo(function DeliveryStatusGroup({
                         onToggle={() => onToggleGroup(group.key)}
                         onSelect={onSelect}
                         onUpdateStatus={onUpdateStatus}
+                        onAssignRider={onAssignRider}
                     />
                 );
             })}

@@ -191,6 +191,11 @@ class DeliveryService
                     // Deduct inventory ONLY when starting preparation
                     if ($newStatus === Delivery::STATUS_PREPARING) {
                         $this->inventoryService->deductForOrder($order);
+                        
+                        // Auto-assign rider if not already assigned
+                        if ($delivery->isInternal() && !$delivery->rider_id) {
+                            $this->autoAssign($delivery);
+                        }
                     }
 
                     // Record as Sale if DELIVERED
@@ -266,5 +271,57 @@ class DeliveryService
 
         // Link delivery to this sale
         $delivery->update(['sale_id' => $sale->id]);
+    }
+    /**
+     * Manually assign a rider to a delivery.
+     */
+    public function assignRider(Delivery $delivery, int $riderId): Delivery
+    {
+        return DB::transaction(function () use ($delivery, $riderId) {
+            /** @var Rider $rider */
+            $rider = Rider::where('id', $riderId)
+                ->where('is_active', true)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // If there's an existing rider, mark them as available first
+            if ($delivery->rider_id && $delivery->rider_id !== $rider->id) {
+                Rider::where('id', $delivery->rider_id)->update(['status' => 'available']);
+            }
+
+            $delivery->update([
+                'rider_id' => $rider->id,
+                'updated_by' => Auth::id(),
+            ]);
+
+            $rider->update([
+                'status'         => 'busy',
+                'last_active_at' => now(),
+            ]);
+
+            return $delivery->fresh(['rider']);
+        });
+    }
+
+    /**
+     * Automatically assign the best available rider for the delivery's branch.
+     */
+    public function autoAssign(Delivery $delivery): ?Rider
+    {
+        $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+        if (!$branchId) return null;
+
+        /** @var Branch|null $branch */
+        $branch = Branch::find($branchId);
+        if (!$branch) return null;
+
+        $rider = $this->findBestAvailableRider($branch);
+        
+        if ($rider) {
+            $this->assignRider($delivery, $rider->id);
+            return $rider;
+        }
+
+        return null;
     }
 }

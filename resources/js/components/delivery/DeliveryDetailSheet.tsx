@@ -14,6 +14,7 @@ import {
     ExternalLink, Phone, ChevronRight, AlertCircle,
     Package, Navigation, CheckCircle2, FileText, Image
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Delivery } from './types';
 import { formatCurrency, formatTime, formatDate } from './types';
 
@@ -22,6 +23,7 @@ interface DeliveryDetailSheetProps {
     open: boolean;
     onClose: () => void;
     onUpdateStatus: (id: number) => void;
+    onAssignRider: (delivery: Delivery) => void;
 }
 
 // Status timeline
@@ -86,11 +88,14 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
     open,
     onClose,
     onUpdateStatus,
+    onAssignRider,
 }: DeliveryDetailSheetProps) {
     if (!delivery) return null;
 
     const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
     const typeColor = delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600';
+
+    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
 
     return (
         <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -203,15 +208,35 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     <Separator />
 
                     {/* Courier Info */}
-                    <div className="space-y-4">
-                        <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Courier Details</h4>
+                    <div className="space-y-4 pb-8">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Courier Details</h4>
+                            {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "h-7 rounded-lg text-[10px] font-black px-3 gap-1.5 transition-all",
+                                        isUnassignedInternal 
+                                            ? "bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-sm animate-bounce-subtle" 
+                                            : "text-primary border-primary/20 hover:bg-primary/5"
+                                    )}
+                                    onClick={() => onAssignRider(delivery)}
+                                >
+                                    <Bike className="size-3" />
+                                    {isUnassignedInternal ? 'ASSIGN RIDER' : 'REASSIGN'}
+                                </Button>
+                            )}
+                        </div>
 
                         <InfoRow icon={TypeIcon} label={delivery.delivery_type === 'internal' ? 'Rider' : 'Service'}>
-                            <p className="font-bold">
-                                {delivery.delivery_type === 'internal'
-                                    ? (delivery.rider?.name || 'Unassigned')
-                                    : (delivery.external_service?.toUpperCase() || 'External')}
-                            </p>
+                            <div className="flex items-center justify-between group/courier">
+                                <p className={cn("font-bold", isUnassignedInternal && "text-amber-600")}>
+                                    {delivery.delivery_type === 'internal'
+                                        ? (delivery.rider?.name || 'Unassigned')
+                                        : (delivery.external_service?.toUpperCase() || 'External')}
+                                </p>
+                            </div>
                             {delivery.tracking_number && (
                                 <div className="flex items-center gap-2 mt-1">
                                     <Badge variant="outline" className="text-[10px] font-mono font-bold bg-muted/30">

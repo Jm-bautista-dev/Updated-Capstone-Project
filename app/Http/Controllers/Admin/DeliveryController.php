@@ -39,7 +39,7 @@ class DeliveryController extends Controller
         ])
             ->latest();
 
-        // ... filters (lines 32-61) ...
+        // ... existing filters ...
 
         $deliveries = $query->paginate(50)->withQueryString();
 
@@ -54,19 +54,52 @@ class DeliveryController extends Controller
             return $delivery;
         });
 
+        // Get all active riders for manual assignment
+        $availableRiders = Rider::where('is_active', true)
+            ->withCount(['deliveries' => function ($q) {
+                $q->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED]);
+            }])
+            ->get()
+            ->map(function ($rider) {
+                return [
+                    'id' => $rider->id,
+                    'name' => $rider->name,
+                    'status' => $rider->status,
+                    'branch_name' => $rider->branch?->name ?? 'Global',
+                    'active_deliveries' => $rider->deliveries_count,
+                ];
+            });
+
         return Inertia::render('Admin/Deliveries', [
             'deliveries' => $deliveries,
+            'availableRiders' => $availableRiders,
             'filters'    => $request->only(['status', 'type', 'branch_id', 'search']),
             'branches'   => Branch::orderBy('name')->get(['id', 'name']),
             'stats'      => [
                 'pending'   => Delivery::where('status', 'pending')->count(),
-                'active'    => Delivery::whereNotIn('status', ['pending', 'delivered'])->count(),
+                'active'    => Delivery::whereNotIn('status', ['pending', 'delivered', 'cancelled'])->count(),
                 'delivered' => Delivery::where('status', 'delivered')->whereDate('created_at', today())->count(),
-                'delayed'   => Delivery::whereNotIn('status', ['delivered'])->where('created_at', '<', now()->subHour())->count(),
+                'delayed'   => Delivery::whereNotIn('status', ['delivered', 'cancelled'])->where('created_at', '<', now()->subHour())->count(),
             ],
         ]);
     }
 
+    /**
+     * Manually assign or reassign a rider to a delivery.
+     */
+    public function assignRider(Request $request, Delivery $delivery)
+    {
+        $request->validate([
+            'rider_id' => 'required|exists:riders,id',
+        ]);
+
+        try {
+            $this->deliveryService->assignRider($delivery, $request->rider_id);
+            return back()->with('success', 'Rider assigned successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
     /**
      * Store a new delivery.
      */

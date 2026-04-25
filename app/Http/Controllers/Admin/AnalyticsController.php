@@ -301,13 +301,7 @@ class AnalyticsController extends Controller
         $forecastInsights = $forecastResult['insights'] ?? [];
 
         // 2. Run prescriptive restock engine
-        $restockResult = (new RestockService())->generate(
-            $branchId,
-            $tomorrowForecast,
-            $forecastLower,
-            $forecastUpper,
-            $forecastInsights
-        );
+        $restockResult = (new RestockService())->generate($branchId);
 
         if (isset($restockResult['error'])) {
             return Inertia::render('Analytics/RestockSuggestions', [
@@ -320,6 +314,10 @@ class AnalyticsController extends Controller
         return Inertia::render('Analytics/RestockSuggestions', array_merge($restockResult, [
             'branches'         => Branch::all(),
             'filters'          => ['branch_id' => $branchId],
+            'tomorrow_forecast' => $tomorrowForecast,
+            'forecast_lower'    => $forecastLower,
+            'forecast_upper'    => $forecastUpper,
+            'forecast_insights' => $forecastInsights,
             'forecast_trend'   => $forecastResult['trend'] ?? null,
             'forecast_confidence' => $forecastResult['confidence'] ?? null,
         ]));

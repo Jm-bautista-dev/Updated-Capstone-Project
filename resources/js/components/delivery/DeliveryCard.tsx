@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Clock, User, Bike, Truck, Building2, Eye, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Delivery } from './types';
 import { formatCurrency, formatTime } from './types';
 
@@ -11,22 +12,28 @@ interface DeliveryCardProps {
     delivery: Delivery;
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
+    onAssignRider: (delivery: Delivery) => void;
 }
 
-const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus }: DeliveryCardProps) {
+const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onAssignRider }: DeliveryCardProps) {
     const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
     const typeColor = delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600';
     const typeBg = delivery.delivery_type === 'internal' ? 'bg-primary/5' : 'bg-emerald-50 dark:bg-emerald-950/20';
 
+    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
+
     return (
         <Card
-            className="border-none shadow-lg shadow-black/5 rounded-2xl overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+            className={cn(
+                "border-none shadow-lg shadow-black/5 rounded-2xl overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer",
+                isUnassignedInternal && "ring-1 ring-amber-500/30"
+            )}
             onClick={() => onSelect(delivery)}
         >
             <CardContent className="p-0">
                 <div className="flex items-stretch">
                     {/* Type indicator strip */}
-                    <div className={`w-1.5 shrink-0 ${delivery.delivery_type === 'internal' ? 'bg-primary/40' : 'bg-emerald-400/40'}`} />
+                    <div className={`w-1.5 shrink-0 ${delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-primary/40') : 'bg-emerald-400/40'}`} />
 
                     <div className="flex-1 p-4 space-y-3">
                         {/* Top row: Status, Order #, Amount */}
@@ -60,10 +67,13 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
-                                <div className={`size-6 rounded-lg ${typeBg} flex items-center justify-center`}>
-                                    <TypeIcon className={`size-3 ${typeColor}`} />
+                                <div className={cn("size-6 rounded-lg flex items-center justify-center", typeBg)}>
+                                    <TypeIcon className={cn("size-3", typeColor)} />
                                 </div>
-                                <span className={`text-[10px] font-black uppercase ${typeColor}`}>
+                                <span className={cn(
+                                    "text-[10px] font-black uppercase", 
+                                    isUnassignedInternal ? "text-amber-600 animate-pulse" : typeColor
+                                )}>
                                     {delivery.delivery_type === 'internal'
                                         ? (delivery.rider?.name || 'Unassigned')
                                         : (delivery.external_service?.toUpperCase() || 'External')}
@@ -104,7 +114,22 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         )}
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {isUnassignedInternal && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/20 shadow-sm shadow-amber-500/10"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onAssignRider(delivery);
+                                    }}
+                                >
+                                    <Bike className="size-3.5" />
+                                    Assign Rider
+                                </Button>
+                            )}
+                            
                             {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (
                                 <Button
                                     size="sm"
@@ -118,22 +143,44 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                     <ChevronRight className="size-3" />
                                 </Button>
                             )}
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-9 w-9 rounded-xl shrink-0"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onSelect(delivery);
-                                        }}
-                                    >
-                                        <Eye className="size-3.5" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>View Details</TooltipContent>
-                            </Tooltip>
+                            
+                            <div className="flex items-center gap-2 ml-auto">
+                                {!isUnassignedInternal && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-9 w-9 rounded-xl shrink-0"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onAssignRider(delivery);
+                                                }}
+                                            >
+                                                <Bike className="size-3.5 text-muted-foreground" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Reassign Rider</TooltipContent>
+                                    </Tooltip>
+                                )}
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-9 w-9 rounded-xl shrink-0"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelect(delivery);
+                                            }}
+                                        >
+                                            <Eye className="size-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>View Details</TooltipContent>
+                                </Tooltip>
+                            </div>
                         </div>
                     </div>
                 </div>

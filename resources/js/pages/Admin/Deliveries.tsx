@@ -15,19 +15,41 @@ import DeliveryEmptyState from '@/components/delivery/DeliveryEmptyState';
 import DeliverySkeletonLoader from '@/components/delivery/DeliverySkeletonLoader';
 import PreparingConfirmationModal from '@/components/delivery/PreparingConfirmationModal';
 
+import RiderAssignmentModal from '@/components/delivery/RiderAssignmentModal';
 import type {
     Delivery, DeliveryPagination, DeliveryFilters as FilterType,
-    DeliveryStatsData, Branch, ViewMode
+    DeliveryStatsData, Branch, ViewMode, Rider
 } from '@/components/delivery/types';
 
 interface Props {
     deliveries: DeliveryPagination;
+    availableRiders: Rider[];
     branches: Branch[];
     filters: FilterType;
     stats: DeliveryStatsData;
 }
 
-export default function DeliveryIndex({ deliveries, branches, filters, stats }: Props) {
+export default function DeliveryIndex({ deliveries, availableRiders, branches, filters, stats }: Props) {
+    // ... existing state ...
+    const [assigningDelivery, setAssigningDelivery] = useState<Delivery | null>(null);
+    const [isAssigning, setIsAssigning] = useState(false);
+
+    const handleAssignRider = useCallback((delivery: Delivery) => {
+        setAssigningDelivery(delivery);
+    }, []);
+
+    const executeAssignment = useCallback((riderId: number) => {
+        if (!assigningDelivery) return;
+        
+        setIsAssigning(true);
+        router.post(`/deliveries/${assigningDelivery.id}/assign-rider`, { rider_id: riderId }, {
+            preserveState: true,
+            onSuccess: () => {
+                setAssigningDelivery(null);
+            },
+            onFinish: () => setIsAssigning(false),
+        });
+    }, [assigningDelivery]);
     // View mode (persisted in localStorage)
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (typeof window !== 'undefined') {
@@ -237,6 +259,7 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
                             onToggleGroup={handleToggleGroup}
                             onSelect={handleSelectDelivery}
                             onUpdateStatus={handleUpdateStatus}
+                            onAssignRider={handleAssignRider}
                         />
                     ) : viewMode === 'table' ? (
                         /* Flat Table View */
@@ -244,6 +267,7 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
                             deliveries={accumulatedDeliveries}
                             onSelect={handleSelectDelivery}
                             onUpdateStatus={handleUpdateStatus}
+                            onAssignRider={handleAssignRider}
                             containerHeight={Math.min(700, accumulatedDeliveries.length * 56)}
                         />
                     ) : (
@@ -255,6 +279,7 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
                                     delivery={delivery}
                                     onSelect={handleSelectDelivery}
                                     onUpdateStatus={handleUpdateStatus}
+                                    onAssignRider={handleAssignRider}
                                 />
                             ))}
                         </div>
@@ -326,6 +351,7 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
                 open={!!selectedDelivery}
                 onClose={handleCloseSheet}
                 onUpdateStatus={handleUpdateStatus}
+                onAssignRider={handleAssignRider}
             />
             {/* Confirmation Modal for Starting Preparation */}
             <PreparingConfirmationModal
@@ -333,6 +359,15 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
                 onClose={() => setConfirmingDeliveryId(null)}
                 onConfirm={() => confirmingDeliveryId && executeStatusUpdate(confirmingDeliveryId)}
                 processing={isUpdating}
+            />
+
+            <RiderAssignmentModal
+                open={!!assigningDelivery}
+                onClose={() => setAssigningDelivery(null)}
+                onAssign={executeAssignment}
+                riders={availableRiders}
+                delivery={assigningDelivery}
+                processing={isAssigning}
             />
         </AppLayout>
     );

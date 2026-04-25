@@ -42,6 +42,7 @@ export interface Delivery {
             price: number;
         }>;
     } | null;
+    rider_id: number | null;
     rider?: { name: string };
     external_notes?: string | null;
     proof_of_delivery_url?: string | null;
@@ -77,6 +78,14 @@ export interface Branch {
 }
 
 export type ViewMode = 'card' | 'table';
+
+export interface Rider {
+    id: number;
+    name: string;
+    status: 'available' | 'busy' | 'offline';
+    branch_name: string;
+    active_deliveries: number;
+}
 
 export const STATUS_GROUPS = [
     { key: 'pending', label: 'Pending', statuses: ['pending'], color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', ring: 'ring-amber-500/20' },

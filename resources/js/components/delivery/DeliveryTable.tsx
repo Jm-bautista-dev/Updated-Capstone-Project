@@ -7,6 +7,7 @@ import {
     Eye, ChevronRight, Bike, Truck, ArrowUpDown,
     ChevronUp, ChevronDown, Package
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Delivery } from './types';
 import { formatCurrency, formatTime, formatDate } from './types';
 
@@ -14,6 +15,7 @@ interface DeliveryTableProps {
     deliveries: Delivery[];
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
+    onAssignRider: (delivery: Delivery) => void;
     containerHeight?: number;
 }
 
@@ -27,6 +29,7 @@ interface RowProps {
     deliveries: Delivery[];
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
+    onAssignRider: (delivery: Delivery) => void;
 }
 
 const TableRow = React.memo(function TableRow({
@@ -36,6 +39,7 @@ const TableRow = React.memo(function TableRow({
     deliveries,
     onSelect,
     onUpdateStatus,
+    onAssignRider,
 }: {
     index: number;
     style: React.CSSProperties;
@@ -45,28 +49,31 @@ const TableRow = React.memo(function TableRow({
     const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
     const typeColor = delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600';
 
+    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
+
     return (
         <div
             style={style}
-            className="flex items-center gap-2 px-5 border-b border-border/50 hover:bg-muted/30 cursor-pointer group transition-colors duration-150"
+            className={cn(
+                "flex items-center gap-2 px-5 border-b border-border/50 hover:bg-muted/30 cursor-pointer group transition-colors duration-150",
+                isUnassignedInternal && "bg-amber-500/5 hover:bg-amber-500/10"
+            )}
             onClick={() => onSelect(delivery)}
             role="row"
         >
-            {/* Status */}
+            {/* ... status, order, items columns ... */}
             <div className="w-[110px] shrink-0">
                 <Badge className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${delivery.status_color}`}>
                     {delivery.status_label}
                 </Badge>
             </div>
 
-            {/* Order # */}
             <div className="w-[120px] shrink-0">
                 <p className="font-bold text-xs truncate">
                     {delivery.sale?.order_number || (delivery.order && `MOB-${delivery.order.id.toString().padStart(4, '0')}`) || 'N/A'}
                 </p>
             </div>
 
-            {/* Items Summary (Hoverable) */}
             <div className="w-[60px] shrink-0 flex items-center justify-center">
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -98,37 +105,65 @@ const TableRow = React.memo(function TableRow({
                 <p className="font-semibold text-xs truncate">{delivery.customer_name}</p>
             </div>
 
-            {/* Type */}
-            <div className="w-[100px] shrink-0 flex items-center gap-1.5">
-                <TypeIcon className={`size-3.5 ${typeColor}`} />
-                <span className="text-[10px] font-bold uppercase truncate">
-                    {delivery.delivery_type === 'internal' ? 'Internal' : (delivery.external_service?.toUpperCase() || 'External')}
-                </span>
+            {/* Type & Rider */}
+            <div className="w-[120px] shrink-0">
+                <div className="flex items-center gap-1.5">
+                    <TypeIcon className={`size-3.5 ${isUnassignedInternal ? 'text-amber-500' : typeColor}`} />
+                    <span className={cn(
+                        "text-[10px] font-bold uppercase truncate",
+                        isUnassignedInternal && "text-amber-600 animate-pulse"
+                    )}>
+                        {delivery.delivery_type === 'internal'
+                            ? (delivery.rider?.name || 'Unassigned')
+                            : (delivery.external_service?.toUpperCase() || 'External')}
+                    </span>
+                </div>
             </div>
 
             {/* Branch */}
-            <div className="w-[120px] shrink-0 hidden xl:block">
+            <div className="w-[100px] shrink-0 hidden xl:block">
                 <p className="text-xs text-muted-foreground truncate">
                     {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Main Branch'}
                 </p>
             </div>
 
             {/* Amount */}
-            <div className="w-[100px] shrink-0 text-right">
+            <div className="w-[90px] shrink-0 text-right">
                 <p className="font-black text-xs tabular-nums text-primary">
                     {formatCurrency(delivery.sale?.total || delivery.order?.total_amount || 0)}
                 </p>
             </div>
 
             {/* Date */}
-            <div className="w-[90px] shrink-0 hidden lg:block">
-                <p className="text-[10px] text-muted-foreground">{formatDate(delivery.created_at)}</p>
+            <div className="w-[80px] shrink-0 hidden lg:block">
                 <p className="text-[10px] text-muted-foreground">{formatTime(delivery.created_at)}</p>
             </div>
 
             {/* Actions */}
-            <div className="w-[100px] shrink-0 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                {delivery.next_statuses.length > 0 && (
+            <div className="w-[120px] shrink-0 flex items-center justify-end gap-1 group-hover:opacity-100 transition-opacity duration-200">
+                {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                size="icon"
+                                variant={isUnassignedInternal ? "default" : "ghost"}
+                                className={cn(
+                                    "h-7 w-7 rounded-lg",
+                                    isUnassignedInternal && "bg-amber-500 hover:bg-amber-600 text-white animate-bounce-subtle"
+                                )}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAssignRider(delivery);
+                                }}
+                            >
+                                <Bike className="size-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{isUnassignedInternal ? 'Assign Rider' : 'Reassign Rider'}</TooltipContent>
+                    </Tooltip>
+                )}
+
+                {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
@@ -145,22 +180,18 @@ const TableRow = React.memo(function TableRow({
                         <TooltipContent>Mark as {delivery.next_statuses[0].replace(/_/g, ' ')}</TooltipContent>
                     </Tooltip>
                 )}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-lg"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onSelect(delivery);
-                            }}
-                        >
-                            <Eye className="size-3.5" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View Details</TooltipContent>
-                </Tooltip>
+                
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(delivery);
+                    }}
+                >
+                    <Eye className="size-3.5" />
+                </Button>
             </div>
         </div>
     );
@@ -202,6 +233,7 @@ const DeliveryTable = React.memo(function DeliveryTable({
     deliveries,
     onSelect,
     onUpdateStatus,
+    onAssignRider,
     containerHeight = 600,
 }: DeliveryTableProps) {
     const [sortKey, setSortKey] = React.useState<SortKey>('date');
@@ -295,7 +327,8 @@ const DeliveryTable = React.memo(function DeliveryTable({
                     rowProps={{
                         deliveries: sortedDeliveries,
                         onSelect,
-                        onUpdateStatus
+                        onUpdateStatus,
+                        onAssignRider
                     } as any}
                 />
             </div>
