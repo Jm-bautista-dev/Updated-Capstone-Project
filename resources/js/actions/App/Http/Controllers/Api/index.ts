@@ -3,6 +3,7 @@ import VerificationController from './VerificationController'
 import ProductController from './ProductController'
 import CategoryController from './CategoryController'
 import V1 from './V1'
+import DeliveryFeeController from './DeliveryFeeController'
 import UserController from './UserController'
 import RiderController from './RiderController'
 import ApiOrderController from './ApiOrderController'
@@ -13,6 +14,7 @@ VerificationController: Object.assign(VerificationController, VerificationContro
 ProductController: Object.assign(ProductController, ProductController),
 CategoryController: Object.assign(CategoryController, CategoryController),
 V1: Object.assign(V1, V1),
+DeliveryFeeController: Object.assign(DeliveryFeeController, DeliveryFeeController),
 UserController: Object.assign(UserController, UserController),
 RiderController: Object.assign(RiderController, RiderController),
 ApiOrderController: Object.assign(ApiOrderController, ApiOrderController),

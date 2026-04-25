@@ -75,6 +75,8 @@ class ApiOrderController extends Controller
             // --- 0. DYNAMIC DISTANCE & FEE CALCULATION ---
             $distanceKm = $validated['distance_km'] ?? null;
             $deliveryFee = $validated['delivery_fee'] ?? 0;
+            
+            /** @var \App\Models\Branch|null $branch */
             $branch = \App\Models\Branch::find($branchId);
 
             if ($branch && $branch->latitude && $branch->longitude) {
