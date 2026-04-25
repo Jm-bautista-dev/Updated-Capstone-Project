@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Navigation, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import echo from '@/echo';
 
 // Delivery components
 import DeliveryStats from '@/components/delivery/DeliveryStats';
@@ -83,17 +84,24 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         }
     }, [deliveries.data, deliveries.current_page]);
 
-    // Polling for real-time updates (every 15 seconds)
+    // Real-time updates via Pusher
     useEffect(() => {
-        const interval = setInterval(() => {
+        if (!echo) return;
+
+        const channel = echo.channel('deliveries');
+        
+        channel.listen('.order-status-updated', (e: any) => {
+            // Only reload the relevant parts without full page refresh
             router.reload({
                 only: ['deliveries', 'stats'],
                 preserveScroll: true,
                 preserveState: true,
             } as any);
-        }, 15000);
+        });
 
-        return () => clearInterval(interval);
+        return () => {
+            echo.leaveChannel('deliveries');
+        };
     }, []);
 
     // ---- Callbacks ----

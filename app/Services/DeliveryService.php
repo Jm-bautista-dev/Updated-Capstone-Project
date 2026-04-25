@@ -10,6 +10,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\InventoryService;
 use App\Services\OrderFulfillmentService;
+use App\Events\OrderStatusUpdated;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -240,6 +241,8 @@ class DeliveryService
                 }
             }
 
+            event(new OrderStatusUpdated($delivery->fresh(), 'admin'));
+
             return $delivery->fresh();
         });
     }
@@ -357,6 +360,8 @@ class DeliveryService
                 'rider_id'    => $rider->id,
                 'rider_name'  => $rider->name,
             ]);
+
+            event(new OrderStatusUpdated($delivery->fresh(), 'admin'));
 
             return $delivery->fresh(['rider']);
         });

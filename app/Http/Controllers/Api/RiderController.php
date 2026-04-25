@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Delivery;
 use App\Models\RiderLocationLog;
 use App\Services\OrderFulfillmentService;
+use App\Events\OrderStatusUpdated;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -156,9 +157,11 @@ class RiderController extends Controller
                 // Mark rider busy
                 $rider->update(['status' => 'busy']);
 
+                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order accepted! Head to the branch for pickup.',
+                    'message' => 'Order accepted! Please head to the branch for pickup.',
                     'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
@@ -194,6 +197,8 @@ class RiderController extends Controller
                 $order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
 
                 $delivery->update(['status' => 'picked_up']);
+
+                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
 
                 return response()->json([
                     'success' => true,
@@ -233,9 +238,11 @@ class RiderController extends Controller
 
                 $delivery->update(['status' => 'in_transit']);
 
+                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order is now in transit!',
+                    'message' => 'You are on your way!',
                     'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
@@ -294,6 +301,8 @@ class RiderController extends Controller
                     $order->fresh(['items.product.ingredients.stocks', 'branch']),
                     $delivery
                 );
+
+                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
 
                 return response()->json([
                     'success' => true,
