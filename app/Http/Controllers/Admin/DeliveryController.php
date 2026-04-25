@@ -8,6 +8,7 @@ use App\Models\Delivery;
 use App\Models\Branch;
 use App\Models\Rider;
 use App\Services\DeliveryService;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -126,6 +127,9 @@ class DeliveryController extends Controller
             // Sync with parent order if applicable
             if ($delivery->order) {
                 $delivery->order->update(['status' => 'cancelled']);
+                
+                // Restore inventory if it was deducted
+                app(InventoryService::class)->restoreForOrder($delivery->order);
             }
 
             return back()->with('success', 'Delivery cancelled successfully.');

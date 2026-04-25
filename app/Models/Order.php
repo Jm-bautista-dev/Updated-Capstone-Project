@@ -17,7 +17,13 @@ class Order extends Model
         'address',
         'total_amount',
         'status',
+        'inventory_deducted',
     ];
+
+    public function transactions()
+    {
+        return $this->morphMany(InventoryTransaction::class, 'reference');
+    }
 
     public function user()
     {

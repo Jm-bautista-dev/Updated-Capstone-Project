@@ -7,6 +7,7 @@ use App\Models\IngredientStock;
 use App\Models\Product;
 use App\Models\StockLog;
 use App\Models\Wastage;
+use App\Models\Order;
 use App\Utils\UnitConverter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -190,6 +191,110 @@ class InventoryService
             }
 
             return $wastage;
+        });
+    }
+
+    /**
+     * Deduct inventory for an order during the 'preparing' phase.
+     */
+    public function deductForOrder(Order $order)
+    {
+        return DB::transaction(function () use ($order) {
+            if ($order->inventory_deducted) {
+                return; // Already deducted
+            }
+
+            $order->load(['items.product.ingredients.stocks' => function($q) use ($order) {
+                $q->where('branch_id', $order->branch_id);
+            }]);
+
+            foreach ($order->items as $item) {
+                $product = $item->product;
+                foreach ($product->ingredients as $ingredient) {
+                    $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
+                    $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+                    
+                    $requiredTotalBase = UnitConverter::convertToBaseQuantityWithIngredient(
+                        $qtyPerUnit, 
+                        $unitInput, 
+                        $ingredient->unit, 
+                        $ingredient->avg_weight_per_piece
+                    ) * $item->quantity;
+
+                    $stock = $ingredient->stocks->first(); // Filtered by branch in load()
+
+                    if (!$stock) {
+                        throw new \Exception("Ingredient '{$ingredient->name}' stock not found in branch.");
+                    }
+
+                    $stock->deduct($requiredTotalBase);
+
+                    // Log transaction
+                    \App\Models\InventoryTransaction::create([
+                        'ingredient_id' => $ingredient->id,
+                        'branch_id'     => $order->branch_id,
+                        'type'          => 'deduction',
+                        'quantity'      => $requiredTotalBase,
+                        'reference_type'=> Order::class,
+                        'reference_id'  => $order->id,
+                        'notes'         => "Order Preparation: {$order->id}",
+                        'user_id'       => Auth::id(),
+                    ]);
+                }
+            }
+
+            $order->update(['inventory_deducted' => true]);
+        });
+    }
+
+    /**
+     * Restore inventory for a cancelled order if it was already deducted.
+     */
+    public function restoreForOrder(Order $order)
+    {
+        return DB::transaction(function () use ($order) {
+            if (!$order->inventory_deducted) {
+                return; // Nothing to restore
+            }
+
+            $order->load(['items.product.ingredients.stocks' => function($q) use ($order) {
+                $q->where('branch_id', $order->branch_id);
+            }]);
+
+            foreach ($order->items as $item) {
+                $product = $item->product;
+                foreach ($product->ingredients as $ingredient) {
+                    $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
+                    $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+                    
+                    $requiredTotalBase = UnitConverter::convertToBaseQuantityWithIngredient(
+                        $qtyPerUnit, 
+                        $unitInput, 
+                        $ingredient->unit, 
+                        $ingredient->avg_weight_per_piece
+                    ) * $item->quantity;
+
+                    $stock = $ingredient->stocks->first();
+
+                    if ($stock) {
+                        $stock->restore($requiredTotalBase);
+
+                        // Log transaction
+                        \App\Models\InventoryTransaction::create([
+                            'ingredient_id' => $ingredient->id,
+                            'branch_id'     => $order->branch_id,
+                            'type'          => 'return',
+                            'quantity'      => $requiredTotalBase,
+                            'reference_type'=> Order::class,
+                            'reference_id'  => $order->id,
+                            'notes'         => "Order Cancellation: {$order->id}",
+                            'user_id'       => Auth::id(),
+                        ]);
+                    }
+                }
+            }
+
+            $order->update(['inventory_deducted' => false]);
         });
     }
 }

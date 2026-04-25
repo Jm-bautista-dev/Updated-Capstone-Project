@@ -84,15 +84,13 @@ class ApiOrderController extends Controller
                     'status'         => 'pending',
                 ]);
 
-                // 2. Save Order Items and Deduct Inventory
+                // 2. Save Order Items
                 foreach ($validated['items'] as $itemData) {
-                    $orderItem = $order->items()->create([
+                    $order->items()->create([
                         'product_id' => $itemData['product_id'],
                         'quantity'   => $itemData['quantity'],
                         'price'      => $itemData['price'],
                     ]);
-
-                    $this->deductInventoryForProduct($itemData['product_id'], $itemData['quantity'], $branchId);
                 }
 
                 // 3. Create Delivery

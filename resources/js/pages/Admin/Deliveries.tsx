@@ -13,6 +13,7 @@ import DeliveryStatusGroup from '@/components/delivery/DeliveryStatusGroup';
 import DeliveryDetailSheet from '@/components/delivery/DeliveryDetailSheet';
 import DeliveryEmptyState from '@/components/delivery/DeliveryEmptyState';
 import DeliverySkeletonLoader from '@/components/delivery/DeliverySkeletonLoader';
+import PreparingConfirmationModal from '@/components/delivery/PreparingConfirmationModal';
 
 import type {
     Delivery, DeliveryPagination, DeliveryFilters as FilterType,
@@ -88,15 +89,36 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
         router.get('/deliveries', {}, { preserveState: true, replace: true });
     }, []);
 
+    // Selected delivery for status update confirmation
+    const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<number | null>(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+
     const handleUpdateStatus = useCallback((id: number) => {
+        // Find the delivery to check its current status
+        const delivery = accumulatedDeliveries.find(d => d.id === id);
+        
+        // If the delivery is pending, the next status is 'preparing'
+        // We show a confirmation modal before deducting inventory
+        if (delivery && delivery.status === 'pending') {
+            setConfirmingDeliveryId(id);
+            return;
+        }
+
+        executeStatusUpdate(id);
+    }, [accumulatedDeliveries]);
+
+    const executeStatusUpdate = useCallback((id: number) => {
+        setIsUpdating(true);
         router.put(`/deliveries/${id}/status`, {}, {
             preserveState: true,
             onSuccess: () => {
+                setConfirmingDeliveryId(null);
                 // Close sheet if the updated delivery is currently selected
                 if (selectedDelivery?.id === id) {
                     setSelectedDelivery(null);
                 }
             },
+            onFinish: () => setIsUpdating(false),
         });
     }, [selectedDelivery]);
 
@@ -304,6 +326,13 @@ export default function DeliveryIndex({ deliveries, branches, filters, stats }: 
                 open={!!selectedDelivery}
                 onClose={handleCloseSheet}
                 onUpdateStatus={handleUpdateStatus}
+            />
+            {/* Confirmation Modal for Starting Preparation */}
+            <PreparingConfirmationModal
+                open={!!confirmingDeliveryId}
+                onClose={() => setConfirmingDeliveryId(null)}
+                onConfirm={() => confirmingDeliveryId && executeStatusUpdate(confirmingDeliveryId)}
+                processing={isUpdating}
             />
         </AppLayout>
     );

@@ -8,12 +8,19 @@ use App\Models\Rider;
 use App\Models\Order;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Services\InventoryService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class DeliveryService
 {
+    protected InventoryService $inventoryService;
+
+    public function __construct(InventoryService $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
     /**
      * Recommend a delivery type based on branch capabilities and distance.
      */
@@ -179,6 +186,12 @@ class DeliveryService
                 $order = $delivery->order()->with('items.product')->first();
                 if ($order instanceof Order) {
                     $order->update(['status' => $newStatus]);
+
+                    // --- NEW INVENTORY LIFECYCLE LOGIC ---
+                    // Deduct inventory ONLY when starting preparation
+                    if ($newStatus === Delivery::STATUS_PREPARING) {
+                        $this->inventoryService->deductForOrder($order);
+                    }
 
                     // Record as Sale if DELIVERED
                     if ($newStatus === Delivery::STATUS_DELIVERED) {

@@ -82,4 +82,21 @@ class IngredientStock extends Model
         $this->decrement('stock', $amount);
         $this->refresh();
     }
+
+    /**
+     * Safely restore stock.
+     */
+    public function restore(float $amount): void
+    {
+        $this->increment('stock', $amount);
+        $this->refresh();
+    }
+
+    /**
+     * Alias for restore, used by POS SaleService.
+     */
+    public function add(float $amount): void
+    {
+        $this->restore($amount);
+    }
 }
