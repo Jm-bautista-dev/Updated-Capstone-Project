@@ -48,27 +48,18 @@ class OrderFulfillmentService
         try {
             DB::transaction(function () use ($order, $delivery) {
 
-                // ── Guard: Only process once per order ──────────────────
-                // Re-fetch with a lock to prevent race conditions if two
-                // requests somehow fire simultaneously.
-                $order = Order::lockForUpdate()->findOrFail($order->id);
-
-                if ($order->inventory_deducted) {
-                    Log::info('OrderFulfillment: already processed, skipping.', [
+                // ── Step 1: Deduct inventory ─────────────────────────────
+                if (!$order->inventory_deducted) {
+                    $this->inventoryService->deductForOrder($order);
+                    Log::info('OrderFulfillment: inventory deducted.', [
+                        'order_id'  => $order->id,
+                        'branch_id' => $order->branch_id,
+                    ]);
+                } else {
+                    Log::info('OrderFulfillment: inventory already deducted, skipping deduction.', [
                         'order_id' => $order->id,
                     ]);
-                    return;
                 }
-
-                // ── Step 1: Deduct inventory ─────────────────────────────
-                // Uses the existing InventoryService which handles branch-specific
-                // stock, unit conversion, and WAC cost tracking.
-                $this->inventoryService->deductForOrder($order);
-
-                Log::info('OrderFulfillment: inventory deducted.', [
-                    'order_id'  => $order->id,
-                    'branch_id' => $order->branch_id,
-                ]);
 
                 // ── Step 2: Record as Sale for analytics ─────────────────
                 $this->recordAsSale($order, $delivery);
