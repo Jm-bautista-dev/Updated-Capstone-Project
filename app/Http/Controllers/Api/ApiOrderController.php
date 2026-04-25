@@ -84,13 +84,16 @@ class ApiOrderController extends Controller
                     'status'         => 'pending',
                 ]);
 
-                // 2. Save Order Items
+                // 2. Save Order Items & Deduct Inventory
                 foreach ($validated['items'] as $itemData) {
                     $order->items()->create([
                         'product_id' => $itemData['product_id'],
                         'quantity'   => $itemData['quantity'],
                         'price'      => $itemData['price'],
                     ]);
+
+                    // Deduct inventory for each product
+                    $this->deductInventoryForProduct($itemData['product_id'], $itemData['quantity'], $branchId);
                 }
 
                 // 3. Create Delivery
@@ -99,14 +102,18 @@ class ApiOrderController extends Controller
                     'customer_name'    => $validated['customer_name'],
                     'customer_phone'   => $validated['mobile_number'],
                     'customer_address' => $validated['address'],
-                    'delivery_type'    => 'internal', // Default for mobile orders
+                    'delivery_type'    => 'internal', 
                     'delivery_fee'     => $deliveryFee,
                     'distance_km'      => $validated['distance_km'] ?? null,
                     'status'           => 'pending',
                 ]);
 
-                // 4. Broadcast Notification
-                broadcast(new OrderCreated($order->load('branch')))->toOthers();
+                // 4. Broadcast Notification (Wrapped in Try-Catch to prevent 500 if Pusher is offline)
+                try {
+                    broadcast(new OrderCreated($order->load('branch')))->toOthers();
+                } catch (\Exception $e) {
+                    Log::warning('Broadcast failed but order was saved: ' . $e->getMessage());
+                }
 
                 return response()->json([
                     'success' => true,
