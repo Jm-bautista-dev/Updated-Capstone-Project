@@ -134,6 +134,9 @@ export default function InventoryIndex() {
   const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
   const [isMassRestockModalOpen, setIsMassRestockModalOpen] = useState(false);
   const [activeRestockBranch, setActiveRestockBranch] = useState<{ id: number; name: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState('');
 
   const openStockInModal = (row: InventoryRow) => {
     setSelectedRow(row);
@@ -429,6 +432,52 @@ export default function InventoryIndex() {
     );
   };
 
+  const toggleSelectAll = (rows: InventoryRow[], isChecked: boolean) => {
+    if (isChecked) {
+      const ids = rows.map(r => r.id);
+      setSelectedIds(prev => Array.from(new Set([...prev, ...ids])));
+    } else {
+      const idsToRemove = new Set(rows.map(r => r.id));
+      setSelectedIds(prev => prev.filter(id => !idsToRemove.has(id)));
+    }
+  };
+
+  const toggleSelectRow = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const submitBulkDelete = () => {
+    if (bulkDeleteConfirmation !== 'DELETE') return;
+
+    router.delete('/inventory/bulk-delete', {
+      data: { ids: selectedIds },
+      onSuccess: () => {
+        setIsBulkDeleteModalOpen(false);
+        setSelectedIds([]);
+        setBulkDeleteConfirmation('');
+        stateChannel.postMessage({ type: 'inventory-updated' });
+        router.reload({ only: ['inventory', 'stats'] });
+        setResultModal({ 
+          type: 'success', 
+          title: 'Bulk Delete Successful', 
+          message: `${selectedIds.length} ingredients have been moved to trash.` 
+        });
+        setIsResultModalOpen(true);
+      },
+      onError: (errs) => {
+        setIsBulkDeleteModalOpen(false);
+        setResultModal({
+          type: 'error',
+          title: 'Bulk Delete Failed',
+          message: errs.ids || 'An error occurred during bulk delete.',
+        });
+        setIsResultModalOpen(true);
+      }
+    });
+  };
+
   const rowKey = (row: InventoryRow) => `${row.id}-${row.branch_id}`;
 
   // Simple icon for the intelligence cards
@@ -671,18 +720,32 @@ export default function InventoryIndex() {
                            </div>
 
                                <div className="flex items-center gap-3">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const bId = items[0]?.branch_id;
-                                      if (bId) openMassRestockModal(bId, branchName);
-                                    }}
-                                  >
-                                    <FiZap className="size-3 text-amber-500 fill-amber-500" /> Mass Restock
-                                  </Button>
+                                   <Button 
+                                     variant="outline" 
+                                     size="sm" 
+                                     className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       const bId = items[0]?.branch_id;
+                                       if (bId) openMassRestockModal(bId, branchName);
+                                     }}
+                                   >
+                                     <FiZap className="size-3 text-amber-500 fill-amber-500" /> Mass Restock
+                                   </Button>
+
+                                   {isAdmin && selectedIds.length > 0 && (
+                                     <Button 
+                                       variant="destructive" 
+                                       size="sm" 
+                                       className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 shadow-lg shadow-rose-500/20 animate-in fade-in zoom-in-95 duration-300"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         setIsBulkDeleteModalOpen(true);
+                                       }}
+                                     >
+                                       <FiTrash2 className="size-3" /> Delete ({selectedIds.length})
+                                     </Button>
+                                   )}
 
                                   <Button 
                                     variant="ghost" 
@@ -710,6 +773,16 @@ export default function InventoryIndex() {
                                   <thead>
                                     <tr className="border-b border-border/40 bg-muted/20 dark:bg-black/20">
                                       <th className="h-12 w-14"></th>
+                                      <th className="h-12 w-10 text-center">
+                                        {isAdmin && (
+                                          <input 
+                                            type="checkbox" 
+                                            className="size-4 rounded border-border text-primary focus:ring-primary/30 cursor-pointer"
+                                            checked={items.every(r => selectedIds.includes(r.id))}
+                                            onChange={(e) => toggleSelectAll(items, e.target.checked)}
+                                          />
+                                        )}
+                                      </th>
                                       {[
                                         { label: 'Item Name', key: 'name' },
                                         { label: 'Unit', key: 'unit' },
@@ -759,6 +832,16 @@ export default function InventoryIndex() {
                                                    )}>
                                                       {isExpanded ? <FiMaximize2 className="size-3" /> : <FiChevronRight className="size-3" />}
                                                    </div>
+                                                </td>
+                                                <td className="w-10 text-center" onClick={e => e.stopPropagation()}>
+                                                  {isAdmin && (
+                                                    <input 
+                                                      type="checkbox" 
+                                                      className="size-4 rounded border-border text-primary focus:ring-primary/30 cursor-pointer"
+                                                      checked={selectedIds.includes(item.id)}
+                                                      onChange={() => toggleSelectRow(item.id)}
+                                                    />
+                                                  )}
                                                 </td>
                                                 <td className="px-6 align-middle">
                                                    <div className="flex flex-col">
@@ -1284,6 +1367,52 @@ export default function InventoryIndex() {
           <DialogFooter className="pt-10 flex flex-col sm:flex-row gap-3">
             <Button variant="ghost" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-muted/50" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
             <Button variant="destructive" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-rose-500/30" onClick={submitDelete} disabled={processing}>Delete Item</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* ── Bulk Delete Confirmation Modal ────────────────────────────────── */}
+      <Dialog open={isBulkDeleteModalOpen} onOpenChange={setIsBulkDeleteModalOpen}>
+        <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-8">
+          <DialogHeader className="items-center text-center">
+            <div className="size-20 rounded-[2rem] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6 group">
+                 <div className="size-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                    <FiTrash2 className="size-10" />
+                 </div>
+            </div>
+            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-rose-600">
+              Bulk Delete
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-sm font-medium text-muted-foreground/80 leading-relaxed text-center">
+              You are about to delete <span className="font-black text-rose-600">{selectedIds.length}</span> ingredients. 
+              This will move them to the trash and hide them from active inventory.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center block">
+                Type <span className="text-rose-500 font-black italic">"DELETE"</span> to confirm
+              </label>
+              <Input
+                value={bulkDeleteConfirmation}
+                onChange={e => setBulkDeleteConfirmation(e.target.value.toUpperCase())}
+                placeholder="Confirmation..."
+                className="h-12 bg-muted/50 rounded-2xl border-none ring-1 ring-rose-500/30 focus:ring-rose-500 text-center font-black uppercase tracking-widest italic"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-3">
+            <Button variant="ghost" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-muted/50" onClick={() => setIsBulkDeleteModalOpen(false)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-rose-500/30" 
+              onClick={submitBulkDelete} 
+              disabled={bulkDeleteConfirmation !== 'DELETE' || processing}
+            >
+              Confirm Bulk Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

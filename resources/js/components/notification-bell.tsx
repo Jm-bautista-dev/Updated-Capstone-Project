@@ -20,7 +20,7 @@ export function NotificationBell() {
     const fetchNotifications = async () => {
         if (!auth?.user) return;
         try {
-            const response = await axios.get('/api/notifications');
+            const response = await axios.get('/api/v1/notifications');
             setNotifications(response.data.notifications);
             setUnreadCount(response.data.unread_count);
         } catch (error) {
@@ -50,7 +50,7 @@ export function NotificationBell() {
     const handleMarkAsRead = async () => {
         if (unreadCount === 0) return;
         try {
-            await axios.post('/api/notifications/mark-as-read');
+            await axios.post('/api/v1/notifications/mark-as-read');
             setUnreadCount(0);
             // Optionally refresh the list to update "unread" highlights
             fetchNotifications();

@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
         Route::delete('products/{id}', [App\Http\Controllers\ProductsController::class, 'destroy'])->name('products.destroy');
 
+        Route::delete('/inventory/bulk-delete', [InventoryController::class, 'bulkDelete'])->name('inventory.bulk-delete');
         Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
         Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
         Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');

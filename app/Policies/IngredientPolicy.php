@@ -40,4 +40,12 @@ class IngredientPolicy
     {
         return $user->isAdmin();
     }
+
+    /**
+     * Determine if the user can bulk delete models.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $user->isAdmin();
+    }
 }

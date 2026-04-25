@@ -12,6 +12,7 @@ use Inertia\Inertia;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Utils\UnitConverter;
 use Illuminate\Validation\Rule;
+use App\Models\Order;
 
 class InventoryController extends Controller
 {
@@ -348,5 +349,63 @@ class InventoryController extends Controller
         }
 
         return [$user->branch_id];
+    }
+
+    /**
+     * Mass delete ingredients with safety checks.
+     */
+    public function bulkDelete(Request $request)
+    {
+        $this->authorize('deleteAny', Ingredient::class);
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:ingredients,id']);
+
+        $ids = $request->ids;
+        $inUse = [];
+
+        foreach ($ids as $id) {
+            /** @var Ingredient $ingredient */
+            $ingredient = Ingredient::find($id);
+            if (!$ingredient) continue;
+
+            // 1. Check if used in any product recipes (menu_item_ingredients)
+            if ($ingredient->products()->exists()) {
+                $inUse[] = $ingredient->name . " (Used in Products)";
+                continue;
+            }
+
+            // 2. Check if part of any active orders (pending, preparing, etc.)
+            // We look for orders that contain products that use this ingredient.
+            $activeOrderExists = Order::whereIn('status', ['pending', 'confirmed', 'preparing', 'dispatching'])
+                ->whereHas('items.product.ingredients', function($q) use ($id) {
+                    $q->where('ingredients.id', $id);
+                })->exists();
+
+            if ($activeOrderExists) {
+                $inUse[] = $ingredient->name . " (Active Orders)";
+                continue;
+            }
+        }
+
+        if (count($inUse) > 0) {
+            return redirect()->back()->withErrors([
+                'ids' => 'The following ingredients cannot be deleted because they are active: ' . implode(', ', $inUse)
+            ]);
+        }
+
+        // Soft delete the ingredients
+        Ingredient::whereIn('id', $ids)->delete();
+
+        // Audit Logging
+        foreach ($ids as $id) {
+            IngredientLog::create([
+                'ingredient_id' => $id,
+                'user_id'       => Auth::id(),
+                'reason'        => 'Bulk Delete (Soft)',
+                'change_qty'    => 0,
+                // We'll leave branch_id null as it's a global delete
+            ]);
+        }
+
+        return redirect()->back()->with('success', count($ids) . ' ingredients moved to trash.');
     }
 }

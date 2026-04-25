@@ -13,15 +13,19 @@ class RoleMiddleware
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
-     * @param  string  $role
+     * @param  string  ...$roles
      * @return \Symfony\Component\HttpFoundation\Response
      */
-    public function handle(Request $request, Closure $next, string $role): Response
+    public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!$request->user() || $request->user()->role !== $role) {
+        if (!$request->user() || !in_array($request->user()->role, $roles)) {
+            // If it's an Inertia request, redirect or abort, otherwise return JSON
+            if ($request->header('X-Inertia')) {
+                abort(403, 'Unauthorized: Access restricted.');
+            }
             return response()->json([
                 'status' => 'error',
-                'message' => 'Unauthorized: Access restricted to ' . $role . ' only.'
+                'message' => 'Unauthorized: Access restricted.'
             ], 403);
         }
 
