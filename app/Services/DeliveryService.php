@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Services\InventoryService;
+use App\Services\OrderFulfillmentService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,10 +17,12 @@ use Illuminate\Support\Facades\DB;
 class DeliveryService
 {
     protected InventoryService $inventoryService;
+    protected OrderFulfillmentService $fulfillmentService;
 
-    public function __construct(InventoryService $inventoryService)
+    public function __construct(InventoryService $inventoryService, OrderFulfillmentService $fulfillmentService)
     {
-        $this->inventoryService = $inventoryService;
+        $this->inventoryService  = $inventoryService;
+        $this->fulfillmentService = $fulfillmentService;
     }
     /**
      * Recommend a delivery type based on branch capabilities and distance.
@@ -220,7 +223,11 @@ class DeliveryService
 
                     // Record as Sale if DELIVERED
                     if ($newStatus === Delivery::STATUS_DELIVERED) {
-                        $this->recordOrderAsSale($order->fresh('items.product'), $delivery);
+                        // Use the fulfillment service (idempotent, won't duplicate)
+                        $this->fulfillmentService->onOrderDelivered(
+                            $order->fresh(['items.product.ingredients.stocks', 'branch']),
+                            $delivery
+                        );
                     }
                 }
             }

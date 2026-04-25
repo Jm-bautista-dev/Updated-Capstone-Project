@@ -7,6 +7,7 @@ use App\Models\Rider;
 use App\Models\Order;
 use App\Models\Delivery;
 use App\Models\RiderLocationLog;
+use App\Services\OrderFulfillmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,9 @@ use Illuminate\Support\Facades\Storage;
 
 class RiderController extends Controller
 {
+    public function __construct(
+        protected OrderFulfillmentService $fulfillmentService
+    ) {}
     /*
     |--------------------------------------------------------------------------
     | RIDER FEED
@@ -281,6 +285,15 @@ class RiderController extends Controller
 
                 // Free up the rider
                 $rider->update(['status' => 'available']);
+
+                // ── POST-DELIVERY HOOK ─────────────────────────────────────
+                // Triggers inventory deduction + sales recording.
+                // Runs in its own try/catch — delivery response is NEVER broken.
+                // Idempotent: skipped automatically if already processed.
+                $this->fulfillmentService->onOrderDelivered(
+                    $order->fresh(['items.product.ingredients.stocks', 'branch']),
+                    $delivery
+                );
 
                 return response()->json([
                     'success' => true,
