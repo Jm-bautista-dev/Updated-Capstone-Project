@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function () {
         Route::get('cart', [CartController::class, 'index']);
         Route::post('cart/add', [CartController::class, 'addItem']);
         Route::delete('cart/clear', [CartController::class, 'clear']);
+        Route::post('cart/validate', [CartController::class, 'validate']);
         
         // Notifications
         Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index']);
