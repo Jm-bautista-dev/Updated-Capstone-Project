@@ -36,6 +36,9 @@ class UserController extends Controller
                     'mobile_number' => $user->mobile_number ?? $user->contact_number ?? '',
                     'role' => $user->role ?? 'customer', // Default to customer if column is missing
                     'branch_id' => $user->branch_id ?? null,
+                    'profile_picture_url' => $user->profile_photo_path 
+                        ? asset('storage/' . $user->profile_photo_path) 
+                        : 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&color=7F9CF5&background=EBF4FF',
                 ]
             ]);
         } catch (\Exception $e) {
