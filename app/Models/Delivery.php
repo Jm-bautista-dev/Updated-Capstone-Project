@@ -43,22 +43,46 @@ class Delivery extends Model
 
     /* ── Status Constants ──────────────────────────── */
 
-    // Internal delivery flow
-    const STATUS_PENDING          = 'pending';
-    const STATUS_PREPARING        = 'preparing';
-    const STATUS_READY            = 'ready_for_pickup';
-    const STATUS_OUT_FOR_DELIVERY = 'out_for_delivery';
+    // Full internal delivery flow (aligned with Order state machine)
+    const STATUS_PENDING           = 'pending';
+    const STATUS_PREPARING         = 'preparing';
+    const STATUS_READY             = 'ready_for_pickup';
+    const STATUS_ASSIGNED          = 'assigned_to_rider';
+    const STATUS_PICKED_UP         = 'picked_up';
+    const STATUS_OUT_FOR_DELIVERY  = 'in_transit';       // renamed from out_for_delivery
     const STATUS_DELIVERED         = 'delivered';
     const STATUS_CANCELLED         = 'cancelled';
 
     // External delivery flow
-    const STATUS_BOOKED    = 'booked';
-    const STATUS_PICKED_UP = 'picked_up';
+    const STATUS_BOOKED   = 'booked';
+
+    /**
+     * Statuses that WEB ADMIN is permitted to advance to.
+     * Admin controls the preparation & dispatch flow only.
+     * They CANNOT mark in_transit or delivered — that belongs to the rider.
+     */
+    const ADMIN_ALLOWED_TRANSITIONS = [
+        'pending'         => 'preparing',
+        'preparing'       => 'ready_for_pickup',
+        'ready_for_pickup' => null, // next step is rider accept (no admin advance)
+    ];
+
+    /**
+     * Statuses that only the RIDER APP is permitted to set.
+     * Backend enforces this — any admin attempt is rejected.
+     */
+    const RIDER_ONLY_STATUSES = [
+        'picked_up',
+        'in_transit',
+        'delivered',
+    ];
 
     const INTERNAL_STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_PREPARING,
         self::STATUS_READY,
+        self::STATUS_ASSIGNED,
+        self::STATUS_PICKED_UP,
         self::STATUS_OUT_FOR_DELIVERY,
         self::STATUS_DELIVERED,
     ];
@@ -66,7 +90,6 @@ class Delivery extends Model
     const EXTERNAL_STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_BOOKED,
-        self::STATUS_PICKED_UP,
         self::STATUS_DELIVERED,
     ];
 
@@ -125,7 +148,9 @@ class Delivery extends Model
     }
 
     /**
-     * Get the next valid statuses for this delivery.
+     * Get the next valid statuses for this delivery that ADMIN can trigger.
+     * Rider-only statuses (picked_up, in_transit, delivered) are EXCLUDED here.
+     * They are set exclusively through the Rider App API endpoints.
      */
     public function getNextStatuses(): array
     {
@@ -133,20 +158,24 @@ class Delivery extends Model
             return [];
         }
 
-        $flow = $this->isInternal() ? self::INTERNAL_STATUSES : self::EXTERNAL_STATUSES;
-        $currentIndex = array_search($this->status, $flow);
+        // Admin can only advance up to ready_for_pickup.
+        // Everything after (picked_up, in_transit, delivered) is RIDER ONLY.
+        $adminFlow = [
+            self::STATUS_PENDING    => self::STATUS_PREPARING,
+            self::STATUS_PREPARING  => self::STATUS_READY,
+            // ready_for_pickup → assigned_to_rider is handled by assignRider action
+            // assigned_to_rider onward → RIDER ONLY
+        ];
 
-        if ($currentIndex === false || $currentIndex >= count($flow) - 1) {
-            return [];
+        if (isset($adminFlow[$this->status])) {
+            return [$adminFlow[$this->status]];
         }
 
-        return [
-            $flow[$currentIndex + 1],
-        ];
+        return [];
     }
 
     /**
-     * Get display-friendly attributes for status badges.
+     * Get display-friendly label for status.
      */
     public function getStatusLabel(): string
     {
@@ -154,12 +183,13 @@ class Delivery extends Model
             self::STATUS_PENDING          => 'Pending',
             self::STATUS_PREPARING        => 'Preparing',
             self::STATUS_READY            => 'Ready for Pickup',
-            self::STATUS_OUT_FOR_DELIVERY => 'Out for Delivery',
-            self::STATUS_DELIVERED         => 'Delivered',
-            self::STATUS_CANCELLED         => 'Cancelled',
-            self::STATUS_BOOKED           => 'Booked',
+            self::STATUS_ASSIGNED         => 'Rider Assigned',
             self::STATUS_PICKED_UP        => 'Picked Up',
-            default                       => ucfirst($this->status),
+            self::STATUS_OUT_FOR_DELIVERY => 'In Transit',   // in_transit
+            self::STATUS_DELIVERED        => 'Delivered',
+            self::STATUS_CANCELLED        => 'Cancelled',
+            self::STATUS_BOOKED           => 'Booked',
+            default                       => ucwords(str_replace('_', ' ', $this->status)),
         };
     }
 

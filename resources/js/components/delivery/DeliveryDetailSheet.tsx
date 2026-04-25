@@ -26,12 +26,15 @@ interface DeliveryDetailSheetProps {
     onAssignRider: (delivery: Delivery) => void;
 }
 
-// Status timeline
+// Full delivery status timeline (all 7 steps)
 const STATUS_STEPS = [
-    { key: 'pending', label: 'Pending', icon: Clock },
-    { key: 'preparing', label: 'Preparing', icon: Package },
-    { key: 'out_for_delivery', label: 'In Transit', icon: Navigation },
-    { key: 'delivered', label: 'Delivered', icon: CheckCircle2 },
+    { key: 'pending',           label: 'Pending',      icon: Clock },
+    { key: 'preparing',         label: 'Preparing',    icon: Package },
+    { key: 'ready_for_pickup',  label: 'Ready',        icon: CheckCircle2 },
+    { key: 'assigned_to_rider', label: 'Assigned',     icon: Bike },
+    { key: 'picked_up',         label: 'Picked Up',    icon: Navigation },
+    { key: 'in_transit',        label: 'In Transit',   icon: Truck },
+    { key: 'delivered',         label: 'Delivered',    icon: CheckCircle2 },
 ];
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
@@ -65,6 +68,74 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                     </React.Fragment>
                 );
             })}
+        </div>
+    );
+}
+
+/** Zoomable proof-of-delivery image viewer */
+function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
+    url: string;
+    deliveredAt?: string | null;
+    riderName?: string;
+}) {
+    const [zoomed, setZoomed] = React.useState(false);
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center gap-2">
+                <div className="size-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Image className="size-4 text-emerald-600" />
+                </div>
+                <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Proof of Delivery</p>
+                    {deliveredAt && (
+                        <p className="text-xs text-muted-foreground">{formatDate(deliveredAt)} at {formatTime(deliveredAt)}</p>
+                    )}
+                </div>
+            </div>
+
+            {/* Thumbnail — click to zoom */}
+            <button
+                onClick={() => setZoomed(true)}
+                className="w-full rounded-2xl overflow-hidden border-2 border-emerald-200 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md group relative"
+                aria-label="View proof of delivery photo"
+            >
+                <img
+                    src={url}
+                    alt="Proof of delivery"
+                    className="w-full object-cover max-h-48 group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 flex items-center gap-1.5 transition-all">
+                        <ExternalLink className="size-3" /> Click to zoom
+                    </div>
+                </div>
+            </button>
+
+            {riderName && (
+                <p className="text-xs text-muted-foreground font-medium px-1">
+                    📸 Captured by <span className="font-bold text-foreground">{riderName}</span>
+                </p>
+            )}
+
+            {/* Zoom Modal */}
+            <Dialog open={zoomed} onOpenChange={setZoomed}>
+                <DialogContent className="max-w-3xl p-2 rounded-2xl">
+                    <DialogHeader className="p-4 pb-2">
+                        <DialogTitle className="text-sm font-black">Delivery Proof Photo</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            {riderName && <>Captured by {riderName}</>}
+                            {deliveredAt && <> • {formatDate(deliveredAt)} {formatTime(deliveredAt)}</>}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <img src={url} alt="Proof of delivery full" className="w-full rounded-xl object-contain max-h-[70vh]" />
+                    <div className="p-4 pt-2 flex justify-end">
+                        <a href={url} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary flex items-center gap-1.5 hover:underline">
+                            Open original <ExternalLink className="size-3" />
+                        </a>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -256,18 +327,18 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             </InfoRow>
                         )}
 
-                        {delivery.proof_of_delivery_url && (
+                        {/* Proof of Delivery — shown when delivered */}
+                        {delivery.proof_of_delivery_url ? (
+                            <ProofOfDeliveryViewer
+                                url={delivery.proof_of_delivery_url}
+                                deliveredAt={delivery.delivered_at}
+                                riderName={delivery.rider?.name}
+                            />
+                        ) : delivery.is_delivered ? (
                             <InfoRow icon={Image} label="Proof of Delivery">
-                                <a
-                                    href={delivery.proof_of_delivery_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1.5 font-bold text-primary hover:underline"
-                                >
-                                    View Proof <ExternalLink className="size-3" />
-                                </a>
+                                <p className="text-xs text-amber-600 font-semibold">No proof image uploaded.</p>
                             </InfoRow>
-                        )}
+                        ) : null}
 
                         {delivery.is_cancelled && (
                             <div className="bg-rose-50 dark:bg-rose-950/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-900/30">

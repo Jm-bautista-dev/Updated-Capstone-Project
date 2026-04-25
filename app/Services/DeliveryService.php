@@ -171,6 +171,13 @@ class DeliveryService
         $nextStatuses = $delivery->getNextStatuses();
 
         if (empty($nextStatuses)) {
+            // Also guard against admin trying to advance rider-only statuses
+            if (in_array($delivery->status, Delivery::RIDER_ONLY_STATUSES)) {
+                throw new \Exception(
+                    "Status '{$delivery->status}' is controlled by the rider app only. " .
+                    "Web admin cannot advance this delivery further."
+                );
+            }
             throw new \Exception('Delivery is already at its final status.');
         }
 
