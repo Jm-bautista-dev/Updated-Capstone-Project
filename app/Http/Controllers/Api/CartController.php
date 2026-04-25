@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
+use App\Models\IngredientStock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -167,10 +168,10 @@ class CartController extends Controller
     /**
      * Validate the current cart (check stock availability).
      * 
-     * PRODUCTION-READY FLOW:
-     * - Uses simpleStockCheck (no analytics)
-     * - Returns clear structured errors
-     * - Log failures for debugging
+     * PRODUCTION-READY / CRASH-PROOF:
+     * - NO dynamicAvailability()
+     * - NO analytics
+     * - Direct stock checking
      */
     public function validate(Request $request)
     {
@@ -182,53 +183,83 @@ class CartController extends Controller
             if (!$cart || $cart->items->isEmpty()) {
                 return response()->json([
                     'success' => true,
-                    'is_valid' => true,
                     'message' => 'Cart is empty'
                 ]);
             }
 
             $branchId = $cart->branch_id;
-            $invalidItems = [];
 
             foreach ($cart->items as $item) {
-                if (!$item->product) continue;
-
-                // Call production-level stock validation
-                $stockResult = $item->product->simpleStockCheck($item->quantity, $branchId);
-
-                if (!$stockResult['success']) {
-                    $invalidItems[] = [
-                        'id' => $item->id,
-                        'product_name' => $item->product->name,
-                        'message' => $stockResult['message']
-                    ];
+                $product = Product::with('ingredients')->find($item->product_id);
+                
+                // 1. Ensure product exists
+                if (!$product) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Product not found: {$item->product_id}"
+                    ], 404);
                 }
-            }
 
-            if (!empty($invalidItems)) {
-                return response()->json([
-                    'success' => false,
-                    'is_valid' => false,
-                    'invalid_items' => $invalidItems,
-                    'message' => 'Insufficient stock for ingredients'
-                ], 422);
+                // 2. Simple Stock Validation (Safe & Independent)
+                $ingredients = $product->ingredients;
+
+                // Case: Item has no ingredients (recipe missing)
+                if ($ingredients->isEmpty()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Recipe not configured for '{$product->name}'"
+                    ], 422);
+                }
+
+                // Loop ingredients for direct stock check
+                foreach ($ingredients as $ingredient) {
+                    // Safe access to pivot quantity
+                    $qtyPerUnit = (float) (optional($ingredient->pivot)->quantity_required ?? 0);
+                    $unitInput  = optional($ingredient->pivot)->unit ?? $ingredient->unit;
+
+                    // Normalize requirement to base unit
+                    $requiredBasePerUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                        $qtyPerUnit,
+                        $unitInput,
+                        $ingredient->unit,
+                        $ingredient->avg_weight_per_piece
+                    );
+
+                    $totalRequired = $requiredBasePerUnit * $item->quantity;
+
+                    // Skip if requirement is 0 (safety)
+                    if ($totalRequired <= 0) continue;
+
+                    // Direct DB query for current stock (Safe & Accurate)
+                    $currentStock = IngredientStock::where('branch_id', $branchId)
+                        ->where('ingredient_id', $ingredient->id)
+                        ->value('stock') ?? 0;
+
+                    if ($currentStock < $totalRequired) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Insufficient stock: Missing '{$ingredient->name}' for '{$product->name}'",
+                            'ingredient' => $ingredient->name
+                        ], 422);
+                    }
+                }
             }
 
             return response()->json([
                 'success' => true,
-                'is_valid' => true,
                 'message' => 'Cart is valid'
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Cart Validation Failure', [
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString()
+        } catch (\Throwable $e) {
+            // FULL CRASH LOGGING
+            Log::error('Cart Validation Crash: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => $request->user()->id
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Stock validation failed',
+                'message' => 'Validation failed',
                 'error'   => $e->getMessage()
             ], 500);
         }
