@@ -43,12 +43,20 @@ Route::prefix('v1')->group(function () {
 
         // Rider Module
         Route::prefix('rider')->group(function () {
-            Route::get('orders',   [RiderController::class, 'getOrders']);
-            Route::get('stats',    [RiderController::class, 'getStats']);
+            // Status & Heartbeat
             Route::patch('status', [RiderController::class, 'updateStatus']);
             Route::post('ping',    [RiderController::class, 'ping']);
-            Route::post('orders/{id}/accept', [RiderController::class, 'acceptOrder']);
-            Route::post('orders/{id}/reject', [RiderController::class, 'rejectOrder']);
+            Route::get('stats',    [RiderController::class, 'getStats']);
+
+            // Order Tabs
+            Route::get('orders',           [RiderController::class, 'getOrders']);          // Active (preparing)
+            Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Assigned/Delivering
+            Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done
+
+            // Order Actions
+            Route::post('orders/{id}/accept',        [RiderController::class, 'acceptOrder']);
+            Route::post('orders/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
+            Route::post('orders/{id}/reject',        [RiderController::class, 'rejectOrder']);
         });
 
         // Orders & Cart
