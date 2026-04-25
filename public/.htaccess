@@ -5,9 +5,10 @@
 
     RewriteEngine On
 
-    # Handle Authorization Header
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    # --- SANCTUM FIX FOR HOSTINGER ---
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [e:HTTP_AUTHORIZATION=%1]
+    # ---------------------------------
 
     # Handle X-XSRF-Token Header
     RewriteCond %{HTTP:x-xsrf-token} .
