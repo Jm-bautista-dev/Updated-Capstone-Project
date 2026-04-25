@@ -49,7 +49,7 @@ Route::prefix('v1')->group(function () {
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
 
     // ─── Rider-Specific Protected Routes (accepts rider tokens) ──────────────
-    Route::middleware('auth:rider,sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'role:rider'])->group(function () {
         Route::get('user',           [AuthController::class, 'user']);
         Route::post('logout',        [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);

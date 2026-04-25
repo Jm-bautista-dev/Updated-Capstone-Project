@@ -62,6 +62,8 @@ class AuthController extends Controller
     /**
      * Login an existing user (Mobile).
      * POST /api/v1/login
+     * 
+     * Handles both standard users and riders via the unified users table.
      */
     public function login(Request $request): JsonResponse
     {
@@ -73,38 +75,44 @@ class AuthController extends Controller
         /** @var User $user */
         $user = User::where('email', $request->email)->first();
 
-        // If not found in users, check riders table
+        // If not found in users, check riders table (fallback for backward compatibility if data exists)
         if (!$user) {
             /** @var Rider $user */
             $user = Rider::where('email', $request->email)->first();
         }
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'success' => false,
-                'message' => 'The provided credentials are incorrect.',
+                'status' => 'error',
+                'message' => 'Invalid credentials.',
             ], 401);
         }
 
-        // Check if account is active (for both User and Rider)
+        // Check if account is active
         if (isset($user->is_active) && !$user->is_active) {
             return response()->json([
-                'success' => false,
+                'status' => 'error',
                 'message' => 'Your account has been deactivated.',
             ], 403);
         }
 
-        $token = $user->createToken('mobile-app')->plainTextToken;
+        // ONE TOKEN SYSTEM: Optional: Clear existing tokens for single session
+        // $user->tokens()->delete();
+
+        $token = $user->createToken('mobile-token')->plainTextToken;
 
         // Auto-set status for Riders on Login
-        if ($user instanceof Rider) {
-            $user->update(['status' => 'available', 'last_active_at' => now()]);
+        if ($user instanceof Rider || (isset($user->role) && $user->role === 'rider')) {
+            if ($user instanceof Rider) {
+                $user->update(['status' => 'available', 'last_active_at' => now()]);
+            }
         }
 
         return response()->json([
-            'success' => true,
+            'status'  => 'success',
             'message' => 'Login successful.',
             'token'   => $token,
+            'role'    => $user->role ?? 'user',
             'user'    => $this->formatUser($user),
         ]);
     }
