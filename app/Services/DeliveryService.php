@@ -181,13 +181,32 @@ class DeliveryService
                 'updated_by' => Auth::id(),
             ]);
 
-            // Sync status with linked Order if exists
+            // Map Delivery status vocab → Order status vocab
+            // Delivery:  pending → preparing → ready_for_pickup → out_for_delivery → delivered
+            // Order:     pending → preparing → assigned          → delivering       → completed
+            $deliveryToOrderStatus = [
+                Delivery::STATUS_PENDING          => 'pending',
+                Delivery::STATUS_PREPARING        => 'preparing',
+                Delivery::STATUS_READY            => 'assigned',
+                Delivery::STATUS_OUT_FOR_DELIVERY => 'delivering',
+                Delivery::STATUS_DELIVERED        => 'completed',
+            ];
+
+            // Sync status with linked Order if exists — ONLY update, never reset
             if ($delivery->order_id) {
                 $order = $delivery->order()->with('items.product')->first();
                 if ($order instanceof Order) {
-                    $order->update(['status' => $newStatus]);
+                    $mappedOrderStatus = $deliveryToOrderStatus[$newStatus] ?? null;
 
-                    // --- NEW INVENTORY LIFECYCLE LOGIC ---
+                    // SAFETY: Only advance the order status, never go backwards
+                    $orderStatusOrder = ['pending', 'preparing', 'assigned', 'delivering', 'completed', 'cancelled'];
+                    $currentIndex = array_search($order->status, $orderStatusOrder);
+                    $newIndex = $mappedOrderStatus ? array_search($mappedOrderStatus, $orderStatusOrder) : -1;
+
+                    if ($mappedOrderStatus && $newIndex !== false && ($currentIndex === false || $newIndex > $currentIndex)) {
+                        $order->update(['status' => $mappedOrderStatus]);
+                    }
+
                     // Deduct inventory ONLY when starting preparation
                     if ($newStatus === Delivery::STATUS_PREPARING) {
                         $this->inventoryService->deductForOrder($order);
@@ -200,7 +219,7 @@ class DeliveryService
 
                     // Record as Sale if DELIVERED
                     if ($newStatus === Delivery::STATUS_DELIVERED) {
-                        $this->recordOrderAsSale($order, $delivery);
+                        $this->recordOrderAsSale($order->fresh('items.product'), $delivery);
                     }
                 }
             }
