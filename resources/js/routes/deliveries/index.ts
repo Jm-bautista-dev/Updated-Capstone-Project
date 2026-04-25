@@ -301,6 +301,85 @@ cancel.post = (args: { delivery: number | { id: number } } | [delivery: number |
     
     cancel.form = cancelForm
 /**
+* @see \App\Http\Controllers\Admin\DeliveryController::assignRider
+ * @see app/Http/Controllers/Admin/DeliveryController.php:90
+ * @route '/deliveries/{delivery}/assign-rider'
+ */
+export const assignRider = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: assignRider.url(args, options),
+    method: 'post',
+})
+
+assignRider.definition = {
+    methods: ["post"],
+    url: '/deliveries/{delivery}/assign-rider',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::assignRider
+ * @see app/Http/Controllers/Admin/DeliveryController.php:90
+ * @route '/deliveries/{delivery}/assign-rider'
+ */
+assignRider.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { delivery: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { delivery: args.id }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    delivery: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        delivery: typeof args.delivery === 'object'
+                ? args.delivery.id
+                : args.delivery,
+                }
+
+    return assignRider.definition.url
+            .replace('{delivery}', parsedArgs.delivery.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::assignRider
+ * @see app/Http/Controllers/Admin/DeliveryController.php:90
+ * @route '/deliveries/{delivery}/assign-rider'
+ */
+assignRider.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: assignRider.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Admin\DeliveryController::assignRider
+ * @see app/Http/Controllers/Admin/DeliveryController.php:90
+ * @route '/deliveries/{delivery}/assign-rider'
+ */
+    const assignRiderForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: assignRider.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::assignRider
+ * @see app/Http/Controllers/Admin/DeliveryController.php:90
+ * @route '/deliveries/{delivery}/assign-rider'
+ */
+        assignRiderForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: assignRider.url(args, options),
+            method: 'post',
+        })
+    
+    assignRider.form = assignRiderForm
+/**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
  * @see app/Http/Controllers/Admin/DeliveryController.php:178
  * @route '/deliveries/recommend'
@@ -383,6 +462,7 @@ const deliveries = {
 store: Object.assign(store, store),
 updateStatus: Object.assign(updateStatus, updateStatus),
 cancel: Object.assign(cancel, cancel),
+assignRider: Object.assign(assignRider, assignRider),
 recommend: Object.assign(recommend, recommend),
 }
 

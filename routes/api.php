@@ -48,28 +48,22 @@ Route::prefix('v1')->group(function () {
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
 
-    // ─── Rider-Specific Protected Routes (accepts rider tokens) ──────────────
-    Route::middleware(['auth:sanctum', 'role:rider'])->group(function () {
+    // ─── Protected Routes (Sanctum token required) ────────────────────────────
+    Route::middleware('auth:sanctum')->group(function () {
+        // Auth (Common for both Customers and Riders)
         Route::get('user',           [AuthController::class, 'user']);
         Route::post('logout',        [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
-        // Rider Operations
-        Route::get('rider/orders',   [App\Http\Controllers\Api\RiderController::class, 'orders']);
-        Route::get('rider/stats',    [App\Http\Controllers\Api\RiderController::class, 'stats']);
-        Route::patch('rider/status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
-        Route::post('rider/ping',    [App\Http\Controllers\Api\RiderController::class, 'ping']);
-    });
+        // ─── Rider-Specific Operations (requires role:rider) ──────────────────
+        Route::middleware('role:rider')->group(function () {
+            Route::get('rider/orders',   [App\Http\Controllers\Api\RiderController::class, 'orders']);
+            Route::get('rider/stats',    [App\Http\Controllers\Api\RiderController::class, 'stats']);
+            Route::patch('rider/status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
+            Route::post('rider/ping',    [App\Http\Controllers\Api\RiderController::class, 'ping']);
+        });
 
-    // ─── Protected Routes (Sanctum token required) ────────────────────────────
-    Route::middleware('auth:sanctum')->group(function () {
-
-        // Auth
-        Route::get('user',    [AuthController::class, 'user']);
-        Route::post('token/refresh', [AuthController::class, 'refreshToken']);
-        Route::post('logout', [AuthController::class, 'logout']);
-
-        // Orders System
+        // Orders System (Customer focus)
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);
         Route::get('orders/{id}', [ApiOrderController::class, 'show']);

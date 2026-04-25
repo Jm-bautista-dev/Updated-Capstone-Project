@@ -18,7 +18,20 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!$request->user() || !in_array($request->user()->role, $roles)) {
+        $user = $request->user();
+        
+        // Safely check for role (handle missing column gracefully)
+        $userRole = null;
+        if ($user) {
+            try {
+                $userRole = $user->role;
+            } catch (\Exception $e) {
+                // Column probably missing
+                $userRole = 'customer'; // Default fallback
+            }
+        }
+
+        if (!$user || !in_array($userRole, $roles)) {
             // If it's an Inertia request, redirect or abort, otherwise return JSON
             if ($request->header('X-Inertia')) {
                 abort(403, 'Unauthorized: Access restricted.');

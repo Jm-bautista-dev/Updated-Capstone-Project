@@ -212,15 +212,17 @@ class AuthController extends Controller
      */
     private function formatUser($user): array
     {
+        if (!$user) return [];
+
         return [
-            'id'            => $user->id,
-            'first_name'    => $user->first_name ?? $user->name,
+            'id'            => $user->id ?? 0,
+            'first_name'    => $user->first_name ?? $user->name ?? 'User',
             'last_name'     => $user->last_name ?? '',
-            'full_name'     => $user->name,
-            'email'         => $user->email,
+            'full_name'     => $user->name ?? ($user->first_name . ' ' . $user->last_name),
+            'email'         => $user->email ?? '',
             'mobile_number' => $user->mobile_number ?? $user->phone ?? '',
-            'role'          => $user->role,
-            'branch_id'     => $user->branch_id,
+            'role'          => $user->role ?? ($user instanceof Rider ? 'rider' : 'customer'),
+            'branch_id'     => $user->branch_id ?? null,
         ];
     }
 }
