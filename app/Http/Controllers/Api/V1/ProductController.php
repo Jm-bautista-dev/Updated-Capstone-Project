@@ -56,13 +56,19 @@ class ProductController extends Controller
         }
 
         // Get products belonging to the nearest branch or global products
-        $products = Product::where(function($q) use ($nearestBranch) {
+        $query = Product::where(function($q) use ($nearestBranch) {
                 $q->where('branch_id', $nearestBranch->id)
                   ->orWhereNull('branch_id');
             })
             ->whereNull('deleted_at')
-            ->with(['category', 'unit_model'])
-            ->get();
+            ->with(['category', 'unit_model']);
+
+        // Support category filtering
+        if ($request->has('category_id') && $request->category_id) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        $products = $query->get();
 
         // Format products to include dynamic stock calculation
         $formattedProducts = $products->map(function (Product $product) use ($nearestBranch) {

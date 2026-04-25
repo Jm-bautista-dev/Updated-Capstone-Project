@@ -163,9 +163,15 @@ class ProductController extends Controller
             $q->where('branches.id', $nearestBranch->id);
         })->get(['id', 'name', 'image_path']);
 
-        $products = Product::whereHas('branches', function($q) use ($nearestBranch) {
+        $productsQuery = Product::whereHas('branches', function($q) use ($nearestBranch) {
             $q->where('branches.id', $nearestBranch->id);
-        })->with(['unit_model', 'category'])->get();
+        })->with(['unit_model', 'category']);
+
+        if ($request->filled('category_id')) {
+            $productsQuery->where('category_id', $request->integer('category_id'));
+        }
+
+        $products = $productsQuery->get();
 
         return response()->json([
             'success'    => true,
