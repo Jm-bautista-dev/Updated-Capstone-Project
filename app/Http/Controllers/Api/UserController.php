@@ -9,8 +9,8 @@ use App\Models\Rider;
 class UserController extends Controller
 {
     /**
-     * Get authenticated user profile (Split logic for Rider vs Customer)
-     * This ensures zero crashes by only accessing columns present in each table.
+     * Optimized profile fetch. 
+     * Removes profile picture logic for Riders to prevent crashes.
      */
     public function me(Request $request)
     {
@@ -20,23 +20,22 @@ class UserController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
         }
 
-        // RIDER LOGIC (Simple Full Name)
+        // RIDER LOGIC (No Profile Picture)
         if ($user instanceof Rider) {
             return response()->json([
                 'status' => 'success',
                 'data' => [
                     'id' => $user->id,
-                    'name' => $user->name, // Displays as Full Name
+                    'name' => $user->name,
                     'email' => $user->email,
                     'role' => 'rider',
                     'mobile_number' => $user->phone ?? '',
-                    'profile_photo_path' => $user->profile_photo_path ?? null,
                     'branch_id' => $user->branch_id,
                 ]
             ]);
         }
 
-        // CUSTOMER LOGIC (First/Last Names)
+        // CUSTOMER LOGIC (Keep Picture Support)
         return response()->json([
             'status' => 'success',
             'data' => [
