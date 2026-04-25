@@ -24,6 +24,8 @@ class Delivery extends Model
         'customer_name',
         'customer_phone',
         'customer_address',
+        'latitude',
+        'longitude',
         'distance_km',
         'delivery_fee',
         'delivery_notes',
