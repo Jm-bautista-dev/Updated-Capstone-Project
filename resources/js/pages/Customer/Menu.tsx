@@ -5,7 +5,6 @@ import { CategoryBar } from '@/components/customer/category-bar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FiShoppingBag, FiArrowRight, FiInfo } from 'react-icons/fi';
-import { cn } from '@/lib/utils';
 
 interface Product {
     id: number;
@@ -14,9 +13,6 @@ interface Product {
     description: string | null;
     image: string | null;
     category_id: number;
-    available_to_sell: number;
-    limiting_ingredient: string | null;
-    is_low_stock: boolean;
 }
 
 interface Category {
@@ -33,50 +29,21 @@ export default function Menu() {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isMenuLoading, setIsMenuLoading] = useState<boolean>(false);
 
-    // Helper to get correct API URL regardless of subdirectory deployment
-    const getApiUrl = (path: string) => {
-        const origin = window.location.origin;
-        const pathname = window.location.pathname;
-        
-        // Find the base app path by stripping known page suffixes
-        // This is more robust than just checking for /menu at the end
-        const basePath = pathname
-            .split('/menu')[0]
-            .replace(/\/index\.php\/?$/, '') 
-            .replace(/\/$/, '');
-            
-        return `${origin}${basePath}${path}`.replace(/(?<!:)\/\//g, '/');
-    };
-
     // Initial Fetch: Categories and All Products
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const catUrl = getApiUrl('/api/v1/customer/categories');
-                const prodUrl = getApiUrl('/api/v1/customer/products');
-                
-                console.log('Fetching from:', { catUrl, prodUrl });
-
                 const [catRes, prodRes] = await Promise.all([
-                    fetch(catUrl),
-                    fetch(prodUrl)
+                    fetch('/api/v1/customer/categories'),
+                    fetch('/api/v1/customer/products')
                 ]);
-                
-                if (!catRes.ok || !prodRes.ok) {
-                    console.error('API Response Status:', catRes.status, prodRes.status);
-                }
 
-                const catData = await catRes.json().catch(() => []);
-                const prodData = await prodRes.json().catch(() => []);
-                
-                console.log('Menu Data Received:', { 
-                    categories: Array.isArray(catData) ? catData.length : 'not an array', 
-                    products: Array.isArray(prodData) ? prodData.length : 'not an array' 
-                });
-                
-                setCategories(Array.isArray(catData) ? catData : []);
-                setProducts(Array.isArray(prodData) ? prodData : []);
+                const catData = await catRes.json();
+                const prodData = await prodRes.json();
+
+                setCategories(catData);
+                setProducts(prodData);
             } catch (error) {
                 console.error('Failed to fetch initial menu data:', error);
             } finally {
@@ -90,21 +57,18 @@ export default function Menu() {
     // Fetch Products when Category changes
     const handleCategoryChange = async (slug: string) => {
         if (slug === activeCategory) return;
-        
+
         setActiveCategory(slug);
         setIsMenuLoading(true);
-        
+
         try {
-            const endpoint = slug === 'all' 
-                ? '/api/v1/customer/products' 
+            const url = slug === 'all'
+                ? '/api/v1/customer/products'
                 : `/api/v1/customer/products?category=${slug}`;
-            
-            const url = getApiUrl(endpoint);
-            console.log('Filtering Products:', url);
-                
+
             const res = await fetch(url);
-            const data = await res.json().catch(() => []);
-            setProducts(Array.isArray(data) ? data : []);
+            const data = await res.json();
+            setProducts(data);
         } catch (error) {
             console.error('Failed to filter products:', error);
         } finally {
@@ -113,15 +77,10 @@ export default function Menu() {
     };
 
     const formatPrice = (price: number) => {
-        try {
-            return new Intl.NumberFormat('en-PH', {
-                style: 'currency',
-                currency: 'PHP',
-            }).format(price ?? 0);
-        } catch (error) {
-            console.warn('Intl format failed, using fallback');
-            return `₱${(price ?? 0).toLocaleString()}`;
-        }
+        return new Intl.NumberFormat('en-PH', {
+            style: 'currency',
+            currency: 'PHP',
+        }).format(price);
     };
 
     return (
@@ -144,15 +103,13 @@ export default function Menu() {
                 </div>
             </header>
 
-            {/* Category Selector - Sticky with offset to not overlap header */}
-            <div className="sticky top-[64px] sm:top-[73px] z-50">
-                <CategoryBar 
-                    categories={categories}
-                    activeCategory={activeCategory}
-                    onCategoryChange={handleCategoryChange}
-                    isLoading={isLoading}
-                />
-            </div>
+            {/* Category Selector */}
+            <CategoryBar
+                categories={categories}
+                activeCategory={activeCategory}
+                onCategoryChange={handleCategoryChange}
+                isLoading={isLoading}
+            />
 
             {/* Products Grid */}
             <main className="px-4 py-6 max-w-7xl mx-auto">
@@ -165,7 +122,7 @@ export default function Menu() {
 
                 <AnimatePresence mode="wait">
                     {isMenuLoading ? (
-                        <motion.div 
+                        <motion.div
                             key="loading"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -177,7 +134,7 @@ export default function Menu() {
                             ))}
                         </motion.div>
                     ) : (
-                        <motion.div 
+                        <motion.div
                             key="grid"
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -188,13 +145,11 @@ export default function Menu() {
                                 products.map((product) => (
                                     <motion.div
                                         key={product.id}
+                                        layout
                                         whileHover={{ y: -5 }}
                                         className="group"
                                     >
-                                        <Card className={cn(
-                                            "rounded-[2.5rem] overflow-hidden border-none shadow-xl shadow-black/5 transition-all duration-300 bg-white dark:bg-[#161615] relative",
-                                            product.available_to_sell <= 0 && "opacity-60 grayscale blur-[0.5px]"
-                                        )}>
+                                        <Card className="rounded-[2.5rem] overflow-hidden border-none shadow-xl shadow-black/5 hover:shadow-primary/10 transition-all duration-300 bg-white dark:bg-[#161615]">
                                             <div className="aspect-square relative overflow-hidden bg-muted group-hover:scale-105 transition-transform duration-500">
                                                 {product.image ? (
                                                     <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
@@ -203,52 +158,22 @@ export default function Menu() {
                                                         <FiInfo className="w-12 h-12" />
                                                     </div>
                                                 )}
-
-                                                {/* Availability Overlays */}
-                                                {product.available_to_sell <= 0 ? (
-                                                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                                                        <div className="bg-white text-black px-6 py-2 rounded-full font-black text-xs uppercase tracking-[.2em] shadow-2xl">
-                                                            Currently Unavailable
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="absolute top-4 left-4 flex flex-col gap-2">
-                                                        <Badge className="bg-white/90 backdrop-blur-md text-black border-none font-black text-[10px] px-3 h-7 shadow-lg flex items-center gap-1.5 rounded-full">
-                                                            <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                            CAN MAKE: {Math.floor(product.available_to_sell)}
-                                                        </Badge>
-                                                        {product.limiting_ingredient && (
-                                                             <Badge className="bg-amber-500/90 backdrop-blur-md text-white border-none font-black text-[8px] px-3 h-5 shadow-lg rounded-full uppercase italic">
-                                                                Limited by {product.limiting_ingredient}
-                                                             </Badge>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {product.available_to_sell > 0 && (
-                                                    <div className="absolute top-4 right-4 translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                                                        <button className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform">
-                                                            <FiPlus />
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <div className="absolute top-4 right-4 translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                                                    <button className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg">
+                                                        <FiPlus />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <CardContent className="p-5 flex flex-col h-[140px]">
+                                            <CardContent className="p-5">
                                                 <h3 className="font-bold text-sm leading-tight mb-1 truncate">{product.name}</h3>
                                                 <p className="text-[11px] text-muted-foreground line-clamp-2 h-8 mb-3 leading-relaxed">
                                                     {product.description || 'No description available.'}
                                                 </p>
                                                 <div className="flex items-center justify-between mt-auto">
-                                                    <span className={cn(
-                                                        "text-base font-black transition-colors",
-                                                        product.available_to_sell <= 0 ? "text-muted-foreground" : "text-primary"
-                                                    )}>
+                                                    <span className="text-base font-black text-primary">
                                                         {formatPrice(product.price)}
                                                     </span>
-                                                    <button 
-                                                        disabled={product.available_to_sell <= 0}
-                                                        className="text-xs font-bold text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors group/btn disabled:opacity-30"
-                                                    >
+                                                    <button className="text-xs font-bold text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors group/btn">
                                                         Details <FiArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
                                                     </button>
                                                 </div>
@@ -272,7 +197,7 @@ export default function Menu() {
 
             {/* Cart Suggestion (Bonus sticky bottom) */}
             <div className="fixed bottom-6 left-0 right-0 px-4 z-[70] pointer-events-none">
-                <motion.div 
+                <motion.div
                     initial={{ y: 100 }}
                     animate={{ y: 0 }}
                     className="max-w-md mx-auto pointer-events-auto"
@@ -286,7 +211,7 @@ export default function Menu() {
                     </button>
                 </motion.div>
             </div>
-            
+
             <div className="h-24" /> {/* Spacer */}
         </div>
     );
