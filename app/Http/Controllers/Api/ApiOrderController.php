@@ -134,9 +134,8 @@ class ApiOrderController extends Controller
             }
 
             // --- 3. TRANSACTIONAL CREATION ---
-            return DB::transaction(function () use ($validated, $branchId, $userId) {
+            return DB::transaction(function () use ($validated, $branchId, $userId, $distanceKm, $deliveryFee) {
                 $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
-                $deliveryFee = $validated['delivery_fee'] ?? max(0, $validated['total_amount'] - $itemsTotal);
 
                 $order = Order::create([
                     'user_id'        => $userId,
