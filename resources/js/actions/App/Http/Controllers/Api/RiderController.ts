@@ -198,6 +198,61 @@ getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     getStats.form = getStatsForm
 /**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:349
+ * @route '/api/v1/rider/location'
+ */
+export const updateLocation = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: updateLocation.url(options),
+    method: 'post',
+})
+
+updateLocation.definition = {
+    methods: ["post"],
+    url: '/api/v1/rider/location',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:349
+ * @route '/api/v1/rider/location'
+ */
+updateLocation.url = (options?: RouteQueryOptions) => {
+    return updateLocation.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:349
+ * @route '/api/v1/rider/location'
+ */
+updateLocation.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: updateLocation.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:349
+ * @route '/api/v1/rider/location'
+ */
+    const updateLocationForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: updateLocation.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:349
+ * @route '/api/v1/rider/location'
+ */
+        updateLocationForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: updateLocation.url(options),
+            method: 'post',
+        })
+    
+    updateLocation.form = updateLocationForm
+/**
 * @see \App\Http\Controllers\Api\RiderController::getOrders
  * @see app/Http/Controllers/Api/RiderController.php:28
  * @route '/api/v1/rider/orders'
@@ -506,26 +561,26 @@ acceptOrder.post = (args: { id: string | number } | [id: string | number ] | str
     
     acceptOrder.form = acceptOrderForm
 /**
-* @see \App\Http\Controllers\Api\RiderController::updateOrderStatus
- * @see app/Http/Controllers/Api/RiderController.php:0
- * @route '/api/v1/rider/orders/{id}/update-status'
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:175
+ * @route '/api/v1/rider/orders/{id}/pickup'
  */
-export const updateOrderStatus = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: updateOrderStatus.url(args, options),
+export const pickupOrder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pickupOrder.url(args, options),
     method: 'post',
 })
 
-updateOrderStatus.definition = {
+pickupOrder.definition = {
     methods: ["post"],
-    url: '/api/v1/rider/orders/{id}/update-status',
+    url: '/api/v1/rider/orders/{id}/pickup',
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\Api\RiderController::updateOrderStatus
- * @see app/Http/Controllers/Api/RiderController.php:0
- * @route '/api/v1/rider/orders/{id}/update-status'
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:175
+ * @route '/api/v1/rider/orders/{id}/pickup'
  */
-updateOrderStatus.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+pickupOrder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -543,42 +598,190 @@ updateOrderStatus.url = (args: { id: string | number } | [id: string | number ] 
                         id: args.id,
                 }
 
-    return updateOrderStatus.definition.url
+    return pickupOrder.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
-* @see \App\Http\Controllers\Api\RiderController::updateOrderStatus
- * @see app/Http/Controllers/Api/RiderController.php:0
- * @route '/api/v1/rider/orders/{id}/update-status'
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:175
+ * @route '/api/v1/rider/orders/{id}/pickup'
  */
-updateOrderStatus.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: updateOrderStatus.url(args, options),
+pickupOrder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pickupOrder.url(args, options),
     method: 'post',
 })
 
     /**
-* @see \App\Http\Controllers\Api\RiderController::updateOrderStatus
- * @see app/Http/Controllers/Api/RiderController.php:0
- * @route '/api/v1/rider/orders/{id}/update-status'
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:175
+ * @route '/api/v1/rider/orders/{id}/pickup'
  */
-    const updateOrderStatusForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: updateOrderStatus.url(args, options),
+    const pickupOrderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: pickupOrder.url(args, options),
         method: 'post',
     })
 
             /**
-* @see \App\Http\Controllers\Api\RiderController::updateOrderStatus
- * @see app/Http/Controllers/Api/RiderController.php:0
- * @route '/api/v1/rider/orders/{id}/update-status'
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:175
+ * @route '/api/v1/rider/orders/{id}/pickup'
  */
-        updateOrderStatusForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: updateOrderStatus.url(args, options),
+        pickupOrderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: pickupOrder.url(args, options),
             method: 'post',
         })
     
-    updateOrderStatus.form = updateOrderStatusForm
+    pickupOrder.form = pickupOrderForm
+/**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:213
+ * @route '/api/v1/rider/orders/{id}/transit'
+ */
+export const startTransit = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: startTransit.url(args, options),
+    method: 'post',
+})
+
+startTransit.definition = {
+    methods: ["post"],
+    url: '/api/v1/rider/orders/{id}/transit',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:213
+ * @route '/api/v1/rider/orders/{id}/transit'
+ */
+startTransit.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return startTransit.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:213
+ * @route '/api/v1/rider/orders/{id}/transit'
+ */
+startTransit.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: startTransit.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:213
+ * @route '/api/v1/rider/orders/{id}/transit'
+ */
+    const startTransitForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: startTransit.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:213
+ * @route '/api/v1/rider/orders/{id}/transit'
+ */
+        startTransitForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: startTransit.url(args, options),
+            method: 'post',
+        })
+    
+    startTransit.form = startTransitForm
+/**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:251
+ * @route '/api/v1/rider/orders/{id}/deliver'
+ */
+export const deliverOrder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: deliverOrder.url(args, options),
+    method: 'post',
+})
+
+deliverOrder.definition = {
+    methods: ["post"],
+    url: '/api/v1/rider/orders/{id}/deliver',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:251
+ * @route '/api/v1/rider/orders/{id}/deliver'
+ */
+deliverOrder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return deliverOrder.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:251
+ * @route '/api/v1/rider/orders/{id}/deliver'
+ */
+deliverOrder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: deliverOrder.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:251
+ * @route '/api/v1/rider/orders/{id}/deliver'
+ */
+    const deliverOrderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: deliverOrder.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:251
+ * @route '/api/v1/rider/orders/{id}/deliver'
+ */
+        deliverOrderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: deliverOrder.url(args, options),
+            method: 'post',
+        })
+    
+    deliverOrder.form = deliverOrderForm
 /**
 * @see \App\Http\Controllers\Api\RiderController::rejectOrder
  * @see app/Http/Controllers/Api/RiderController.php:303
@@ -653,6 +856,6 @@ rejectOrder.post = (args: { id: string | number } | [id: string | number ] | str
         })
     
     rejectOrder.form = rejectOrderForm
-const RiderController = { updateStatus, ping, getStats, getOrders, getMyOrders, getCompletedOrders, acceptOrder, updateOrderStatus, rejectOrder }
+const RiderController = { updateStatus, ping, getStats, updateLocation, getOrders, getMyOrders, getCompletedOrders, acceptOrder, pickupOrder, startTransit, deliverOrder, rejectOrder }
 
 export default RiderController

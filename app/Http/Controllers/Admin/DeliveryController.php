@@ -86,6 +86,7 @@ class DeliveryController extends Controller
 
     /**
      * Manually assign or reassign a rider to a delivery.
+     * POST /deliveries/{delivery}/assign-rider
      */
     public function assignRider(Request $request, Delivery $delivery)
     {
@@ -94,9 +95,32 @@ class DeliveryController extends Controller
         ]);
 
         try {
-            $this->deliveryService->assignRider($delivery, $request->rider_id);
+            $updated = $this->deliveryService->assignRider($delivery, $request->rider_id);
+
+            // Return JSON if the request expects it (e.g. from AJAX / mobile admin)
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Rider assigned successfully.',
+                    'order'   => [
+                        'id'       => $updated->order_id,
+                        'rider_id' => $updated->rider_id,
+                        'status'   => $updated->order?->status ?? 'assigned_to_rider',
+                    ],
+                    'delivery' => [
+                        'id'        => $updated->id,
+                        'rider_id'  => $updated->rider_id,
+                        'rider_name'=> $updated->rider?->name,
+                        'status'    => $updated->status,
+                    ],
+                ]);
+            }
+
             return back()->with('success', 'Rider assigned successfully.');
         } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
             return back()->with('error', $e->getMessage());
         }
     }

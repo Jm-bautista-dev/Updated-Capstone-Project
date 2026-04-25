@@ -181,36 +181,30 @@ class DeliveryService
                 'updated_by' => Auth::id(),
             ]);
 
-            // Map Delivery status vocab → Order status vocab
-            // Delivery:  pending → preparing → ready_for_pickup → out_for_delivery → delivered
-            // Order:     pending → preparing → assigned          → delivering       → completed
+            // Map Delivery vocabulary → Order state machine vocabulary
+            // Must match the Order::TRANSITIONS constants exactly
             $deliveryToOrderStatus = [
                 Delivery::STATUS_PENDING          => 'pending',
                 Delivery::STATUS_PREPARING        => 'preparing',
-                Delivery::STATUS_READY            => 'assigned',
-                Delivery::STATUS_OUT_FOR_DELIVERY => 'delivering',
-                Delivery::STATUS_DELIVERED        => 'completed',
+                Delivery::STATUS_READY            => 'ready_for_pickup',
+                Delivery::STATUS_OUT_FOR_DELIVERY => 'in_transit',
+                Delivery::STATUS_DELIVERED        => 'delivered',
             ];
 
-            // Sync status with linked Order if exists — ONLY update, never reset
+            // Sync status with linked Order if exists
             if ($delivery->order_id) {
                 $order = $delivery->order()->with('items.product')->first();
                 if ($order instanceof Order) {
                     $mappedOrderStatus = $deliveryToOrderStatus[$newStatus] ?? null;
 
-                    // SAFETY: Only advance the order status, never go backwards
-                    $orderStatusOrder = ['pending', 'preparing', 'assigned', 'delivering', 'completed', 'cancelled'];
-                    $currentIndex = array_search($order->status, $orderStatusOrder);
-                    $newIndex = $mappedOrderStatus ? array_search($mappedOrderStatus, $orderStatusOrder) : -1;
-
-                    if ($mappedOrderStatus && $newIndex !== false && ($currentIndex === false || $newIndex > $currentIndex)) {
-                        $order->update(['status' => $mappedOrderStatus]);
+                    if ($mappedOrderStatus && $order->canTransitionTo($mappedOrderStatus)) {
+                        $order->transitionTo($mappedOrderStatus, 'Admin advanced delivery status', Auth::id());
                     }
 
                     // Deduct inventory ONLY when starting preparation
                     if ($newStatus === Delivery::STATUS_PREPARING) {
                         $this->inventoryService->deductForOrder($order);
-                        
+
                         // Auto-assign rider if not already assigned
                         if ($delivery->isInternal() && !$delivery->rider_id) {
                             $this->autoAssign($delivery);
@@ -303,19 +297,51 @@ class DeliveryService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // If there's an existing rider, mark them as available first
+            // If there's an existing rider being replaced, free them up
             if ($delivery->rider_id && $delivery->rider_id !== $rider->id) {
                 Rider::where('id', $delivery->rider_id)->update(['status' => 'available']);
             }
 
+            // ✅ Update the Delivery record
             $delivery->update([
-                'rider_id' => $rider->id,
+                'rider_id'   => $rider->id,
+                'status'     => 'assigned_to_rider', // sync delivery status
                 'updated_by' => Auth::id(),
             ]);
+
+            // ✅ CRITICAL FIX: Also update the parent Order (this is what was missing)
+            if ($delivery->order_id) {
+                $order = $delivery->order;
+                if ($order) {
+                    $order->update([
+                        'rider_id' => $rider->id,
+                        'status'   => 'assigned_to_rider',
+                    ]);
+
+                    // Write audit log via state machine
+                    \App\Models\OrderAuditLog::create([
+                        'order_id'   => $order->id,
+                        'user_id'    => Auth::id(),
+                        'rider_id'   => $rider->id,
+                        'old_status' => $order->getOriginal('status') ?? $order->status,
+                        'new_status' => 'assigned_to_rider',
+                        'device_ip'  => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                        'reason'     => 'Admin manually assigned rider: ' . $rider->name,
+                    ]);
+                }
+            }
 
             $rider->update([
                 'status'         => 'busy',
                 'last_active_at' => now(),
+            ]);
+
+            \Illuminate\Support\Facades\Log::info('Rider assigned successfully', [
+                'delivery_id' => $delivery->id,
+                'order_id'    => $delivery->order_id,
+                'rider_id'    => $rider->id,
+                'rider_name'  => $rider->name,
             ]);
 
             return $delivery->fresh(['rider']);
