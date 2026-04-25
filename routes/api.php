@@ -41,22 +41,29 @@ Route::prefix('v1')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
-        // Rider Module
+        // ─── Rider Module ──────────────────────────────────────────────
         Route::prefix('rider')->group(function () {
             // Status & Heartbeat
             Route::patch('status', [RiderController::class, 'updateStatus']);
             Route::post('ping',    [RiderController::class, 'ping']);
             Route::get('stats',    [RiderController::class, 'getStats']);
 
-            // Order Tabs
-            Route::get('orders',           [RiderController::class, 'getOrders']);          // Active (preparing)
-            Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Assigned/Delivering
-            Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done
+            // GPS location ping (fires every 5-10s while rider is active)
+            Route::post('location', [RiderController::class, 'updateLocation']);
 
-            // Order Actions
-            Route::post('orders/{id}/accept',        [RiderController::class, 'acceptOrder']);
-            Route::post('orders/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
-            Route::post('orders/{id}/reject',        [RiderController::class, 'rejectOrder']);
+            // Order Feed Tabs
+            Route::get('orders',           [RiderController::class, 'getOrders']);          // Available (ready_for_pickup)
+            Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Active (assigned/picking/transit)
+            Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done (paginated)
+
+            // ── STRICT WORKFLOW ENDPOINTS ──────────────────────────────
+            // Each endpoint handles exactly ONE state transition.
+            // This prevents race conditions and status skipping.
+            Route::post('orders/{id}/accept',  [RiderController::class, 'acceptOrder']);  // assigned_to_rider
+            Route::post('orders/{id}/pickup',  [RiderController::class, 'pickupOrder']);  // picked_up
+            Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']); // in_transit
+            Route::post('orders/{id}/deliver', [RiderController::class, 'deliverOrder']); // delivered + proof upload
+            Route::post('orders/{id}/reject',  [RiderController::class, 'rejectOrder']);  // back to ready_for_pickup
         });
 
         // Orders & Cart
