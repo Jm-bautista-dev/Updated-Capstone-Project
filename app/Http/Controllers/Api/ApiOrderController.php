@@ -21,28 +21,35 @@ class ApiOrderController extends Controller
      */
     public function index(Request $request)
     {
-        $orders = Order::with(['delivery'])
-            ->where('user_id', $request->user()?->id)
-            ->latest()
-            ->get();
+        try {
+            $orders = Order::with(['delivery'])
+                ->where('user_id', $request->user()?->id)
+                ->latest()
+                ->get();
 
-        return response()->json([
-            'success' => true,
-            'data'    => $orders
-        ]);
+            return response()->json([
+                'success' => true,
+                'data'    => $orders
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('API Order Index Failure', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => app()->environment('local') ? $e->getMessage() : 'Something went wrong.'
+            ], 500);
+        }
     }
 
     /**
      * Store a newly created order from the mobile application.
-     * 
-     * PRODUCTION-READY FLOW:
-     * 1. Validate request
-     * 2. Perform SIMPLE stock validation (no analytics)
-     * 3. Process transaction (Order -> Items -> Delivery)
-     * 4. Return clear structured response
      */
     public function store(Request $request)
     {
+        Log::info('Order submission payload', $request->all());
+
         try {
             $validated = $request->validate([
                 'customer_name'  => 'required|string|max:255',
@@ -61,18 +68,18 @@ class ApiOrderController extends Controller
             $branchId = $validated['branch_id'] ?? 1;
             $userId = $request->user()?->id;
 
-            // --- 1. PRODUCTION STOCK VALIDATION (SIMPLE & STABLE) ---
+            // --- 1. CRASH-PROOF STOCK VALIDATION ---
             foreach ($validated['items'] as $itemData) {
                 $product = Product::find($itemData['product_id']);
                 
                 if (!$product instanceof Product) {
                     return response()->json([
                         'success' => false,
-                        'message' => "Product not found or invalid: ID {$itemData['product_id']}"
+                        'message' => "Product not found: ID {$itemData['product_id']}"
                     ], 422);
                 }
 
-                // Call the new production-level stock check
+                // PRODUCTION-LEVEL STOCK CHECK (Safe & Independent)
                 $stockResult = $product->simpleStockCheck($itemData['quantity'], $branchId);
                 
                 if (!$stockResult['success']) {
@@ -95,11 +102,10 @@ class ApiOrderController extends Controller
             }
 
             // --- 3. TRANSACTIONAL CREATION ---
-            return DB::transaction(function () use ($validated, $branchId, $userId, $request) {
+            return DB::transaction(function () use ($validated, $branchId, $userId) {
                 $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
                 $deliveryFee = $validated['delivery_fee'] ?? max(0, $validated['total_amount'] - $itemsTotal);
 
-                // Create Order
                 $order = Order::create([
                     'user_id'        => $userId,
                     'branch_id'      => $branchId,
@@ -110,7 +116,6 @@ class ApiOrderController extends Controller
                     'status'         => 'pending',
                 ]);
 
-                // Save Order Items
                 foreach ($validated['items'] as $itemData) {
                     $order->items()->create([
                         'product_id' => $itemData['product_id'],
@@ -119,7 +124,6 @@ class ApiOrderController extends Controller
                     ]);
                 }
 
-                // Create Delivery
                 Delivery::create([
                     'order_id'         => $order->id,
                     'customer_name'    => $validated['customer_name'],
@@ -131,11 +135,10 @@ class ApiOrderController extends Controller
                     'status'           => 'pending',
                 ]);
 
-                // Notify Admin (Silent Catch)
                 try {
                     broadcast(new OrderCreated($order->load('branch')))->toOthers();
-                } catch (\Exception $e) {
-                    Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
+                } catch (\Throwable $e) {
+                    Log::warning('Broadcast failed but order saved');
                 }
 
                 return response()->json([
@@ -145,18 +148,18 @@ class ApiOrderController extends Controller
                 ], 201);
             });
 
-        } catch (\Exception $e) {
-            // PRODUCTION LOGGING
+        } catch (\Throwable $e) {
             Log::error('Order API Critical Failure', [
-                'error'   => $e->getMessage(),
+                'message' => $e->getMessage(),
                 'trace'   => $e->getTraceAsString(),
                 'payload' => $request->all()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Order submission failed',
-                'error'   => $e->getMessage()
+                'message' => app()->environment('local') 
+                    ? $e->getMessage() 
+                    : 'Order submission failed. Please check your internet or ingredients.'
             ], 500);
         }
     }
@@ -166,37 +169,48 @@ class ApiOrderController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $order = Order::with(['delivery.rider', 'items.product'])->find($id);
+        try {
+            $order = Order::with(['delivery.rider', 'items.product'])->find($id);
 
-        if (!$order) {
-            return response()->json(['success' => false, 'message' => 'Order not found'], 404);
+            if (!$order) {
+                return response()->json(['success' => false, 'message' => 'Order not found'], 404);
+            }
+
+            if ($order->user_id && $request->user() && $order->user_id !== $request->user()->id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id'             => $order->id,
+                    'status'         => $order->status,
+                    'total_amount'   => $order->total_amount,
+                    'customer_name'  => $order->customer_name,
+                    'delivery' => $order->delivery ? [
+                        'status'        => $order->delivery->status,
+                        'status_label'  => $order->delivery->getStatusLabel(),
+                        'status_color'  => $order->delivery->getStatusColor(),
+                        'rider_name'    => $order->delivery->rider?->name,
+                        'updated_at'    => $order->delivery->updated_at,
+                    ] : null,
+                    'items' => $order->items->map(fn($item) => [
+                        'product_name' => $item->product->name,
+                        'quantity'     => $item->quantity,
+                        'price'        => $item->price,
+                    ]),
+                    'created_at' => $order->created_at,
+                ]
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Order API Show Failure', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => app()->environment('local') ? $e->getMessage() : 'Error retrieving order.'
+            ], 500);
         }
-
-        if ($order->user_id && $request->user() && $order->user_id !== $request->user()->id) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'id'             => $order->id,
-                'status'         => $order->status,
-                'total_amount'   => $order->total_amount,
-                'customer_name'  => $order->customer_name,
-                'delivery' => $order->delivery ? [
-                    'status'        => $order->delivery->status,
-                    'status_label'  => $order->delivery->getStatusLabel(),
-                    'status_color'  => $order->delivery->getStatusColor(),
-                    'rider_name'    => $order->delivery->rider?->name,
-                    'updated_at'    => $order->delivery->updated_at,
-                ] : null,
-                'items' => $order->items->map(fn($item) => [
-                    'product_name' => $item->product->name,
-                    'quantity'     => $item->quantity,
-                    'price'        => $item->price,
-                ]),
-                'created_at' => $order->created_at,
-            ]
-        ]);
     }
 }

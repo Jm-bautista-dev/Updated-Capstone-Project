@@ -41,13 +41,8 @@ return [
             'provider' => 'users',
         ],
 
-        'sanctum' => [
-            'driver'   => 'sanctum',
-            'provider' => 'users',
-        ],
-
         'rider' => [
-            'driver'   => 'sanctum',
+            'driver'   => 'session',
             'provider' => 'riders',
         ],
     ],

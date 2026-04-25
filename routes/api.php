@@ -34,7 +34,7 @@ Route::prefix('v1')->group(function () {
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
 
     // ─── Protected Routes (Multi-Auth Support) ──────────────────
-    Route::middleware('auth:sanctum,rider')->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
         
         // Profile
         Route::get('user', [UserController::class, 'me']);
