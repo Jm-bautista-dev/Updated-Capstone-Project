@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
 export const me = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ me.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
 me.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ me.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
 me.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ me.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
 me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
     const meForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
         meForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::me
- * @see app/Http/Controllers/Api/UserController.php:14
+ * @see app/Http/Controllers/Api/UserController.php:13
  * @route '/api/v1/user'
  */
         meForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

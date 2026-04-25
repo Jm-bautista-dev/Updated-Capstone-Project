@@ -15,24 +15,10 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\BranchController;
 
-// Compatibility route for mobile app (some apps hit /api/orders directly)
-Route::post('orders', [ApiOrderController::class, 'store']);
-
-// Standard non-versioned pattern
-Route::middleware(['throttle:60,1', ApiResponseWrapper::class])
-    ->post('mobile/login', [MobileAuthController::class, 'login']);
-
 // ─── External Operations API (Mobile App Entry) ──────────────────
 Route::prefix('v1')->group(function () {
 
-    // ─── SAFE MOBILE API LAYER (STEP 1 & 5) ───
-    Route::middleware(['throttle:60,1', ApiResponseWrapper::class])->prefix('mobile')->group(function () {
-        Route::post('login', [MobileAuthController::class, 'login']);
-    });
-
-    // ─── Public Routes (no auth required) ────────────────────────────────────────
-    
-    // Auth
+    // ─── Public Routes (no auth required) ──────────────────
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
     Route::post('rider/login', [AuthController::class, 'login']);
@@ -40,27 +26,22 @@ Route::prefix('v1')->group(function () {
     Route::post('verify-otp', [VerificationController::class, 'verifyOtp']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
-    // Branches — public
+    // Public Data
     Route::get('branches', [BranchController::class, 'apiIndex']);
-
-    // Public Menu
     Route::get('products',       [ProductController::class, 'index']);
-    Route::get('products/{id}',  [ProductController::class, 'show']);
     Route::get('categories',     [CategoryController::class, 'index']);
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
 
-    // ─── Protected Routes (Sanctum token required) ────────────────────────────
+    // ─── Protected Routes (Sanctum token required) ──────────────────
     Route::middleware('auth:sanctum')->group(function () {
         
-        // Unified Profile Route (Suggested by App AI)
+        // Profile
         Route::get('user', [UserController::class, 'me']);
-        
-        // Auth common
-        Route::post('logout',        [AuthController::class, 'logout']);
+        Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
-        // ─── Rider Operations (Grouped for mobile app) ──────────────────
+        // Rider Module
         Route::prefix('rider')->group(function () {
             Route::get('orders',   [RiderController::class, 'getOrders']);
             Route::get('stats',    [RiderController::class, 'getStats']);
@@ -70,53 +51,15 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{id}/reject', [RiderController::class, 'rejectOrder']);
         });
 
-        // ─── Additional Protected Routes ────────────────────────────────
+        // Orders & Cart
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);
         Route::get('orders/{id}', [ApiOrderController::class, 'show']);
-
-        // Cart System
         Route::get('cart', [CartController::class, 'index']);
-        Route::post('cart/validate', [CartController::class, 'validate']);
         Route::post('cart/add', [CartController::class, 'addItem']);
-        Route::put('cart/items/{itemId}', [CartController::class, 'updateItem']);
-        Route::delete('cart/items/{itemId}', [CartController::class, 'removeItem']);
         Route::delete('cart/clear', [CartController::class, 'clear']);
-
-        // Branch location update
-        Route::patch('branches/{id}/location', [BranchController::class, 'updateLocation']);
-
+        
         // Notifications
         Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index']);
-        Route::post('notifications/mark-as-read', [App\Http\Controllers\NotificationController::class, 'markAsRead']);
-
-        // Rider Operations (also accessible here for compatibility)
-        Route::patch('rider/status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
-        Route::post('rider/ping', [App\Http\Controllers\Api\RiderController::class, 'ping']);
     });
-});
-
-
-/*
-|--------------------------------------------------------------------------
-| API Route Summary
-|--------------------------------------------------------------------------
-|
-| Public:
-|   POST  /api/v1/register   → Register a new user (returns token)
-|   POST  /api/v1/login      → Login (returns token)
-|
-| Protected (Bearer token required):
-|   GET   /api/v1/user                  → Get authenticated user
-|   POST  /api/v1/logout                → Revoke token
-|   GET   /api/v1/products              → List products (?category_id=&search=&branch_id=)
-|   GET   /api/v1/products/{id}         → Single product detail
-|   GET   /api/v1/categories            → List categories (?branch_id=&search=)
-|
-*/
-
-// ─── Customer App Shorthand Aliases ──────────────────────────────────────────
-Route::prefix('customer')->group(function () {
-    Route::get('categories', [\App\Http\Controllers\Customer\CategoryController::class, 'index']);
-    Route::get('products',   [\App\Http\Controllers\Customer\ProductController::class, 'index']);
 });

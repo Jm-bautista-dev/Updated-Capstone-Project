@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\CartController::index
  * @see app/Http/Controllers/Api/CartController.php:17
@@ -78,61 +78,6 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     index.form = indexForm
 /**
-* @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
- * @route '/api/v1/cart/validate'
- */
-export const validate = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: validate.url(options),
-    method: 'post',
-})
-
-validate.definition = {
-    methods: ["post"],
-    url: '/api/v1/cart/validate',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
- * @route '/api/v1/cart/validate'
- */
-validate.url = (options?: RouteQueryOptions) => {
-    return validate.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
- * @route '/api/v1/cart/validate'
- */
-validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: validate.url(options),
-    method: 'post',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
- * @route '/api/v1/cart/validate'
- */
-    const validateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: validate.url(options),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
- * @route '/api/v1/cart/validate'
- */
-        validateForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: validate.url(options),
-            method: 'post',
-        })
-    
-    validate.form = validateForm
-/**
 * @see \App\Http\Controllers\Api\CartController::addItem
  * @see app/Http/Controllers/Api/CartController.php:53
  * @route '/api/v1/cart/add'
@@ -187,174 +132,6 @@ addItem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
         })
     
     addItem.form = addItemForm
-/**
-* @see \App\Http\Controllers\Api\CartController::updateItem
- * @see app/Http/Controllers/Api/CartController.php:115
- * @route '/api/v1/cart/items/{itemId}'
- */
-export const updateItem = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
-    url: updateItem.url(args, options),
-    method: 'put',
-})
-
-updateItem.definition = {
-    methods: ["put"],
-    url: '/api/v1/cart/items/{itemId}',
-} satisfies RouteDefinition<["put"]>
-
-/**
-* @see \App\Http\Controllers\Api\CartController::updateItem
- * @see app/Http/Controllers/Api/CartController.php:115
- * @route '/api/v1/cart/items/{itemId}'
- */
-updateItem.url = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { itemId: args }
-    }
-
-    
-    if (Array.isArray(args)) {
-        args = {
-                    itemId: args[0],
-                }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-                        itemId: args.itemId,
-                }
-
-    return updateItem.definition.url
-            .replace('{itemId}', parsedArgs.itemId.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\CartController::updateItem
- * @see app/Http/Controllers/Api/CartController.php:115
- * @route '/api/v1/cart/items/{itemId}'
- */
-updateItem.put = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
-    url: updateItem.url(args, options),
-    method: 'put',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\CartController::updateItem
- * @see app/Http/Controllers/Api/CartController.php:115
- * @route '/api/v1/cart/items/{itemId}'
- */
-    const updateItemForm = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: updateItem.url(args, {
-                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                        _method: 'PUT',
-                        ...(options?.query ?? options?.mergeQuery ?? {}),
-                    }
-                }),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\CartController::updateItem
- * @see app/Http/Controllers/Api/CartController.php:115
- * @route '/api/v1/cart/items/{itemId}'
- */
-        updateItemForm.put = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: updateItem.url(args, {
-                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                            _method: 'PUT',
-                            ...(options?.query ?? options?.mergeQuery ?? {}),
-                        }
-                    }),
-            method: 'post',
-        })
-    
-    updateItem.form = updateItemForm
-/**
-* @see \App\Http\Controllers\Api\CartController::removeItem
- * @see app/Http/Controllers/Api/CartController.php:136
- * @route '/api/v1/cart/items/{itemId}'
- */
-export const removeItem = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
-    url: removeItem.url(args, options),
-    method: 'delete',
-})
-
-removeItem.definition = {
-    methods: ["delete"],
-    url: '/api/v1/cart/items/{itemId}',
-} satisfies RouteDefinition<["delete"]>
-
-/**
-* @see \App\Http\Controllers\Api\CartController::removeItem
- * @see app/Http/Controllers/Api/CartController.php:136
- * @route '/api/v1/cart/items/{itemId}'
- */
-removeItem.url = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { itemId: args }
-    }
-
-    
-    if (Array.isArray(args)) {
-        args = {
-                    itemId: args[0],
-                }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-                        itemId: args.itemId,
-                }
-
-    return removeItem.definition.url
-            .replace('{itemId}', parsedArgs.itemId.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\CartController::removeItem
- * @see app/Http/Controllers/Api/CartController.php:136
- * @route '/api/v1/cart/items/{itemId}'
- */
-removeItem.delete = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
-    url: removeItem.url(args, options),
-    method: 'delete',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\CartController::removeItem
- * @see app/Http/Controllers/Api/CartController.php:136
- * @route '/api/v1/cart/items/{itemId}'
- */
-    const removeItemForm = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: removeItem.url(args, {
-                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                        _method: 'DELETE',
-                        ...(options?.query ?? options?.mergeQuery ?? {}),
-                    }
-                }),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\CartController::removeItem
- * @see app/Http/Controllers/Api/CartController.php:136
- * @route '/api/v1/cart/items/{itemId}'
- */
-        removeItemForm.delete = (args: { itemId: string | number } | [itemId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: removeItem.url(args, {
-                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                            _method: 'DELETE',
-                            ...(options?.query ?? options?.mergeQuery ?? {}),
-                        }
-                    }),
-            method: 'post',
-        })
-    
-    removeItem.form = removeItemForm
 /**
 * @see \App\Http\Controllers\Api\CartController::clear
  * @see app/Http/Controllers/Api/CartController.php:159
@@ -420,6 +197,6 @@ clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
         })
     
     clear.form = clearForm
-const CartController = { index, validate, addItem, updateItem, removeItem, clear }
+const CartController = { index, addItem, clear }
 
 export default CartController

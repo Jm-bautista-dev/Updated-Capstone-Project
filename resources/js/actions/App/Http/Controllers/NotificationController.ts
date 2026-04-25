@@ -78,61 +78,6 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     index.form = indexForm
 /**
-* @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
- * @route '/api/v1/notifications/mark-as-read'
- */
-export const markAsRead = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: markAsRead.url(options),
-    method: 'post',
-})
-
-markAsRead.definition = {
-    methods: ["post"],
-    url: '/api/v1/notifications/mark-as-read',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
- * @route '/api/v1/notifications/mark-as-read'
- */
-markAsRead.url = (options?: RouteQueryOptions) => {
-    return markAsRead.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
- * @route '/api/v1/notifications/mark-as-read'
- */
-markAsRead.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: markAsRead.url(options),
-    method: 'post',
-})
-
-    /**
-* @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
- * @route '/api/v1/notifications/mark-as-read'
- */
-    const markAsReadForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: markAsRead.url(options),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
- * @route '/api/v1/notifications/mark-as-read'
- */
-        markAsReadForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: markAsRead.url(options),
-            method: 'post',
-        })
-    
-    markAsRead.form = markAsReadForm
-/**
 * @see \App\Http\Controllers\NotificationController::activity
  * @see app/Http/Controllers/NotificationController.php:84
  * @route '/inventory/activity'
@@ -210,6 +155,6 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
     
     activity.form = activityForm
-const NotificationController = { index, markAsRead, activity }
+const NotificationController = { index, activity }
 
 export default NotificationController

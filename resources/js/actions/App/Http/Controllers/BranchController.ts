@@ -78,90 +78,6 @@ apiIndex.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     apiIndex.form = apiIndexForm
 /**
-* @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:91
- * @route '/api/v1/branches/{id}/location'
- */
-export const updateLocation = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
-    url: updateLocation.url(args, options),
-    method: 'patch',
-})
-
-updateLocation.definition = {
-    methods: ["patch"],
-    url: '/api/v1/branches/{id}/location',
-} satisfies RouteDefinition<["patch"]>
-
-/**
-* @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:91
- * @route '/api/v1/branches/{id}/location'
- */
-updateLocation.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { id: args }
-    }
-
-    
-    if (Array.isArray(args)) {
-        args = {
-                    id: args[0],
-                }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-                        id: args.id,
-                }
-
-    return updateLocation.definition.url
-            .replace('{id}', parsedArgs.id.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:91
- * @route '/api/v1/branches/{id}/location'
- */
-updateLocation.patch = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
-    url: updateLocation.url(args, options),
-    method: 'patch',
-})
-
-    /**
-* @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:91
- * @route '/api/v1/branches/{id}/location'
- */
-    const updateLocationForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: updateLocation.url(args, {
-                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                        _method: 'PATCH',
-                        ...(options?.query ?? options?.mergeQuery ?? {}),
-                    }
-                }),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\BranchController::updateLocation
- * @see app/Http/Controllers/BranchController.php:91
- * @route '/api/v1/branches/{id}/location'
- */
-        updateLocationForm.patch = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: updateLocation.url(args, {
-                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                            _method: 'PATCH',
-                            ...(options?.query ?? options?.mergeQuery ?? {}),
-                        }
-                    }),
-            method: 'post',
-        })
-    
-    updateLocation.form = updateLocationForm
-/**
 * @see \App\Http\Controllers\BranchController::update
  * @see app/Http/Controllers/BranchController.php:32
  * @route '/branches/{id}'
@@ -323,6 +239,6 @@ adminIndex.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
     
     adminIndex.form = adminIndexForm
-const BranchController = { apiIndex, updateLocation, update, adminIndex }
+const BranchController = { apiIndex, update, adminIndex }
 
 export default BranchController
