@@ -100,7 +100,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         });
 
         return () => {
-            echo.leaveChannel('deliveries');
+            echo?.leaveChannel('deliveries');
         };
     }, []);
 
