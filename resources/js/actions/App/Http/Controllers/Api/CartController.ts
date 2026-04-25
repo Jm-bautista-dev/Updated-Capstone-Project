@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\CartController::index
- * @see app/Http/Controllers/Api/CartController.php:17
+ * @see app/Http/Controllers/Api/CartController.php:18
  * @route '/api/v1/cart'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\Api\CartController::addItem
- * @see app/Http/Controllers/Api/CartController.php:53
+ * @see app/Http/Controllers/Api/CartController.php:52
  * @route '/api/v1/cart/add'
  */
 export const addItem = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ addItem.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::addItem
- * @see app/Http/Controllers/Api/CartController.php:53
+ * @see app/Http/Controllers/Api/CartController.php:52
  * @route '/api/v1/cart/add'
  */
 addItem.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ addItem.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::addItem
- * @see app/Http/Controllers/Api/CartController.php:53
+ * @see app/Http/Controllers/Api/CartController.php:52
  * @route '/api/v1/cart/add'
  */
 addItem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ addItem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\CartController::addItem
- * @see app/Http/Controllers/Api/CartController.php:53
+ * @see app/Http/Controllers/Api/CartController.php:52
  * @route '/api/v1/cart/add'
  */
     const addItemForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ addItem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\CartController::addItem
- * @see app/Http/Controllers/Api/CartController.php:53
+ * @see app/Http/Controllers/Api/CartController.php:52
  * @route '/api/v1/cart/add'
  */
         addItemForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ addItem.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     addItem.form = addItemForm
 /**
 * @see \App\Http\Controllers\Api\CartController::clear
- * @see app/Http/Controllers/Api/CartController.php:159
+ * @see app/Http/Controllers/Api/CartController.php:152
  * @route '/api/v1/cart/clear'
  */
 export const clear = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -149,7 +149,7 @@ clear.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::clear
- * @see app/Http/Controllers/Api/CartController.php:159
+ * @see app/Http/Controllers/Api/CartController.php:152
  * @route '/api/v1/cart/clear'
  */
 clear.url = (options?: RouteQueryOptions) => {
@@ -158,7 +158,7 @@ clear.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::clear
- * @see app/Http/Controllers/Api/CartController.php:159
+ * @see app/Http/Controllers/Api/CartController.php:152
  * @route '/api/v1/cart/clear'
  */
 clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -168,7 +168,7 @@ clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\CartController::clear
- * @see app/Http/Controllers/Api/CartController.php:159
+ * @see app/Http/Controllers/Api/CartController.php:152
  * @route '/api/v1/cart/clear'
  */
     const clearForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -183,7 +183,7 @@ clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\CartController::clear
- * @see app/Http/Controllers/Api/CartController.php:159
+ * @see app/Http/Controllers/Api/CartController.php:152
  * @route '/api/v1/cart/clear'
  */
         clearForm.delete = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -199,7 +199,7 @@ clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     clear.form = clearForm
 /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
+ * @see app/Http/Controllers/Api/CartController.php:171
  * @route '/api/v1/cart/validate'
  */
 export const validate = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -214,7 +214,7 @@ validate.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
+ * @see app/Http/Controllers/Api/CartController.php:171
  * @route '/api/v1/cart/validate'
  */
 validate.url = (options?: RouteQueryOptions) => {
@@ -223,7 +223,7 @@ validate.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
+ * @see app/Http/Controllers/Api/CartController.php:171
  * @route '/api/v1/cart/validate'
  */
 validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -233,7 +233,7 @@ validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
+ * @see app/Http/Controllers/Api/CartController.php:171
  * @route '/api/v1/cart/validate'
  */
     const validateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -243,7 +243,7 @@ validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:178
+ * @see app/Http/Controllers/Api/CartController.php:171
  * @route '/api/v1/cart/validate'
  */
         validateForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

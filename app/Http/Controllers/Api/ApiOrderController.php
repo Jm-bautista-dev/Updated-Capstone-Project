@@ -39,41 +39,61 @@ class ApiOrderController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'customer_name'  => 'required|string|max:255',
-            'mobile_number'  => 'required|string|max:20',
-            'address'        => 'required|string',
-            'items'          => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity'   => 'required|numeric|min:0.1',
-            'items.*.price'      => 'required|numeric|min:0',
-            'total_amount'   => 'required|numeric|min:0',
-            'delivery_fee'   => 'nullable|numeric|min:0',
-            'distance_km'    => 'nullable|numeric|min:0',
-            'branch_id'      => 'nullable|exists:branches,id' // Optional branch context
-        ]);
-
-        $branchId = $validated['branch_id'] ?? 1; // Default to main branch if not provided
-        $userId = $request->user()?->id;
-
-        // Calculate delivery fee if not explicitly provided
-        $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
-        $deliveryFee = $validated['delivery_fee'] ?? max(0, $validated['total_amount'] - $itemsTotal);
-
-        // --- BRANCH CONSISTENCY VALIDATION ---
-        foreach ($validated['items'] as $item) {
-            $product = Product::find($item['product_id']);
-            if ($product && $product->branch_id && $product->branch_id != $branchId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Product '{$product->name}' belongs to a different branch. You cannot mix branches in a single order."
-                ], 400);
-            }
-        }
-
         try {
-            return DB::transaction(function () use ($validated, $branchId, $userId, $deliveryFee) {
-                // 1. Create Order
+            $validated = $request->validate([
+                'customer_name'  => 'required|string|max:255',
+                'mobile_number'  => 'required|string|max:20',
+                'address'        => 'required|string',
+                'items'          => 'required|array|min:1',
+                'items.*.product_id' => 'required|exists:products,id',
+                'items.*.quantity'   => 'required|numeric|min:0.1',
+                'items.*.price'      => 'required|numeric|min:0',
+                'total_amount'   => 'required|numeric|min:0',
+                'delivery_fee'   => 'nullable|numeric|min:0',
+                'distance_km'    => 'nullable|numeric|min:0',
+                'branch_id'      => 'nullable|exists:branches,id'
+            ]);
+
+            $branchId = $validated['branch_id'] ?? 1;
+            $userId = $request->user()?->id;
+
+            // --- 1. SAFE STOCK VALIDATION (NO DEDUCTION) ---
+            foreach ($validated['items'] as $itemData) {
+                $product = Product::with('ingredients')->find($itemData['product_id']);
+                
+                // Ensure product exists and has ingredients if it's a recipe item
+                if (!$product) {
+                    return response()->json(['message' => "Product ID {$itemData['product_id']} not found"], 422);
+                }
+
+                // Check Dynamic Availability (Safety check for ingredients)
+                $availability = $product->dynamicAvailability($branchId);
+                if ($itemData['quantity'] > $availability['available']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Insufficient stock for ingredients: {$product->name}. (Available: {$availability['available']})",
+                        'product_id' => $product->id
+                    ], 422);
+                }
+            }
+
+            // --- 2. BRANCH CONSISTENCY ---
+            foreach ($validated['items'] as $item) {
+                $product = Product::find($item['product_id']);
+                if ($product && $product->branch_id && $product->branch_id != $branchId) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Product '{$product->name}' belongs to a different branch."
+                    ], 400);
+                }
+            }
+
+            // --- 3. TRANSACTIONAL CREATION ---
+            return DB::transaction(function () use ($validated, $branchId, $userId, $request) {
+                $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
+                $deliveryFee = $validated['delivery_fee'] ?? max(0, $validated['total_amount'] - $itemsTotal);
+
+                // Create Order
                 $order = Order::create([
                     'user_id'        => $userId,
                     'branch_id'      => $branchId,
@@ -84,19 +104,16 @@ class ApiOrderController extends Controller
                     'status'         => 'pending',
                 ]);
 
-                // 2. Save Order Items & Deduct Inventory
+                // Save Order Items (NO DEDUCTION HERE AS REQUESTED)
                 foreach ($validated['items'] as $itemData) {
                     $order->items()->create([
                         'product_id' => $itemData['product_id'],
                         'quantity'   => $itemData['quantity'],
                         'price'      => $itemData['price'],
                     ]);
-
-                    // Deduct inventory for each product
-                    $this->deductInventoryForProduct($itemData['product_id'], $itemData['quantity'], $branchId);
                 }
 
-                // 3. Create Delivery
+                // Create Delivery
                 Delivery::create([
                     'order_id'         => $order->id,
                     'customer_name'    => $validated['customer_name'],
@@ -108,11 +125,11 @@ class ApiOrderController extends Controller
                     'status'           => 'pending',
                 ]);
 
-                // 4. Broadcast Notification (Wrapped in Try-Catch to prevent 500 if Pusher is offline)
+                // Notify Admin (Silent Catch)
                 try {
                     broadcast(new OrderCreated($order->load('branch')))->toOthers();
                 } catch (\Exception $e) {
-                    Log::warning('Broadcast failed but order was saved: ' . $e->getMessage());
+                    Log::warning('Broadcast failed but order saved');
                 }
 
                 return response()->json([
@@ -121,18 +138,16 @@ class ApiOrderController extends Controller
                     'order_id' => $order->id
                 ], 201);
             });
-        } catch (\Exception $e) {
-            Log::error('API Order Error: ' . $e->getMessage(), [
-                'payload' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
 
+        } catch (\Exception $e) {
+            Log::error($e); // FULL ERROR LOGGING
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to place order: ' . $e->getMessage()
+                'message' => 'Order submission failed',
+                'error'   => $e->getMessage()
             ], 500);
         }
     }
+
     /**
      * Retrieve order status for the tracking screen.
      */
@@ -147,19 +162,15 @@ class ApiOrderController extends Controller
             ], 404);
         }
 
-        // Ownership check (only if order is associated with a user)
         if ($order->user_id && $request->user() && $order->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
         return response()->json([
             'success' => true,
             'data' => [
                 'id'             => $order->id,
-                'status'         => $order->status, // pending, ...
+                'status'         => $order->status,
                 'total_amount'   => $order->total_amount,
                 'customer_name'  => $order->customer_name,
                 'delivery' => $order->delivery ? [
@@ -177,38 +188,5 @@ class ApiOrderController extends Controller
                 'created_at' => $order->created_at,
             ]
         ]);
-    }
-
-    /**
-     * Deduct inventory based on product formulation (recipe).
-     */
-    private function deductInventoryForProduct($productId, $orderedQuantity, $branchId)
-    {
-        $product = Product::with('ingredients')->findOrFail($productId);
-
-        foreach ($product->ingredients as $ingredient) {
-            $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
-            $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
-            
-            // Normalize quantity to base units
-            $requiredTotalBase = UnitConverter::convertToBaseQuantityWithIngredient(
-                $qtyPerUnit, 
-                $unitInput, 
-                $ingredient->unit, 
-                $ingredient->avg_weight_per_piece
-            ) * $orderedQuantity;
-
-            // Find stock for this branch
-            $stock = IngredientStock::where('ingredient_id', $ingredient->id)
-                ->where('branch_id', $branchId)
-                ->first();
-
-            if ($stock) {
-                $stock->deduct($requiredTotalBase);
-            } else {
-                // If no stock record exists for this branch, we might want to log or throw
-                throw new \Exception("Component stock record missing for '{$ingredient->name}' in branch {$branchId}");
-            }
-        }
     }
 }

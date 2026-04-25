@@ -8,6 +8,7 @@ use App\Models\CartItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CartController extends Controller
 {
@@ -47,8 +48,6 @@ class CartController extends Controller
 
     /**
      * Add an item to the cart.
-     * 
-     * @param Request $request { product_id, quantity }
      */
     public function addItem(Request $request)
     {
@@ -64,9 +63,7 @@ class CartController extends Controller
         return DB::transaction(function () use ($user, $product, $productBranchId, $request) {
             $cart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-            // Core Rule: Branch Consistency
             if ($cart->branch_id && $cart->branch_id !== $productBranchId) {
-                // Check if cart has items. If it's empty, we can just update the branch_id
                 if ($cart->items()->exists()) {
                     return response()->json([
                         'success' => false,
@@ -76,17 +73,14 @@ class CartController extends Controller
                         'new_product_branch_id' => $productBranchId
                     ], 400);
                 } else {
-                    // Cart exists but is empty, update to the new product's branch
                     $cart->update(['branch_id' => $productBranchId]);
                 }
             }
 
-            // If cart branch is not set, set it now
             if (!$cart->branch_id) {
                 $cart->update(['branch_id' => $productBranchId]);
             }
 
-            // Add or update item
             $cartItem = $cart->items()->where('product_id', $product->id)->first();
 
             if ($cartItem) {
@@ -97,7 +91,7 @@ class CartController extends Controller
                 $cart->items()->create([
                     'product_id' => $product->id,
                     'quantity' => $request->quantity,
-                    'branch_id' => $productBranchId // redundant but recommended
+                    'branch_id' => $productBranchId
                 ]);
             }
 
@@ -142,7 +136,6 @@ class CartController extends Controller
         $cart = $cartItem->cart;
         $cartItem->delete();
 
-        // If cart is now empty, reset branch_id
         if (!$cart->items()->exists()) {
             $cart->update(['branch_id' => null]);
         }
@@ -177,41 +170,61 @@ class CartController extends Controller
      */
     public function validate(Request $request)
     {
-        $cart = Cart::with(['items.product', 'branch'])
-            ->where('user_id', $request->user()->id)
-            ->first();
+        try {
+            $cart = Cart::with(['items.product', 'branch'])
+                ->where('user_id', $request->user()->id)
+                ->first();
 
-        if (!$cart || $cart->items->isEmpty()) {
+            if (!$cart || $cart->items->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'is_valid' => true,
+                    'messages' => []
+                ]);
+            }
+
+            $invalidItems = [];
+            $branchId = $cart->branch_id;
+
+            foreach ($cart->items as $item) {
+                // ENSURE PRODUCT AND RELATIONS EXIST
+                if (!$item->product) continue;
+
+                $availability = $item->product->dynamicAvailability($branchId);
+                $availableQty = (float) $availability['available'];
+
+                if ($item->quantity > $availableQty) {
+                    $invalidItems[] = [
+                        'id' => $item->id,
+                        'product_name' => $item->product->name,
+                        'requested_quantity' => $item->quantity,
+                        'available_quantity' => $availableQty,
+                        'message' => "Insufficient stock for ingredients: {$item->product->name}"
+                    ];
+                }
+            }
+
+            if (!empty($invalidItems)) {
+                return response()->json([
+                    'success' => false,
+                    'is_valid' => false,
+                    'invalid_items' => $invalidItems,
+                    'message' => 'Insufficient stock for ingredients'
+                ], 422);
+            }
+
             return response()->json([
                 'success' => true,
                 'is_valid' => true,
-                'messages' => []
+                'message' => 'Cart is valid'
             ]);
+
+        } catch (\Exception $e) {
+            Log::error($e); // FULL ERROR LOGGING
+            return response()->json([
+                'message' => 'Validation failed',
+                'error'   => $e->getMessage()
+            ], 500);
         }
-
-        $invalidItems = [];
-        $branchId = $cart->branch_id;
-
-        foreach ($cart->items as $item) {
-            $availability = $item->product->dynamicAvailability($branchId);
-            $availableQty = (float) $availability['available'];
-
-            if ($item->quantity > $availableQty) {
-                $invalidItems[] = [
-                    'id' => $item->id,
-                    'product_name' => $item->product->name,
-                    'requested_quantity' => $item->quantity,
-                    'available_quantity' => $availableQty,
-                    'message' => "Only {$availableQty} of '{$item->product->name}' available."
-                ];
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'is_valid' => empty($invalidItems),
-            'invalid_items' => $invalidItems,
-            'message' => empty($invalidItems) ? 'Cart is valid' : 'Some items have insufficient stock'
-        ]);
     }
 }
