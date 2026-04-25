@@ -82,10 +82,10 @@ class ApiOrderController extends Controller
             if ($branch && $branch->latitude && $branch->longitude) {
                 // Haversine Formula
                 $earthRadius = 6371; // km
-                $latFrom = deg2rad($branch->latitude);
-                $lonFrom = deg2rad($branch->longitude);
-                $latTo = deg2rad($validated['latitude']);
-                $lonTo = deg2rad($validated['longitude']);
+                $latFrom = deg2rad((float) $branch->latitude);
+                $lonFrom = deg2rad((float) $branch->longitude);
+                $latTo = deg2rad((float) $validated['latitude']);
+                $lonTo = deg2rad((float) $validated['longitude']);
 
                 $latDelta = $latTo - $latFrom;
                 $lonDelta = $lonTo - $lonFrom;
