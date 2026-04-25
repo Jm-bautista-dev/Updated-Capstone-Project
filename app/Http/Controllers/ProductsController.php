@@ -124,7 +124,27 @@ class ProductsController extends Controller
                     'max:80',
                     'regex:/^[A-Za-z0-9\s\-\.\(\)\'\&\/]+$/'
                 ],
-                'sku'                        => 'nullable|string',
+                'sku' => [
+                    'nullable',
+                    'string',
+                    function ($attribute, $value, $fail) use ($request, $user) {
+                        $targetBranches = [];
+                        if ($user->isAdmin() && $request->branch_option === 'both') {
+                            $targetBranches = Branch::all()->pluck('id');
+                        } else {
+                            $branchId = $user->isAdmin() ? $request->branch_id : $user->branch_id;
+                            $targetBranches = [$branchId];
+                        }
+
+                        $exists = Product::where('sku', $value)
+                            ->whereIn('branch_id', $targetBranches)
+                            ->exists();
+
+                        if ($exists) {
+                            $fail('The SKU "' . $value . '" is already in use in one of the selected branches.');
+                        }
+                    }
+                ],
                 'category_id'                => 'required|exists:categories,id',
                 'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
@@ -244,7 +264,13 @@ class ProductsController extends Controller
                 'max:80',
                 'regex:/^[A-Za-z0-9\s\-\.\(\)\'\&\/]+$/'
             ],
-            'sku'                        => 'nullable|string|unique:products,sku,' . $id,
+            'sku' => [
+                'nullable',
+                'string',
+                Rule::unique('products')->where(function ($query) use ($product) {
+                    return $query->where('branch_id', $product->branch_id);
+                })->ignore($id),
+            ],
             'description'                => 'nullable|string',
             'category_id'                => 'required|exists:categories,id',
             'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',

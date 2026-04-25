@@ -226,84 +226,6 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
     
     resetPassword.form = resetPasswordForm
 /**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-export const user = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: user.url(options),
-    method: 'get',
-})
-
-user.definition = {
-    methods: ["get","head"],
-    url: '/api/v1/user',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-user.url = (options?: RouteQueryOptions) => {
-    return user.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-user.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: user.url(options),
-    method: 'get',
-})
-/**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-user.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: user.url(options),
-    method: 'head',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-    const userForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: user.url(options),
-        method: 'get',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-        userForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: user.url(options),
-            method: 'get',
-        })
-            /**
-* @see \App\Http\Controllers\Api\AuthController::user
- * @see app/Http/Controllers/Api/AuthController.php:145
- * @route '/api/v1/user'
- */
-        userForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: user.url({
-                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                            _method: 'HEAD',
-                            ...(options?.query ?? options?.mergeQuery ?? {}),
-                        }
-                    }),
-            method: 'get',
-        })
-    
-    user.form = userForm
-/**
 * @see \App\Http\Controllers\Api\AuthController::logout
  * @see app/Http/Controllers/Api/AuthController.php:124
  * @route '/api/v1/logout'
@@ -413,6 +335,6 @@ refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
         })
     
     refreshToken.form = refreshTokenForm
-const AuthController = { register, login, resetPassword, user, logout, refreshToken }
+const AuthController = { register, login, resetPassword, logout, refreshToken }
 
 export default AuthController

@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Api\ApiOrderController;
 use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\BranchController;
 
 // Compatibility route for mobile app (some apps hit /api/orders directly)
@@ -50,20 +52,25 @@ Route::prefix('v1')->group(function () {
 
     // ─── Protected Routes (Sanctum token required) ────────────────────────────
     Route::middleware('auth:sanctum')->group(function () {
-        // Auth (Common for both Customers and Riders)
-        Route::get('user',           [AuthController::class, 'user']);
+        
+        // Unified Profile Route (Suggested by App AI)
+        Route::get('user', [UserController::class, 'me']);
+        
+        // Auth common
         Route::post('logout',        [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
-        // ─── Rider-Specific Operations (requires role:rider) ──────────────────
-        Route::middleware('role:rider')->group(function () {
-            Route::get('rider/orders',   [App\Http\Controllers\Api\RiderController::class, 'orders']);
-            Route::get('rider/stats',    [App\Http\Controllers\Api\RiderController::class, 'stats']);
-            Route::patch('rider/status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
-            Route::post('rider/ping',    [App\Http\Controllers\Api\RiderController::class, 'ping']);
+        // ─── Rider Operations (Grouped for mobile app) ──────────────────
+        Route::prefix('rider')->group(function () {
+            Route::get('orders',   [RiderController::class, 'getOrders']);
+            Route::get('stats',    [RiderController::class, 'getStats']);
+            Route::patch('status', [RiderController::class, 'updateStatus']);
+            Route::post('ping',    [RiderController::class, 'ping']);
+            Route::post('orders/{id}/accept', [RiderController::class, 'acceptOrder']);
+            Route::post('orders/{id}/reject', [RiderController::class, 'rejectOrder']);
         });
 
-        // Orders System (Customer focus)
+        // ─── Additional Protected Routes ────────────────────────────────
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);
         Route::get('orders/{id}', [ApiOrderController::class, 'show']);

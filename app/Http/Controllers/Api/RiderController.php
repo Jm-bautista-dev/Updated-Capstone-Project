@@ -117,6 +117,73 @@ class RiderController extends Controller
     }
 
     /**
+     * Get orders assigned to the rider (Alias for mobile app).
+     */
+    public function getOrders(Request $request): JsonResponse
+    {
+        return $this->orders($request);
+    }
+
+    /**
+     * Get rider performance statistics (Alias for mobile app).
+     */
+    public function getStats(Request $request): JsonResponse
+    {
+        return $this->stats($request);
+    }
+
+    /**
+     * Accept an assigned order.
+     * POST /api/v1/rider/orders/{id}/accept
+     */
+    public function acceptOrder(Request $request, $id): JsonResponse
+    {
+        $rider = $request->user();
+        if (!$rider instanceof Rider) return response()->json(['success' => false], 403);
+
+        /** @var \App\Models\Delivery $delivery */
+        $delivery = \App\Models\Delivery::where('id', $id)
+            ->where('rider_id', $rider->id)
+            ->firstOrFail();
+
+        // Update status to preparing or out_for_delivery depending on flow
+        // For now, move to 'preparing' or keep as is if already preparing
+        $delivery->update(['status' => 'preparing']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order accepted',
+            'data' => $delivery
+        ]);
+    }
+
+    /**
+     * Reject an assigned order.
+     * POST /api/v1/rider/orders/{id}/reject
+     */
+    public function rejectOrder(Request $request, $id): JsonResponse
+    {
+        $rider = $request->user();
+        if (!$rider instanceof Rider) return response()->json(['success' => false], 403);
+
+        /** @var \App\Models\Delivery $delivery */
+        $delivery = \App\Models\Delivery::where('id', $id)
+            ->where('rider_id', $rider->id)
+            ->firstOrFail();
+
+        // Unassign rider
+        $delivery->update(['rider_id' => null]);
+        
+        // Mark rider as available
+        $rider->markAvailable();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order rejected and unassigned'
+        ]);
+    }
+
+    /**
      * Heartbeat/Ping to update last_active_at.
      * POST /api/v1/rider/ping
      */
