@@ -35,7 +35,11 @@ class ApiOrderController extends Controller
     /**
      * Store a newly created order from the mobile application.
      * 
-     * Post Payload: { customer_name, mobile_number, address, items: [{product_id, quantity, price}], total_amount }
+     * PRODUCTION-READY FLOW:
+     * 1. Validate request
+     * 2. Perform SIMPLE stock validation (no analytics)
+     * 3. Process transaction (Order -> Items -> Delivery)
+     * 4. Return clear structured response
      */
     public function store(Request $request)
     {
@@ -57,22 +61,24 @@ class ApiOrderController extends Controller
             $branchId = $validated['branch_id'] ?? 1;
             $userId = $request->user()?->id;
 
-            // --- 1. SAFE STOCK VALIDATION (NO DEDUCTION) ---
+            // --- 1. PRODUCTION STOCK VALIDATION (SIMPLE & STABLE) ---
             foreach ($validated['items'] as $itemData) {
-                $product = Product::with('ingredients')->find($itemData['product_id']);
+                $product = Product::find($itemData['product_id']);
                 
-                // Ensure product exists and has ingredients if it's a recipe item
-                if (!$product) {
-                    return response()->json(['message' => "Product ID {$itemData['product_id']} not found"], 422);
-                }
-
-                // Check Dynamic Availability (Safety check for ingredients)
-                $availability = $product->dynamicAvailability($branchId);
-                if ($itemData['quantity'] > $availability['available']) {
+                if (!$product instanceof Product) {
                     return response()->json([
                         'success' => false,
-                        'message' => "Insufficient stock for ingredients: {$product->name}. (Available: {$availability['available']})",
-                        'product_id' => $product->id
+                        'message' => "Product not found or invalid: ID {$itemData['product_id']}"
+                    ], 422);
+                }
+
+                // Call the new production-level stock check
+                $stockResult = $product->simpleStockCheck($itemData['quantity'], $branchId);
+                
+                if (!$stockResult['success']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $stockResult['message']
                     ], 422);
                 }
             }
@@ -104,7 +110,7 @@ class ApiOrderController extends Controller
                     'status'         => 'pending',
                 ]);
 
-                // Save Order Items (NO DEDUCTION HERE AS REQUESTED)
+                // Save Order Items
                 foreach ($validated['items'] as $itemData) {
                     $order->items()->create([
                         'product_id' => $itemData['product_id'],
@@ -129,7 +135,7 @@ class ApiOrderController extends Controller
                 try {
                     broadcast(new OrderCreated($order->load('branch')))->toOthers();
                 } catch (\Exception $e) {
-                    Log::warning('Broadcast failed but order saved');
+                    Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
                 }
 
                 return response()->json([
@@ -140,8 +146,15 @@ class ApiOrderController extends Controller
             });
 
         } catch (\Exception $e) {
-            Log::error($e); // FULL ERROR LOGGING
+            // PRODUCTION LOGGING
+            Log::error('Order API Critical Failure', [
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+                'payload' => $request->all()
+            ]);
+
             return response()->json([
+                'success' => false,
                 'message' => 'Order submission failed',
                 'error'   => $e->getMessage()
             ], 500);
@@ -156,10 +169,7 @@ class ApiOrderController extends Controller
         $order = Order::with(['delivery.rider', 'items.product'])->find($id);
 
         if (!$order) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order not found'
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Order not found'], 404);
         }
 
         if ($order->user_id && $request->user() && $order->user_id !== $request->user()->id) {

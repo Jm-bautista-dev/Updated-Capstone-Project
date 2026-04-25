@@ -166,7 +166,11 @@ class CartController extends Controller
 
     /**
      * Validate the current cart (check stock availability).
-     * POST /api/v1/cart/validate
+     * 
+     * PRODUCTION-READY FLOW:
+     * - Uses simpleStockCheck (no analytics)
+     * - Returns clear structured errors
+     * - Log failures for debugging
      */
     public function validate(Request $request)
     {
@@ -179,27 +183,24 @@ class CartController extends Controller
                 return response()->json([
                     'success' => true,
                     'is_valid' => true,
-                    'messages' => []
+                    'message' => 'Cart is empty'
                 ]);
             }
 
-            $invalidItems = [];
             $branchId = $cart->branch_id;
+            $invalidItems = [];
 
             foreach ($cart->items as $item) {
-                // ENSURE PRODUCT AND RELATIONS EXIST
                 if (!$item->product) continue;
 
-                $availability = $item->product->dynamicAvailability($branchId);
-                $availableQty = (float) $availability['available'];
+                // Call production-level stock validation
+                $stockResult = $item->product->simpleStockCheck($item->quantity, $branchId);
 
-                if ($item->quantity > $availableQty) {
+                if (!$stockResult['success']) {
                     $invalidItems[] = [
                         'id' => $item->id,
                         'product_name' => $item->product->name,
-                        'requested_quantity' => $item->quantity,
-                        'available_quantity' => $availableQty,
-                        'message' => "Insufficient stock for ingredients: {$item->product->name}"
+                        'message' => $stockResult['message']
                     ];
                 }
             }
@@ -220,9 +221,14 @@ class CartController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error($e); // FULL ERROR LOGGING
+            Log::error('Cart Validation Failure', [
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString()
+            ]);
+
             return response()->json([
-                'message' => 'Validation failed',
+                'success' => false,
+                'message' => 'Stock validation failed',
                 'error'   => $e->getMessage()
             ], 500);
         }

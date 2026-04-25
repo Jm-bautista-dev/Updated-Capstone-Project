@@ -82,12 +82,17 @@ class Product extends Model
      * Compute dynamic availability based on ingredient stock in a specific branch.
      * Returns an array with available quantity and the limiting ingredient name.
      */
+    /**
+     * Compute dynamic availability based on ingredient stock in a specific branch.
+     * Returns an array with available quantity and the limiting ingredient name.
+     * 
+     * @note Used ONLY for Analytics, Suggestions, and Reports.
+     */
     public function dynamicAvailability(?int $branchId): array
     {
         $ingredients = $this->ingredients;
 
         if ($ingredients->isEmpty()) {
-            // Direct product (no recipe): use legacy stock column or movement ledger
             $stock = (float) ($this->stock ?? 0);
             return [
                 'available' => $stock,
@@ -100,15 +105,13 @@ class Product extends Model
             return ['available' => 0, 'limiting_ingredient' => 'No Branch Context', 'is_low_stock' => false];
         }
 
-        $possibleAmounts = [];
-        $limitingIngredient = null;
         $minPossible = PHP_FLOAT_MAX;
+        $limitingIngredient = null;
 
         foreach ($ingredients as $ingredient) {
             $qtyInput = (float) $ingredient->pivot->quantity_required;
             $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
             
-            // Normalize all quantities to base units (g, ml, pcs)
             $requiredPerUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
                 $qtyInput, 
                 $unitInput, 
@@ -136,9 +139,80 @@ class Product extends Model
 
         return [
             'available' => $available,
-            'limiting_ingredient' => $available <= 10 ? $limitingIngredient : null, // Show limiting only when getting low
+            'limiting_ingredient' => $available <= 10 ? $limitingIngredient : null,
             'is_low_stock' => $available > 0 && $available <= 5
         ];
+    }
+
+    /**
+     * PRODUCTION-LEVEL STOCK VALIDATION (Safe, Stable, Fail-safe)
+     * 
+     * This method is ONLY for Order Checkout and Payment validation.
+     * It avoids complex math, division, and analytics.
+     * 
+     * @param float $requestedQuantity The quantity being ordered.
+     * @param int $branchId The branch ID for stock scoping.
+     * @return array { success: bool, message: string|null }
+     */
+    public function simpleStockCheck(float $requestedQuantity, int $branchId): array
+    {
+        $ingredients = $this->ingredients;
+
+        // 1. Fallback for items with no recipe (direct stock)
+        if ($ingredients->isEmpty()) {
+            $currentStock = (float) ($this->stock ?? 0);
+            if ($currentStock < $requestedQuantity) {
+                return [
+                    'success' => false,
+                    'message' => "Insufficient physical stock for '{$this->name}' (Requested: {$requestedQuantity}, Available: {$currentStock})"
+                ];
+            }
+            return ['success' => true, 'message' => null];
+        }
+
+        // 2. Recipe-based validation
+        foreach ($ingredients as $ingredient) {
+            try {
+                // Get requirement from pivot
+                $qtyPerUnit = (float) ($ingredient->pivot->quantity_required ?? 0);
+                $unitInput  = $ingredient->pivot->unit ?? $ingredient->unit;
+
+                // Normalize requirement to base unit (e.g. g, ml, pcs)
+                $requiredPerOrderUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                    $qtyPerUnit,
+                    $unitInput,
+                    $ingredient->unit,
+                    $ingredient->avg_weight_per_piece
+                );
+
+                // Total requirement for the order
+                $totalNeeded = $requiredPerOrderUnit * $requestedQuantity;
+
+                // Skip if no requirement (safety)
+                if ($totalNeeded <= 0) continue;
+
+                // Get branch stock (safe fallback to 0)
+                $stockRecord = $ingredient->stocks()->where('branch_id', $branchId)->first();
+                $availableStock = (float) ($stockRecord->stock ?? 0);
+
+                // Validation Check (Simple comparison, no division)
+                if ($availableStock < $totalNeeded) {
+                    return [
+                        'success' => false,
+                        'message' => "Insufficient ingredients for '{$this->name}': Missing '{$ingredient->name}'"
+                    ];
+                }
+
+            } catch (\Exception $e) {
+                \Log::error("SimpleStockCheck error for '{$this->name}': " . $e->getMessage());
+                return [
+                    'success' => false, 
+                    'message' => "Stock system error during validation for '{$ingredient->name}'"
+                ];
+            }
+        }
+
+        return ['success' => true, 'message' => null];
     }
 
     /**

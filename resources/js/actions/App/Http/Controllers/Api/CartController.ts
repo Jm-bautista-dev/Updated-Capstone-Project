@@ -199,7 +199,7 @@ clear.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     clear.form = clearForm
 /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:171
+ * @see app/Http/Controllers/Api/CartController.php:175
  * @route '/api/v1/cart/validate'
  */
 export const validate = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -214,7 +214,7 @@ validate.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:171
+ * @see app/Http/Controllers/Api/CartController.php:175
  * @route '/api/v1/cart/validate'
  */
 validate.url = (options?: RouteQueryOptions) => {
@@ -223,7 +223,7 @@ validate.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:171
+ * @see app/Http/Controllers/Api/CartController.php:175
  * @route '/api/v1/cart/validate'
  */
 validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -233,7 +233,7 @@ validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:171
+ * @see app/Http/Controllers/Api/CartController.php:175
  * @route '/api/v1/cart/validate'
  */
     const validateForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -243,7 +243,7 @@ validate.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\CartController::validate
- * @see app/Http/Controllers/Api/CartController.php:171
+ * @see app/Http/Controllers/Api/CartController.php:175
  * @route '/api/v1/cart/validate'
  */
         validateForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
