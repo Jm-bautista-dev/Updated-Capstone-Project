@@ -15,30 +15,33 @@ class RiderController extends Controller
      */
     public function updateStatus(Request $request): JsonResponse
     {
-        $request->validate([
-            'status' => 'required|in:available,busy,offline',
-        ]);
+        try {
+            $request->validate([
+                'status' => 'required|in:available,busy,offline',
+            ]);
 
-        $user = $request->user();
+            $user = $request->user();
 
-        // Ensure the authenticated user is actually a Rider instance
-        if (!$user instanceof Rider) {
+            /** @var Rider $user */
+            if (!$user instanceof Rider) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            // Super simple update
+            $user->status = $request->status;
+            $user->last_active_at = \Illuminate\Support\Carbon::now();
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'status' => $user->status,
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Only riders can update operational status.'
-            ], 403);
+                'message' => 'Status update failed'
+            ], 500);
         }
-
-        $user->update([
-            'status' => $request->status,
-            'last_active_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Status updated to ' . $request->status,
-            'status' => $user->status,
-        ]);
     }
 
     /**

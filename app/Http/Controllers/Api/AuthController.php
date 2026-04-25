@@ -123,19 +123,15 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $user = $request->user();
-        
-        // Auto-set status for Riders on Logout
-        if ($user instanceof Rider) {
-            $user->update(['status' => 'offline']);
+        try {
+            $user = $request->user();
+            if ($user && $user->currentAccessToken()) {
+                $user->currentAccessToken()->delete();
+            }
+            return response()->json(['success' => true, 'message' => 'Logged out']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => true, 'message' => 'Logged out (Force)']);
         }
-
-        $user->currentAccessToken()->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully.',
-        ]);
     }
 
     /**
