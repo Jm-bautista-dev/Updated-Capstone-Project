@@ -62,13 +62,43 @@ class ApiOrderController extends Controller
                 'total_amount'   => 'required|numeric|min:0',
                 'delivery_fee'   => 'nullable|numeric|min:0',
                 'distance_km'    => 'nullable|numeric|min:0',
-                'latitude'       => 'nullable|numeric',
-                'longitude'      => 'nullable|numeric',
+                'latitude'       => 'required|numeric|between:-90,90',
+                'longitude'      => 'required|numeric|between:-180,180',
+                'landmark'       => 'nullable|string|max:255',
+                'notes'          => 'nullable|string',
                 'branch_id'      => 'nullable|exists:branches,id'
             ]);
 
             $branchId = $validated['branch_id'] ?? 1;
             $userId = $request->user()?->id;
+
+            // --- 0. DYNAMIC DISTANCE & FEE CALCULATION ---
+            $distanceKm = $validated['distance_km'] ?? null;
+            $deliveryFee = $validated['delivery_fee'] ?? 0;
+            $branch = \App\Models\Branch::find($branchId);
+
+            if ($branch && $branch->latitude && $branch->longitude) {
+                // Haversine Formula
+                $earthRadius = 6371; // km
+                $latFrom = deg2rad($branch->latitude);
+                $lonFrom = deg2rad($branch->longitude);
+                $latTo = deg2rad($validated['latitude']);
+                $lonTo = deg2rad($validated['longitude']);
+
+                $latDelta = $latTo - $latFrom;
+                $lonDelta = $lonTo - $lonFrom;
+
+                $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) +
+                    cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
+                
+                $calculatedDistance = $angle * $earthRadius;
+                $distanceKm = round($calculatedDistance, 2);
+
+                // Use branch delivery calculation logic if available
+                if (method_exists($branch, 'calculateDeliveryFee')) {
+                    $deliveryFee = $branch->calculateDeliveryFee($distanceKm);
+                }
+            }
 
             // --- 1. CRASH-PROOF STOCK VALIDATION ---
             foreach ($validated['items'] as $itemData) {
@@ -114,9 +144,11 @@ class ApiOrderController extends Controller
                     'customer_name'  => $validated['customer_name'],
                     'contact_number' => $validated['mobile_number'],
                     'address'        => $validated['address'],
-                    'latitude'       => $validated['latitude'] ?? null,
-                    'longitude'      => $validated['longitude'] ?? null,
-                    'total_amount'   => $validated['total_amount'],
+                    'latitude'       => $validated['latitude'],
+                    'longitude'      => $validated['longitude'],
+                    'landmark'       => $validated['landmark'] ?? null,
+                    'notes'          => $validated['notes'] ?? null,
+                    'total_amount'   => $validated['total_amount'] + $deliveryFee, // Update total with calculated fee
                     'status'         => 'pending',
                 ]);
 
@@ -133,11 +165,13 @@ class ApiOrderController extends Controller
                     'customer_name'    => $validated['customer_name'],
                     'customer_phone'   => $validated['mobile_number'],
                     'customer_address' => $validated['address'],
-                    'latitude'         => $validated['latitude'] ?? null,
-                    'longitude'        => $validated['longitude'] ?? null,
+                    'latitude'         => $validated['latitude'],
+                    'longitude'        => $validated['longitude'],
+                    'landmark'         => $validated['landmark'] ?? null,
+                    'notes'            => $validated['notes'] ?? null,
                     'delivery_type'    => 'internal', 
                     'delivery_fee'     => $deliveryFee,
-                    'distance_km'      => $validated['distance_km'] ?? null,
+                    'distance_km'      => $distanceKm,
                     'status'           => 'pending',
                 ]);
 

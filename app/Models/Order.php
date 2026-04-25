@@ -18,6 +18,8 @@ class Order extends Model
         'address',
         'latitude',
         'longitude',
+        'landmark',
+        'notes',
         'total_amount',
         'status',
         'inventory_deducted',

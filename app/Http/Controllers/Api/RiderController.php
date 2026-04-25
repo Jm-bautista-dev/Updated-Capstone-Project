@@ -343,10 +343,12 @@ class RiderController extends Controller
             'customer_address' => $delivery->customer_address,
 
             // Location for maps
-            'latitude'         => $order?->latitude,
-            'longitude'        => $order?->longitude,
-            'maps_url'         => $order?->latitude && $order?->longitude
-                ? "https://www.google.com/maps/dir/?api=1&destination={$order->latitude},{$order->longitude}"
+            'latitude'         => $delivery->latitude ?? $order?->latitude,
+            'longitude'        => $delivery->longitude ?? $order?->longitude,
+            'landmark'         => $delivery->landmark ?? $order?->landmark,
+            'notes'            => $delivery->notes ?? $order?->notes,
+            'maps_url'         => ($delivery->latitude || $order?->latitude) && ($delivery->longitude || $order?->longitude)
+                ? "https://www.google.com/maps/dir/?api=1&destination=" . ($delivery->latitude ?? $order?->latitude) . "," . ($delivery->longitude ?? $order?->longitude)
                 : null,
 
             // Financial
