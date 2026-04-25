@@ -3,6 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\MobileAuthController;
+use App\Http\Middleware\ApiResponseWrapper;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\V1\ProductController as V1ProductController;
 use App\Http\Controllers\Api\CategoryController;
@@ -14,8 +16,17 @@ use App\Http\Controllers\BranchController;
 // Compatibility route for mobile app (some apps hit /api/orders directly)
 Route::post('orders', [ApiOrderController::class, 'store']);
 
+// Standard non-versioned pattern
+Route::middleware(['throttle:60,1', ApiResponseWrapper::class])
+    ->post('mobile/login', [MobileAuthController::class, 'login']);
+
 // ─── External Operations API (Mobile App Entry) ──────────────────
 Route::prefix('v1')->group(function () {
+
+    // ─── SAFE MOBILE API LAYER (STEP 1 & 5) ───
+    Route::middleware(['throttle:60,1', ApiResponseWrapper::class])->prefix('mobile')->group(function () {
+        Route::post('login', [MobileAuthController::class, 'login']);
+    });
 
     // ─── Public Routes (no auth required) ────────────────────────────────────────
     
