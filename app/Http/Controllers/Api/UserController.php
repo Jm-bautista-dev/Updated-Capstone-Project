@@ -13,29 +13,37 @@ class UserController extends Controller
      */
     public function me(Request $request)
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
 
-        if (!$user) {
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
+
+            // This is the "Best Way" because it works even if 
+            // columns like 'role' are missing in your database.
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name ?? ($user->first_name . ' ' . $user->last_name),
+                    'first_name' => $user->first_name ?? $user->name,
+                    'last_name' => $user->last_name ?? '',
+                    'email' => $user->email,
+                    'mobile_number' => $user->mobile_number ?? $user->contact_number ?? '',
+                    'role' => $user->role ?? 'customer', // Default to customer if column is missing
+                    'branch_id' => $user->branch_id ?? null,
+                ]
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Unauthenticated'
-            ], 401);
+                'message' => 'Server Error: ' . $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
         }
-
-        // This is the "Best Way" because it works even if 
-        // columns like 'role' are missing in your database.
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name ?? ($user->first_name . ' ' . $user->last_name),
-                'first_name' => $user->first_name ?? $user->name,
-                'last_name' => $user->last_name ?? '',
-                'email' => $user->email,
-                'mobile_number' => $user->mobile_number ?? $user->contact_number ?? '',
-                'role' => $user->role ?? 'customer', // Default to customer if column is missing
-                'branch_id' => $user->branch_id ?? null,
-            ]
-        ]);
     }
 }
