@@ -244,7 +244,7 @@ class ApiOrderController extends Controller
                         'updated_at'    => $order->delivery->updated_at,
                     ] : null,
                     'items' => $order->items->map(fn($item) => [
-                        'product_name' => $item->product->name,
+                        'product_name' => $item->product?->name ?? 'Unknown Product',
                         'quantity'     => $item->quantity,
                         'price'        => $item->price,
                     ]),
