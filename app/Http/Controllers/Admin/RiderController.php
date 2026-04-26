@@ -32,10 +32,18 @@ class RiderController extends Controller
 
         $riders = $query->latest()->paginate(15)->withQueryString();
 
+        $stats = [
+            'total' => Rider::count(),
+            'available' => Rider::where('status', 'available')->count(),
+            'busy' => Rider::where('status', 'busy')->count(),
+            'offline' => Rider::where('status', 'offline')->count(),
+        ];
+
         return Inertia::render('Admin/Riders/Index', [
             'riders'   => $riders,
             'filters'  => $request->only(['branch_id', 'status', 'search']),
             'branches' => Branch::orderBy('name')->get(['id', 'name']),
+            'stats'    => $stats,
         ]);
     }
 

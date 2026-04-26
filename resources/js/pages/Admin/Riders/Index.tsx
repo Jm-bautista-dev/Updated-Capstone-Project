@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
     Plus, Search, Edit2, Trash2, Phone, User, 
     MoreHorizontal, Filter, ChevronLeft, ChevronRight,
-    Building2, Bike, X, Eye, EyeOff, Lock, Mail, CheckCircle2, Copy
+    Building2, Bike, X, Eye, EyeOff, Lock, Mail, CheckCircle2, Copy, AlertCircle
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePage } from '@inertiajs/react';
@@ -48,9 +48,15 @@ interface Props {
         status?: string;
         branch_id?: string;
     };
+    stats: {
+        total: number;
+        available: number;
+        busy: number;
+        offline: number;
+    };
 }
 
-export default function RiderIndex({ riders, branches, filters }: Props) {
+export default function RiderIndex({ riders, branches, filters, stats }: Props) {
     const { props } = usePage<any>();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isCredsModalOpen, setIsCredsModalOpen] = useState(false);
@@ -131,37 +137,93 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
         <AppLayout breadcrumbs={[{ title: 'Delivery Riders', href: '/riders' }]}>
             <Head title="Rider Management" />
 
-            <div className="p-4 md:p-8 space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight">Delivery Riders</h1>
-                        <p className="text-muted-foreground text-sm">Manage your internal delivery personnel across branches.</p>
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
+                {/* Header Bar */}
+                <div className="border-b bg-background/50 backdrop-blur-md flex-shrink-0">
+                    <div className="h-20 px-6 flex items-center justify-between max-w-6xl mx-auto w-full">
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tight flex items-center gap-2 text-foreground">
+                                <Bike className="text-primary size-6" />
+                                Delivery Riders
+                            </h1>
+                            <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">Fleet Management & Performance</p>
+                        </div>
+                        <Button onClick={openCreateModal} className="gap-2 h-11 px-6 shadow-xl shadow-primary/20 font-black uppercase text-xs tracking-widest">
+                            <Plus className="size-4" /> Add New Rider
+                        </Button>
                     </div>
-                    <Button onClick={openCreateModal} className="gap-2 h-11 px-6 shadow-lg shadow-primary/20 font-bold">
-                        <Plus className="size-5" /> Add New Rider
-                    </Button>
                 </div>
 
-                {/* Filters */}
-                <Card className="border-none shadow-md rounded-2xl">
-                    <CardContent className="p-4">
-                        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-                            <form onSubmit={handleSearch} className="relative flex-1 w-full">
+                {/* Content Area */}
+                <div className="flex-1 overflow-auto p-6">
+                    <div className="max-w-6xl mx-auto w-full space-y-6 flex flex-col">
+                        
+                        {/* Stats Overview */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-shrink-0">
+                            <Card className="bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-900/30 shadow-sm transition-all duration-300">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="size-10 rounded-full bg-slate-500/10 flex items-center justify-center ring-4 ring-slate-500/5">
+                                        <User className="text-slate-600 dark:text-slate-400 size-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-600/60 dark:text-slate-400/60 tracking-widest leading-none mb-1">Total Fleet</p>
+                                        <p className="text-2xl font-black text-foreground">{stats.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 shadow-sm transition-all duration-300">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="size-10 rounded-full bg-emerald-500/10 flex items-center justify-center ring-4 ring-emerald-500/5">
+                                        <CheckCircle2 className="text-emerald-600 dark:text-emerald-400 size-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-emerald-600/60 dark:text-emerald-400/60 tracking-widest leading-none mb-1">Available</p>
+                                        <p className="text-2xl font-black text-foreground">{stats.available}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/30 shadow-sm transition-all duration-300">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="size-10 rounded-full bg-rose-500/10 flex items-center justify-center ring-4 ring-rose-500/5">
+                                        <AlertCircle className="text-rose-600 dark:text-rose-400 size-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-rose-600/60 dark:text-rose-400/60 tracking-widest leading-none mb-1">On Delivery</p>
+                                        <p className="text-2xl font-black text-foreground">{stats.busy}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-900/30 shadow-sm transition-all duration-300">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="size-10 rounded-full bg-slate-500/10 flex items-center justify-center ring-4 ring-slate-500/5">
+                                        <EyeOff className="text-slate-600 dark:text-slate-400 size-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-600/60 dark:text-slate-400/60 tracking-widest leading-none mb-1">Offline</p>
+                                        <p className="text-2xl font-black text-foreground">{stats.offline}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Search & Filters */}
+                        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                            <form onSubmit={handleSearch} className="relative w-full lg:max-w-sm">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search riders..."
-                                    className="pl-10 h-11 rounded-xl border-none bg-muted/50 focus-visible:bg-background transition-all"
+                                    placeholder="Search by name or phone..."
+                                    className="pl-10 h-11 rounded-2xl border-none bg-muted/50 focus-visible:bg-background transition-all ring-1 ring-black/5"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </form>
 
-                            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                            <div className="flex items-center gap-3 w-full lg:w-auto">
                                 <Select value={filters.status || 'all'} onValueChange={v => handleFilter('status', v)}>
-                                    <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/50 border-none text-xs font-bold">
-                                        <SelectValue placeholder="Status" />
+                                    <SelectTrigger className="h-11 w-full lg:w-[160px] rounded-2xl bg-muted/50 border-none text-xs font-black uppercase tracking-widest ring-1 ring-black/5">
+                                        <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="rounded-2xl border-none shadow-2xl">
                                         <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="available">Available</SelectItem>
                                         <SelectItem value="busy">Busy</SelectItem>
@@ -170,11 +232,11 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                                 </Select>
 
                                 <Select value={filters.branch_id || 'all'} onValueChange={v => handleFilter('branch_id', v)}>
-                                    <SelectTrigger className="h-10 w-[160px] rounded-xl bg-muted/50 border-none text-xs font-bold">
-                                        <Building2 className="size-3 mr-1" />
-                                        <SelectValue placeholder="Branch" />
+                                    <SelectTrigger className="h-11 w-full lg:w-[180px] rounded-2xl bg-muted/50 border-none text-xs font-black uppercase tracking-widest ring-1 ring-black/5">
+                                        <Building2 className="size-3.5 mr-2 text-primary" />
+                                        <SelectValue placeholder="All Branches" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="rounded-2xl border-none shadow-2xl">
                                         <SelectItem value="all">All Branches</SelectItem>
                                         {branches.map(b => (
                                             <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
@@ -183,130 +245,130 @@ export default function RiderIndex({ riders, branches, filters }: Props) {
                                 </Select>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
 
-                {/* Table */}
-                <Card className="border-none shadow-xl shadow-black/5 overflow-hidden rounded-3xl bg-card">
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-muted/30 border-b">
-                                    <tr>
-                                        <th className="p-4 pl-6 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Rider</th>
-                                        <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Branch</th>
-                                        <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Contact</th>
-                                        <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground text-center">Deliveries</th>
-                                        <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
-                                        <th className="p-4 pr-6 text-right text-[11px] font-black uppercase tracking-widest text-muted-foreground">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-muted/20">
-                                    {riders.data.map((rider) => (
-                                        <tr key={rider.id} className="group hover:bg-muted/10 transition-colors">
-                                            <td className="p-4 pl-6">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="size-11 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-base border border-primary/10 group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                                                        <Bike className="size-5" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-foreground truncate">{rider.name}</p>
-                                                        <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1">
-                                                            <Mail className="size-2.5" /> {rider.email}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-1.5 text-sm">
-                                                    <Building2 className="size-3.5 text-muted-foreground" />
-                                                    <span className="font-medium">{rider.branch?.name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                {rider.phone ? (
-                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                        <Phone className="size-3.5" />
-                                                        <span>{rider.phone}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs italic text-muted-foreground/50">No phone</span>
-                                                )}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <Badge variant="secondary" className="font-black h-6 px-2.5 rounded-lg">
-                                                    {rider.deliveries_count || 0}
-                                                </Badge>
-                                            </td>
-                                            <td className="p-4">
-                                                <Badge className={`rounded-full px-3.5 text-[10px] font-black uppercase tracking-wider ${getStatusColor(rider.status)}`} variant="outline">
-                                                    {rider.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="p-4 pr-6 text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9">
-                                                            <MoreHorizontal className="size-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-[170px] rounded-2xl p-2 shadow-2xl">
-                                                        <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground font-black tracking-widest px-2 mb-1">Actions</DropdownMenuLabel>
-                                                        <DropdownMenuItem className="rounded-xl gap-2 cursor-pointer" onClick={() => openEditModal(rider)}>
-                                                            <Edit2 className="size-4" /> Edit Details
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator className="opacity-50" />
-                                                        <DropdownMenuItem className="rounded-xl gap-2 text-rose-500 cursor-pointer" onClick={() => handleDelete(rider.id)}>
-                                                            <Trash2 className="size-4" /> Remove Rider
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </td>
-                                        </tr>
-                                    ))}
+                        {/* Table Card */}
+                        <Card className="border-none shadow-xl shadow-black/5 overflow-hidden rounded-[2rem] bg-card flex flex-col flex-1">
+                            <CardContent className="p-0 flex flex-col flex-1 overflow-hidden">
+                                <div className="overflow-auto flex-1">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="sticky top-0 bg-background/95 backdrop-blur-md z-10 border-b">
+                                            <tr>
+                                                <th className="p-4 pl-6 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Rider</th>
+                                                <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Branch</th>
+                                                <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Contact</th>
+                                                <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground text-center">Deliveries</th>
+                                                <th className="p-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground">Status</th>
+                                                <th className="p-4 pr-6 text-right text-[11px] font-black uppercase tracking-widest text-muted-foreground">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-muted/20">
+                                            {riders.data.map((rider) => (
+                                                <tr key={rider.id} className="group hover:bg-muted/10 transition-colors">
+                                                    <td className="p-4 pl-6">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="size-11 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-black text-base border border-primary/10 group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                                                                <Bike className="size-5" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-foreground truncate">{rider.name}</p>
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black flex items-center gap-1">
+                                                                    <Mail className="size-2.5" /> {rider.email}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-1.5 text-sm">
+                                                            <Building2 className="size-3.5 text-muted-foreground" />
+                                                            <span className="font-medium">{rider.branch?.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {rider.phone ? (
+                                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                                <Phone className="size-3.5" />
+                                                                <span>{rider.phone}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs italic text-muted-foreground/50">No phone</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <Badge variant="secondary" className="font-black h-6 px-2.5 rounded-lg">
+                                                            {rider.deliveries_count || 0}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <Badge className={`rounded-full px-3.5 text-[10px] font-black uppercase tracking-wider ${getStatusColor(rider.status)}`} variant="outline">
+                                                            {rider.status}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-4 pr-6 text-right">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9">
+                                                                    <MoreHorizontal className="size-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-[170px] rounded-2xl p-2 shadow-2xl">
+                                                                <DropdownMenuLabel className="text-[10px] uppercase text-muted-foreground font-black tracking-widest px-2 mb-1">Actions</DropdownMenuLabel>
+                                                                <DropdownMenuItem className="rounded-xl gap-2 cursor-pointer" onClick={() => openEditModal(rider)}>
+                                                                    <Edit2 className="size-4" /> Edit Details
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator className="opacity-50" />
+                                                                <DropdownMenuItem className="rounded-xl gap-2 text-rose-500 cursor-pointer" onClick={() => handleDelete(rider.id)}>
+                                                                    <Trash2 className="size-4" /> Remove Rider
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </td>
+                                                </tr>
+                                            ))}
 
-                                    {riders.data.length === 0 && (
-                                        <tr>
-                                            <td colSpan={6} className="p-16 text-center">
-                                                <div className="flex flex-col items-center justify-center space-y-4 opacity-40">
-                                                    <Bike className="size-16 stroke-1" />
-                                                    <p className="text-lg font-bold">No riders found</p>
-                                                    <p className="text-sm">Start by adding your internal delivery team.</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination */}
-                        {riders.last_page > 1 && (
-                            <div className="p-4 border-t bg-muted/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-                                <p className="text-xs text-muted-foreground font-medium">
-                                    Showing <span className="text-foreground font-bold">{riders.from}–{riders.to}</span> of <span className="text-foreground font-bold">{riders.total}</span>
-                                </p>
-                                <div className="flex items-center gap-1.5">
-                                    <Link href={riders.links[0].url || '#'} className={!riders.links[0].url ? 'pointer-events-none opacity-40' : ''}>
-                                        <Button variant="outline" size="icon" className="rounded-xl h-9 w-9"><ChevronLeft className="size-4" /></Button>
-                                    </Link>
-                                    <div className="flex items-center gap-1">
-                                        {riders.links.slice(1, -1).map((link, i) => (
-                                            <Link key={i} href={link.url || '#'} className={!link.url ? 'pointer-events-none' : ''}>
-                                                <Button variant={link.active ? 'default' : 'outline'} size="icon" className={`rounded-xl h-9 w-9 text-xs ${link.active ? 'shadow-md shadow-primary/20' : ''}`}>
-                                                    {link.label}
-                                                </Button>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                    <Link href={riders.links[riders.links.length - 1].url || '#'} className={!riders.links[riders.links.length - 1].url ? 'pointer-events-none opacity-40' : ''}>
-                                        <Button variant="outline" size="icon" className="rounded-xl h-9 w-9"><ChevronRight className="size-4" /></Button>
-                                    </Link>
+                                            {riders.data.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={6} className="p-16 text-center">
+                                                        <div className="flex flex-col items-center justify-center space-y-4 opacity-40">
+                                                            <Bike className="size-16 stroke-1" />
+                                                            <p className="text-lg font-bold">No riders found</p>
+                                                            <p className="text-sm">Start by adding your internal delivery team.</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+
+                                {/* Pagination */}
+                                {riders.last_page > 1 && (
+                                    <div className="p-4 border-t bg-muted/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                        <p className="text-xs text-muted-foreground font-medium">
+                                            Showing <span className="text-foreground font-bold">{riders.from}–{riders.to}</span> of <span className="text-foreground font-bold">{riders.total}</span>
+                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Link href={riders.links[0].url || '#'} className={!riders.links[0].url ? 'pointer-events-none opacity-40' : ''}>
+                                                <Button variant="outline" size="icon" className="rounded-xl h-9 w-9"><ChevronLeft className="size-4" /></Button>
+                                            </Link>
+                                            <div className="flex items-center gap-1">
+                                                {riders.links.slice(1, -1).map((link, i) => (
+                                                    <Link key={i} href={link.url || '#'} className={!link.url ? 'pointer-events-none' : ''}>
+                                                        <Button variant={link.active ? 'default' : 'outline'} size="icon" className={`rounded-xl h-9 w-9 text-xs ${link.active ? 'shadow-md shadow-primary/20' : ''}`}>
+                                                            {link.label}
+                                                        </Button>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                            <Link href={riders.links[riders.links.length - 1].url || '#'} className={!riders.links[riders.links.length - 1].url ? 'pointer-events-none opacity-40' : ''}>
+                                                <Button variant="outline" size="icon" className="rounded-xl h-9 w-9"><ChevronRight className="size-4" /></Button>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
             </div>
 
             {/* Create/Edit Modal */}
