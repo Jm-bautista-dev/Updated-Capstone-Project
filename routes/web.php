@@ -38,116 +38,115 @@ Route::get('/menu', function () {
 })->name('menu');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Routes that MUST be accessible even if password change is required
+
+    // ── Change Password (accessible even before password is changed) ──
     Route::get('/change-password', [App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])->name('first-login.change');
     Route::post('/change-password', [App\Http\Controllers\Auth\ChangePasswordController::class, 'update'])->name('first-login.update');
 
+    // ── All other routes require password to have been changed ────────
     Route::middleware(['must_change_password'])->group(function () {
+
         Route::post('/inventory/mass-stock-in', [App\Http\Controllers\StockInController::class, 'massStore'])->name('inventory.mass-stock-in');
 
-    // Admin ONLY Routes
-    Route::middleware(['role:admin'])->group(function () {
-        Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
-        Route::get('analytics/cashier-performance', [AnalyticsController::class, 'cashierPerformance'])->name('analytics.cashier-performance');
-        Route::get('analytics/cashier-performance/export', [AnalyticsController::class, 'exportPerformance'])->name('analytics.cashier-performance.export');
-        Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
-        Route::get('analytics/restock-suggestions', [AnalyticsController::class, 'restockSuggestions'])->name('analytics.restock-suggestions');
+        // Admin ONLY Routes
+        Route::middleware(['role:admin'])->group(function () {
+            Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
+            Route::get('analytics/cashier-performance', [AnalyticsController::class, 'cashierPerformance'])->name('analytics.cashier-performance');
+            Route::get('analytics/cashier-performance/export', [AnalyticsController::class, 'exportPerformance'])->name('analytics.cashier-performance.export');
+            Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
+            Route::get('analytics/restock-suggestions', [AnalyticsController::class, 'restockSuggestions'])->name('analytics.restock-suggestions');
 
-        // Supplier Management
-        Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
-        Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
-        Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
-        Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
-        Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
-        Route::post('suppliers/{supplier}/restore', [SupplierController::class, 'restore'])->name('suppliers.restore');
+            // Supplier Management
+            Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+            Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+            Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
+            Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+            Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
+            Route::post('suppliers/{supplier}/restore', [SupplierController::class, 'restore'])->name('suppliers.restore');
 
+            Route::resource('riders', RiderController::class);
 
+            // Employee Management (Admin only)
+            Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
+            Route::post('employees', [EmployeeController::class, 'store'])->name('employees.store');
+            Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
+            Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 
-        Route::resource('riders', RiderController::class);
+            // Branch location/settings update (Admin only)
+            Route::put('branches/{id}', [BranchController::class, 'update'])->name('branches.update');
 
+            // Administrative Inventory & Product Management
+            Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');
+            Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
+            Route::delete('products/{id}', [App\Http\Controllers\ProductsController::class, 'destroy'])->name('products.destroy');
 
-        // Employee Management (Admin only)
-        Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
-        Route::post('employees', [EmployeeController::class, 'store'])->name('employees.store');
-        Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
-        Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+            Route::delete('/inventory/bulk-delete', [InventoryController::class, 'bulkDelete'])->name('inventory.bulk-delete');
+            Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
+            Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
+            Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
+        }); // end role:admin
 
-        // Branch location/settings update (Admin only)
-        Route::put('branches/{id}', [BranchController::class, 'update'])->name('branches.update');
+        // POS Routes (Cashier ONLY)
+        Route::middleware(['role:cashier'])->group(function () {
+            Route::get('pos', [PosController::class, 'index'])->name('pos.index');
+            Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+        }); // end role:cashier
 
-        // Administrative Inventory & Product Management
-        Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');
-        Route::put('products/{id}', [App\Http\Controllers\ProductsController::class, 'update'])->name('products.update');
-        Route::delete('products/{id}', [App\Http\Controllers\ProductsController::class, 'destroy'])->name('products.destroy');
+        // Shared Routes (Admin and Cashier — Full Access)
+        Route::middleware(['role:admin,cashier'])->group(function () {
 
-        Route::delete('/inventory/bulk-delete', [InventoryController::class, 'bulkDelete'])->name('inventory.bulk-delete');
-        Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
-        Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
-        Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
-    });
+            // Products
+            Route::get('products', [App\Http\Controllers\ProductsController::class, 'index'])->name('products.index');
 
-    // POS Routes (Cashier ONLY)
-    Route::middleware(['role:cashier'])->group(function () {
-        Route::get('pos', [PosController::class, 'index'])->name('pos.index');
-        Route::post('pos', [PosController::class, 'store'])->name('pos.store');
-    });
+            // Categories
+            Route::get('categories', [CategoriesController::class, 'index'])->name('categories.index');
+            Route::post('/categories', [CategoriesController::class, 'store'])->name('categories.store');
+            Route::put('/categories/{id}', [CategoriesController::class, 'update'])->name('categories.update');
+            Route::delete('/categories/{id}', [CategoriesController::class, 'destroy'])->name('categories.destroy');
 
-    // Shared Routes (Admin and Cashier — Full Access)
-    Route::middleware(['role:admin,cashier'])->group(function () {
+            // Inventory
+            Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+            Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
+            Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
 
-        // Products
-        Route::get('products', [App\Http\Controllers\ProductsController::class, 'index'])->name('products.index');
+            // Reports
+            Route::get('reports', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('reports.index');
+            Route::get('reports/pdf', [App\Http\Controllers\Admin\ReportController::class, 'exportPdf'])->name('reports.pdf');
+            Route::get('reports/excel', [App\Http\Controllers\Admin\ReportController::class, 'exportExcel'])->name('reports.excel');
 
-        // Categories
-        Route::get('categories', [CategoriesController::class, 'index'])->name('categories.index');
-        Route::post('/categories', [CategoriesController::class, 'store'])->name('categories.store');
-        Route::put('/categories/{id}', [CategoriesController::class, 'update'])->name('categories.update');
-        Route::delete('/categories/{id}', [CategoriesController::class, 'destroy'])->name('categories.destroy');
+            // Sales
+            Route::get('sales', [App\Http\Controllers\SalesController::class, 'index'])->name('sales.index');
+            Route::put('sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
-        // Inventory
-        Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-        Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
-        Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
+            // Deliveries
+            Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
+            Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
+            Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+            Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
+            Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
 
-        // Reports
-        Route::get('reports', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('reports.index');
-        Route::get('reports/pdf', [App\Http\Controllers\Admin\ReportController::class, 'exportPdf'])->name('reports.pdf');
-        Route::get('reports/excel', [App\Http\Controllers\Admin\ReportController::class, 'exportExcel'])->name('reports.excel');
+            Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
 
-        // Sales
-        Route::get('sales', [App\Http\Controllers\SalesController::class, 'index'])->name('sales.index');
-        Route::put('sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
+            // Branches
+            Route::get('branches', [BranchController::class, 'adminIndex'])->name('branches.index');
+            Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');
+            Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
 
-        // Deliveries
-        Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
-        Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
-        Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
-        Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
-        Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
+            // Notifications
+            Route::get('inventory/activity', [NotificationController::class, 'activity'])->name('inventory.activity');
 
+            // New Weight/Volume Inventory System
+            Route::get('/inventory-items', [InventoryActionController::class, 'index'])->name('inventory-items.index');
+            Route::post('/inventory-items', [InventoryActionController::class, 'store'])->name('inventory-items.store');
+            Route::get('/pos/weight', [InventoryActionController::class, 'pos'])->name('pos.weight');
+            Route::post('/pos/inventory-sale', [InventoryActionController::class, 'processSale'])->name('inventory-sale.store');
+            Route::get('/inventory-sales-history', [InventoryActionController::class, 'history'])->name('inventory-sale.history');
+        }); // end role:admin,cashier
 
-        Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
+    }); // end must_change_password
 
-        // Branches — returns Inertia page for admin
-        Route::get('branches', [BranchController::class, 'adminIndex'])->name('branches.index');
-        Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');
-        Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
-
-        // Notifications
-        Route::get('inventory/activity', [NotificationController::class, 'activity'])->name('inventory.activity');
-
-        // New Weight/Volume Inventory System
-        Route::get('/inventory-items', [InventoryActionController::class, 'index'])->name('inventory-items.index');
-        Route::post('/inventory-items', [InventoryActionController::class, 'store'])->name('inventory-items.store');
-        Route::get('/pos/weight', [InventoryActionController::class, 'pos'])->name('pos.weight');
-        Route::post('/pos/inventory-sale', [InventoryActionController::class, 'processSale'])->name('inventory-sale.store');
-        Route::get('/inventory-sales-history', [InventoryActionController::class, 'history'])->name('inventory-sale.history');
-    });
-});
-});
+}); // end auth,verified
 
 Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
 
 require __DIR__.'/settings.php';
-
-

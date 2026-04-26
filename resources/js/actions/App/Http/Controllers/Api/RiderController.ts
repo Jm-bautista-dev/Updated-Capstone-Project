@@ -1,5 +1,60 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:38
+ * @route '/api/v1/rider/change-password'
+ */
+export const changePassword = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: changePassword.url(options),
+    method: 'post',
+})
+
+changePassword.definition = {
+    methods: ["post"],
+    url: '/api/v1/rider/change-password',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:38
+ * @route '/api/v1/rider/change-password'
+ */
+changePassword.url = (options?: RouteQueryOptions) => {
+    return changePassword.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:38
+ * @route '/api/v1/rider/change-password'
+ */
+changePassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: changePassword.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:38
+ * @route '/api/v1/rider/change-password'
+ */
+    const changePasswordForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: changePassword.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:38
+ * @route '/api/v1/rider/change-password'
+ */
+        changePasswordForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: changePassword.url(options),
+            method: 'post',
+        })
+    
+    changePassword.form = changePasswordForm
+/**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
  * @see app/Http/Controllers/Api/RiderController.php:463
  * @route '/api/v1/rider/status'
@@ -856,6 +911,6 @@ rejectOrder.post = (args: { id: string | number } | [id: string | number ] | str
         })
     
     rejectOrder.form = rejectOrderForm
-const RiderController = { updateStatus, ping, getStats, updateLocation, getOrders, getMyOrders, getCompletedOrders, acceptOrder, pickupOrder, startTransit, deliverOrder, rejectOrder }
+const RiderController = { changePassword, updateStatus, ping, getStats, updateLocation, getOrders, getMyOrders, getCompletedOrders, acceptOrder, pickupOrder, startTransit, deliverOrder, rejectOrder }
 
 export default RiderController
