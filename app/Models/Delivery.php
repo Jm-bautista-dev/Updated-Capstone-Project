@@ -163,8 +163,9 @@ class Delivery extends Model
         // Admin can only advance up to ready_for_pickup.
         // Everything after (picked_up, in_transit, delivered) is RIDER ONLY.
         $adminFlow = [
-            self::STATUS_PENDING    => self::STATUS_PREPARING,
-            self::STATUS_PREPARING  => self::STATUS_READY,
+            self::STATUS_WAITING_KITCHEN => self::STATUS_PREPARING,
+            self::STATUS_PENDING         => self::STATUS_PREPARING,
+            self::STATUS_PREPARING       => self::STATUS_READY,
             // ready_for_pickup → assigned_to_rider is handled by assignRider action
             // assigned_to_rider onward → RIDER ONLY
         ];
