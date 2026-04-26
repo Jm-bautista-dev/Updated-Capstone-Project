@@ -296,24 +296,24 @@ export default function PosIndex() {
  <AppLayout breadcrumbs={[{ title: 'POS', href: '/pos' }]}>
  <Head title="Point of Sale" />
 
- <div className="flex gap-4 p-4 h-[calc(100vh-64px)] overflow-hidden bg-background text-foreground/90 font-sans relative selection:bg-primary/30">
+ <div className="flex flex-col lg:flex-row gap-3 p-3 h-[calc(100vh-64px)] overflow-hidden bg-background text-foreground/90 font-sans relative selection:bg-primary/30">
  {/* Ambient Background Gradients */}
  <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
  <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none" />
 
  {/* FAR LEFT: Vertical Category Rail (Floating) */}
- <div className="w-24 shrink-0 flex flex-col items-center py-6 gap-6 bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-10">
+ <div className="hidden lg:flex w-16 xl:w-20 shrink-0 flex-col items-center py-4 gap-4 bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-10">
  <motion.button
  whileHover={{ scale: 1.1 }}
  whileTap={{ scale: 0.9 }}
  onClick={() => setSelectedCategory(null)}
  className={cn(
-"relative size-14 rounded-2xl flex items-center justify-center transition-all duration-300",
- selectedCategory === null ?"bg-primary text-primary-foreground shadow-md shadow-primary/40" :"bg-card/50 text-muted-foreground hover:bg-accent hover:text-foreground/90"
+ "relative size-10 xl:size-12 rounded-2xl flex items-center justify-center transition-all duration-300",
+  selectedCategory === null ?"bg-primary text-primary-foreground shadow-md shadow-primary/40" :"bg-card/50 text-muted-foreground hover:bg-accent hover:text-foreground/90"
  )}
  >
- <FiLayers className="size-6" />
- <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase opacity-80">All</span>
+ <FiLayers className="size-4 xl:size-5" />
+  <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase opacity-80 hidden xl:block">All</span>
  </motion.button>
 
  <div className="w-8 h-[1px] bg-accent my-2" />
@@ -326,8 +326,8 @@ export default function PosIndex() {
  whileTap={{ scale: 0.9 }}
  onClick={() => setSelectedCategory(c.id)}
  className={cn(
-"relative size-14 rounded-2xl flex items-center justify-center transition-all duration-300 border border-border group",
- selectedCategory === c.id ?"ring-2 ring-primary ring-offset-2 ring-offset-background" :"opacity-70 hover:opacity-100"
+ "relative size-10 xl:size-12 rounded-2xl flex items-center justify-center transition-all duration-300 border border-border group",
+  selectedCategory === c.id ?"ring-2 ring-primary ring-offset-2 ring-offset-background" :"opacity-70 hover:opacity-100"
  )}
  >
  {c.image_url ? (
@@ -337,21 +337,21 @@ export default function PosIndex() {
  <span className="text-xs font-bold">{c.name.substring(0, 2)}</span>
  </div>
  )}
- <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase text-center w-24 truncate opacity-80 group-hover:opacity-100">
- {c.name}
- </span>
+ <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase text-center w-16 xl:w-20 truncate opacity-80 group-hover:opacity-100 hidden xl:block">
+  {c.name}
+  </span>
  </motion.button>
  ))}
  </div>
  </div>
 
  {/* CENTER LEFT: Products Panel */}
- <div className="flex-1 flex flex-col min-w-0 bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-10 overflow-hidden relative">
+ <div className="flex-1 flex flex-col min-w-0 bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-10 overflow-hidden relative min-h-0">
  {/* Header */}
- <div className="h-20 px-8 flex items-center justify-between border-b border-border/50 bg-transparent">
+ <div className="h-14 lg:h-18 px-4 lg:px-8 flex items-center justify-between border-b border-border/50 bg-transparent gap-3">
  <div>
- <h1 className="text-2xl font-black tracking-tight text-foreground drop-shadow-md">Menu</h1>
- <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-widest mt-1">{filteredProducts.length} Items Available</p>
+ <h1 className="text-lg lg:text-2xl font-black tracking-tight text-foreground drop-shadow-md">Menu</h1>
+  <p className="text-[10px] lg:text-xs font-medium text-muted-foreground/80 uppercase tracking-widest mt-0.5 hidden sm:block">{filteredProducts.length} Available</p>
  </div>
  <div className="flex items-center gap-4">
  {/* Search Bar (Apple Style) */}
@@ -359,7 +359,7 @@ export default function PosIndex() {
  <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-4 group-focus-within:text-primary transition-colors" />
  <Input
  placeholder="Search..."
- className="pl-11 h-11 w-64 bg-muted border border-border rounded-2xl text-foreground/90 placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all shadow-inner"
+ className="pl-11 h-10 w-40 sm:w-52 lg:w-64 bg-muted border border-border rounded-2xl text-foreground/90 placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all shadow-inner"
  value={search}
  onChange={(e) => setSearch(e.target.value)}
  />
@@ -367,10 +367,33 @@ export default function PosIndex() {
  </div>
  </div>
 
+ {/* Mobile Category Scroller */}
+ <div className="lg:hidden px-4 py-3 border-b border-border/50 bg-card/30 flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
+ <Button 
+ variant={selectedCategory === null ? "default" : "outline"} 
+ size="sm" 
+ className="rounded-xl px-4 h-9 text-[10px] font-black uppercase tracking-widest shrink-0"
+ onClick={() => setSelectedCategory(null)}
+ >
+ All
+ </Button>
+ {categories.map((c: Category) => (
+ <Button 
+ key={c.id}
+ variant={selectedCategory === c.id ? "default" : "outline"} 
+ size="sm" 
+ className="rounded-xl px-4 h-9 text-[10px] font-black uppercase tracking-widest shrink-0"
+ onClick={() => setSelectedCategory(c.id)}
+ >
+ {c.name}
+ </Button>
+ ))}
+ </div>
+
  {/* Grid */}
  <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
  <AnimatePresence mode="popLayout">
- <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+ <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 lg:gap-5">
  {filteredProducts.map((p: Product) => (
  <motion.div
  key={p.id}
@@ -402,8 +425,8 @@ export default function PosIndex() {
  </div>
 
  {/* Price Badge */}
- <div className="absolute top-4 left-4 bg-muted backdrop-blur-md border border-border px-3 py-1.5 rounded-xl shadow-lg">
- <span className="text-foreground font-black text-sm tracking-tight">{formatCurrency(p.selling_price)}</span>
+ <div className="absolute top-2 left-2 bg-muted/90 backdrop-blur-md border border-border px-2 py-1 rounded-lg shadow-lg max-w-[90%]">
+  <span className="text-foreground font-black text-xs lg:text-sm tracking-tight truncate block">{formatCurrency(p.selling_price)}</span>
  </div>
 
  {/* Add Button - Reveal on Hover */}
@@ -421,10 +444,10 @@ export default function PosIndex() {
  )}
 
  {/* Details */}
- <div className="absolute bottom-0 left-0 right-0 p-5 transform transition-transform duration-300">
- <h3 className="text-white font-bold text-base leading-tight drop-shadow-md group-hover:text-primary-foreground transition-colors">{p.name}</h3>
- <p className="text-white/80 text-xs font-medium mt-1 truncate drop-shadow-md">{p.sku}</p>
- </div>
+ <div className="absolute bottom-0 left-0 right-0 p-3 lg:p-4 transform transition-transform duration-300">
+  <h3 className="text-white font-bold text-xs lg:text-sm leading-tight drop-shadow-md group-hover:text-primary-foreground transition-colors line-clamp-2">{p.name}</h3>
+  <p className="text-white/80 text-[10px] font-medium mt-0.5 truncate drop-shadow-md hidden sm:block">{p.sku}</p>
+  </div>
  </motion.div>
  ))}
  
@@ -446,8 +469,8 @@ export default function PosIndex() {
  </div>
 
  {/* CENTER RIGHT: Cart Container */}
- <div className="w-[340px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative">
- <div className="h-20 px-6 flex items-center justify-between border-b border-border/50 bg-transparent">
+ <div className="w-full lg:w-[280px] xl:w-[320px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0 lg:max-h-full max-h-[280px]">
+ <div className="h-14 px-4 flex items-center justify-between border-b border-border/50 bg-transparent shrink-0">
  <div className="flex items-center gap-3">
  <div className="size-10 rounded-2xl bg-primary/20 text-primary flex items-center justify-center border border-primary/20">
  <FiShoppingCart className="size-5" />
@@ -514,14 +537,14 @@ export default function PosIndex() {
  </div>
 
  {/* FAR RIGHT: Checkout Panel */}
- <div className="w-[320px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative">
+ <div className="w-full lg:w-[270px] xl:w-[310px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0">
  <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide">
  
  {/* Order Type Toggle (Linear style Segmented Control) */}
  <div className="space-y-3">
  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">Order Type</label>
  <div className="flex p-1 bg-muted rounded-2xl border border-border/50 relative">
- {['dine-in', 'take-out', 'delivery'].map((type) => (
+ {['dine-in', 'take-out'].map((type) => (
  <button
  key={type}
  onClick={() => setOrderType(type)}
@@ -536,118 +559,12 @@ export default function PosIndex() {
  <div 
  className="absolute top-1 bottom-1 bg-accent rounded-xl border border-border shadow-sm transition-all duration-300"
  style={{
- width: 'calc(33.333% - 4px)',
- left: orderType === 'dine-in' ? '4px' : orderType === 'take-out' ? 'calc(33.333% + 2px)' : 'calc(66.666% + 0px)'
+ width: 'calc(50% - 4px)',
+ left: orderType === 'dine-in' ? '4px' : 'calc(50% + 2px)'
  }}
  />
  </div>
  </div>
-
- {/* Delivery Module */}
- <AnimatePresence>
- {orderType === 'delivery' && (
- <motion.div 
- initial={{ opacity: 0, height: 0 }} 
- animate={{ opacity: 1, height: 'auto' }} 
- exit={{ opacity: 0, height: 0 }}
- className="overflow-hidden"
- >
- <div className="bg-card rounded-2xl p-4 border border-border/50 space-y-4 shadow-inner mt-2">
- <div className="flex items-center justify-between">
- <span className="text-[10px] font-black uppercase tracking-widest text-primary">Delivery Info</span>
- <Badge variant="outline" className={cn("text-[9px] font-bold h-5 border-none", 
- parseFloat(String(deliveryInfo.distance_km)) <= (parseFloat(branch?.delivery_radius_km) || 5) 
- ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
- {parseFloat(String(deliveryInfo.distance_km)) <= (parseFloat(branch?.delivery_radius_km) || 5) ? 'In Range' : 'Out of Range'}
- </Badge>
- </div>
-
- {deliveryRecommendation && (
- <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary-foreground">
- <div className="flex items-center justify-between gap-2 mb-2">
- <span className="font-bold uppercase tracking-widest text-primary">Recommended</span>
- <Badge className="text-[9px] uppercase bg-primary text-primary-foreground border-none">
- {deliveryRecommendation.type === 'internal' ? 'Internal' : 'External'}
- </Badge>
- </div>
- <p className="leading-5 text-[11px] text-muted-foreground">{deliveryRecommendation.reason}</p>
- </div>
- )}
-
- <div className="space-y-3">
- <Input 
- placeholder="Customer Name" 
- className="h-10 text-sm rounded-xl bg-muted border-border text-foreground/90 placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-primary shadow-inner"
- value={deliveryInfo.customer_name}
- onChange={e => setDeliveryInfo(p => ({ ...p, customer_name: e.target.value }))}
- />
- <Input 
- placeholder="Address" 
- className="h-10 text-sm rounded-xl bg-muted border-border text-foreground/90 placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-primary shadow-inner"
- value={deliveryInfo.customer_address}
- onChange={e => setDeliveryInfo(p => ({ ...p, customer_address: e.target.value }))}
- />
- 
- <div className="flex gap-2">
- <div className="flex-1 relative">
- <Input 
- placeholder="Dist" 
- type="number"
- step="0.1"
- className="h-10 text-sm rounded-xl bg-muted border-border text-foreground/90 placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-primary pr-8 shadow-inner"
- value={deliveryInfo.distance_km}
- onChange={e => setDeliveryInfo(p => ({ ...p, distance_km: e.target.value }))}
- />
- <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground/80">KM</span>
- </div>
- <div className="flex-1">
- <select
- className="w-full h-10 bg-muted border border-border rounded-xl text-sm px-3 text-foreground/90 focus:ring-1 focus:ring-primary outline-none shadow-inner"
- value={deliveryInfo.delivery_type}
- onChange={e => setDeliveryInfo(p => ({ ...p, delivery_type: e.target.value as any }))}
- >
- <option value="internal">Internal</option>
- <option value="external">External</option>
- </select>
- </div>
- </div>
- 
- {deliveryInfo.delivery_type === 'internal' ? (
- <select
- className="h-10 w-full bg-muted border border-border rounded-xl text-sm px-3 text-foreground/90 focus:ring-1 focus:ring-primary outline-none shadow-inner"
- value={deliveryInfo.rider_id}
- onChange={e => setDeliveryInfo(p => ({ ...p, rider_id: e.target.value }))}
- >
- <option value="">Assign Rider</option>
- {availableRiders?.map((r: any) => (
- <option key={r.id} value={r.id}>{r.name}</option>
- ))}
- </select>
- ) : (
- <div className="space-y-3">
- <div className="flex gap-2">
- <select
- className="flex-1 h-10 bg-muted border border-border rounded-xl text-sm px-3 text-foreground/90 outline-none shadow-inner"
- value={deliveryInfo.external_service}
- onChange={e => setDeliveryInfo(p => ({ ...p, external_service: e.target.value as any }))}
- >
- <option value="grab">Grab</option>
- <option value="lalamove">Lalamove</option>
- </select>
- <Input 
- placeholder="Track #" 
- className="flex-1 h-10 text-sm rounded-xl bg-muted border-border text-foreground/90 placeholder:text-muted-foreground/80 shadow-inner focus-visible:ring-1 focus-visible:ring-primary"
- value={deliveryInfo.tracking_number}
- onChange={e => setDeliveryInfo(p => ({ ...p, tracking_number: e.target.value }))}
- />
- </div>
- </div>
- )}
- </div>
- </div>
- </motion.div>
- )}
- </AnimatePresence>
 
  {/* Payment Selection */}
  <div className="space-y-3">
@@ -679,22 +596,16 @@ export default function PosIndex() {
  <div className="space-y-2.5">
  <div className="flex justify-between items-center text-muted-foreground text-sm font-medium">
  <span>Subtotal</span>
- <span className="text-foreground/90">{formatCurrency(cartTotal - (orderType === 'delivery' ? deliveryFee : 0))}</span>
+ <span className="text-foreground/90">{formatCurrency(cartTotal)}</span>
  </div>
- {orderType === 'delivery' && (
- <div className="flex justify-between items-center text-muted-foreground text-sm font-medium">
- <span>Delivery</span>
- <span className="text-foreground/90">{formatCurrency(deliveryFee)}</span>
- </div>
- )}
- <div className="flex justify-between items-center pt-3 border-t border-border">
- <span className="text-sm font-black uppercase tracking-widest text-foreground">Total</span>
- <span className="text-3xl font-black text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.4)]">{formatCurrency(cartTotal)}</span>
- </div>
+ <div className="flex justify-between items-center pt-3 border-t border-border gap-2">
+  <span className="text-sm font-black uppercase tracking-widest text-foreground shrink-0">Total</span>
+  <span className="text-xl xl:text-2xl font-black text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.4)] text-right truncate">{formatCurrency(cartTotal)}</span>
+  </div>
  </div>
 
  <Button
- className="w-full h-14 text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/60 hover:shadow-xl shadow-primary/80 active:scale-[0.98] transition-all disabled:opacity-50 border border-primary/50 relative overflow-hidden group"
+ className="w-full h-12 lg:h-14 text-sm lg:text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/60 hover:shadow-xl shadow-primary/80 active:scale-[0.98] transition-all disabled:opacity-50 border border-primary/50 relative overflow-hidden group"
  disabled={cart.length === 0 || processing}
  onClick={handleCheckout}
  >
