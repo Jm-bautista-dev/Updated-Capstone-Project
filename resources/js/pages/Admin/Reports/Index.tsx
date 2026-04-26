@@ -173,7 +173,7 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: a
 }
 
 // ── ADMIN REPORTS DASHBOARD ──
-function AdminReports({ sales, cashiers, filters, trend_data, category_data, top_product, peak_day, total_revenue, total_profit, total_orders, cancelled_count }: any) {
+function AdminReports({ sales, cashiers, filters, trend_data, category_data, top_product, peak_day, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: any) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo,   setDateTo]   = useState(filters.date_to   || '');
 
@@ -232,7 +232,13 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                 <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
                     <span className="size-2 rounded-full bg-primary" /> Performance Overview
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                    <StatCard
+                        title="Today's Sales"
+                        value={formatCurrency(today_sales ?? 0)}
+                        icon={FiZap}
+                        colorClass="bg-primary"
+                    />
                     <StatCard
                         title="Total Revenue"
                         value={formatCurrency(total_revenue ?? 0)}
@@ -490,7 +496,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
 }
 
 // ── ORIGINAL CASHIER REPORTS ──
-function CashierReports({ sales, cashiers, filters }: any) {
+function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, total_orders }: any) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [cashierId, setCashierId] = useState(filters.cashier_id || 'all');
@@ -562,6 +568,28 @@ function CashierReports({ sales, cashiers, filters }: any) {
                         }} />
                     </div>
                 </div>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard
+                    title="Total Sales Today"
+                    value={formatCurrency(today_sales ?? 0)}
+                    icon={FiZap}
+                    colorClass="bg-primary"
+                />
+                <StatCard
+                    title="Period Revenue"
+                    value={formatCurrency(total_revenue ?? 0)}
+                    icon={FiDollarSign}
+                    colorClass="bg-emerald-500"
+                />
+                <StatCard
+                    title="Period Orders"
+                    value={(total_orders ?? 0).toLocaleString()}
+                    icon={FiShoppingBag}
+                    colorClass="bg-indigo-500"
+                />
             </div>
 
             {/* Premium Filter Toolbar */}

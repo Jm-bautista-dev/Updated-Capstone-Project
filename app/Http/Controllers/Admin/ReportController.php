@@ -36,11 +36,20 @@ class ReportController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $todaySales = Sale::where('status', 'completed')
+            ->whereDate('created_at', today())
+            ->when(!$user->isAdmin(), fn($q) => $q
+                ->where('user_id',   $user->id)
+                ->where('branch_id', $user->branch_id)
+            )
+            ->sum('total');
+
         return Inertia::render('Admin/Reports/Index', array_merge(
             [
-                'sales'    => $sales,
-                'cashiers' => User::where('role', 'cashier')->get(),
-                'filters'  => $request->only(['date_from', 'date_to', 'cashier_id', 'status']),
+                'sales'       => $sales,
+                'cashiers'    => User::where('role', 'cashier')->get(),
+                'filters'     => $request->only(['date_from', 'date_to', 'cashier_id', 'status']),
+                'today_sales' => (float) $todaySales,
             ],
             $this->buildAnalytics($request)
         ));
