@@ -89,8 +89,17 @@ const TableRow = React.memo(function TableRow({
                             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">Order Contents</p>
                             <div className="space-y-1.5">
                                 {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
-                                    <div key={item.id} className="flex justify-between items-center gap-4 text-[11px]">
-                                        <span className="font-semibold truncate max-w-[110px]">{item.product?.name || 'Product'}</span>
+                                    <div key={item.id} className="flex justify-between items-center gap-3 text-[11px]">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="size-6 rounded bg-muted/50 flex items-center justify-center shrink-0 border overflow-hidden">
+                                                {item.product?.image_url ? (
+                                                    <img src={item.product.image_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <Package className="size-2.5 text-muted-foreground/40" />
+                                                )}
+                                            </div>
+                                            <span className="font-semibold truncate max-w-[110px]">{item.product?.name || 'Product'}</span>
+                                        </div>
                                         <span className="font-black text-primary shrink-0">×{item.quantity}</span>
                                     </div>
                                 ))}

@@ -16,7 +16,12 @@ class Product extends Model
     use BelongsToBranch, SoftDeletes;
     protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id'];
 
-    protected $appends = ['computed_stock'];
+    protected $appends = ['computed_stock', 'image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+    }
 
     public function branch()
     {
