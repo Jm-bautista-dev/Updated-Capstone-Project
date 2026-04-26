@@ -55,12 +55,36 @@ class AnalyticsController extends Controller
                 ->where('branch_id', $branch->id)
                 ->whereColumn('stock', '<=', 'low_stock_level')
                 ->get()
-                ->map(fn($row) => [
-                    'name'            => $row->ingredient->name ?? 'Unknown',
-                    'stock'           => $row->stock,
-                    'unit'            => $row->ingredient->unit ?? 'pcs',
-                    'low_stock_level' => $row->low_stock_level,
-                ]);
+                ->map(function($row) {
+                    $stock = (float) $row->stock;
+                    $unit = $row->ingredient->unit ?? 'pcs';
+                    $low_stock_level = (float) $row->low_stock_level;
+
+                    if ($unit === 'g') {
+                        if ($stock >= 1000) {
+                            $stock = $stock / 1000;
+                            $unit = 'kg';
+                        }
+                        if ($low_stock_level >= 1000) {
+                            $low_stock_level = $low_stock_level / 1000;
+                        }
+                    } elseif ($unit === 'ml') {
+                        if ($stock >= 1000) {
+                            $stock = $stock / 1000;
+                            $unit = 'L';
+                        }
+                        if ($low_stock_level >= 1000) {
+                            $low_stock_level = $low_stock_level / 1000;
+                        }
+                    }
+
+                    return [
+                        'name'            => $row->ingredient->name ?? 'Unknown',
+                        'stock'           => $stock,
+                        'unit'            => $unit,
+                        'low_stock_level' => $low_stock_level,
+                    ];
+                });
 
             return [
                 'id'                   => $branch->id,

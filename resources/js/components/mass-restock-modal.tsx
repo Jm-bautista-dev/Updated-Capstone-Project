@@ -90,6 +90,15 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
     }
   };
 
+  const handleUnitChange = (id: number, value: string) => {
+    const newItems = [...data.items];
+    const index = newItems.findIndex(i => i.id === id);
+    if (index > -1) {
+      newItems[index].unit = value;
+      setData('items', newItems);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -282,26 +291,44 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                             </div>
                           </div>
 
-                          <div className="w-36 shrink-0">
-                            <div className="relative group/input">
+                          <div className="w-48 shrink-0 flex items-center gap-2">
+                            <div className="relative group/input flex-1">
                               <Input
                                 type="number"
                                 placeholder="0.00"
                                 value={formItem?.quantity || ''}
                                 onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                                 className={cn(
-                                  "h-11 pr-12 bg-muted/40 border-none ring-1 transition-all font-black italic text-right tabular-nums rounded-xl text-xs",
+                                  "h-11 px-3 bg-muted/40 border-none ring-1 transition-all font-black italic text-right tabular-nums rounded-xl text-xs",
                                   Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/[0.05] shadow-inner" : "ring-border/50 group-hover/input:ring-border"
                                 )}
                                 min="0"
                                 step="any"
                               />
-                              <div className={cn(
-                                "absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase pointer-events-none transition-colors",
-                                Number(formItem?.quantity) > 0 ? "text-primary" : "text-muted-foreground/30"
-                              )}>
-                                {item.display_unit ?? item.unit}
-                              </div>
+                            </div>
+                            <div className="w-16 shrink-0">
+                              <select
+                                value={formItem?.unit || item.unit}
+                                onChange={(e) => handleUnitChange(item.id, e.target.value)}
+                                className={cn(
+                                  "h-11 w-full bg-muted/40 border-none ring-1 transition-all font-black text-center uppercase rounded-xl text-xs",
+                                  Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/[0.05] shadow-inner text-primary" : "ring-border/50 text-muted-foreground hover:ring-border"
+                                )}
+                              >
+                                {item.unit === 'g' || item.unit === 'kg' ? (
+                                  <>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                  </>
+                                ) : item.unit === 'ml' || item.unit === 'L' ? (
+                                  <>
+                                    <option value="ml">ml</option>
+                                    <option value="L">L</option>
+                                  </>
+                                ) : (
+                                  <option value={item.unit}>{item.unit}</option>
+                                )}
+                              </select>
                             </div>
                           </div>
                         </motion.div>

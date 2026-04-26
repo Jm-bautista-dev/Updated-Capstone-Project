@@ -17,6 +17,7 @@ interface Ingredient {
     unit: string;
     low_stock_level: number;
     cost_price: number;
+    is_low_stock: boolean;
 }
 
 interface Supplier {
@@ -44,18 +45,15 @@ interface Props {
 
 function getStockStatus(item: Ingredient): { label: string; color: string; bg: string } {
     const stock = Number(item.stock);
-    const threshold = Number(item.low_stock_level);
     if (stock <= 0) return { label: 'Out of Stock', color: 'text-rose-600', bg: 'bg-rose-500/10 border-rose-500/20' };
-    if (stock <= threshold) return { label: 'Low Level', color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' };
+    if (item.is_low_stock) return { label: 'Low Level', color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' };
     return { label: 'Healthy', color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' };
 }
 
 /* ─── Component ──────────────────────────────────────────────── */
 
 export default function SupplierShow({ supplier }: Props) {
-    const lowStockItems = supplier.ingredients.filter(
-        item => Number(item.stock) <= Number(item.low_stock_level)
-    );
+    const lowStockItems = supplier.ingredients.filter(item => item.is_low_stock);
     const outOfStockItems = supplier.ingredients.filter(item => Number(item.stock) <= 0);
 
     return (
@@ -220,7 +218,7 @@ export default function SupplierShow({ supplier }: Props) {
                                             {supplier.ingredients.map((item) => {
                                                 const status = getStockStatus(item);
                                                 return (
-                                                    <tr key={item.id} className={`group hover:bg-muted/10 transition-colors ${Number(item.stock) <= Number(item.low_stock_level) ? 'bg-rose-50/30' : ''}`}>
+                                                    <tr key={item.id} className={`group hover:bg-muted/10 transition-colors ${item.is_low_stock ? 'bg-rose-50/30' : ''}`}>
                                                         <td className="px-5 py-3.5 font-bold text-foreground">{item.name}</td>
                                                         <td className="px-5 py-3.5 text-right font-mono font-bold">
                                                             {Number(item.stock).toLocaleString()} <span className="text-muted-foreground text-xs">{item.unit}</span>

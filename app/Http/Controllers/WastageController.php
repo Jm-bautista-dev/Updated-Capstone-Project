@@ -22,12 +22,13 @@ class WastageController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type'     => 'required|in:ingredient,product',
-            'id'       => 'required|integer',
-            'quantity' => 'required|numeric|gt:0',
-            'unit'     => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
-            'reason'   => 'required|string|in:expired,spilled,damaged,other',
-            'notes'    => 'nullable|string|max:500',
+            'type'      => 'required|in:ingredient,product',
+            'id'        => 'required|integer',
+            'branch_id' => 'required|integer',
+            'quantity'  => 'required|numeric|gt:0',
+            'unit'      => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'reason'    => 'required|string|in:expired,spilled,damaged,other',
+            'notes'     => 'nullable|string|max:500',
         ]);
 
         try {
@@ -37,7 +38,8 @@ class WastageController extends Controller
                 (float) $validated['quantity'],
                 $validated['unit'],
                 $validated['reason'],
-                $validated['notes'] ?? ""
+                $validated['notes'] ?? "",
+                (int) $validated['branch_id']
             );
 
             return back()->with('success', 'Wastage logged successfully and inventory adjusted.');

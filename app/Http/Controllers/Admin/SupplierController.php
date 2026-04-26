@@ -137,6 +137,34 @@ class SupplierController extends Controller
     public function show(Supplier $supplier)
     {
         $supplier->load(['branch', 'ingredients', 'creator', 'updater']);
+        // Append branch-specific stock info to each ingredient
+        $branchId = $supplier->branch_id;
+        $supplier->ingredients->transform(function ($ingredient) use ($branchId) {
+            $stockRow = $ingredient->stockForBranch($branchId);
+            $stock = $stockRow ? (float) $stockRow->stock : 0;
+            $low_stock_level = $stockRow ? (float) $stockRow->low_stock_level : 5;
+            $unit = $ingredient->unit ?? 'pcs';
+
+            if ($unit === 'g' && $stock >= 1000) {
+                $stock = $stock / 1000;
+                $unit = 'kg';
+            } elseif ($unit === 'ml' && $stock >= 1000) {
+                $stock = $stock / 1000;
+                $unit = 'L';
+            }
+
+            if ($ingredient->unit === 'g' && $low_stock_level >= 1000) {
+                $low_stock_level = $low_stock_level / 1000;
+            } elseif ($ingredient->unit === 'ml' && $low_stock_level >= 1000) {
+                $low_stock_level = $low_stock_level / 1000;
+            }
+
+            $ingredient->stock = $stock;
+            $ingredient->unit = $unit;
+            $ingredient->low_stock_level = $low_stock_level;
+            $ingredient->is_low_stock = $stockRow ? $stockRow->isLowStock() : true;
+            return $ingredient;
+        });
 
         return Inertia::render('Admin/Suppliers/Show', [
             'supplier' => $supplier,

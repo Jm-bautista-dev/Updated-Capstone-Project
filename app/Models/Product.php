@@ -96,17 +96,28 @@ class Product extends Model
             $stock = (float) ($this->stock ?? 0);
             return [
                 'available' => $stock,
+                'is_available' => $stock > 0,
+                'max_servings' => $stock,
                 'limiting_ingredient' => $stock <= 0 ? 'Physical Stock' : null,
+                'blocking_ingredients' => [],
                 'is_low_stock' => $stock > 0 && $stock <= 5
             ];
         }
 
         if (!$branchId) {
-            return ['available' => 0, 'limiting_ingredient' => 'No Branch Context', 'is_low_stock' => false];
+            return [
+                'available' => 0, 
+                'is_available' => false,
+                'max_servings' => 0,
+                'limiting_ingredient' => 'No Branch Context', 
+                'blocking_ingredients' => [],
+                'is_low_stock' => false
+            ];
         }
 
         $minPossible = PHP_FLOAT_MAX;
         $limitingIngredient = null;
+        $blockingIngredients = [];
 
         foreach ($ingredients as $ingredient) {
             $qtyInput = (float) $ingredient->pivot->quantity_required;
@@ -133,13 +144,39 @@ class Product extends Model
                 $minPossible = $unitsPossible;
                 $limitingIngredient = $ingredient->name;
             }
+
+            if ($availableInStock < $requiredPerUnit) {
+                $displayUnit = $ingredient->unit ?? 'pcs';
+                $displayStock = $availableInStock;
+                $displayRequired = $requiredPerUnit;
+
+                if ($displayUnit === 'g' && ($displayStock >= 1000 || $displayRequired >= 1000)) {
+                    $displayStock = $displayStock / 1000;
+                    $displayRequired = $displayRequired / 1000;
+                    $displayUnit = 'kg';
+                } elseif ($displayUnit === 'ml' && ($displayStock >= 1000 || $displayRequired >= 1000)) {
+                    $displayStock = $displayStock / 1000;
+                    $displayRequired = $displayRequired / 1000;
+                    $displayUnit = 'L';
+                }
+
+                $blockingIngredients[] = [
+                    'name' => $ingredient->name,
+                    'stock' => $displayStock,
+                    'required' => $displayRequired,
+                    'unit' => $displayUnit
+                ];
+            }
         }
 
         $available = $minPossible === PHP_FLOAT_MAX ? 0 : (float) $minPossible;
 
         return [
             'available' => $available,
+            'is_available' => $available > 0,
+            'max_servings' => $available,
             'limiting_ingredient' => $available <= 10 ? $limitingIngredient : null,
+            'blocking_ingredients' => $blockingIngredients,
             'is_low_stock' => $available > 0 && $available <= 5
         ];
     }

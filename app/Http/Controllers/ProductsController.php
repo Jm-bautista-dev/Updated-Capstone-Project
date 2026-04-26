@@ -65,6 +65,9 @@ class ProductsController extends Controller
             $availability = $product->dynamicAvailability($branchId ?: $product->branch_id);
             
             $product->stock = $availability['available'];
+            $product->max_servings = $availability['max_servings'];
+            $product->is_available = $availability['is_available'];
+            $product->blocking_ingredients = $availability['blocking_ingredients'];
             $product->limiting_ingredient = $availability['limiting_ingredient'];
             $product->is_low_stock = $availability['is_low_stock'];
             

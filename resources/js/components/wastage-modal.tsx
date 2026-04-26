@@ -35,6 +35,7 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
     const { data, setData, post, processing, reset, errors } = useForm({
         type: type,
         id: item?.id,
+        branch_id: item?.branch_id || currentBranchId,
         quantity: '',
         unit: item?.unit || (type === 'product' ? 'pcs' : 'g'),
         reason: 'expired',
@@ -46,6 +47,7 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
             setData({
                 type: type,
                 id: item.id,
+                branch_id: item.branch_id || currentBranchId,
                 quantity: '',
                 unit: item.unit || (type === 'product' ? 'pcs' : 'g'),
                 reason: 'expired',
@@ -165,6 +167,17 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                             Warning: This action will permanently deduct stock and record a financial loss in the analytics module.
                         </p>
                     </div>
+
+                    {Object.keys(errors).length > 0 && (
+                        <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-start gap-2">
+                            <FiAlertTriangle className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                            <div className="flex flex-col gap-1">
+                                {Object.entries(errors).map(([key, err]) => (
+                                    <p key={key} className="text-[10px] text-rose-600 font-bold leading-tight uppercase tracking-widest">{err}</p>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <DialogFooter className="pt-2">
                         <Button type="button" variant="ghost" onClick={() => { onOpenChange(false); reset(); }} className="rounded-xl h-11 font-black uppercase text-[10px] tracking-widest italic">Dismiss</Button>

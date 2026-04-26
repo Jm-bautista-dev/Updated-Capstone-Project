@@ -98,6 +98,9 @@ type Product = {
     is_direct: boolean;
     unit: string;
     description: string | null;
+    is_available?: boolean;
+    max_servings?: number;
+    blocking_ingredients?: { name: string; stock: number; required: number; unit: string }[];
     created_at: string;
 };
 
@@ -751,6 +754,23 @@ export default function ProductsIndex() {
                                                     {product.stock}
                                                 </span>
                                                 <span className="text-[8px] font-black uppercase text-slate-500 tracking-wider mt-1">Servings Ready</span>
+                                                {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
+                                                    <div className="mt-2 flex flex-col items-center gap-1 w-full max-w-[120px]">
+                                                        <span className="text-[8px] font-black text-rose-500 uppercase">Missing:</span>
+                                                        <div className="flex flex-wrap justify-center gap-1">
+                                                            {product.blocking_ingredients.slice(0, 2).map((ing: any, i: number) => (
+                                                                <Badge key={i} variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-500 bg-rose-500/10 truncate max-w-full">
+                                                                    {ing.name}
+                                                                </Badge>
+                                                            ))}
+                                                            {product.blocking_ingredients.length > 2 && (
+                                                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-500 bg-rose-500/10">
+                                                                    +{product.blocking_ingredients.length - 2}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="p-4 hidden sm:table-cell">
@@ -839,10 +859,42 @@ export default function ProductsIndex() {
                                         <div className="flex items-center justify-between mt-3">
                                             <span className="text-xl font-black text-white">{formatCurrency(product.selling_price)}</span>
                                             <div className="flex flex-col text-right">
-                                                <span className="text-[10px] text-slate-500 font-mono">{product.sku}</span>
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mt-0.5">Servings Ready</span>
+                                                <span className="text-[10px] text-slate-500 font-mono mb-1">{product.sku}</span>
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <span className={cn(
+                                                        "font-black text-lg italic tracking-tighter leading-none shadow-text",
+                                                        product.stock <= 0 ? "text-rose-500" : product.stock <= 5 ? "text-amber-500" : "text-emerald-500"
+                                                    )}>
+                                                        {product.stock}
+                                                    </span>
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mt-0.5">Servings Ready</span>
+                                                </div>
                                             </div>
                                         </div>
+                                        
+                                        {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
+                                            <div className="mt-3 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 animate-in fade-in slide-in-from-bottom-2">
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                    <FiAlertTriangle className="size-3 text-rose-500" />
+                                                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Missing Materials</span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {product.blocking_ingredients.slice(0, 3).map((ing: any, i: number) => (
+                                                        <div key={i} className="flex justify-between items-center text-[10px]">
+                                                            <span className="font-bold text-slate-300 line-clamp-1">{ing.name}</span>
+                                                            <span className="font-black text-rose-400 shrink-0 tabular-nums">
+                                                                {ing.stock}/{ing.required} <span className="text-[8px] uppercase text-rose-500/70">{ing.unit}</span>
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                    {product.blocking_ingredients.length > 3 && (
+                                                        <div className="text-[9px] font-bold text-slate-500 italic text-center pt-1 border-t border-rose-500/10">
+                                                            + {product.blocking_ingredients.length - 3} more ingredients missing
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </motion.div>
                             ))}
@@ -1080,6 +1132,23 @@ export default function ProductsIndex() {
                                                                 {product.stock}
                                                             </span>
                                                             <span className="text-[8px] font-black uppercase text-muted-foreground/60 tracking-wider mt-1">Servings Ready</span>
+                                                            {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
+                                                                <div className="mt-2 flex flex-col items-center gap-1 w-full max-w-[120px]">
+                                                                    <span className="text-[8px] font-black text-rose-500 uppercase">Missing:</span>
+                                                                    <div className="flex flex-wrap justify-center gap-1">
+                                                                        {product.blocking_ingredients.slice(0, 2).map((ing: any, i: number) => (
+                                                                            <Badge key={i} variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-600 bg-rose-50 truncate max-w-full">
+                                                                                {ing.name}
+                                                                            </Badge>
+                                                                        ))}
+                                                                        {product.blocking_ingredients.length > 2 && (
+                                                                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-600 bg-rose-50">
+                                                                                +{product.blocking_ingredients.length - 2}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="p-4 hidden sm:table-cell">
@@ -1151,6 +1220,30 @@ export default function ProductsIndex() {
                                                 </div>
                                             </div>
 
+                                            {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
+                                                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 animate-in fade-in slide-in-from-bottom-2">
+                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <FiAlertTriangle className="size-3 text-rose-500" />
+                                                        <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Missing Materials</span>
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        {product.blocking_ingredients.slice(0, 3).map((ing: any, i: number) => (
+                                                            <div key={i} className="flex justify-between items-center text-[10px]">
+                                                                <span className="font-bold text-foreground line-clamp-1">{ing.name}</span>
+                                                                <span className="font-black text-rose-500 shrink-0 tabular-nums">
+                                                                    {ing.stock}/{ing.required} <span className="text-[8px] uppercase">{ing.unit}</span>
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                        {product.blocking_ingredients.length > 3 && (
+                                                            <div className="text-[9px] font-bold text-muted-foreground italic text-center pt-1 border-t border-rose-500/10">
+                                                                + {product.blocking_ingredients.length - 3} more ingredients missing
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
                                             <div className="grid grid-cols-2 gap-4 items-center pt-3 border-t border-muted/30 mt-auto">
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest opacity-60">Ready to serve</p>

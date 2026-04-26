@@ -40,12 +40,23 @@ class ProductService
             // Create recipe (Optional)
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $item) {
-                    MenuItemIngredient::create([
-                        'menu_item_id'      => $product->id,
-                        'ingredient_id'     => $item['ingredient_id'],
-                        'quantity_required' => $item['quantity_required'],
-                        'unit'              => $item['unit'] ?? null,
-                    ]);
+                    $ingredient = \App\Models\Ingredient::find($item['ingredient_id']);
+                    if ($ingredient) {
+                        $inputUnit = $item['unit'] ?? $ingredient->unit;
+                        $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
+                            $item['quantity_required'],
+                            $inputUnit,
+                            $ingredient->unit,
+                            $ingredient->avg_weight_per_piece
+                        );
+
+                        MenuItemIngredient::create([
+                            'menu_item_id'      => $product->id,
+                            'ingredient_id'     => $item['ingredient_id'],
+                            'quantity_required' => $baseQty,
+                            'unit'              => $ingredient->unit, // Always use base unit
+                        ]);
+                    }
                 }
             }
 
@@ -89,12 +100,23 @@ class ProductService
             MenuItemIngredient::where('menu_item_id', $product->id)->delete();
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $item) {
-                    MenuItemIngredient::create([
-                        'menu_item_id'      => $product->id,
-                        'ingredient_id'     => $item['ingredient_id'],
-                        'quantity_required' => $item['quantity_required'],
-                        'unit'              => $item['unit'] ?? null,
-                    ]);
+                    $ingredient = \App\Models\Ingredient::find($item['ingredient_id']);
+                    if ($ingredient) {
+                        $inputUnit = $item['unit'] ?? $ingredient->unit;
+                        $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
+                            $item['quantity_required'],
+                            $inputUnit,
+                            $ingredient->unit,
+                            $ingredient->avg_weight_per_piece
+                        );
+
+                        MenuItemIngredient::create([
+                            'menu_item_id'      => $product->id,
+                            'ingredient_id'     => $item['ingredient_id'],
+                            'quantity_required' => $baseQty,
+                            'unit'              => $ingredient->unit, // Always use base unit
+                        ]);
+                    }
                 }
             }
 

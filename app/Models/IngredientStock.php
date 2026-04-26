@@ -27,6 +27,9 @@ class IngredientStock extends Model
         'low_stock_level',
         'is_low_stock_notified',
         'is_out_of_stock_notified',
+        'total_stock_value',
+        'cost_per_unit',
+        'last_purchase_price',
     ];
 
     protected $casts = [
@@ -71,7 +74,7 @@ class IngredientStock extends Model
      */
     public function isLowStock(): bool
     {
-        return (float) $this->stock <= (float) $this->low_stock_level && (float) $this->stock > 0;
+        return (float) $this->stock <= (float) $this->low_stock_level;
     }
 
     /**

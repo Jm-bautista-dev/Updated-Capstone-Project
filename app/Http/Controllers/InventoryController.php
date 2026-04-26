@@ -73,13 +73,25 @@ class InventoryController extends Controller
                 $displayPrice = $baseUnitPrice;
 
                 if ($ingredient->unit === 'g') {
-                    $displayUnit  = 'kg';
-                    $displayStock = (float) $stockRow->stock / 1000;
-                    $displayPrice = $baseUnitPrice * 1000;
+                    if ($stockRow->stock >= 1000) {
+                        $displayUnit  = 'kg';
+                        $displayStock = (float) $stockRow->stock / 1000;
+                        $displayPrice = $baseUnitPrice * 1000;
+                    } else {
+                        $displayUnit  = 'g';
+                        $displayStock = (float) $stockRow->stock;
+                        $displayPrice = $baseUnitPrice;
+                    }
                 } elseif ($ingredient->unit === 'ml') {
-                    $displayUnit  = 'L';
-                    $displayStock = (float) $stockRow->stock / 1000;
-                    $displayPrice = $baseUnitPrice * 1000;
+                    if ($stockRow->stock >= 1000) {
+                        $displayUnit  = 'L';
+                        $displayStock = (float) $stockRow->stock / 1000;
+                        $displayPrice = $baseUnitPrice * 1000;
+                    } else {
+                        $displayUnit  = 'ml';
+                        $displayStock = (float) $stockRow->stock;
+                        $displayPrice = $baseUnitPrice;
+                    }
                 }
 
                 $inventory[] = [
