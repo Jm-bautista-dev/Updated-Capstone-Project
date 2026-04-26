@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'must_change_password' => \App\Http\Middleware\MustChangePassword::class,
         ]);
 
         $middleware->append(\App\Http\Middleware\NetworkTraceMiddleware::class);

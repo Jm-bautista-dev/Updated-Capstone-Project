@@ -172,7 +172,7 @@ export const login = {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::resetPassword
- * @see app/Http/Controllers/Api/AuthController.php:174
+ * @see app/Http/Controllers/Api/AuthController.php:175
  * @route '/api/v1/reset-password'
  */
 export const resetPassword = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -187,7 +187,7 @@ resetPassword.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::resetPassword
- * @see app/Http/Controllers/Api/AuthController.php:174
+ * @see app/Http/Controllers/Api/AuthController.php:175
  * @route '/api/v1/reset-password'
  */
 resetPassword.url = (options?: RouteQueryOptions) => {
@@ -196,7 +196,7 @@ resetPassword.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::resetPassword
- * @see app/Http/Controllers/Api/AuthController.php:174
+ * @see app/Http/Controllers/Api/AuthController.php:175
  * @route '/api/v1/reset-password'
  */
 resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -206,7 +206,7 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
     /**
 * @see \App\Http\Controllers\Api\AuthController::resetPassword
- * @see app/Http/Controllers/Api/AuthController.php:174
+ * @see app/Http/Controllers/Api/AuthController.php:175
  * @route '/api/v1/reset-password'
  */
     const resetPasswordForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -216,7 +216,7 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
             /**
 * @see \App\Http\Controllers\Api\AuthController::resetPassword
- * @see app/Http/Controllers/Api/AuthController.php:174
+ * @see app/Http/Controllers/Api/AuthController.php:175
  * @route '/api/v1/reset-password'
  */
         resetPasswordForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -227,7 +227,7 @@ resetPassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
     resetPassword.form = resetPasswordForm
 /**
 * @see \App\Http\Controllers\Api\AuthController::logout
- * @see app/Http/Controllers/Api/AuthController.php:124
+ * @see app/Http/Controllers/Api/AuthController.php:125
  * @route '/api/v1/logout'
  */
 export const logout = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -242,7 +242,7 @@ logout.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::logout
- * @see app/Http/Controllers/Api/AuthController.php:124
+ * @see app/Http/Controllers/Api/AuthController.php:125
  * @route '/api/v1/logout'
  */
 logout.url = (options?: RouteQueryOptions) => {
@@ -251,7 +251,7 @@ logout.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::logout
- * @see app/Http/Controllers/Api/AuthController.php:124
+ * @see app/Http/Controllers/Api/AuthController.php:125
  * @route '/api/v1/logout'
  */
 logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -261,7 +261,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\AuthController::logout
- * @see app/Http/Controllers/Api/AuthController.php:124
+ * @see app/Http/Controllers/Api/AuthController.php:125
  * @route '/api/v1/logout'
  */
     const logoutForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -271,7 +271,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\AuthController::logout
- * @see app/Http/Controllers/Api/AuthController.php:124
+ * @see app/Http/Controllers/Api/AuthController.php:125
  * @route '/api/v1/logout'
  */
         logoutForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -282,7 +282,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     logout.form = logoutForm
 /**
 * @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:153
+ * @see app/Http/Controllers/Api/AuthController.php:154
  * @route '/api/v1/token/refresh'
  */
 export const refreshToken = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -297,7 +297,7 @@ refreshToken.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:153
+ * @see app/Http/Controllers/Api/AuthController.php:154
  * @route '/api/v1/token/refresh'
  */
 refreshToken.url = (options?: RouteQueryOptions) => {
@@ -306,7 +306,7 @@ refreshToken.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:153
+ * @see app/Http/Controllers/Api/AuthController.php:154
  * @route '/api/v1/token/refresh'
  */
 refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -316,7 +316,7 @@ refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:153
+ * @see app/Http/Controllers/Api/AuthController.php:154
  * @route '/api/v1/token/refresh'
  */
     const refreshTokenForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -326,7 +326,7 @@ refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\AuthController::refreshToken
- * @see app/Http/Controllers/Api/AuthController.php:153
+ * @see app/Http/Controllers/Api/AuthController.php:154
  * @route '/api/v1/token/refresh'
  */
         refreshTokenForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -334,7 +334,4 @@ refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             method: 'post',
         })
     
-    refreshToken.form = refreshTokenForm
-const AuthController = { register, login, resetPassword, logout, refreshToken }
-
-export default AuthController
+    refreshToken.form 

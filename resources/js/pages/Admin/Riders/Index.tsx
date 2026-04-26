@@ -493,16 +493,50 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                             <CheckCircle2 className="size-10" />
                         </div>
                         <DialogTitle className="text-2xl font-black">Rider Account Created!</DialogTitle>
-                        <p className="text-emerald-50 text-sm">Please copy these credentials and provide them to the rider. This is shown only once.</p>
+                        <p className="text-emerald-50 text-sm">
+                            {newRiderCreds?.email_sent
+                                ? `Credentials have been emailed to ${newRiderCreds?.email}`
+                                : 'Please copy these credentials and provide them to the rider.'}
+                        </p>
                     </div>
 
-                    <div className="p-8 space-y-6">
-                        <div className="space-y-4">
+                    <div className="p-8 space-y-5">
+                        {/* Email sent status banner */}
+                        {newRiderCreds?.email_sent ? (
+                            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
+                                <div className="size-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                                    <Mail className="size-4 text-white" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm">Email Sent Successfully</p>
+                                    <p className="opacity-75">Login credentials were delivered to {newRiderCreds?.email}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-3">
+                                <div className="size-8 rounded-full bg-rose-500 flex items-center justify-center shrink-0">
+                                    <AlertCircle className="size-4 text-white" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm">Email Could Not Be Sent</p>
+                                    <p className="opacity-75">Please share these credentials manually with the rider.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <div className="p-4 rounded-2xl bg-muted/50 border border-muted-foreground/10 space-y-1 relative group">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <User className="size-3" /> Rider Name
+                                </label>
+                                <p className="font-bold text-base">{newRiderCreds?.name}</p>
+                            </div>
+
                             <div className="p-4 rounded-2xl bg-muted/50 border border-muted-foreground/10 space-y-1 relative group">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                                     <Mail className="size-3" /> Email / Username
                                 </label>
-                                <p className="font-bold text-lg select-all">{newRiderCreds?.email}</p>
+                                <p className="font-bold text-base select-all">{newRiderCreds?.email}</p>
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -515,7 +549,8 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
 
                             <div className="p-4 rounded-2xl bg-muted/50 border border-muted-foreground/10 space-y-1 relative group">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                                    <Lock className="size-3" /> Temporary Password
+                                    <Lock className="size-3" /> 
+                                    {newRiderCreds?.auto_generated ? 'Auto-Generated Password' : 'Admin-Set Password'}
                                 </label>
                                 <p className="font-mono font-bold text-xl tracking-wider text-primary select-all">{newRiderCreds?.password}</p>
                                 <Button 
@@ -529,10 +564,12 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                             </div>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex gap-3">
-                            <div className="size-5 rounded-full bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">!</div>
+                        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-300 text-xs flex gap-3">
+                            <div className="size-5 rounded-full bg-amber-300 dark:bg-amber-700 flex items-center justify-center shrink-0 mt-0.5 text-amber-900 dark:text-amber-100 font-black text-[10px]">!</div>
                             <p className="font-medium leading-relaxed">
-                                For security reasons, this password was generated by the system. The rider can log in to the mobile app immediately using these credentials.
+                                {newRiderCreds?.auto_generated
+                                    ? 'This password was auto-generated by the system. The rider should change it after first login.'
+                                    : 'This password was set by the admin. The rider can log in to the mobile app immediately.'}
                             </p>
                         </div>
 

@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\Admin\EmployeeController::update
- * @see app/Http/Controllers/Admin/EmployeeController.php:57
+ * @see app/Http/Controllers/Admin/EmployeeController.php:84
  * @route '/employees/{employee}'
  */
 export const update = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -149,7 +149,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\EmployeeController::update
- * @see app/Http/Controllers/Admin/EmployeeController.php:57
+ * @see app/Http/Controllers/Admin/EmployeeController.php:84
  * @route '/employees/{employee}'
  */
 update.url = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -182,7 +182,7 @@ update.url = (args: { employee: number | { id: number } } | [employee: number | 
 
 /**
 * @see \App\Http\Controllers\Admin\EmployeeController::update
- * @see app/Http/Controllers/Admin/EmployeeController.php:57
+ * @see app/Http/Controllers/Admin/EmployeeController.php:84
  * @route '/employees/{employee}'
  */
 update.put = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -192,7 +192,7 @@ update.put = (args: { employee: number | { id: number } } | [employee: number | 
 
     /**
 * @see \App\Http\Controllers\Admin\EmployeeController::update
- * @see app/Http/Controllers/Admin/EmployeeController.php:57
+ * @see app/Http/Controllers/Admin/EmployeeController.php:84
  * @route '/employees/{employee}'
  */
     const updateForm = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -207,7 +207,7 @@ update.put = (args: { employee: number | { id: number } } | [employee: number | 
 
             /**
 * @see \App\Http\Controllers\Admin\EmployeeController::update
- * @see app/Http/Controllers/Admin/EmployeeController.php:57
+ * @see app/Http/Controllers/Admin/EmployeeController.php:84
  * @route '/employees/{employee}'
  */
         updateForm.put = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -223,7 +223,7 @@ update.put = (args: { employee: number | { id: number } } | [employee: number | 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\Admin\EmployeeController::destroy
- * @see app/Http/Controllers/Admin/EmployeeController.php:90
+ * @see app/Http/Controllers/Admin/EmployeeController.php:117
  * @route '/employees/{employee}'
  */
 export const destroy = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -238,7 +238,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\EmployeeController::destroy
- * @see app/Http/Controllers/Admin/EmployeeController.php:90
+ * @see app/Http/Controllers/Admin/EmployeeController.php:117
  * @route '/employees/{employee}'
  */
 destroy.url = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -271,7 +271,7 @@ destroy.url = (args: { employee: number | { id: number } } | [employee: number |
 
 /**
 * @see \App\Http\Controllers\Admin\EmployeeController::destroy
- * @see app/Http/Controllers/Admin/EmployeeController.php:90
+ * @see app/Http/Controllers/Admin/EmployeeController.php:117
  * @route '/employees/{employee}'
  */
 destroy.delete = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -281,7 +281,7 @@ destroy.delete = (args: { employee: number | { id: number } } | [employee: numbe
 
     /**
 * @see \App\Http\Controllers\Admin\EmployeeController::destroy
- * @see app/Http/Controllers/Admin/EmployeeController.php:90
+ * @see app/Http/Controllers/Admin/EmployeeController.php:117
  * @route '/employees/{employee}'
  */
     const destroyForm = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -296,7 +296,7 @@ destroy.delete = (args: { employee: number | { id: number } } | [employee: numbe
 
             /**
 * @see \App\Http\Controllers\Admin\EmployeeController::destroy
- * @see app/Http/Controllers/Admin/EmployeeController.php:90
+ * @see app/Http/Controllers/Admin/EmployeeController.php:117
  * @route '/employees/{employee}'
  */
         destroyForm.delete = (args: { employee: number | { id: number } } | [employee: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

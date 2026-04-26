@@ -109,11 +109,12 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Login successful.',
-            'token'   => $token,
-            'role'    => $user->role ?? 'user',
-            'user'    => $this->formatUser($user),
+            'status'               => 'success',
+            'message'              => 'Login successful.',
+            'token'                => $token,
+            'role'                 => $user->role ?? 'user',
+            'must_change_password' => (bool) ($user->must_change_password ?? false),
+            'user'                 => $this->formatUser($user),
         ]);
     }
 

@@ -32,6 +32,7 @@ class Rider extends Authenticatable
         'is_active',
         'role',
         'last_active_at',
+        'must_change_password',
     ];
 
     protected $hidden = [
@@ -43,6 +44,7 @@ class Rider extends Authenticatable
         'password' => 'hashed',
         'is_active' => 'boolean',
         'last_active_at' => 'datetime',
+        'must_change_password' => 'boolean',
     ];
 
     /* ── Relationships ─────────────────────────────── */

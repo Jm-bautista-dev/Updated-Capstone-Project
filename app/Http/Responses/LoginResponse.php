@@ -10,6 +10,13 @@ class LoginResponse implements LoginResponseContract
     {
         $user = $request->user();
 
+        // Mandatory Password Change check
+        if ($user->must_change_password) {
+            return $request->wantsJson()
+                ? response()->json(['two_factor' => false, 'redirect' => '/change-password'])
+                : redirect('/change-password');
+        }
+
         // Cashiers always go to POS — never use session's url.intended
         if ($user->role === 'cashier') {
             return $request->wantsJson()

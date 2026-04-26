@@ -1,11 +1,13 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { FiPlus, FiEdit2, FiTrash2, FiUser, FiMail, FiMapPin, FiSearch, FiMoreVertical, FiShield, FiBriefcase } from 'react-icons/fi';
-import { useState, useMemo } from 'react';
+import {     Plus, Edit2, Trash2, User, Mail, MapPin, Search, MoreVertical, Shield, Briefcase, 
+    Lock, CheckCircle2, Copy, AlertCircle, Eye, EyeOff
+} from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -33,6 +35,9 @@ export default function EmployeeIndex({ employees, branches }: any) {
     // Confirmation States
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+    const [isCredsModalOpen, setIsCredsModalOpen] = useState(false);
+    const [newEmployeeCreds, setNewEmployeeCreds] = useState<any>(null);
+    const [showPassword, setShowPassword] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
     const { data, setData, post, put, delete: destroy, processing, errors, reset, isDirty } = useForm({
@@ -41,7 +46,17 @@ export default function EmployeeIndex({ employees, branches }: any) {
         password: '',
         role: 'cashier',
         branch_id: '' as string | number,
+        auto_generate: true,
     });
+
+    const { props }: any = usePage();
+
+    useEffect(() => {
+        if (props.flash?.new_employee) {
+            setNewEmployeeCreds(props.flash.new_employee);
+            setIsCredsModalOpen(true);
+        }
+    }, [props.flash?.new_employee]);
 
     const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
     const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string } | null>(null);
@@ -76,6 +91,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 break;
             case 'password':
                 if (!editingEmployee) {
+                    if (data.auto_generate) break; // Skip validation if auto-generating
                     if (!value) error = 'Password is required';
                     else if (value.length < 8) error = 'Minimum 8 characters required';
                     else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';
@@ -211,7 +227,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                         <p className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-widest mt-1">Configure staff access and branch assignments</p>
                     </div>
                     <Button onClick={openCreateModal} className="rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 gap-2 active:scale-95 transition-all">
-                        <FiPlus className="size-4" /> Add New Member
+                        <Plus className="size-4" /> Add New Member
                     </Button>
                 </div>
 
@@ -219,7 +235,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 <Card className="border-none shadow-xl shadow-black/5 bg-card dark:bg-zinc-900/50 backdrop-blur-md overflow-hidden rounded-2xl ring-1 ring-black/[0.02] dark:ring-white/[0.05]">
                     <div className="p-6 border-b border-border/40 dark:border-zinc-800 bg-muted/20 dark:bg-zinc-800/30 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="relative w-full sm:w-96">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
                             <Input 
                                 placeholder="Search by name or email..." 
                                 value={searchTerm}
@@ -248,7 +264,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                         <td colSpan={4} className="px-6 py-20 text-center">
                                             <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                 <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                                                    <FiUser className="size-8 opacity-20" />
+                                                    <User className="size-8 opacity-20" />
                                                 </div>
                                                 <p className="font-bold text-lg italic tracking-tight uppercase">No employees found.</p>
                                                 <p className="text-xs uppercase font-medium max-w-[200px] mt-2 leading-relaxed opacity-60">Try adjusting your search filters or add a new team member.</p>
@@ -266,7 +282,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                     <div className="flex flex-col max-w-[200px]">
                                                         <span className="font-bold text-sm text-foreground dark:text-white truncate">{employee.name}</span>
                                                         <span className="text-[11px] text-muted-foreground dark:text-zinc-500 font-medium truncate flex items-center gap-1">
-                                                            <FiMail className="size-2.5 opacity-60" /> {employee.email}
+                                                            <Mail className="size-2.5 opacity-60" /> {employee.email}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -279,14 +295,14 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                         employee.role === 'admin' ? "bg-primary dark:bg-zinc-100 dark:text-zinc-900 shadow-sm" : "bg-muted dark:bg-zinc-800 text-muted-foreground dark:text-zinc-400 border-border dark:border-zinc-700"
                                                     )}
                                                 >
-                                                    {employee.role === 'admin' ? <FiShield className="size-2.5" /> : <FiUser className="size-2.5" />}
+                                                    {employee.role === 'admin' ? <Shield className="size-2.5" /> : <User className="size-2.5" />}
                                                     {employee.role}
                                                 </Badge>
                                             </td>
                                             <td className="px-6 py-4">
                                                 {employee.branch ? (
                                                     <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-muted/30 dark:bg-zinc-800/40 border border-border/40 dark:border-zinc-700 rounded-full w-fit mx-auto">
-                                                        <FiBriefcase className="size-3 text-primary dark:text-zinc-100 opacity-60" />
+                                                        <Briefcase className="size-3 text-primary dark:text-zinc-100 opacity-60" />
                                                         <span className="text-[11px] font-bold text-foreground dark:text-zinc-200 italic">{employee.branch.name}</span>
                                                     </div>
                                                 ) : (
@@ -297,7 +313,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted dark:hover:bg-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <FiMoreVertical className="size-4 text-muted-foreground dark:text-zinc-500" />
+                                                            <MoreVertical className="size-4 text-muted-foreground dark:text-zinc-500" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-40 rounded-xl p-1 shadow-xl border-border/40 dark:border-zinc-800 dark:bg-zinc-900">
@@ -305,13 +321,13 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                             onClick={() => openEditModal(employee)}
                                                             className="rounded-lg gap-2 font-bold text-xs py-2.5 cursor-pointer"
                                                         >
-                                                            <FiEdit2 className="size-3.5 text-primary" /> Edit Account
+                                                            <Edit2 className="size-3.5 text-primary" /> Edit Account
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem 
                                                             onClick={() => handleDelete(employee.id)}
                                                             className="rounded-lg gap-2 font-bold text-xs py-2.5 text-destructive focus:text-destructive cursor-pointer"
                                                         >
-                                                            <FiTrash2 className="size-3.5" /> Delete Member
+                                                            <Trash2 className="size-3.5" /> Delete Member
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -329,7 +345,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-background dark:bg-zinc-900 ring-1 ring-black/[0.05] dark:ring-white/[0.05]">
                     <DialogHeader className="p-6 pb-0">
                         <div className="size-12 rounded-2xl bg-primary/10 dark:bg-zinc-800 flex items-center justify-center mb-4 text-primary dark:text-zinc-100 shadow-inner">
-                            <FiUser className="size-6" />
+                            <User className="size-6" />
                         </div>
                         <DialogTitle className="text-2xl font-black italic tracking-tighter text-foreground dark:text-white">
                             {editingEmployee ? 'REVISE MEMBER.' : 'ENLIST NEW MEMBER.'}
@@ -385,42 +401,70 @@ export default function EmployeeIndex({ employees, branches }: any) {
                             )}
                         </div>
 
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center ml-1">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">
-                                    Secure Key {!editingEmployee && <span className="text-destructive">*</span>}
-                                </label>
-                                {passwordStrength && (
-                                    <span className={cn("text-[9px] font-black uppercase tracking-widest italic animate-in slide-in-from-right-2", passwordStrength.color)}>
-                                        [{passwordStrength.label}]
-                                    </span>
-                                )}
-                            </div>
-                            <Input
-                                type="password"
-                                placeholder="••••••••••••"
-                                className={cn(
-                                    "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 dark:text-white",
-                                    localErrors.password ? "ring-2 ring-destructive" : (errors.password && "ring-2 ring-destructive")
-                                )}
-                                value={data.password}
-                                onChange={(e) => {
-                                    setData('password', e.target.value);
-                                    setPasswordStrength(checkPasswordStrength(e.target.value));
-                                    if (localErrors.password) validateField('password', e.target.value);
-                                }}
-                                onBlur={() => validateField('password', data.password)}
-                                minLength={8}
-                                maxLength={100}
-                            />
-                            {localErrors.password ? (
-                                <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.password}</p>
-                            ) : (
-                                errors.password ? (
-                                    <p className="text-[11px] text-destructive font-bold ml-1">{errors.password}</p>
-                                ) : (
-                                    <p className="text-[10px] text-muted-foreground italic ml-1 opacity-60">Minimum 8 characters with letters and numbers.</p>
-                                )
+                        <div className="space-y-4">
+                            {!editingEmployee && (
+                                <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 group cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all" onClick={() => setData('auto_generate', !data.auto_generate)}>
+                                    <div className={cn(
+                                        "size-5 rounded-md border-2 flex items-center justify-center transition-all",
+                                        data.auto_generate ? "bg-primary border-primary" : "border-muted-foreground/30"
+                                    )}>
+                                        {data.auto_generate && <CheckCircle2 className="size-3 text-white" strokeWidth={4} />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-black uppercase tracking-widest text-foreground dark:text-white">Auto-generate password</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium">System will create a secure key and email it.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {(!data.auto_generate || editingEmployee) && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex justify-between items-center ml-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">
+                                            Secure Key {!editingEmployee && <span className="text-destructive">*</span>}
+                                        </label>
+                                        {passwordStrength && (
+                                            <span className={cn("text-[9px] font-black uppercase tracking-widest italic animate-in slide-in-from-right-2", passwordStrength.color)}>
+                                                [{passwordStrength.label}]
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="relative group">
+                                        <Input
+                                            type={showPassword ? 'text' : 'password'}
+                                            placeholder="••••••••••••"
+                                            className={cn(
+                                                "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 dark:text-white",
+                                                localErrors.password ? "ring-2 ring-destructive" : (errors.password && "ring-2 ring-destructive")
+                                            )}
+                                            value={data.password}
+                                            onChange={(e) => {
+                                                setData('password', e.target.value);
+                                                setPasswordStrength(checkPasswordStrength(e.target.value));
+                                                if (localErrors.password) validateField('password', e.target.value);
+                                            }}
+                                            onBlur={() => validateField('password', data.password)}
+                                            minLength={8}
+                                            maxLength={100}
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1.5"
+                                        >
+                                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                        </button>
+                                    </div>
+                                    {localErrors.password ? (
+                                        <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.password}</p>
+                                    ) : (
+                                        errors.password ? (
+                                            <p className="text-[11px] text-destructive font-bold ml-1">{errors.password}</p>
+                                        ) : (
+                                            <p className="text-[10px] text-muted-foreground italic ml-1 opacity-60">Minimum 8 characters with letters and numbers.</p>
+                                        )
+                                    )}
+                                </div>
                             )}
                         </div>
 
@@ -480,12 +524,113 @@ export default function EmployeeIndex({ employees, branches }: any) {
                             </Button>
                             <Button 
                                 className="h-12 rounded-xl flex-[2] font-black italic tracking-tight shadow-xl shadow-primary/20 active:scale-95 transition-all text-sm dark:bg-zinc-100 dark:text-zinc-900" 
-                                disabled={processing || !data.name || !data.email || (!editingEmployee && !data.password) || !data.role || !data.branch_id}
+                                disabled={processing || !data.name || !data.email || (!editingEmployee && !data.auto_generate && !data.password) || !data.role || !data.branch_id}
                             >
                                 {processing ? 'Synthesizing...' : editingEmployee ? 'UPGRADE ACCESS' : 'AUTHORIZE INITIATION'}
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Credentials Display Modal */}
+            <Dialog open={isCredsModalOpen} onOpenChange={setIsCredsModalOpen}>
+                <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-zinc-900">
+                    <div className="p-8 bg-slate-900 text-white text-center space-y-2">
+                        <div className="size-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="size-10 text-emerald-400" />
+                        </div>
+                        <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase">ACCESS AUTHORIZED</DialogTitle>
+                        <p className="text-slate-400 text-sm font-medium">
+                            {newEmployeeCreds?.email_sent
+                                ? `Credentials sent to ${newEmployeeCreds?.email}`
+                                : 'Credentials generated successfully.'}
+                        </p>
+                    </div>
+
+                    <div className="p-8 space-y-5">
+                        {newEmployeeCreds?.email_sent ? (
+                            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
+                                <div className="size-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                                    <Mail className="size-4 text-white" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm">Email Sent</p>
+                                    <p className="opacity-75">Credentials delivered to {newEmployeeCreds?.email}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
+                                <div className="size-8 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                                    <AlertCircle className="size-4 text-white" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm">Email Failed</p>
+                                    <p className="opacity-75">Please share these credentials manually.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <User className="size-3" /> Identity
+                                </label>
+                                <p className="font-bold text-base dark:text-white">{newEmployeeCreds?.name}</p>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <Mail className="size-3" /> Email / Login
+                                </label>
+                                <p className="font-bold text-base dark:text-white select-all">{newEmployeeCreds?.email}</p>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(newEmployeeCreds?.email);
+                                        toast.success("Email copied");
+                                    }}
+                                >
+                                    <Copy className="size-4" />
+                                </Button>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <Lock className="size-3" /> 
+                                    {newEmployeeCreds?.auto_generated ? 'Generated Password' : 'Admin Password'}
+                                </label>
+                                <p className="font-mono font-black text-xl tracking-wider text-primary select-all">{newEmployeeCreds?.password}</p>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(newEmployeeCreds?.password);
+                                        toast.success("Password copied");
+                                    }}
+                                >
+                                    <Copy className="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 text-rose-800 dark:text-rose-300 text-[10px] font-bold uppercase tracking-widest flex gap-3 italic">
+                            <div className="size-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0 mt-0.5 text-white font-black not-italic">!</div>
+                            <p className="leading-relaxed">
+                                MANDATORY ACTION: The employee will be required to change this password immediately upon their first login for security purposes.
+                            </p>
+                        </div>
+
+                        <Button 
+                            className="w-full h-12 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/10 dark:bg-zinc-100 dark:text-zinc-900" 
+                            onClick={() => setIsCredsModalOpen(false)}
+                        >
+                            I HAVE SECURED THESE DETAILS
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
 

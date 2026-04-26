@@ -38,7 +38,12 @@ Route::get('/menu', function () {
 })->name('menu');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::post('/inventory/mass-stock-in', [App\Http\Controllers\StockInController::class, 'massStore'])->name('inventory.mass-stock-in');
+    // Routes that MUST be accessible even if password change is required
+    Route::get('/change-password', [App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])->name('first-login.change');
+    Route::post('/change-password', [App\Http\Controllers\Auth\ChangePasswordController::class, 'update'])->name('first-login.update');
+
+    Route::middleware(['must_change_password'])->group(function () {
+        Route::post('/inventory/mass-stock-in', [App\Http\Controllers\StockInController::class, 'massStore'])->name('inventory.mass-stock-in');
 
     // Admin ONLY Routes
     Route::middleware(['role:admin'])->group(function () {
@@ -138,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/pos/inventory-sale', [InventoryActionController::class, 'processSale'])->name('inventory-sale.store');
         Route::get('/inventory-sales-history', [InventoryActionController::class, 'history'])->name('inventory-sale.history');
     });
+});
 });
 
 Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
