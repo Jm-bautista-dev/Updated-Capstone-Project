@@ -1,4 +1,4 @@
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,8 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { toast } from 'sonner';
 
 interface Rider {
     id: number;
@@ -64,6 +66,8 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
     const [showPassword, setShowPassword] = useState(false);
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [search, setSearch] = useState(filters.search || '');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [riderToDelete, setRiderToDelete] = useState<Rider | null>(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '',
@@ -118,10 +122,20 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
         }
     };
 
-    const handleDelete = (id: number) => {
-        if (confirm('Are you sure you want to remove this rider?')) {
-            router.delete(`/riders/${id}`);
-        }
+    const handleDelete = (rider: Rider) => {
+        setRiderToDelete(rider);
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDelete = () => {
+        if (!riderToDelete) return;
+        router.delete(`/riders/${riderToDelete.id}`, {
+            onSuccess: () => {
+                toast.success(`${riderToDelete.name} has been removed from the fleet.`);
+                setRiderToDelete(null);
+            },
+            onError: () => toast.error('Failed to delete rider. Please try again.'),
+        });
     };
 
     const getStatusColor = (status: string) => {
@@ -316,7 +330,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                                                     <Edit2 className="size-4" /> Edit Details
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator className="opacity-50" />
-                                                                <DropdownMenuItem className="rounded-xl gap-2 text-rose-500 cursor-pointer" onClick={() => handleDelete(rider.id)}>
+                                                                <DropdownMenuItem className="rounded-xl gap-2 text-rose-500 cursor-pointer" onClick={() => handleDelete(rider)}>
                                                                     <Trash2 className="size-4" /> Remove Rider
                                                                 </DropdownMenuItem>
                                                             </DropdownMenuContent>
@@ -582,9 +596,17 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                onConfirm={confirmDelete}
+                variant="destructive"
+                title="Remove Rider?"
+                description={riderToDelete ? `This will permanently remove ${riderToDelete.name} from the fleet. This action cannot be undone.` : ''}
+                confirmText="Remove Rider"
+                cancelText="Keep Rider"
+            />
         </AppLayout>
     );
 }
-
-// Add Link import from inertia
-import { Link } from '@inertiajs/react';
