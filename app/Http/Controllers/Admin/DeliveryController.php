@@ -28,23 +28,19 @@ class DeliveryController extends Controller
     public function index(Request $request)
     {
         $query = Delivery::with([
-            'sale.cashier', 
-            'sale.branch', 
+            'sale.cashier',
+            'sale.branch',
             'sale.items.product',
             'order.items.product',
             'order.branch',
-            'rider', 
-            'creator', 
+            'rider',
+            'creator',
             'cancelledBy'
         ])->latest();
 
         // Filter by Status
         if ($request->filled('status') && $request->status !== 'all') {
-            if ($request->status === 'pending') {
-                $query->whereIn('status', ['pending', 'waiting_for_kitchen']);
-            } else {
-                $query->where('status', $request->status);
-            }
+            $query->where('status', $request->status);
         }
 
         // Filter by Type (Internal/External)
@@ -55,23 +51,23 @@ class DeliveryController extends Controller
         // Filter by Branch
         if ($request->filled('branch_id') && $request->branch_id !== 'all') {
             $branchId = $request->branch_id;
-            $query->where(function($q) use ($branchId) {
+            $query->where(function ($q) use ($branchId) {
                 $q->whereHas('sale', fn($sq) => $sq->where('branch_id', $branchId))
-                  ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchId));
+                    ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchId));
             });
         }
 
         // Search by Customer, Order #, Tracking, Landmark
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('customer_name', 'like', "%{$search}%")
-                  ->orWhere('customer_phone', 'like', "%{$search}%")
-                  ->orWhere('customer_address', 'like', "%{$search}%")
-                  ->orWhere('tracking_number', 'like', "%{$search}%")
-                  ->orWhere('landmark', 'like', "%{$search}%")
-                  ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
-                  ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"));
+                    ->orWhere('customer_phone', 'like', "%{$search}%")
+                    ->orWhere('customer_address', 'like', "%{$search}%")
+                    ->orWhere('tracking_number', 'like', "%{$search}%")
+                    ->orWhere('landmark', 'like', "%{$search}%")
+                    ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
+                    ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"));
             });
         }
 
@@ -90,9 +86,11 @@ class DeliveryController extends Controller
 
         // Get all active riders for manual assignment
         $availableRiders = Rider::where('is_active', true)
-            ->withCount(['deliveries' => function ($q) {
-                $q->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED]);
-            }])
+            ->withCount([
+                'deliveries' => function ($q) {
+                    $q->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED]);
+                }
+            ])
             ->get()
             ->map(function ($rider) {
                 return [
@@ -107,13 +105,13 @@ class DeliveryController extends Controller
         return Inertia::render('Admin/Deliveries', [
             'deliveries' => $deliveries,
             'availableRiders' => $availableRiders,
-            'filters'    => $request->only(['status', 'type', 'branch_id', 'search']),
-            'branches'   => Branch::orderBy('name')->get(['id', 'name']),
-            'stats'      => [
-                'pending'   => Delivery::where('status', 'pending')->count(),
-                'active'    => Delivery::whereNotIn('status', ['pending', 'delivered', 'cancelled'])->count(),
+            'filters' => $request->only(['status', 'type', 'branch_id', 'search']),
+            'branches' => Branch::orderBy('name')->get(['id', 'name']),
+            'stats' => [
+                'pending' => Delivery::where('status', 'pending')->count(),
+                'active' => Delivery::whereNotIn('status', ['pending', 'delivered', 'cancelled'])->count(),
                 'delivered' => Delivery::where('status', 'delivered')->whereDate('created_at', today())->count(),
-                'delayed'   => Delivery::whereNotIn('status', ['delivered', 'cancelled'])->where('created_at', '<', now()->subHour())->count(),
+                'delayed' => Delivery::whereNotIn('status', ['delivered', 'cancelled'])->where('created_at', '<', now()->subHour())->count(),
             ],
         ]);
     }
@@ -136,16 +134,16 @@ class DeliveryController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Rider assigned successfully.',
-                    'order'   => [
-                        'id'       => $updated->order_id,
+                    'order' => [
+                        'id' => $updated->order_id,
                         'rider_id' => $updated->rider_id,
-                        'status'   => $updated->order?->status ?? 'assigned_to_rider',
+                        'status' => $updated->order?->status ?? 'assigned_to_rider',
                     ],
                     'delivery' => [
-                        'id'        => $updated->id,
-                        'rider_id'  => $updated->rider_id,
-                        'rider_name'=> $updated->rider?->name,
-                        'status'    => $updated->status,
+                        'id' => $updated->id,
+                        'rider_id' => $updated->rider_id,
+                        'rider_name' => $updated->rider?->name,
+                        'status' => $updated->status,
                     ],
                 ]);
             }
@@ -218,7 +216,7 @@ class DeliveryController extends Controller
             // Sync with parent order if applicable
             if ($delivery->order) {
                 $delivery->order->update(['status' => 'cancelled']);
-                
+
                 // Restore inventory if it was deducted
                 app(InventoryService::class)->restoreForOrder($delivery->order);
             }
@@ -236,8 +234,8 @@ class DeliveryController extends Controller
     public function recommend(Request $request)
     {
         $request->validate([
-            'branch_id'   => 'required|exists:branches,id',
-            'distance_km' => ['nullable', 'numeric', 'gt:0', 'max:'.config('delivery.max_distance_km', 50)],
+            'branch_id' => 'required|exists:branches,id',
+            'distance_km' => ['nullable', 'numeric', 'gt:0', 'max:' . config('delivery.max_distance_km', 50)],
         ]);
 
         $branch = Branch::with('riders')->findOrFail($request->input('branch_id'));
@@ -250,12 +248,12 @@ class DeliveryController extends Controller
 
         return response()->json([
             'recommendation' => $recommendation,
-            'riders'         => $riders,
-            'branch'         => [
+            'riders' => $riders,
+            'branch' => [
                 'delivery_radius_km' => $branch->delivery_radius_km,
                 'has_internal_riders' => $branch->has_internal_riders,
-                'base_delivery_fee'  => $branch->base_delivery_fee,
-                'per_km_fee'         => $branch->per_km_fee,
+                'base_delivery_fee' => $branch->base_delivery_fee,
+                'per_km_fee' => $branch->per_km_fee,
             ],
         ]);
     }

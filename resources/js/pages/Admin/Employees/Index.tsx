@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import {     Plus, Edit2, Trash2, User, Mail, MapPin, Search, MoreVertical, Shield, Briefcase, 
+import {
+    Plus, Edit2, Trash2, User, Mail, MapPin, Search, MoreVertical, Shield, Briefcase,
     Lock, CheckCircle2, Copy, AlertCircle, Eye, EyeOff
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
@@ -31,7 +32,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<any>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     // Confirmation States
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -91,7 +92,6 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 break;
             case 'password':
                 if (!editingEmployee) {
-                    if (data.auto_generate) break; // Skip validation if auto-generating
                     if (!value) error = 'Password is required';
                     else if (value.length < 8) error = 'Minimum 8 characters required';
                     else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';
@@ -119,7 +119,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
     };
 
     const filteredEmployees = useMemo(() => {
-        return employees.filter((e: any) => 
+        return employees.filter((e: any) =>
             e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             e.email.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -236,8 +236,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
                     <div className="p-6 border-b border-border/40 dark:border-zinc-800 bg-muted/20 dark:bg-zinc-800/30 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="relative w-full sm:w-96">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
-                            <Input 
-                                placeholder="Search by name or email..." 
+                            <Input
+                                placeholder="Search by name or email..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="pl-10 h-11 bg-background dark:bg-zinc-900 rounded-xl border-border/60 dark:border-zinc-800 focus:ring-primary/20"
@@ -288,8 +288,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <Badge 
-                                                    variant={employee.role === 'admin' ? 'default' : 'secondary'} 
+                                                <Badge
+                                                    variant={employee.role === 'admin' ? 'default' : 'secondary'}
                                                     className={cn(
                                                         "rounded-lg px-2.5 py-1 text-[10px] items-center gap-1 font-black italic uppercase tracking-tighter",
                                                         employee.role === 'admin' ? "bg-primary dark:bg-zinc-100 dark:text-zinc-900 shadow-sm" : "bg-muted dark:bg-zinc-800 text-muted-foreground dark:text-zinc-400 border-border dark:border-zinc-700"
@@ -317,13 +317,13 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-40 rounded-xl p-1 shadow-xl border-border/40 dark:border-zinc-800 dark:bg-zinc-900">
-                                                        <DropdownMenuItem 
+                                                        <DropdownMenuItem
                                                             onClick={() => openEditModal(employee)}
                                                             className="rounded-lg gap-2 font-bold text-xs py-2.5 cursor-pointer"
                                                         >
                                                             <Edit2 className="size-3.5 text-primary" /> Edit Account
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem 
+                                                        <DropdownMenuItem
                                                             onClick={() => handleDelete(employee.id)}
                                                             className="rounded-lg gap-2 font-bold text-xs py-2.5 text-destructive focus:text-destructive cursor-pointer"
                                                         >
@@ -447,8 +447,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                             minLength={8}
                                             maxLength={100}
                                         />
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             onClick={() => setShowPassword(!showPassword)}
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1.5"
                                         >
@@ -471,8 +471,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
                         <div className="grid grid-cols-2 gap-4 pt-1">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Authority <span className="text-destructive">*</span></label>
-                                <Select 
-                                    value={data.role} 
+                                <Select
+                                    value={data.role}
                                     onValueChange={(val) => {
                                         setData('role', val);
                                         validateField('role', val);
@@ -522,8 +522,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
                             <Button type="button" variant="ghost" className="h-12 rounded-xl flex-1 font-bold text-muted-foreground dark:text-zinc-400 active:bg-muted dark:active:bg-zinc-800" onClick={() => handleModalChange(false)}>
                                 Abort
                             </Button>
-                            <Button 
-                                className="h-12 rounded-xl flex-[2] font-black italic tracking-tight shadow-xl shadow-primary/20 active:scale-95 transition-all text-sm dark:bg-zinc-100 dark:text-zinc-900" 
+                            <Button
+                                className="h-12 rounded-xl flex-[2] font-black italic tracking-tight shadow-xl shadow-primary/20 active:scale-95 transition-all text-sm dark:bg-zinc-100 dark:text-zinc-900"
                                 disabled={processing || !data.name || !data.email || (!editingEmployee && !data.auto_generate && !data.password) || !data.role || !data.branch_id}
                             >
                                 {processing ? 'Synthesizing...' : editingEmployee ? 'UPGRADE ACCESS' : 'AUTHORIZE INITIATION'}
@@ -584,9 +584,9 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                     <Mail className="size-3" /> Email / Login
                                 </label>
                                 <p className="font-bold text-base dark:text-white select-all">{newEmployeeCreds?.email}</p>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
                                     onClick={() => {
                                         navigator.clipboard.writeText(newEmployeeCreds?.email);
@@ -599,13 +599,13 @@ export default function EmployeeIndex({ employees, branches }: any) {
 
                             <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                                    <Lock className="size-3" /> 
+                                    <Lock className="size-3" />
                                     {newEmployeeCreds?.auto_generated ? 'Generated Password' : 'Admin Password'}
                                 </label>
                                 <p className="font-mono font-black text-xl tracking-wider text-primary select-all">{newEmployeeCreds?.password}</p>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
                                     onClick={() => {
                                         navigator.clipboard.writeText(newEmployeeCreds?.password);
@@ -624,8 +624,8 @@ export default function EmployeeIndex({ employees, branches }: any) {
                             </p>
                         </div>
 
-                        <Button 
-                            className="w-full h-12 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/10 dark:bg-zinc-100 dark:text-zinc-900" 
+                        <Button
+                            className="w-full h-12 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/10 dark:bg-zinc-100 dark:text-zinc-900"
                             onClick={() => setIsCredsModalOpen(false)}
                         >
                             I HAVE SECURED THESE DETAILS
@@ -635,7 +635,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
             </Dialog>
 
             {/* Confirmation Dialogs */}
-            <ConfirmDialog 
+            <ConfirmDialog
                 open={showDeleteConfirm}
                 onOpenChange={setShowDeleteConfirm}
                 onConfirm={confirmDelete}
@@ -645,7 +645,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 confirmText="Delete Now"
             />
 
-            <ConfirmDialog 
+            <ConfirmDialog
                 open={showDiscardConfirm}
                 onOpenChange={setShowDiscardConfirm}
                 onConfirm={confirmDiscard}

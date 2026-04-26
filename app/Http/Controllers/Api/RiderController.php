@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Delivery;
 use App\Models\RiderLocationLog;
 use App\Services\OrderFulfillmentService;
+use App\Services\InventoryService;
 use App\Events\OrderStatusUpdated;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -352,6 +353,68 @@ class RiderController extends Controller
         } catch (\Throwable $e) {
             Log::error('Rider::deliverOrder failed', ['error' => $e->getMessage(), 'id' => $id]);
             return response()->json(['success' => false, 'message' => 'Failed to confirm delivery'], 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/rider/orders/{id}/cancel
+     * Rider cancels the entire delivery transaction.
+     */
+    public function cancelOrder(Request $request, $id): JsonResponse
+    {
+        try {
+            $rider = $request->user();
+            if (!$rider instanceof Rider) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            $request->validate([
+                'reason' => 'required|string|max:255',
+            ]);
+
+            return DB::transaction(function () use ($rider, $id, $request) {
+                $delivery = Delivery::with('order')
+                    ->where('rider_id', $rider->id)
+                    ->lockForUpdate()
+                    ->findOrFail($id);
+
+                if ($delivery->isDelivered()) {
+                    return response()->json(['success' => false, 'message' => 'Cannot cancel a delivered order.'], 422);
+                }
+
+                $order = $delivery->order;
+                
+                // Update Order Status
+                if ($order) {
+                    $order->transitionTo('cancelled', $request->reason, null, $rider->id);
+                    
+                    // Restore inventory
+                    app(InventoryService::class)->restoreForOrder($order);
+                }
+
+                // Update Delivery Status
+                $delivery->update([
+                    'status' => 'cancelled',
+                    'cancellation_reason' => $request->reason,
+                    'cancelled_by' => $rider->id,
+                    'cancelled_at' => now(),
+                ]);
+
+                // Free up the rider
+                $rider->update(['status' => 'available']);
+
+                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Delivery cancelled and inventory restored.',
+                ]);
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Log::error('Rider::cancelOrder failed', ['error' => $e->getMessage(), 'id' => $id]);
+            return response()->json(['success' => false, 'message' => 'Failed to cancel order'], 500);
         }
     }
 

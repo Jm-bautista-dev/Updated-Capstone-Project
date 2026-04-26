@@ -71,6 +71,7 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']); // in_transit
             Route::post('orders/{id}/deliver', [RiderController::class, 'deliverOrder']); // delivered + proof upload
             Route::post('orders/{id}/reject',  [RiderController::class, 'rejectOrder']);  // back to ready_for_pickup
+            Route::post('orders/{id}/cancel',  [RiderController::class, 'cancelOrder']);  // fully cancelled
         });
 
         // Orders & Cart
