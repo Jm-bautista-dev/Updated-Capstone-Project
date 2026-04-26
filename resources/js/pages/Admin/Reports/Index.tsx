@@ -15,9 +15,9 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 
-function formatCurrency(amount: number) {
+export const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
-}
+};
 
 // ── DATE RANGE PICKER COMPONENT ──
 const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onUpdate: (from: string, to: string) => void }) => {
@@ -172,10 +172,21 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: a
     );
 }
 
+function getPeriodLabel(filters: any, type: 'Sales' | 'Orders') {
+    if (filters.date_from && filters.date_to) {
+        if (filters.date_from === filters.date_to && filters.date_from === format(new Date(), 'yyyy-MM-dd')) {
+            return `${type} Today`;
+        }
+        return `${type} (Selected Dates)`;
+    }
+    return `All-Time ${type}`;
+}
+
 // ── ADMIN REPORTS DASHBOARD ──
-function AdminReports({ sales, cashiers, filters, trend_data, category_data, top_product, peak_day, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: any) {
+function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_data, top_product, peak_day, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: any) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo,   setDateTo]   = useState(filters.date_to   || '');
+    const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
 
     const updateRange = (from: string, to: string) => {
         setDateFrom(from);
@@ -204,12 +215,12 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                             <FiActivity className="size-6" />
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground dark:text-white">Business Intelligence</h1>
+                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground dark:text-white">Business Overview</h1>
                     </div>
                     <p className="text-muted-foreground dark:text-zinc-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
-                            : 'Live data · Strategic Overview'}
+                            : 'Real-time performance summary'}
                     </p>
                 </div>
 
@@ -227,6 +238,26 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                 </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-2 p-1 bg-muted/30 rounded-2xl border border-border/40 w-fit">
+                <Button 
+                    variant={activeTab === 'sales' ? 'default' : 'ghost'} 
+                    onClick={() => setActiveTab('sales')}
+                    className="h-10 rounded-xl px-6 font-black uppercase text-[10px] tracking-widest transition-all"
+                >
+                    <FiShoppingBag className="size-3.5 mr-2" /> Sales Performance
+                </Button>
+                <Button 
+                    variant={activeTab === 'shifts' ? 'default' : 'ghost'} 
+                    onClick={() => setActiveTab('shifts')}
+                    className="h-10 rounded-xl px-6 font-black uppercase text-[10px] tracking-widest transition-all"
+                >
+                    <FiDollarSign className="size-3.5 mr-2" /> Cash Drawer Log
+                </Button>
+            </div>
+
+            {activeTab === 'sales' ? (
+                <>
             {/* 2. PERFORMANCE OVERVIEW — real KPIs */}
             <div className="space-y-5">
                 <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
@@ -240,25 +271,25 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                         colorClass="bg-primary"
                     />
                     <StatCard
-                        title="Total Revenue"
+                        title={getPeriodLabel(filters, 'Sales')}
                         value={formatCurrency(total_revenue ?? 0)}
                         icon={FiDollarSign}
                         colorClass="bg-indigo-500"
                     />
                     <StatCard
-                        title="Completed Orders"
+                        title={getPeriodLabel(filters, 'Orders')}
                         value={(total_orders ?? 0).toLocaleString()}
                         icon={FiShoppingBag}
                         colorClass="bg-emerald-500"
                     />
                     <StatCard
-                        title="Total Profit"
+                        title="Net Profit"
                         value={formatCurrency(total_profit ?? 0)}
                         icon={FiTrendingUp}
                         colorClass="bg-amber-500"
                     />
                     <StatCard
-                        title="Cancellations"
+                        title="Cancelled"
                         value={(cancelled_count ?? 0).toLocaleString()}
                         icon={FiAlertTriangle}
                         trend={(cancelled_count ?? 0) > 5 ? 'down' : 'up'}
@@ -271,7 +302,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
             {/* 3. SALES ANALYTICS — real charts */}
             <div className="space-y-5">
                 <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2 mt-2">
-                    <span className="size-2 rounded-full bg-indigo-500" /> Sales Analytics
+                    <span className="size-2 rounded-full bg-indigo-500" /> Trends & Insights
                 </h2>
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
@@ -279,7 +310,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                     <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden group flex flex-col min-w-0">
                         <CardHeader className="flex flex-row items-center justify-between p-8 shrink-0">
                             <div className="space-y-1">
-                                <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Revenue Growth Vector</CardTitle>
+                                <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Sales Growth Trend</CardTitle>
                                 <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                                     {filters.date_from ? 'Filtered Range' : 'Last 14 Days'} · {TREND_DATA.length} days
                                 </CardDescription>
@@ -287,7 +318,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                             <div className="hidden sm:flex items-center gap-6">
                                 <div className="flex items-center gap-2 text-primary">
                                     <div className="size-2.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Revenue</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Sales</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-emerald-500">
                                     <div className="size-2.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
@@ -369,8 +400,8 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                     {/* Product revenue pie */}
                     <Card className="xl:col-span-4 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-full min-h-[450px] min-w-0 overflow-hidden">
                         <CardHeader className="p-8 pb-4 shrink-0">
-                            <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Revenue Mix</CardTitle>
-                            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Top Products by Revenue</CardDescription>
+                            <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Sales by Category</CardTitle>
+                            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Top Items by Total Sales</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col items-center justify-center p-8 pt-0 min-h-0">
                             {CAT_DATA.length > 0 ? (
@@ -457,7 +488,7 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                                 <FiTrendingUp className="size-5" />
                             </div>
                             <div>
-                                <p className="text-[9px] font-black uppercase text-muted-foreground/70 tracking-tighter leading-none mb-1.5">Peak Revenue Day</p>
+                                <p className="text-[9px] font-black uppercase text-muted-foreground/70 tracking-tighter leading-none mb-1.5">Best Sales Day</p>
                                 <p className="text-sm font-black italic uppercase text-foreground dark:text-zinc-200 tracking-tighter leading-none">
                                     {peak_day?.date ?? '—'}
                                 </p>
@@ -491,16 +522,106 @@ function AdminReports({ sales, cashiers, filters, trend_data, category_data, top
                     </div>
                 </div>
             </div>
+            </>
+            ) : (
+                <ShiftHistory shifts={shifts} />
+            )}
         </div>
     );
 }
 
+function ShiftHistory({ shifts }: any) {
+    return (
+        <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm overflow-hidden mt-6">
+            <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b bg-muted/30">
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Cashier</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Opened</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Closed</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Opening</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Cash Sales</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Expected</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Actual</th>
+                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Variance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {shifts.data.map((shift: any) => (
+                                <tr key={shift.id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
+                                    <td className="p-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                                                {shift.cashier?.name?.charAt(0)}
+                                            </div>
+                                            <span className="text-sm font-medium">{shift.cashier?.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-[11px] font-bold text-muted-foreground">
+                                        {format(new Date(shift.opened_at), 'MMM dd, HH:mm')}
+                                    </td>
+                                    <td className="p-4 text-[11px] font-bold text-muted-foreground">
+                                        {shift.closed_at ? format(new Date(shift.closed_at), 'MMM dd, HH:mm') : 'Active'}
+                                    </td>
+                                    <td className="p-4 text-right text-xs font-medium">{formatCurrency(shift.opening_balance)}</td>
+                                    <td className="p-4 text-right text-xs font-bold text-primary">{formatCurrency(shift.total_cash_sales)}</td>
+                                    <td className="p-4 text-right text-xs font-medium">{formatCurrency(shift.expected_balance)}</td>
+                                    <td className="p-4 text-right text-xs font-black">{shift.closing_balance ? formatCurrency(shift.closing_balance) : '—'}</td>
+                                    <td className="p-4 text-right">
+                                        {shift.variance !== null ? (
+                                            <Badge variant="outline" className={cn(
+                                                "font-black text-[10px]",
+                                                parseFloat(shift.variance) === 0 && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                                                parseFloat(shift.variance) > 0 && "bg-blue-50 text-blue-700 border-blue-200",
+                                                parseFloat(shift.variance) < 0 && "bg-rose-50 text-rose-700 border-rose-200"
+                                            )}>
+                                                {parseFloat(shift.variance) > 0 ? '+' : ''}{formatCurrency(shift.variance)}
+                                            </Badge>
+                                        ) : '—'}
+                                    </td>
+                                </tr>
+                            ))}
+                            {shifts.data.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="p-12 text-center text-muted-foreground uppercase text-xs font-black tracking-widest opacity-50">
+                                        No shift records found
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="p-4 border-t bg-muted/10 flex justify-between items-center">
+                    <p className="text-xs text-muted-foreground">Showing {shifts.from} to {shifts.to} of {shifts.total} shifts</p>
+                    <div className="flex gap-1">
+                        {shifts.links.map((link: any, i: number) => (
+                            <Button
+                                key={i}
+                                variant={link.active ? 'default' : 'outline'}
+                                size="sm"
+                                disabled={!link.url}
+                                onClick={() => link.url && router.get(link.url)}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                className="h-8 min-w-[32px] px-2 text-[10px]"
+                            />
+                        ))}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 // ── ORIGINAL CASHIER REPORTS ──
-function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, total_orders }: any) {
+function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_revenue, total_orders }: any) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [cashierId, setCashierId] = useState(filters.cashier_id || 'all');
     const [status, setStatus] = useState(filters.status || 'all');
+    const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
 
     const handleFilter = () => {
         router.get('/reports', {
@@ -538,12 +659,12 @@ function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, 
                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                             <FiActivity className="size-6" />
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Sales Performance</h1>
+                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Business Overview</h1>
                     </div>
                     <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
-                            : 'Personalized Operational Audit'}
+                            : 'Personalized Sales Report'}
                     </p>
                 </div>
 
@@ -570,22 +691,42 @@ function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, 
                 </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-2 p-1 bg-muted/30 rounded-2xl border border-border/40 w-fit">
+                <Button 
+                    variant={activeTab === 'sales' ? 'default' : 'ghost'} 
+                    onClick={() => setActiveTab('sales')}
+                    className="h-10 rounded-xl px-6 font-black uppercase text-[10px] tracking-widest transition-all"
+                >
+                    <FiShoppingBag className="size-3.5 mr-2" /> Order History
+                </Button>
+                <Button 
+                    variant={activeTab === 'shifts' ? 'default' : 'ghost'} 
+                    onClick={() => setActiveTab('shifts')}
+                    className="h-10 rounded-xl px-6 font-black uppercase text-[10px] tracking-widest transition-all"
+                >
+                    <FiDollarSign className="size-3.5 mr-2" /> My Cash Drawer
+                </Button>
+            </div>
+
+            {activeTab === 'sales' ? (
+                <>
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard
-                    title="Total Sales Today"
+                    title="Sales Today"
                     value={formatCurrency(today_sales ?? 0)}
                     icon={FiZap}
                     colorClass="bg-primary"
                 />
                 <StatCard
-                    title="Period Revenue"
+                    title={getPeriodLabel(filters, 'Sales')}
                     value={formatCurrency(total_revenue ?? 0)}
                     icon={FiDollarSign}
                     colorClass="bg-emerald-500"
                 />
                 <StatCard
-                    title="Period Orders"
+                    title={getPeriodLabel(filters, 'Orders')}
                     value={(total_orders ?? 0).toLocaleString()}
                     icon={FiShoppingBag}
                     colorClass="bg-indigo-500"
@@ -633,7 +774,7 @@ function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, 
 
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 bg-background/50 px-4 py-2.5 rounded-xl ring-1 ring-border/20">
                     <FiSearch className="size-3 text-primary" />
-                    <span>Analyzing <span className="text-foreground">{sales.total}</span> Operations</span>
+                    <span>Analyzing <span className="text-foreground">{sales.total}</span> Orders</span>
                 </div>
             </div>
 
@@ -648,8 +789,8 @@ function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, 
                                     <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Date</th>
                                     <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Cashier</th>
                                     <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Status</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Revenue</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Profit</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Total Sales</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Net Profit</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -716,6 +857,10 @@ function CashierReports({ sales, cashiers, filters, today_sales, total_revenue, 
                     </div>
                 </CardContent>
             </Card>
+            </>
+            ) : (
+                <ShiftHistory shifts={shifts} />
+            )}
         </div>
     );
 }

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Events\SaleCreated;
 use App\Events\StockUpdated;
+use App\Models\CashierShift;
 
 class SaleService
 {
@@ -121,6 +122,20 @@ class SaleService
             // 4. ── (Product Level Stock Deduction Removed) ──────────────────────
 
             // 5. ── CREATE SALE RECORD ───────────────────────────────────────────
+            $paymentMethod = $data['payment_method'] ?? 'cash';
+            
+            // Cash Control: Check for active shift if payment is cash
+            $activeShift = null;
+            if ($paymentMethod === 'cash') {
+                $activeShift = CashierShift::where('cashier_id', $user->id)
+                    ->where('status', 'open')
+                    ->first();
+                
+                if (!$activeShift) {
+                    throw new \Exception('No active shift found. Please open a shift before processing cash sales.');
+                }
+            }
+
             $sale = Sale::create([
                 'order_number'   => $orderRef,
                 'user_id'        => $user->id,
@@ -131,9 +146,15 @@ class SaleService
                 'profit'         => $saleProfit,
                 'paid_amount'    => $data['paid_amount'],
                 'change_amount'  => $data['change_amount'] ?? 0,
-                'payment_method' => $data['payment_method'] ?? 'cash',
+                'payment_method' => $paymentMethod,
                 'status'         => $data['status'] ?? 'completed',
             ]);
+
+            // Update Shift totals if cash
+            if ($activeShift && $paymentMethod === 'cash') {
+                $activeShift->increment('total_cash_sales', $data['total']);
+                $activeShift->increment('expected_balance', $data['total']);
+            }
 
             // 6. ── CREATE SALE ITEMS ────────────────────────────────────────────
             foreach ($saleItemsData as $itemData) {

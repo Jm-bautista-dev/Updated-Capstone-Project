@@ -77,12 +77,17 @@ class PosController extends Controller
                 ->get(['id', 'name', 'phone']);
         }
 
+        $activeShift = \App\Models\CashierShift::where('cashier_id', Auth::id())
+            ->where('status', 'open')
+            ->first();
+
         return Inertia::render('Pos/Index', [
             'products'        => $products,
             'categories'      => $categories,
             'recentOrders'    => $recentOrders,
             'branch'          => $user->branch,
             'availableRiders' => $availableRiders,
+            'activeShift'     => $activeShift,
         ]);
     }
 

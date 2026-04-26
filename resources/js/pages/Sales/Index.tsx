@@ -170,7 +170,7 @@ export default function SalesIndex() {
                         <div className="flex items-center gap-4">
                             <h1 className="text-xl font-black tracking-tight flex items-center gap-2 text-foreground">
                                 <FiShoppingCart className="text-primary" />
-                                Sales & Orders
+                                Orders
                             </h1>
                             <div className="flex items-center bg-muted/50 rounded-lg p-1">
                                 <button
@@ -233,7 +233,7 @@ export default function SalesIndex() {
                                         <FiClock className="text-amber-600 dark:text-amber-400 size-5" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase text-amber-600/60 dark:text-amber-400/60 tracking-widest leading-none mb-1">Pending Orders</p>
+                                        <p className="text-[10px] font-black uppercase text-amber-600/60 dark:text-amber-400/60 tracking-widest leading-none mb-1">Orders Waiting</p>
                                         <p className="text-2xl font-black text-foreground">{stats.pending}</p>
                                     </div>
                                 </CardContent>
@@ -244,7 +244,7 @@ export default function SalesIndex() {
                                         <FiAlertCircle className="text-blue-600 dark:text-blue-400 size-5" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase text-blue-600/60 dark:text-blue-400/60 tracking-widest leading-none mb-1">In Preparation</p>
+                                        <p className="text-[10px] font-black uppercase text-blue-600/60 dark:text-blue-400/60 tracking-widest leading-none mb-1">In Kitchen</p>
                                         <p className="text-2xl font-black text-foreground">{stats.preparing}</p>
                                     </div>
                                 </CardContent>
@@ -312,7 +312,7 @@ export default function SalesIndex() {
                                                             {/* Primary Action: Status Progression */}
                                                             {sale.status === 'pending' && (
                                                                 <Button size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest px-4 shadow-md shadow-primary/20" onClick={() => updateStatus(sale.id, 'preparing')}>
-                                                                    Prepare Order
+                                                                    Start Order
                                                                 </Button>
                                                             )}
                                                             {sale.status === 'preparing' && (
@@ -330,7 +330,7 @@ export default function SalesIndex() {
                                                                     </Button>
                                                                 </DropdownMenuTrigger>
                                                                 <DropdownMenuContent align="end" className="w-56 rounded-xl border-none shadow-2xl ring-1 ring-black/5 p-1.5">
-                                                                    <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 py-2">Administrative Suite</DropdownMenuLabel>
+                                                                    <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 py-2">Options</DropdownMenuLabel>
                                                                     <DropdownMenuItem
                                                                         className="rounded-lg h-10 gap-3 px-2 cursor-pointer font-bold text-xs"
                                                                         onClick={() => {
@@ -355,7 +355,7 @@ export default function SalesIndex() {
                                                                         <div className="size-7 rounded-md bg-primary/10 flex items-center justify-center text-primary">
                                                                             <FiEye className="size-3.5" />
                                                                         </div>
-                                                                        Full Profit Audit
+                                                                        Order Details
                                                                     </DropdownMenuItem>
 
                                                                     <DropdownMenuSeparator className="my-1.5 opacity-50" />
@@ -372,7 +372,7 @@ export default function SalesIndex() {
                                                                             <div className="size-7 rounded-md bg-destructive/10 flex items-center justify-center">
                                                                                 <FiXCircle className="size-3.5" />
                                                                             </div>
-                                                                            Void Transaction
+                                                                            Cancel Order
                                                                         </DropdownMenuItem>
                                                                     )}
                                                                 </DropdownMenuContent>
@@ -445,7 +445,7 @@ export default function SalesIndex() {
                             <div className="p-8 space-y-6">
                                 <div className="flex justify-between items-start border-b border-dashed pb-6">
                                     <div className="space-y-1">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Sales Document</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Receipt Number</p>
                                         <p className="text-lg font-black tracking-tighter text-foreground">#{selectedSale?.order_number}</p>
                                         <div className="flex items-center gap-2 mt-2">
                                             <Badge className="bg-primary text-white text-[9px] font-black uppercase tracking-widest h-5">{selectedSale?.type}</Badge>
@@ -453,7 +453,7 @@ export default function SalesIndex() {
                                         </div>
                                     </div>
                                     <div className="text-right space-y-1">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Temporal Intel</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Date & Time</p>
                                         <p className="text-xs font-black text-foreground">
                                             {selectedSale && format(new Date(selectedSale.created_at), 'MMM dd, yyyy')}
                                         </p>
@@ -467,7 +467,7 @@ export default function SalesIndex() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between px-2">
                                         <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
-                                            <FiHash className="size-2.5" /> Item Specification
+                                            <FiHash className="size-2.5" /> Items
                                         </div>
                                         <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Value</div>
                                     </div>
@@ -487,11 +487,11 @@ export default function SalesIndex() {
                                 {/* Mathematical Breakdown */}
                                 <div className="pt-6 border-t-2 border-dashed space-y-4">
                                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">
-                                        <span>Merchandise Subtotal</span>
+                                        <span>Subtotal</span>
                                         <span className="tabular-nums">{selectedSale && formatCurrency(selectedSale.total)}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-2">
-                                        <span>Inventory Adjustment Fee</span>
+                                        <span>Service Fee</span>
                                         <span className="tabular-nums">₱0.00</span>
                                     </div>
                                     <div className="bg-primary p-4 rounded-2xl flex justify-between items-center shadow-xl shadow-primary/30">
@@ -506,11 +506,11 @@ export default function SalesIndex() {
                                 {/* Financial Settlement */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-muted/50 p-4 rounded-2xl border space-y-1">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Input Method</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Paid via</p>
                                         <p className="text-sm font-black uppercase tracking-tighter text-foreground">{selectedSale?.payment_method}</p>
                                     </div>
                                     <div className="bg-muted/50 p-4 rounded-2xl border space-y-1">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Change Settled</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Change Given</p>
                                         <p className="text-sm font-black text-amber-600">{selectedSale && formatCurrency(selectedSale.change_amount)}</p>
                                     </div>
                                 </div>
@@ -571,9 +571,9 @@ export default function SalesIndex() {
                             </div>
 
                             <div className="space-y-2">
-                                <DialogTitle className="text-2xl font-black tracking-tight text-foreground">Void Transaction?</DialogTitle>
+                                <DialogTitle className="text-2xl font-black tracking-tight text-foreground">Cancel Order?</DialogTitle>
                                 <DialogDescription className="text-sm font-medium text-muted-foreground leading-relaxed">
-                                    You are about to nullify <span className="font-black text-foreground">Order #{saleToVoid?.order_number}</span>. This will reverse all financial gains and restore ingredient stocks across the branch.
+                                    You are about to cancel <span className="font-black text-foreground">Order #{saleToVoid?.order_number}</span>. This will reverse the payment and return the items to stock.
                                 </DialogDescription>
                             </div>
 
@@ -595,14 +595,14 @@ export default function SalesIndex() {
                                         }
                                     }}
                                 >
-                                    Confirm Global Void
+                                    Confirm Cancellation
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     className="h-12 rounded-xl font-black uppercase tracking-widest text-xs text-muted-foreground"
                                     onClick={() => setIsVoidModalOpen(false)}
                                 >
-                                    Abort Operation
+                                    Go Back
                                 </Button>
                             </div>
                         </div>

@@ -55,7 +55,7 @@ export default function Login({
                             Maki <span className="text-primary">Desu</span>
                         </h2>
                         <div className="h-0.5 w-12 bg-primary/20 rounded-full" />
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/30 mt-1">Authorized Gateway</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/30 mt-1">Secure Login</p>
                     </div>
                 </div>
 
@@ -73,7 +73,7 @@ export default function Login({
                     </div>
 
                     <div className="mb-10 text-center">
-                        <h1 className="text-xs uppercase tracking-[0.4em] font-black text-gray-400 mb-2">Sign in to threshold</h1>
+                        <h1 className="text-xs uppercase tracking-[0.4em] font-black text-gray-400 mb-2">Identity Verification</h1>
                         <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/10 to-transparent" />
                     </div>
 
@@ -86,7 +86,7 @@ export default function Login({
                             <>
                                 <div className="space-y-6">
                                     <div className="space-y-3">
-                                        <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 ml-4">Terminal Identifier</Label>
+                                        <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 ml-4">Email Address</Label>
                                         <Input
                                             id="email"
                                             type="email"
@@ -102,7 +102,7 @@ export default function Login({
 
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between px-4">
-                                            <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Access Sigil</Label>
+                                            <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40">Password</Label>
                                             {canResetPassword && (
                                                 <Link
                                                     href={request()}
@@ -130,7 +130,7 @@ export default function Login({
                                             name="remember"
                                             className="rounded-full border-primary/20 text-primary focus:ring-primary/20 size-4"
                                         />
-                                        <Label htmlFor="remember" className="text-[10px] font-black text-primary/40 uppercase tracking-widest cursor-pointer">Persist authentication</Label>
+                                        <Label htmlFor="remember" className="text-[10px] font-black text-primary/40 uppercase tracking-widest cursor-pointer">Remember Me</Label>
                                     </div>
                                 </div>
 
@@ -141,7 +141,7 @@ export default function Login({
                                 >
                                     {processing ? <Spinner className="text-white" /> : (
                                         <>
-                                            Verify Identity
+                                            Login
                                             <FiArrowRight className="group-hover:translate-x-2 transition-transform" />
                                         </>
                                     )}

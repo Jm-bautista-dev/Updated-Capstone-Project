@@ -104,7 +104,6 @@ export default function Welcome() {
                             Maki <span className="text-primary">Desu</span>
                         </span>
                         <div className="h-4 w-px bg-primary/10 hidden sm:block" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/30 hidden sm:block">Operations platform</span>
                     </div>
 
                     <div className="flex items-center gap-6">
@@ -126,7 +125,7 @@ export default function Welcome() {
                 >
                     <motion.img
                         src="/images/maki-desu-logo.png"
-                        alt="Maki Desu Mascot"
+                        alt="Mascot"
                         animate={{ scale: [1, 1.02, 1] }}
                         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
                         className="w-[320px] h-auto drop-shadow-[0_20px_50px_rgba(225,6,44,0.15)] rounded-[2.5rem]"
@@ -143,16 +142,16 @@ export default function Welcome() {
                     >
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-primary/10 shadow-sm mb-8">
                             <FiShield className="size-3 text-primary" />
-                            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/40">Authorized personnel gateway</span>
+                            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/40">🔐 Authorized Access Only</span>
                         </div>
 
                         <h1 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tighter italic uppercase mb-6 leading-[0.9]">
                             Maki <span className="text-primary">Desu</span> <br />
-                            <span className="text-2xl md:text-3xl tracking-[0.2em] font-light text-gray-400 not-italic">Operations Platform</span>
+                            <span className="text-2xl md:text-3xl tracking-tight font-light text-gray-400 not-italic">Modern POS & Inventory System</span>
                         </h1>
 
-                        <p className="text-xs text-primary/40 font-black uppercase tracking-[0.4em] mb-12 max-w-lg mx-auto leading-relaxed">
-                            Internal system for POS, Inventory, and Enterprise Analytics.
+                        <p className="text-xs text-primary/40 font-black uppercase tracking-[0.2em] mb-12 max-w-lg mx-auto leading-relaxed">
+                            Manage sales, stock, and operations in one place.
                         </p>
 
                         <motion.div

@@ -93,8 +93,8 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                             <FiTrash2 className="size-5" />
                         </div>
                         <div>
-                            <DialogTitle className="text-xl font-black tracking-tighter uppercase italic text-rose-600">Log Wastage</DialogTitle>
-                            <DialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Record inventory loss due to spoilage or damage.</DialogDescription>
+                            <DialogTitle className="text-xl font-black tracking-tighter uppercase italic text-rose-600">Damaged / Expired Items</DialogTitle>
+                            <DialogDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none">Record items that cannot be sold due to damage or expiration.</DialogDescription>
                         </div>
                     </div>
                 </div>
@@ -115,7 +115,7 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest ml-1">Waste Quantity</label>
+                            <label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest ml-1">Number of Items</label>
                             <Input
                                 type="number"
                                 step="0.01"
@@ -209,7 +209,7 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                                 (processing || isOverWasting) ? "bg-muted text-muted-foreground" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
                             )}
                         >
-                            {processing ? 'Processing Destruction...' : 'Confirm Wastage Loss'}
+                            {processing ? 'Saving...' : 'Confirm Loss'}
                         </Button>
                     </DialogFooter>
                 </form>

@@ -14,6 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SalesExport;
 use Carbon\Carbon;
+use App\Models\CashierShift;
 
 class ReportController extends Controller
 {
@@ -44,9 +45,22 @@ class ReportController extends Controller
             )
             ->sum('total');
 
+        $shifts = CashierShift::with('cashier')
+            ->when(!$user->isAdmin(), fn($q) => $q
+                ->where('cashier_id', $user->id)
+                ->where('branch_id',  $user->branch_id)
+            )
+            ->when($request->date_from, fn($q) => $q->whereDate('opened_at', '>=', $request->date_from))
+            ->when($request->date_to,   fn($q) => $q->whereDate('opened_at', '<=', $request->date_to))
+            ->when($request->cashier_id && $user->isAdmin(), fn($q) => $q->where('cashier_id', $request->cashier_id))
+            ->latest()
+            ->paginate(20, ['*'], 'shifts_page')
+            ->withQueryString();
+
         return Inertia::render('Admin/Reports/Index', array_merge(
             [
                 'sales'       => $sales,
+                'shifts'      => $shifts,
                 'cashiers'    => User::where('role', 'cashier')->get(),
                 'filters'     => $request->only(['date_from', 'date_to', 'cashier_id', 'status']),
                 'today_sales' => (float) $todaySales,

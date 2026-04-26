@@ -7,6 +7,7 @@ import Admin from './Admin'
 import ProductsController from './ProductsController'
 import InventoryController from './InventoryController'
 import PosController from './PosController'
+import CashierShiftController from './CashierShiftController'
 import CategoriesController from './CategoriesController'
 import WastageController from './WastageController'
 import SalesController from './SalesController'
@@ -22,6 +23,7 @@ Admin: Object.assign(Admin, Admin),
 ProductsController: Object.assign(ProductsController, ProductsController),
 InventoryController: Object.assign(InventoryController, InventoryController),
 PosController: Object.assign(PosController, PosController),
+CashierShiftController: Object.assign(CashierShiftController, CashierShiftController),
 CategoriesController: Object.assign(CategoriesController, CategoriesController),
 WastageController: Object.assign(WastageController, WastageController),
 SalesController: Object.assign(SalesController, SalesController),

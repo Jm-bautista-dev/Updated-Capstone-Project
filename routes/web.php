@@ -90,6 +90,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['role:cashier'])->group(function () {
             Route::get('pos', [PosController::class, 'index'])->name('pos.index');
             Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+
+            // Cashier Shift Management
+            Route::post('shifts/open', [App\Http\Controllers\CashierShiftController::class, 'open'])->name('shifts.open');
+            Route::post('shifts/close', [App\Http\Controllers\CashierShiftController::class, 'close'])->name('shifts.close');
+            // Allow both to adjust if needed, but primarily cashier
+            Route::post('shifts/adjust', [App\Http\Controllers\CashierShiftController::class, 'adjust'])->name('shifts.adjust');
         }); // end role:cashier
 
         // Shared Routes (Admin and Cashier — Full Access)

@@ -596,8 +596,8 @@ export default function ProductsIndex() {
                 <FiPackage className="text-primary size-6" />
             </div>
             <div>
-                <h1 className="text-2xl font-black text-white tracking-tight leading-none drop-shadow-md">Products</h1>
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1.5">Inventory Hub</p>
+                <h1 className="text-2xl font-black text-white tracking-tight leading-none drop-shadow-md">Stock</h1>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1.5">Stock Management</p>
             </div>
             
             {/* View Switcher Toggle */}
@@ -639,7 +639,7 @@ export default function ProductsIndex() {
             <div className="relative group">
                 <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 size-4 group-focus-within:text-primary transition-colors" />
                 <Input
-                    placeholder="Search inventory..."
+                    placeholder="Search stock..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-11 h-11 w-64 bg-black/40 border border-white/10 rounded-xl text-slate-200 placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-primary transition-all shadow-inner"
@@ -661,7 +661,7 @@ export default function ProductsIndex() {
                     onClick={openAddModal} 
                     className="h-11 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary),0.5)] active:scale-95 transition-all bg-primary text-primary-foreground border border-primary/50 group"
                 >
-                    <FiPlus className="size-4 mr-2 group-hover:rotate-90 transition-transform" /> Add
+                    <FiPlus className="size-4 mr-2 group-hover:rotate-90 transition-transform" /> New Product
                 </Button>
             )}
         </div>
@@ -673,9 +673,9 @@ export default function ProductsIndex() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-6 shrink-0">
             {[
-                { label: 'Total Units', value: summary.total_products, icon: FiPackage, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-                { label: 'Low Stock', value: summary.low_stock, icon: FiAlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-                { label: 'Out of Stock', value: summary.out_of_stock, icon: FiSlash, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+                { label: 'Items in Stock', value: summary.total_products, icon: FiPackage, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+                { label: 'Running Low', value: summary.low_stock, icon: FiAlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+                { label: 'No Stock Available', value: summary.out_of_stock, icon: FiSlash, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
             ].map((stat, i) => (
                 <div key={i} className={cn("relative p-5 rounded-3xl bg-white/[0.02] backdrop-blur-xl border flex items-center justify-between overflow-hidden group", stat.border)}>
                     <div className={cn("absolute -right-4 -bottom-4 size-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity", stat.bg)} />
@@ -753,7 +753,7 @@ export default function ProductsIndex() {
                                                 )}>
                                                     {product.stock}
                                                 </span>
-                                                <span className="text-[8px] font-black uppercase text-slate-500 tracking-wider mt-1">Servings Ready</span>
+                                                <span className="text-[8px] font-black uppercase text-slate-500 tracking-wider mt-1">Items Ready to Sell</span>
                                                 {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
                                                     <div className="mt-2 flex flex-col items-center gap-1 w-full max-w-[120px]">
                                                         <span className="text-[8px] font-black text-rose-500 uppercase">Missing:</span>

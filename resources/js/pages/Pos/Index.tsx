@@ -3,7 +3,7 @@ import { router } from '@inertiajs/core';
 import { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { ResultModal } from '@/components/result-modal';
-import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage } from 'react-icons/fi';
+import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage, FiLock, FiUnlock, FiTrendingUp, FiActivity, FiDollarSign } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,7 @@ type Product = {
 type CartItem = Product & { quantity: number };
 
 export default function PosIndex() {
- const { products, categories, branch, availableRiders } = usePage().props as any;
+ const { products, categories, branch, availableRiders, activeShift } = usePage().props as any;
 
  // --- Real-time Sync Logic (Now handled globally by useRealTime hook in AppLayout) ---
  useEffect(() => {
@@ -70,6 +70,70 @@ export default function PosIndex() {
  });
  const [cashReceived, setCashReceived] = useState('');
  const [lastSale, setLastSale] = useState<any>(null);
+
+ // Shift Management States
+ const [isShiftModalOpen, setIsShiftModalOpen] = useState(!activeShift);
+ const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+ const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
+ const [openingCash, setOpeningCash] = useState('2000');
+ const [closingCash, setClosingCash] = useState('');
+ const [varianceReason, setVarianceReason] = useState('');
+ const [adjustmentType, setAdjustmentType] = useState<'in' | 'out'>('in');
+ const [adjustmentAmount, setAdjustmentAmount] = useState('');
+ const [adjustmentNotes, setAdjustmentNotes] = useState('');
+
+  const handleOpenShift = () => {
+    router.post('/shifts/open', { opening_balance: openingCash }, {
+      onSuccess: () => setIsShiftModalOpen(false),
+      onError: (err: any) => {
+        setAlertModal({ type: 'error', title: 'Shift Error', message: err.shift || 'Could not open shift.' });
+        setIsAlertModalOpen(true);
+      }
+    });
+  };
+
+  const handleCloseShift = () => {
+    router.post('/shifts/close', { 
+      closing_balance: closingCash, 
+      notes: varianceReason 
+    }, {
+      onSuccess: () => {
+        setIsCloseShiftModalOpen(false);
+        setClosingCash('');
+        setVarianceReason('');
+      },
+      onError: (err: any) => {
+        setAlertModal({ type: 'error', title: 'Shift Error', message: err.notes || 'Could not close shift.' });
+        setIsAlertModalOpen(true);
+      }
+    });
+  };
+
+  const handleAdjustment = () => {
+    router.post('/shifts/adjust', {
+      type: adjustmentType,
+      amount: adjustmentAmount,
+      notes: adjustmentNotes
+    }, {
+      onSuccess: () => {
+        setIsAdjustmentModalOpen(false);
+        setAdjustmentAmount('');
+        setAdjustmentNotes('');
+      },
+      onError: (err: any) => {
+        setAlertModal({ type: 'error', title: 'Adjustment Error', message: 'Could not record adjustment.' });
+        setIsAlertModalOpen(true);
+      }
+    });
+  };
+
+  useEffect(() => {
+   if (!activeShift) {
+     setIsShiftModalOpen(true);
+   } else {
+     setIsShiftModalOpen(false);
+   }
+ }, [activeShift]);
 
  // --- Delivery State ---
  const [deliveryInfo, setDeliveryInfo] = useState({
@@ -193,7 +257,13 @@ export default function PosIndex() {
 
  const { processing } = useForm();
 
- const handleCheckout = () => {
+  const handleCheckout = () => {
+  if (!activeShift) {
+    setAlertModal({ type: 'warning', title: 'Shift Required', message: 'You must open a shift before you can process any sales.' });
+    setIsAlertModalOpen(true);
+    setIsShiftModalOpen(true);
+    return;
+  }
  if (cart.length === 0) return;
 
  if (orderType === 'delivery') {
@@ -283,7 +353,7 @@ export default function PosIndex() {
  });
  };
 
- const handleNewOrder = () => {
+  const handleNewOrder = () => {
  setIsSuccessModalOpen(false);
  setLastSale(null);
  };
@@ -350,10 +420,38 @@ export default function PosIndex() {
  {/* Header */}
  <div className="h-14 lg:h-18 px-4 lg:px-8 flex items-center justify-between border-b border-border/50 bg-transparent gap-3">
  <div>
- <h1 className="text-lg lg:text-2xl font-black tracking-tight text-foreground drop-shadow-md">Menu</h1>
-  <p className="text-[10px] lg:text-xs font-medium text-muted-foreground/80 uppercase tracking-widest mt-0.5 hidden sm:block">{filteredProducts.length} Available</p>
+ <h1 className="text-lg lg:text-2xl font-black tracking-tight text-foreground drop-shadow-md">Stock</h1>
+  <p className="text-[10px] lg:text-xs font-medium text-muted-foreground/80 uppercase tracking-widest mt-0.5 hidden sm:block">{filteredProducts.length} Items in Stock</p>
  </div>
  <div className="flex items-center gap-4">
+ {/* Shift Control Buttons */}
+ {activeShift && (
+   <div className="flex items-center gap-2 mr-4 bg-muted/50 p-1.5 rounded-2xl border border-border/50">
+     <div className="px-3 py-1 flex flex-col items-end">
+       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80">Shift Cash</span>
+       <span className="text-sm font-black text-primary">{formatCurrency(activeShift.expected_balance)}</span>
+     </div>
+     <Button 
+       variant="outline" 
+       size="sm" 
+       className="h-9 rounded-xl gap-2 border-primary/20 hover:bg-primary/10"
+       onClick={() => setIsAdjustmentModalOpen(true)}
+     >
+       <FiActivity className="size-4" />
+       <span className="hidden xl:inline">Adjust</span>
+     </Button>
+     <Button 
+       variant="destructive" 
+       size="sm" 
+       className="h-9 rounded-xl gap-2 shadow-lg shadow-rose-500/20"
+       onClick={() => setIsCloseShiftModalOpen(true)}
+     >
+       <FiLock className="size-4" />
+       <span className="hidden xl:inline">End Shift</span>
+     </Button>
+   </div>
+ )}
+
  {/* Search Bar (Apple Style) */}
  <div className="relative group">
  <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-4 group-focus-within:text-primary transition-colors" />
@@ -621,13 +719,13 @@ export default function PosIndex() {
  <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
  <DialogContent className="max-w-md">
  <DialogHeader>
- <DialogTitle>Payment Details</DialogTitle>
- <DialogDescription>Select payment method and enter amount</DialogDescription>
+ <DialogTitle>Receive Payment</DialogTitle>
+ <DialogDescription>Enter the amount paid by the customer</DialogDescription>
  </DialogHeader>
 
  <div className="space-y-6 py-4">
  <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border border-primary/10">
- <span className="text-muted-foreground font-medium">Total Payable</span>
+ <span className="text-muted-foreground font-medium">Total to Pay</span>
  <span className="text-3xl font-black text-primary">{formatCurrency(cartTotal)}</span>
  </div>
 
@@ -649,7 +747,7 @@ export default function PosIndex() {
  </div>
 
  <div className="flex justify-between items-center p-4 bg-muted/50 rounded-2xl border">
- <span className="text-muted-foreground font-medium">Change Due</span>
+ <span className="text-muted-foreground font-medium">Change to Give</span>
  <span className="text-2xl font-black text-amber-600">{formatCurrency(changeDue)}</span>
  </div>
  </div>
@@ -664,13 +762,13 @@ export default function PosIndex() {
  </div>
 
  <DialogFooter>
- <Button variant="outline" className="h-11 rounded-xl" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
+ <Button variant="outline" className="h-11 rounded-xl" onClick={() => setIsPaymentModalOpen(false)}>Go Back</Button>
  <Button
  className="h-11 rounded-xl px-8 font-bold"
  disabled={processing || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
  onClick={confirmPayment}
  >
- Confirm Payment
+ Finish Order
  </Button>
  </DialogFooter>
  </DialogContent>
@@ -688,8 +786,8 @@ export default function PosIndex() {
  >
  <FiCheckCircle className="size-8 text-green-500" />
  </motion.div>
- <DialogTitle className="text-2xl font-black">Transaction Complete</DialogTitle>
- <DialogDescription>Order #{lastSale?.order_number} has been recorded</DialogDescription>
+ <DialogTitle className="text-2xl font-black">Order Saved!</DialogTitle>
+ <DialogDescription>Receipt for #{lastSale?.order_number} is ready</DialogDescription>
  </div>
 
  {/* Receipt Preview Area */}
@@ -749,7 +847,7 @@ export default function PosIndex() {
  <FiPrinter className="size-4" /> Print Receipt
  </Button>
  <Button className="h-11 rounded-xl gap-2 font-bold" onClick={handleNewOrder}>
- <FiPlusCircle className="size-4" /> New Order
+ <FiPlusCircle className="size-4" /> Next Order
  </Button>
  </DialogFooter>
  </DialogContent>
@@ -762,6 +860,230 @@ export default function PosIndex() {
  title={alertModal.title}
  message={alertModal.message}
  />
+
+ {/* Opening Shift Modal */}
+ <Dialog open={isShiftModalOpen} onOpenChange={() => {}}>
+   <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+     <DialogHeader>
+       <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto">
+         <FiUnlock className="size-8 text-primary" />
+       </div>
+       <DialogTitle className="text-center text-2xl font-black">Open Cashier Shift</DialogTitle>
+       <DialogDescription className="text-center">
+         Enter the initial cash balance in your drawer to start your shift.
+       </DialogDescription>
+     </DialogHeader>
+
+     <div className="py-6 space-y-4">
+       <div className="space-y-2">
+         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Opening Cash</label>
+         <div className="relative">
+           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
+           <Input
+             type="number"
+             placeholder="0.00"
+             className="pl-10 h-14 text-2xl font-black rounded-2xl shadow-inner border-border/50"
+             value={openingCash}
+             onChange={(e) => setOpeningCash(e.target.value)}
+             autoFocus
+           />
+         </div>
+       </div>
+       
+       <div className="grid grid-cols-2 gap-3">
+         {[100, 500, 1000, 2000].map(amount => (
+           <Button 
+             key={amount} 
+             variant="outline" 
+             className="h-12 rounded-xl font-bold border-border/50 hover:bg-primary/10 hover:text-primary transition-all"
+             onClick={() => setOpeningCash(String(amount))}
+           >
+             ₱{amount}
+           </Button>
+         ))}
+       </div>
+     </div>
+
+     <DialogFooter>
+       <Button 
+         className="w-full h-14 text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/40"
+         onClick={handleOpenShift}
+         disabled={!openingCash || parseFloat(openingCash) < 0}
+       >
+         Start Shift
+       </Button>
+     </DialogFooter>
+   </DialogContent>
+ </Dialog>
+
+ {/* Close Shift Modal */}
+ <Dialog open={isCloseShiftModalOpen} onOpenChange={setIsCloseShiftModalOpen}>
+   <DialogContent className="max-w-md">
+     <DialogHeader>
+       <div className="size-16 rounded-full bg-rose-500/10 flex items-center justify-center mb-4 mx-auto">
+         <FiLock className="size-8 text-rose-500" />
+       </div>
+       <DialogTitle className="text-center text-2xl font-black">End Cashier Shift</DialogTitle>
+       <DialogDescription className="text-center">
+         Count the actual cash in your drawer for reconciliation.
+       </DialogDescription>
+     </DialogHeader>
+
+     <div className="py-4 space-y-6">
+       <div className="grid grid-cols-2 gap-4">
+         <div className="p-4 bg-muted/50 rounded-2xl border border-border/50 text-center">
+           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 mb-1">Expected</p>
+           <p className="text-xl font-black text-foreground">{formatCurrency(activeShift?.expected_balance || 0)}</p>
+         </div>
+         <div className="p-4 bg-primary/5 rounded-2xl border border-primary/20 text-center">
+           <p className="text-[10px] font-black uppercase tracking-widest text-primary/80 mb-1">Cash Sales</p>
+           <p className="text-xl font-black text-primary">{formatCurrency(activeShift?.total_cash_sales || 0)}</p>
+         </div>
+       </div>
+
+       <div className="space-y-2">
+         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Actual Cash Count</label>
+         <div className="relative">
+           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
+           <Input
+             type="number"
+             placeholder="0.00"
+             className="pl-10 h-14 text-2xl font-black rounded-2xl shadow-inner"
+             value={closingCash}
+             onChange={(e) => setClosingCash(e.target.value)}
+             autoFocus
+           />
+         </div>
+       </div>
+
+       {closingCash && (parseFloat(closingCash) - (activeShift?.expected_balance || 0)) !== 0 && (
+         <motion.div 
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="space-y-4"
+         >
+           <div className={cn(
+             "p-4 rounded-2xl border flex items-center justify-between",
+             (parseFloat(closingCash) - (activeShift?.expected_balance || 0)) > 0 
+               ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" 
+               : "bg-rose-500/10 border-rose-500/20 text-rose-600"
+           )}>
+             <span className="font-bold uppercase tracking-wider text-xs">
+               {(parseFloat(closingCash) - (activeShift?.expected_balance || 0)) > 0 ? "Overage" : "Shortage"} Detected
+             </span>
+             <span className="text-lg font-black">
+               {formatCurrency(Math.abs(parseFloat(closingCash) - (activeShift?.expected_balance || 0)))}
+             </span>
+           </div>
+           
+           <div className="space-y-2">
+             <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Reason / Notes</label>
+             <Input
+               placeholder="Explain the variance..."
+               className="rounded-xl h-12 bg-muted border-border/50"
+               value={varianceReason}
+               onChange={(e) => setVarianceReason(e.target.value)}
+             />
+           </div>
+         </motion.div>
+       )}
+     </div>
+
+     <DialogFooter>
+       <Button 
+         variant="outline" 
+         className="h-14 rounded-2xl font-bold" 
+         onClick={() => setIsCloseShiftModalOpen(false)}
+       >
+         Cancel
+       </Button>
+       <Button 
+         className="h-14 flex-1 text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/40"
+         onClick={handleCloseShift}
+         disabled={!closingCash || ((parseFloat(closingCash) - (activeShift?.expected_balance || 0)) !== 0 && !varianceReason)}
+       >
+         Close Cash Drawer
+       </Button>
+     </DialogFooter>
+   </DialogContent>
+ </Dialog>
+
+ {/* Adjustment Modal */}
+ <Dialog open={isAdjustmentModalOpen} onOpenChange={setIsAdjustmentModalOpen}>
+   <DialogContent className="max-w-md">
+     <DialogHeader>
+       <DialogTitle className="text-2xl font-black">Add/Remove Cash</DialogTitle>
+       <DialogDescription>Record cash added to or taken from the drawer.</DialogDescription>
+     </DialogHeader>
+
+     <div className="py-6 space-y-6">
+       <div className="flex p-1 bg-muted rounded-2xl border border-border/50 relative">
+         {(['in', 'out'] as const).map((type) => (
+           <button
+             key={type}
+             onClick={() => setAdjustmentType(type)}
+             className={cn(
+               "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all z-10",
+               adjustmentType === type ? "text-foreground" : "text-muted-foreground/80"
+             )}
+           >
+             Cash {type}
+           </button>
+         ))}
+         <div 
+           className={cn(
+             "absolute top-1 bottom-1 rounded-xl border shadow-sm transition-all duration-300",
+             adjustmentType === 'in' ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"
+           )}
+           style={{
+             width: 'calc(50% - 4px)',
+             left: adjustmentType === 'in' ? '4px' : 'calc(50% + 2px)'
+           }}
+         />
+       </div>
+
+       <div className="space-y-4">
+         <div className="space-y-2">
+           <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Amount</label>
+           <div className="relative">
+             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
+             <Input
+               type="number"
+               placeholder="0.00"
+               className="pl-10 h-14 text-2xl font-black rounded-2xl shadow-inner"
+               value={adjustmentAmount}
+               onChange={(e) => setAdjustmentAmount(e.target.value)}
+             />
+           </div>
+         </div>
+
+         <div className="space-y-2">
+           <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Notes / Reason</label>
+           <Input
+             placeholder="e.g. For office supplies, GCash transfer, etc."
+             className="rounded-xl h-12 bg-muted border-border/50"
+             value={adjustmentNotes}
+             onChange={(e) => setAdjustmentNotes(e.target.value)}
+           />
+         </div>
+       </div>
+     </div>
+
+     <DialogFooter>
+       <Button variant="outline" className="h-12 rounded-xl" onClick={() => setIsAdjustmentModalOpen(false)}>Cancel</Button>
+       <Button 
+         className={cn(
+           "h-12 flex-1 rounded-xl font-black uppercase tracking-widest",
+           adjustmentType === 'in' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
+         )}
+         onClick={handleAdjustment}
+         disabled={!adjustmentAmount || !adjustmentNotes}
+       >
+         Confirm Cash {adjustmentType === 'in' ? 'Added' : 'Removed'}
+       </Button>
+     </DialogFooter>
+   </DialogContent>
+ </Dialog>
  </AppLayout>
  );
 }
