@@ -325,17 +325,30 @@ class AnalyticsController extends Controller
         $forecastInsights = $forecastResult['insights'] ?? [];
 
         // 2. Run prescriptive restock engine
-        $restockResult = (new RestockService())->generate($branchId);
+        $restockService = new RestockService();
+        $restockResult = $restockService->generate($branchId);
+        $impactResult  = $restockService->getImpactBasedSuggestions($branchId);
 
-        if (isset($restockResult['error'])) {
-            return Inertia::render('Analytics/RestockSuggestions', [
-                'error'    => $restockResult['error'],
-                'branches' => Branch::all(),
-                'filters'  => ['branch_id' => $branchId],
-            ]);
-        }
+        // 3. Fetch inventory for MassRestockModal support
+        $inventory = IngredientStock::with('ingredient')
+            ->where('branch_id', $branchId)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'id' => $row->ingredient_id,
+                    'name' => $row->ingredient->name,
+                    'unit' => $row->ingredient->unit,
+                    'stock' => (float) $row->stock,
+                    'low_stock_level' => (float) $row->low_stock_level,
+                    'is_low_stock' => $row->stock <= $row->low_stock_level && $row->stock > 0,
+                    'is_out_of_stock' => $row->stock <= 0,
+                    'branch_id' => $row->branch_id,
+                ];
+            });
 
         return Inertia::render('Analytics/RestockSuggestions', array_merge($restockResult, [
+            'impact_suggestions' => $impactResult,
+            'inventory'        => $inventory,
             'branches'         => Branch::all(),
             'filters'          => ['branch_id' => $branchId],
             'tomorrow_forecast' => $tomorrowForecast,

@@ -35,7 +35,7 @@ class StockInController extends Controller
             'items'     => 'required|array|min:1',
             'items.*.id'       => 'required|integer',
             'items.*.type'     => 'required|in:ingredient,product',
-            'items.*.quantity' => 'required|numeric|gt:0|max:10000',
+            'items.*.quantity' => 'required|numeric|gt:0|max:1000000',
             'items.*.unit'     => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ]);
 
@@ -66,7 +66,7 @@ class StockInController extends Controller
         $request->validate([
             'type'           => 'required|in:ingredient,product',
             'id'             => 'required|integer',
-            'quantity'       => 'required|numeric|gt:0|max:10000',
+            'quantity'       => 'required|numeric|gt:0|max:1000000',
             'unit'           => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
             'branch_id'      => 'required|exists:branches,id',
             'purchase_price' => 'nullable|numeric|min:0',

@@ -43,6 +43,8 @@ class WastageController extends Controller
             );
 
             return back()->with('success', 'Wastage logged successfully and inventory adjusted.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }

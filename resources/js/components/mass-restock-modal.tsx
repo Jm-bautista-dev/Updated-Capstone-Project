@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FiRefreshCw, FiAlertTriangle, FiCheck, FiInfo, FiCheckCircle, FiPackage, FiSlash } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,15 +36,16 @@ interface MassRestockModalProps {
   branchName: string;
   branchId: number;
   inventory: InventoryRow[];
+  initialQuantities?: Record<number, { quantity: string, unit: string }>;
 }
 
-export function MassRestockModal({ open, onOpenChange, branchName, branchId, inventory }: MassRestockModalProps) {
+export function MassRestockModal({ open, onOpenChange, branchName, branchId, inventory, initialQuantities }: MassRestockModalProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
   
-  // Get all items for this branch
+  // Get all items for this branch - Using loose equality for safety with ID types
   const branchItems = useMemo(() => {
-    return inventory.filter(item => item.branch_id === branchId);
+    return (inventory || []).filter(item => Number(item.branch_id) === Number(branchId));
   }, [inventory, branchId]);
 
   // Apply visual filtering for the display
@@ -66,20 +68,22 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
   // Initialize form data with ALL branch items when modal opens
   useEffect(() => {
     if (open) {
-      setData(prev => ({
-        ...prev,
+      setData({
         branch_id: branchId,
-        items: branchItems.map(item => ({
-          id: item.id,
-          type: 'ingredient',
-          quantity: '',
-          unit: item.unit
-        }))
-      }));
+        items: branchItems.map(item => {
+          const prefilled = initialQuantities?.[item.id];
+          return {
+            id: item.id,
+            type: 'ingredient',
+            quantity: prefilled?.quantity || '',
+            unit: prefilled?.unit || item.unit
+          };
+        })
+      });
       setShowSuccess(false);
-      setFilter('all');
+      setFilter('all'); 
     }
-  }, [open, branchId, branchItems]);
+  }, [open, branchId, branchItems, initialQuantities]);
 
   const handleQuantityChange = (id: number, value: string) => {
     const newItems = [...data.items];
@@ -116,6 +120,9 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
         setShowSuccess(true);
         reset();
       },
+      onError: (errors) => {
+        console.error("Restock failed:", errors);
+      },
       preserveState: true
     });
   };
@@ -138,6 +145,17 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
           <DialogHeader className="p-8 pb-4">
+            {Object.keys(errors).length > 0 && (
+              <Alert variant="destructive" className="mb-4 bg-rose-500/10 border-rose-500/20 text-rose-600 rounded-2xl">
+                <FiAlertTriangle className="size-4" />
+                <AlertDescription className="text-[10px] font-black uppercase tracking-tight ml-2">
+                  {(errors as any).error || "Validation failed. Please check quantities."}
+                  {Object.entries(errors).map(([key, val]) => (
+                    key !== 'error' && <div key={key} className="mt-1 font-bold lowercase first-letter:uppercase text-[8px]">{val}</div>
+                  ))}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -197,7 +215,7 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
 
           <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto px-8 py-4 no-scrollbar">
-              {filteredItems.length === 0 ? (
+              {branchItems.length === 0 ? (
                 <div className="py-20 text-center space-y-4">
                   <div className="size-16 rounded-full bg-muted/30 text-muted-foreground/40 flex items-center justify-center mx-auto border-2 border-dashed border-border">
                     <FiPackage className="size-8" />
@@ -205,7 +223,19 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                   <div>
                     <p className="text-lg font-black italic uppercase tracking-tighter text-foreground">No Items Found</p>
                     <p className="text-xs font-bold text-muted-foreground uppercase mt-1">
-                      {filter === 'all' ? "No ingredients found for this branch." : `No ingredients currently match the ${filter} stock filter.`}
+                      No ingredients found for this branch in the system.
+                    </p>
+                  </div>
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="py-20 text-center space-y-4">
+                  <div className="size-16 rounded-full bg-muted/30 text-muted-foreground/40 flex items-center justify-center mx-auto border-2 border-dashed border-border">
+                    <FiPackage className="size-8" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black italic uppercase tracking-tighter text-foreground">Filter Empty</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase mt-1">
+                      No ingredients currently match the <span className="text-primary">{filter}</span> stock filter.
                     </p>
                   </div>
                 </div>

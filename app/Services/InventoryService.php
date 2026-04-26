@@ -151,7 +151,19 @@ class InventoryService
             $costAtLoss = 0;
 
             if ($type === 'ingredient') {
-                $stockRow = IngredientStock::where('ingredient_id', $id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
+                $stockRow = IngredientStock::where('ingredient_id', $id)->where('branch_id', $branchId)->lockForUpdate()->first();
+                if (!$stockRow) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'error' => 'Stock record not found for this ingredient in the selected branch.'
+                    ]);
+                }
+
+                if ($stockRow->stock < $qtyBase) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'quantity' => "Waste quantity ({$qtyBase}) exceeds available stock ({$stockRow->stock})."
+                    ]);
+                }
+
                 $costAtLoss = (float) $stockRow->cost_per_unit * $qtyBase;
                 
                 $prevStock = (float) $stockRow->stock;
@@ -161,7 +173,19 @@ class InventoryService
                 $stockRow->update(['total_stock_value' => (float)$stockRow->total_stock_value - $costAtLoss]);
             } else {
                 /** @var Product $product */
-                $product = Product::where('id', $id)->lockForUpdate()->firstOrFail();
+                $product = Product::where('id', $id)->lockForUpdate()->first();
+                if (!$product) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'error' => 'Product record not found.'
+                    ]);
+                }
+
+                if ($product->stock < $qtyBase) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'quantity' => "Waste quantity ({$qtyBase}) exceeds available stock ({$product->stock})."
+                    ]);
+                }
+
                 $costAtLoss = (float) $product->computeProductCost($branchId) * $qtyBase;
                 $prevStock = (float) $product->stock;
                 $product->update(['stock' => $prevStock - $qtyBase]);

@@ -19,8 +19,114 @@ class RestockService
     private const MAX_RESTOCK   = 100000; // Hard threshold for restock quantity to prevent absurd values
 
     /**
-     * Generate restock suggestions based on historical usage and safety buffers.
+     * Generate restock suggestions based on impact on product availability.
      */
+    public function getImpactBasedSuggestions(int $branchId): array
+    {
+        // 1. Get all ingredients and their current stock for the branch
+        $stocks = \App\Models\IngredientStock::where('branch_id', $branchId)->get();
+        $ingredients = \App\Models\Ingredient::all()->keyBy('id');
+        $products = \App\Models\Product::with(['ingredients'])->get();
+
+        $results = [];
+
+        foreach ($stocks as $stockRow) {
+            $ingredient = $ingredients[$stockRow->ingredient_id] ?? null;
+            if (!$ingredient) continue;
+
+            $blockingProductsCount = 0;
+            $blockingProducts = [];
+            $maxRequiredPerServing = 0;
+            $totalNeededToUnlockOneEach = 0;
+
+            foreach ($products as $product) {
+                // Check if this product uses this ingredient
+                $pivot = $product->ingredients->where('id', $ingredient->id)->first()?->pivot;
+                if (!$pivot) continue;
+
+                // Calculate required in base unit
+                $qtyInput = (float) $pivot->quantity_required;
+                $unitInput = $pivot->unit ?? $ingredient->unit;
+                $requiredBase = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                    $qtyInput,
+                    $unitInput,
+                    $ingredient->unit,
+                    $ingredient->avg_weight_per_piece
+                );
+
+                if ($requiredBase <= 0) continue;
+
+                // Update max requirement for overall suggestions
+                if ($requiredBase > $maxRequiredPerServing) $maxRequiredPerServing = $requiredBase;
+
+                // Is it blocking this product?
+                if ($stockRow->stock < $requiredBase) {
+                    $blockingProductsCount++;
+                    $blockingProducts[] = [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'missing' => $requiredBase - $stockRow->stock,
+                        'unit' => $ingredient->unit
+                    ];
+                    $totalNeededToUnlockOneEach += ($requiredBase - $stockRow->stock);
+                }
+            }
+
+            // Calculate Suggested Restock
+            // needed = total missing to make 1 of each + buffer (e.g. 50 servings worth)
+            $buffer = $maxRequiredPerServing * 50; 
+            $suggestedRestock = $totalNeededToUnlockOneEach + $buffer;
+
+            // Status logic
+            $status = 'normal';
+            if ($blockingProductsCount > 0) {
+                $status = 'critical';
+            } elseif ($stockRow->isLowStock()) {
+                $status = 'low';
+            }
+
+            // Only include items that need attention in the priority list
+            if ($status === 'normal' && $suggestedRestock <= 0) continue;
+            if ($status === 'normal' && $blockingProductsCount === 0) continue;
+
+            // Format suggested quantity for display (kg/L conversion)
+            $displayQty = $suggestedRestock;
+            $displayUnit = $ingredient->unit;
+            if ($displayUnit === 'g' && $displayQty >= 1000) {
+                $displayQty = $displayQty / 1000;
+                $displayUnit = 'kg';
+            } elseif ($displayUnit === 'ml' && $displayQty >= 1000) {
+                $displayQty = $displayQty / 1000;
+                $displayUnit = 'L';
+            }
+
+            $results[] = [
+                'ingredient_id'             => $ingredient->id,
+                'ingredient_name'           => $ingredient->name,
+                'current_stock'             => (float) $stockRow->stock,
+                'unit'                      => $ingredient->unit,
+                'status'                    => $status,
+                'blocking_products_count'   => $blockingProductsCount,
+                'blocking_products'         => $blockingProducts,
+                'suggested_restock_quantity'=> round($suggestedRestock, 2),
+                'display_restock_quantity'  => round($displayQty, 1),
+                'display_restock_unit'      => $displayUnit,
+                'priority_score'            => ($status === 'critical' ? 100 : 0) + $blockingProductsCount, 
+                'max_servings_unlockable'   => 50, // Buffer amount
+            ];
+        }
+
+        // Sort by Priority Score DESC, then by Stock ASC
+        usort($results, function ($a, $b) {
+            if ($b['priority_score'] !== $a['priority_score']) {
+                return $b['priority_score'] <=> $a['priority_score'];
+            }
+            return $a['current_stock'] <=> $b['current_stock'];
+        });
+
+        return $results;
+    }
+
     public function generate(int $branchId): array
     {
         $since = Carbon::now()->subDays(self::LOOKBACK_DAYS);

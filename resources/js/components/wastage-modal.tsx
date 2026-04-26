@@ -66,7 +66,23 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
         });
     };
 
+    const getBaseQuantity = (qty: string, unit: string) => {
+        const val = parseFloat(qty);
+        if (isNaN(val)) return 0;
+        
+        switch(unit) {
+            case 'kg':
+            case 'L':
+                return val * 1000;
+            default:
+                return val;
+        }
+    };
+
     if (!item) return null;
+
+    const inputBaseQty = getBaseQuantity(data.quantity, data.unit);
+    const isOverWasting = inputBaseQty > Number(item.stock || 0);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,8 +105,11 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                             <span className="text-[9px] uppercase font-black text-muted-foreground tracking-[0.2em]">Item Specification</span>
                             <span className="font-black text-sm italic uppercase tracking-tight">{item.name}</span>
                         </div>
-                        <Badge variant="outline" className="bg-background font-black text-[10px] py-1 border-rose-200 text-rose-600 uppercase tracking-widest">
-                            {item.stock} {item.unit} ON HAND
+                        <Badge variant="outline" className={cn(
+                            "bg-background font-black text-[10px] py-1 border-rose-200 uppercase tracking-widest",
+                            isOverWasting ? "text-rose-600 border-rose-500 animate-pulse" : "text-emerald-600 border-emerald-200"
+                        )}>
+                            {item.stock} {item.unit} AVAILABLE
                         </Badge>
                     </div>
 
@@ -106,10 +125,11 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData('quantity', e.target.value)}
                                 className={cn(
                                     "h-11 rounded-xl bg-muted/20 border-none ring-1 font-black text-lg transition-all",
-                                    errors.quantity ? "ring-destructive bg-destructive/5" : "ring-border focus:ring-rose-500/50"
+                                    (errors.quantity || isOverWasting) ? "ring-destructive bg-destructive/5" : "ring-border focus:ring-rose-500/50"
                                 )}
                                 placeholder="0.00"
                             />
+                            {isOverWasting && <p className="text-[9px] text-rose-600 font-black uppercase tracking-widest ml-1">Error: Exceeds available stock!</p>}
                             {errors.quantity && <p className="text-[9px] text-destructive font-black uppercase tracking-widest ml-1">{errors.quantity}</p>}
                         </div>
 
@@ -183,10 +203,10 @@ export function WastageModal({ open, onOpenChange, item, type }: WastageModalPro
                         <Button type="button" variant="ghost" onClick={() => { onOpenChange(false); reset(); }} className="rounded-xl h-11 font-black uppercase text-[10px] tracking-widest italic">Dismiss</Button>
                         <Button
                             type="submit"
-                            disabled={processing || !data.quantity || Number(data.quantity) <= 0}
+                            disabled={processing || !data.quantity || Number(data.quantity) <= 0 || isOverWasting}
                             className={cn(
                                 "rounded-xl h-11 flex-1 shadow-lg font-black uppercase text-[10px] tracking-widest italic active:scale-95 transition-all gap-2",
-                                processing ? "bg-muted text-muted-foreground" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
+                                (processing || isOverWasting) ? "bg-muted text-muted-foreground" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
                             )}
                         >
                             {processing ? 'Processing Destruction...' : 'Confirm Wastage Loss'}
