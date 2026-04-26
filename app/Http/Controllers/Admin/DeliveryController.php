@@ -36,10 +36,44 @@ class DeliveryController extends Controller
             'rider', 
             'creator', 
             'cancelledBy'
-        ])
-            ->latest();
+        ])->latest();
 
-        // ... existing filters ...
+        // Filter by Status
+        if ($request->filled('status') && $request->status !== 'all') {
+            if ($request->status === 'pending') {
+                $query->whereIn('status', ['pending', 'waiting_for_kitchen']);
+            } else {
+                $query->where('status', $request->status);
+            }
+        }
+
+        // Filter by Type (Internal/External)
+        if ($request->filled('type') && $request->type !== 'all') {
+            $query->where('delivery_type', $request->type);
+        }
+
+        // Filter by Branch
+        if ($request->filled('branch_id') && $request->branch_id !== 'all') {
+            $branchId = $request->branch_id;
+            $query->where(function($q) use ($branchId) {
+                $q->whereHas('sale', fn($sq) => $sq->where('branch_id', $branchId))
+                  ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchId));
+            });
+        }
+
+        // Search by Customer, Order #, Tracking, Landmark
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('customer_name', 'like', "%{$search}%")
+                  ->orWhere('customer_phone', 'like', "%{$search}%")
+                  ->orWhere('customer_address', 'like', "%{$search}%")
+                  ->orWhere('tracking_number', 'like', "%{$search}%")
+                  ->orWhere('landmark', 'like', "%{$search}%")
+                  ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
+                  ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"));
+            });
+        }
 
         $deliveries = $query->paginate(50)->withQueryString();
 

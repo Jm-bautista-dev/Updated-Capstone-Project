@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Navigation, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import echo from '@/echo';
+import { cn } from '@/lib/utils';
 
 // Delivery components
 import DeliveryStats from '@/components/delivery/DeliveryStats';
@@ -215,26 +216,49 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                     <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
                         {/* Title row */}
                         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
+                            <div className="flex flex-col gap-1">
+                                <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 text-foreground">
                                     <Navigation className="size-7 text-primary" />
                                     Delivery Dashboard
                                 </h1>
-                                <p className="text-muted-foreground text-sm mt-1">
-                                    Track and manage active deliveries across your operations.
-                                </p>
+                                <div className="flex items-center bg-muted/50 rounded-xl p-1 w-fit mt-2">
+                                    {[
+                                        { id: 'all', label: 'All' },
+                                        { id: 'pending', label: 'Pending / New' },
+                                        { id: 'preparing', label: 'Preparing' },
+                                        { id: 'in_transit', label: 'In Transit' },
+                                        { id: 'delivered', label: 'Delivered' },
+                                    ].map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => handleFilterChange({ status: tab.id })}
+                                            className={cn(
+                                                "px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                                (filters.status || 'all') === tab.id 
+                                                    ? "bg-background shadow-sm text-primary ring-1 ring-black/5" 
+                                                    : (tab.id === 'pending' && filters.status === 'waiting_for_kitchen')
+                                                        ? "bg-background shadow-sm text-primary ring-1 ring-black/5"
+                                                        : "text-muted-foreground hover:text-foreground"
+                                            )}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
-                            {/* Group toggle */}
-                            <Button
-                                variant={groupByStatus ? 'secondary' : 'outline'}
-                                size="sm"
-                                className="h-9 rounded-xl gap-2 text-xs font-bold shrink-0 self-start lg:self-auto"
-                                onClick={() => setGroupByStatus(v => !v)}
-                            >
-                                <Layers className="size-3.5" />
-                                {groupByStatus ? 'Grouped' : 'Flat'} View
-                            </Button>
+                            <div className="flex items-center gap-3 shrink-0 self-start lg:self-auto">
+                                {/* Group toggle */}
+                                <Button
+                                    variant={groupByStatus ? 'secondary' : 'outline'}
+                                    size="sm"
+                                    className="h-9 rounded-xl gap-2 text-[10px] font-black uppercase tracking-widest"
+                                    onClick={() => setGroupByStatus(v => !v)}
+                                >
+                                    <Layers className="size-3.5" />
+                                    {groupByStatus ? 'Grouped' : 'Flat'} View
+                                </Button>
+                            </div>
                         </div>
 
                         {/* Stats */}

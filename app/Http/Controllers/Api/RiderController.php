@@ -40,7 +40,7 @@ class RiderController extends Controller
 
             $deliveries = Delivery::with(['order.items.product', 'order.branch'])
                 ->whereNull('rider_id')
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['ready_for_pickup', 'preparing']))
+                ->whereHas('order', fn($q) => $q->whereIn('status', ['ready_for_pickup']))
                 ->orderBy('created_at', 'asc')
                 ->get()
                 ->map(fn(Delivery $d) => $this->formatDelivery($d));

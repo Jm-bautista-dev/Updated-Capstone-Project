@@ -93,7 +93,7 @@ export default function Welcome() {
     return (
         <div className="min-h-screen w-full bg-gradient-to-b from-white via-pink-50 to-white text-gray-900 font-['Outfit'] antialiased flex flex-col selection:bg-rose-100 transition-colors duration-300 relative overflow-hidden">
             <Head title="Welcome | Maki Desu Operations" />
-            
+
             <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0 will-change-transform" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/[0.03] blur-[120px] rounded-full pointer-events-none z-0" />
 
@@ -101,7 +101,7 @@ export default function Welcome() {
                 <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center text-sm">
                     <div className="flex items-center gap-6">
                         <span className="font-black text-lg tracking-tight uppercase italic flex items-center gap-2">
-                             Maki <span className="text-primary">Desu</span>
+                            Maki <span className="text-primary">Desu</span>
                         </span>
                         <div className="h-4 w-px bg-primary/10 hidden sm:block" />
                         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/30 hidden sm:block">Operations platform</span>
@@ -124,7 +124,7 @@ export default function Welcome() {
                     transition={{ duration: 1.2, ease: "easeOut" }}
                     className="relative mb-8"
                 >
-                    <motion.img 
+                    <motion.img
                         src="/images/maki-desu-logo.png"
                         alt="Maki Desu Mascot"
                         animate={{ scale: [1, 1.02, 1] }}
@@ -136,7 +136,7 @@ export default function Welcome() {
 
                 {/* Hero Content */}
                 <div className="text-center w-full max-w-2xl">
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4, duration: 0.8 }}
@@ -147,12 +147,12 @@ export default function Welcome() {
                         </div>
 
                         <h1 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tighter italic uppercase mb-6 leading-[0.9]">
-                            Maki <span className="text-primary">Desu</span> <br/>
+                            Maki <span className="text-primary">Desu</span> <br />
                             <span className="text-2xl md:text-3xl tracking-[0.2em] font-light text-gray-400 not-italic">Operations Platform</span>
                         </h1>
-                        
+
                         <p className="text-xs text-primary/40 font-black uppercase tracking-[0.4em] mb-12 max-w-lg mx-auto leading-relaxed">
-                            Internal shrine for POS, Inventory, and Enterprise Analytics. 
+                            Internal system for POS, Inventory, and Enterprise Analytics.
                         </p>
 
                         <motion.div
@@ -162,19 +162,19 @@ export default function Welcome() {
                             className="flex justify-center flex-col sm:flex-row items-center gap-6"
                         >
                             {auth.user ? (
-                                <Link 
-                                    href="/dashboard" 
+                                <Link
+                                    href="/dashboard"
                                     className="h-16 px-16 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] hover:bg-primary transition-all duration-500 flex items-center gap-3 shadow-2xl shadow-gray-200 group"
                                 >
-                                    Enter Dashboard 
+                                    Enter Dashboard
                                     <FiArrowRight className="size-4 group-hover:translate-x-2 transition-transform" />
                                 </Link>
                             ) : (
-                                <Link 
-                                    href="/login" 
+                                <Link
+                                    href="/login"
                                     className="h-16 px-16 bg-primary text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] hover:bg-gray-900 transition-all duration-500 flex items-center gap-3 shadow-2xl shadow-primary/20 group"
                                 >
-                                    Verify Identity
+                                    Login
                                     <FiArrowRight className="size-4 group-hover:translate-x-2 transition-transform" />
                                 </Link>
                             )}
@@ -199,10 +199,10 @@ export default function Welcome() {
                             <span className="text-[11px] font-black text-primary italic uppercase tracking-widest underline decoration-2 underline-offset-4">Restricted</span>
                         </div>
                     </div>
-                    
+
                     <div className="text-center md:text-right">
                         <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary/20">
-                             Authorized personnel only • Secure terminal ID required
+                            Authorized personnel only • Secure terminal ID required
                         </p>
                     </div>
                 </div>

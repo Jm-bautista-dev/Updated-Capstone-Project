@@ -44,6 +44,7 @@ class Delivery extends Model
     /* ── Status Constants ──────────────────────────── */
 
     // Full internal delivery flow (aligned with Order state machine)
+    const STATUS_WAITING_KITCHEN   = 'waiting_for_kitchen';
     const STATUS_PENDING           = 'pending';
     const STATUS_PREPARING         = 'preparing';
     const STATUS_READY             = 'ready_for_pickup';
@@ -62,9 +63,10 @@ class Delivery extends Model
      * They CANNOT mark in_transit or delivered — that belongs to the rider.
      */
     const ADMIN_ALLOWED_TRANSITIONS = [
-        'pending'         => 'preparing',
-        'preparing'       => 'ready_for_pickup',
-        'ready_for_pickup' => null, // next step is rider accept (no admin advance)
+        'waiting_for_kitchen' => 'preparing',
+        'pending'             => 'preparing',
+        'preparing'           => 'ready_for_pickup',
+        'ready_for_pickup'    => null, // next step is rider accept (no admin advance)
     ];
 
     /**
@@ -180,6 +182,7 @@ class Delivery extends Model
     public function getStatusLabel(): string
     {
         return match ($this->status) {
+            self::STATUS_WAITING_KITCHEN  => 'Waiting for Kitchen',
             self::STATUS_PENDING          => 'Pending',
             self::STATUS_PREPARING        => 'Preparing',
             self::STATUS_READY            => 'Ready for Pickup',

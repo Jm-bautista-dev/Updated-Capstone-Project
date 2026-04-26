@@ -215,8 +215,10 @@ class DeliveryService
                     // Deduct inventory ONLY when starting preparation
                     if ($newStatus === Delivery::STATUS_PREPARING) {
                         $this->inventoryService->deductForOrder($order);
+                    }
 
-                        // Auto-assign rider if not already assigned
+                    // Auto-assign rider ONLY when food is ready
+                    if ($newStatus === Delivery::STATUS_READY) {
                         if ($delivery->isInternal() && !$delivery->rider_id) {
                             $this->autoAssign($delivery);
                         }

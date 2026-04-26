@@ -524,74 +524,90 @@ function CashierReports({ sales, cashiers, filters }: any) {
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Sales Reports</h1>
-                    <p className="text-muted-foreground">Monitor performance and export detailed sales data.</p>
+        <div className="p-6 lg:p-8 space-y-10 bg-background dark:bg-[#0B0B0F] min-h-[calc(100vh-64px)]">
+            {/* Modern Header & Stats Summary */}
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-border/40 pb-8">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                            <FiActivity className="size-6" />
+                        </div>
+                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Sales Performance</h1>
+                    </div>
+                    <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
+                        {filters.date_from && filters.date_to
+                            ? `${filters.date_from} → ${filters.date_to}`
+                            : 'Personalized Operational Audit'}
+                    </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => handleExport('pdf')} className="gap-2">
-                        <FiFileText /> Export PDF
-                    </Button>
-                    <Button variant="outline" onClick={() => handleExport('excel')} className="gap-2">
-                        <FiDatabase /> Export Excel
-                    </Button>
+
+                <div className="flex flex-col items-center xl:items-end gap-3 w-full xl:w-auto">
+                    <div className="flex flex-wrap items-center justify-center xl:justify-end gap-2">
+                        <Button variant="outline" onClick={() => handleExport('pdf')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
+                            <FiFileText className="size-3.5 mr-2" /> PDF
+                        </Button>
+                        <Button variant="outline" onClick={() => handleExport('excel')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
+                            <FiDatabase className="size-3.5 mr-2" /> Excel
+                        </Button>
+                        <div className="h-4 w-px bg-border/40 mx-1 hidden sm:block" />
+                        <DateRangePicker from={dateFrom} to={dateTo} onUpdate={(from, to) => {
+                            setDateFrom(from);
+                            setDateTo(to);
+                            router.get('/reports', { 
+                                date_from: from, 
+                                date_to: to, 
+                                cashier_id: cashierId === 'all' ? '' : cashierId,
+                                status: status === 'all' ? '' : status 
+                            }, { preserveState: true });
+                        }} />
+                    </div>
                 </div>
             </div>
 
-            {/* Filters */}
-            <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm">
-                <CardContent className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Date From</label>
-                            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-10 rounded-xl" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Date To</label>
-                            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-10 rounded-xl" />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Cashier</label>
-                            <Select value={cashierId} onValueChange={setCashierId}>
-                                <SelectTrigger className="h-10 rounded-xl">
-                                    <SelectValue placeholder="All Cashiers" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Cashiers</SelectItem>
-                                    {cashiers.map((c: any) => (
-                                        <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Status</label>
-                            <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger className="h-10 rounded-xl">
-                                    <SelectValue placeholder="All Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Status</SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="preparing">Preparing</SelectItem>
-                                    <SelectItem value="completed">Completed</SelectItem>
-                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button onClick={handleFilter} className="flex-1 h-10 rounded-xl gap-2 font-bold">
-                                <FiFilter className="size-4" /> Filter
-                            </Button>
-                            <Button variant="outline" onClick={handleReset} className="h-10 rounded-xl px-3">
-                                Reset
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Premium Filter Toolbar */}
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-muted/20 p-2 rounded-2xl ring-1 ring-border/40">
+                <div className="flex flex-wrap items-center gap-2 flex-1 w-full lg:w-auto">
+                    <Select value={cashierId} onValueChange={(v) => {
+                        setCashierId(v);
+                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: v === 'all' ? '' : v, status: status === 'all' ? '' : status }, { preserveState: true });
+                    }}>
+                        <SelectTrigger className="h-11 w-full lg:w-[180px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
+                            <SelectValue placeholder="Cashier" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                            <SelectItem value="all">All Cashiers</SelectItem>
+                            {cashiers.map((c: any) => (
+                                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={status} onValueChange={(v) => {
+                        setStatus(v);
+                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : v }, { preserveState: true });
+                    }}>
+                        <SelectTrigger className="h-11 w-full lg:w-[160px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="preparing">Preparing</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Button variant="ghost" onClick={handleReset} className="h-11 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all">
+                        <FiRefreshCw className="size-3.5 mr-2" /> Reset
+                    </Button>
+                </div>
+
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 bg-background/50 px-4 py-2.5 rounded-xl ring-1 ring-border/20">
+                    <FiSearch className="size-3 text-primary" />
+                    <span>Analyzing <span className="text-foreground">{sales.total}</span> Operations</span>
+                </div>
+            </div>
 
             {/* Sales Table */}
             <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm overflow-hidden">

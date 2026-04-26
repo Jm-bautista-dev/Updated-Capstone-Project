@@ -65,19 +65,6 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
 
                 {/* Filter Controls */}
                 <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
-                    <Select value={filters.status || 'all'} onValueChange={(v: string) => onFilterChange({ status: v })}>
-                        <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/20 border-none text-xs font-bold shrink-0">
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="preparing">Preparing</SelectItem>
-                            <SelectItem value="out_for_delivery">In Transit</SelectItem>
-                            <SelectItem value="delivered">Delivered</SelectItem>
-                        </SelectContent>
-                    </Select>
-
                     <Select value={filters.type || 'all'} onValueChange={(v: string) => onFilterChange({ type: v })}>
                         <SelectTrigger className="h-10 w-[140px] rounded-xl bg-muted/20 border-none text-xs font-bold shrink-0">
                             <SelectValue placeholder="Type" />

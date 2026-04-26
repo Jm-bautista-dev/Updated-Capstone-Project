@@ -181,7 +181,7 @@ class ApiOrderController extends Controller
                     'delivery_type'    => 'internal', 
                     'delivery_fee'     => $deliveryFee,
                     'distance_km'      => $distanceKm,
-                    'status'           => 'pending',
+                    'status'           => 'waiting_for_kitchen',
                 ]);
 
                 try {
