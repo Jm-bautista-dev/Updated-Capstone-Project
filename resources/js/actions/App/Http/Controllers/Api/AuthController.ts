@@ -334,4 +334,7 @@ refreshToken.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             method: 'post',
         })
     
-    refreshToken.form 
+    refreshToken.form = refreshTokenForm
+const AuthController = { register, login, resetPassword, logout, refreshToken }
+
+export default AuthController

@@ -47,6 +47,9 @@ Route::prefix('v1')->group(function () {
 
         // ─── Rider Module ──────────────────────────────────────────────
         Route::prefix('rider')->group(function () {
+            // First-login password change
+            Route::post('change-password', [RiderController::class, 'changePassword']);
+
             // Status & Heartbeat
             Route::patch('status', [RiderController::class, 'updateStatus']);
             Route::post('ping',    [RiderController::class, 'ping']);

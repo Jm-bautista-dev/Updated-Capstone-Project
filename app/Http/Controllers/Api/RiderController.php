@@ -20,6 +20,43 @@ class RiderController extends Controller
     public function __construct(
         protected OrderFulfillmentService $fulfillmentService
     ) {}
+
+    /*
+    |--------------------------------------------------------------------------
+    | AUTHENTICATION / FIRST LOGIN
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Change password (mandatory first-login requirement).
+     * POST /api/v1/rider/change-password
+     *
+     * Request body:
+     *   password         : string, min 8
+     *   password_confirmation : string, must match password
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $rider = $request->user();
+
+        if (!$rider instanceof Rider) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $rider->password = \Illuminate\Support\Facades\Hash::make($request->password);
+        $rider->must_change_password = false;
+        $rider->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated successfully. Welcome aboard!',
+        ]);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | RIDER FEED
