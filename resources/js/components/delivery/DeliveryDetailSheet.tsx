@@ -41,33 +41,59 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
     const currentIndex = STATUS_STEPS.findIndex(s => s.key === currentStatus);
 
     return (
-        <div className="flex items-center gap-1 py-4">
-            {STATUS_STEPS.map((step, i) => {
-                const isCompleted = i < currentIndex;
-                const isCurrent = i === currentIndex;
-                const Icon = step.icon;
+        <div className="w-full py-6 relative overflow-hidden group/timeline">
+            {/* Custom Animation Styles */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes pulse-subtle {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.8; transform: scale(0.95); }
+                }
+                .animate-pulse-subtle {
+                    animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+            ` }} />
 
-                return (
-                    <React.Fragment key={step.key}>
-                        <div className="flex flex-col items-center gap-1.5">
-                            <div className={`
-                                size-8 rounded-xl flex items-center justify-center transition-all
-                                ${isCompleted ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30' : ''}
-                                ${isCurrent ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-110' : ''}
-                                ${!isCompleted && !isCurrent ? 'bg-muted/50 text-muted-foreground' : ''}
-                            `}>
-                                <Icon className="size-3.5" />
+            <div className="flex items-start justify-between w-full px-2 overflow-x-auto no-scrollbar relative">
+                {/* Continuous Background Line (Fixed Position) */}
+                <div className="absolute top-[18px] left-0 right-0 h-0.5 bg-muted/30 -z-0 mx-8" />
+                
+                {STATUS_STEPS.map((step, i) => {
+                    const isCompleted = i < currentIndex;
+                    const isCurrent = i === currentIndex;
+                    const Icon = step.icon;
+
+                    return (
+                        <div key={step.key} className="flex flex-col items-center min-w-[60px] relative z-10">
+                            {/* Step Icon */}
+                            <div className={cn(
+                                "size-9 rounded-xl flex items-center justify-center transition-all duration-700",
+                                "relative border-2 border-transparent",
+                                isCompleted ? "bg-emerald-100 text-emerald-600 border-emerald-200 shadow-sm" : "",
+                                isCurrent ? "bg-primary text-primary-foreground shadow-xl shadow-primary/30 scale-110 ring-4 ring-primary/10 animate-pulse-subtle" : "",
+                                !isCompleted && !isCurrent ? "bg-background border-muted text-muted-foreground/40" : ""
+                            )}>
+                                <Icon className={cn("size-4 transition-transform duration-500", isCurrent && "scale-110")} />
+                                
+                                {/* Progress Indicator on the line */}
+                                {i < STATUS_STEPS.length - 1 && i < currentIndex && (
+                                    <div className="absolute left-[calc(100%+2px)] top-1/2 -translate-y-1/2 w-[calc(100%+20px)] h-0.5 bg-emerald-300 z-[-1]" />
+                                )}
                             </div>
-                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}>
-                                {step.label}
-                            </span>
+
+                            {/* Status Label */}
+                            <div className="mt-3 h-10 flex items-start justify-center">
+                                <span className={cn(
+                                    "text-[8px] sm:text-[9px] font-black uppercase tracking-tighter sm:tracking-widest text-center leading-[1.1] transition-all duration-500",
+                                    isCurrent ? "text-primary scale-110" : "text-muted-foreground/60",
+                                    isCompleted ? "text-emerald-600/80" : ""
+                                )}>
+                                    {step.label}
+                                </span>
+                            </div>
                         </div>
-                        {i < STATUS_STEPS.length - 1 && (
-                            <div className={`flex-1 h-0.5 rounded-full mx-1 mb-5 ${i < currentIndex ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-muted'}`} />
-                        )}
-                    </React.Fragment>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }
