@@ -212,7 +212,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
             <div className="flex flex-col h-full">
                 {/* Sticky Header: title + stats + filters */}
                 <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border/40">
-                    <div className="p-4 md:p-6 space-y-4">
+                    <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
                         {/* Title row */}
                         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                             <div>
@@ -252,7 +252,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 p-4 md:p-6 space-y-6">
+                <div className="flex-1 p-4 md:p-6 space-y-6 max-w-6xl mx-auto w-full">
                     {accumulatedDeliveries.length === 0 ? (
                         <DeliveryEmptyState
                             hasFilters={hasFilters}
