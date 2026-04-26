@@ -157,7 +157,7 @@ class ApiOrderController extends Controller
                     'longitude'      => $validated['longitude'],
                     'landmark'       => $validated['landmark'] ?? null,
                     'notes'          => $validated['notes'] ?? null,
-                    'total_amount'   => $validated['total_amount'] + $deliveryFee, // Update total with calculated fee
+                    'total_amount'   => $itemsTotal + $deliveryFee, // Accurately calculate total from items + fee
                     'status'         => 'pending',
                 ]);
 

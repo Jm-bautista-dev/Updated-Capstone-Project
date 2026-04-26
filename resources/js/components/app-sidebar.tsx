@@ -53,11 +53,7 @@ const mainNavItems: NavItem[] = [
         href: '/products',
         icon: Box,
     },
-    {
-        title: 'Suppliers',
-        href: '/suppliers',
-        icon: Truck,
-    },
+
     {
         title: 'Categories',
         href: '/categories',
@@ -128,13 +124,13 @@ export function AppSidebar() {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Suppliers', 'Riders', 'Employees', 'Performance', 'Forecast', 'Suggestions', 'Branches'];
+        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Suggestions', 'Branches'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 
     const sidebarSections = [
         { label: 'Core', titles: ['Dashboard', 'Pos'] },
-        { label: 'Operations', titles: ['Products', 'Categories', 'Inventory', 'Suppliers'] },
+        { label: 'Operations', titles: ['Products', 'Categories', 'Inventory'] },
         { label: 'Sales', titles: ['Sales', 'Reports'] },
         { label: 'Analytics', titles: ['Performance', 'Forecast', 'Suggestions'] },
         { label: 'Logistics', titles: ['Delivery', 'Riders'] },
