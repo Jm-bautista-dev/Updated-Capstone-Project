@@ -1,0 +1,206 @@
+﻿name: Deploy to Production
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Trigger: run this workflow only when code is pushed to the main branch.
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches:
+      - main
+
+# Abort any in-progress deployment for the same branch before starting a new one.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Build
+  # Installs all dependencies, compiles frontend assets, and verifies the app.
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repository so subsequent steps can access the code.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install PHP 8.4 (matches your XAMPP / Hostinger environment).
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, bcmath, pdo, pdo_mysql, xml, curl, zip, gd
+          tools: composer:v2
+          coverage: none
+
+      # 3. Cache Composer packages between runs.
+      #    The cache key includes composer.lock so it is invalidated on any
+      #    dependency change.
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
+      # 4. Install PHP dependencies (no dev packages, optimised autoloader).
+      - name: Install Composer dependencies
+        run: |
+          composer install \
+            --no-dev \
+            --no-interaction \
+            --no-scripts \
+            --prefer-dist \
+            --optimize-autoloader
+
+      # 5. Install Node.js LTS (v22 — same version used in tests.yml).
+      - name: Setup Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 6. Cache npm dependencies between runs.
+      #    The cache key includes package-lock.json for precise invalidation.
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      # 7. Install Node dependencies using the lock-file for reproducible builds.
+      - name: Install npm dependencies
+        run: npm ci
+
+      # 8. Copy the example .env so artisan commands can bootstrap the app.
+      - name: Copy .env for build
+        run: cp .env.example .env
+
+      # 9. Generate the Laravel application key (required for artisan to run).
+      - name: Generate application key
+        run: php artisan key:generate
+
+      # 10. Compile all frontend assets (TypeScript -> JS, Tailwind CSS -> CSS).
+      #     Produces the /public/build directory consumed by Laravel Vite helper.
+      - name: Build frontend assets
+        run: npm run build
+
+      # 11. Verify Vite produced a manifest. Fails fast if the build is empty.
+      - name: Verify build output
+        run: |
+          if [ ! -f "public/build/manifest.json" ]; then
+            echo "X  public/build/manifest.json missing -- build failed."
+            exit 1
+          fi
+          echo "OK  Build artefacts verified."
+
+      # 12. Upload the built workspace as a GitHub Actions artifact so the
+      #     deploy job can download it without re-running the full build.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build
+          path: |
+            .
+            !.git
+            !node_modules
+            !tests
+            !.github
+            !storage/logs
+            !.env
+          retention-days: 1
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Deploy
+  # Downloads the built artifact and synchronises it to the Hostinger server
+  # over SSH using rsync, then runs all post-deployment Laravel commands.
+  # Runs ONLY after the build job succeeds (needs: build).
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Hostinger
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+
+    steps:
+      # 1. Download the artifact produced by the build job.
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-build
+          path: ./release
+
+      # 2. Write the SSH private key to disk with strict permissions.
+      #    The SSH_KEY secret must be the full PEM private key.
+      #    ssh-keyscan pre-populates known_hosts to avoid interactive prompts.
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.PORT }} ${{ secrets.HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      # 3. Synchronise the built project to the production server.
+      #    --archive     preserves permissions, timestamps, symlinks
+      #    --compress    reduces transfer size
+      #    --progress    shows file-level progress in the Actions log
+      #    --delete      removes server files that no longer exist locally
+      #    Excluded paths are never transferred to the server.
+      - name: Sync files to server via rsync
+        run: |
+          rsync -azP \
+            --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='.github' \
+            --exclude='storage/logs' \
+            --exclude='.env' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} -o StrictHostKeyChecking=no" \
+            ./release/ \
+            ${{ secrets.USERNAME }}@${{ secrets.HOST }}:~/domains/makidesuoperation.site/public_html/
+
+      # 4. Open an SSH session and run all post-deployment commands.
+      #    'set -e' ensures the script exits immediately on any failure,
+      #    which causes this step (and the whole job) to fail visibly.
+      - name: Run post-deployment commands on server
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -p ${{ secrets.PORT }} \
+              -o StrictHostKeyChecking=no \
+              ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'ENDSSH'
+
+            set -e
+
+            cd ~/domains/makidesuoperation.site/public_html
+
+            echo "--- Installing Composer dependencies ---"
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            echo "--- Caching config / routes / views ---"
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            echo "--- Linking storage ---"
+            php artisan storage:link
+
+            echo "--- Running database migrations ---"
+            php artisan migrate --force
+
+            echo "--- Optimising application ---"
+            php artisan optimize
+
+            echo "Deployment complete!"
+
+          ENDSSH
+
+      # 5. Always remove the private key from the runner, even on failure.
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
