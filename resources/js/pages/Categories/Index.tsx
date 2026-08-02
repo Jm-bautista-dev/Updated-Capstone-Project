@@ -43,7 +43,7 @@ interface CategoriesPageProps {
 }
 
 export default function CategoriesIndex() {
-    const { categories: rawCategories, filters = {} } = usePage().props as unknown as CategoriesPageProps;
+    const { categories: rawCategories, filters = {}, isAdmin } = usePage().props as unknown as CategoriesPageProps;
     const categories: Category[] = rawCategories || [];
 
     // View mode (persisted in localStorage)
