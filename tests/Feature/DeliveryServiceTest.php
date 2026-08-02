@@ -20,13 +20,15 @@ it('recommends internal delivery when branch has available riders within radius'
 
     Rider::create([
         'name' => 'Rider One',
+        'email' => 'rider1@example.com',
+        'password' => 'password',
         'phone' => '+639171234567',
         'branch_id' => $branch->id,
         'status' => 'available',
     ]);
 
     $service = app(DeliveryService::class);
-    $recommendation = $service->recommend($branch, 3.0);
+    $recommendation = $service->recommend($branch, 2.0);
 
     expect($recommendation['type'])->toBe('internal');
     expect($recommendation['available_riders'])->toBe(1);
@@ -51,6 +53,8 @@ it('locks selected rider and marks them busy when creating internal delivery', f
 
     $rider = Rider::create([
         'name' => 'Rider Lock',
+        'email' => 'rider2@example.com',
+        'password' => 'password',
         'phone' => '+639171234568',
         'branch_id' => $branch->id,
         'status' => 'available',

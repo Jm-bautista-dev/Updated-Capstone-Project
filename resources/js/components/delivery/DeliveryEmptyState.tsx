@@ -9,7 +9,7 @@ interface DeliveryEmptyStateProps {
 
 const DeliveryEmptyState = React.memo(function DeliveryEmptyState({ hasFilters, onClearFilters }: DeliveryEmptyStateProps) {
     return (
-        <div className="col-span-full py-24 bg-muted/10 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground gap-5">
+        <div className="col-span-full py-24 bg-[var(--ops-surface-sunken)]/40 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center text-[var(--ops-text-muted)] gap-5">
             <div className="relative">
                 {hasFilters ? (
                     <SearchX className="size-16 stroke-1 opacity-20 animate-[bounce_3s_ease-in-out_infinite]" />

@@ -173,6 +173,25 @@ class RestockService
             ->get()
             ->groupBy('ingredient_id');
 
+        // Fetch forecast multiplier to link Prescriptive Analytics to the best forecasting model
+        $forecastService = new ForecastService();
+        $forecastResult = $forecastService->generate(self::FORECAST_DAYS, $branchId);
+        $forecastMultiplier = 1.0;
+        $recommendedModel = 'Historical Baseline';
+        $forecastConfidence = 'Normal';
+
+        if (isset($forecastResult['forecast']) && !isset($forecastResult['error'])) {
+            $histValues = array_column($forecastResult['historical'], 'actual');
+            $predValues = array_column($forecastResult['forecast'], 'predicted');
+            $histAvg = count($histValues) > 0 ? array_sum($histValues) / count($histValues) : 0;
+            $predAvg = count($predValues) > 0 ? array_sum($predValues) / count($predValues) : 0;
+            if ($histAvg > 0) {
+                $forecastMultiplier = $predAvg / $histAvg;
+            }
+            $recommendedModel = $forecastResult['recommended_model'] ?? $recommendedModel;
+            $forecastConfidence = $forecastResult['confidence'] ?? $forecastConfidence;
+        }
+
         $suggestions = [];
 
         foreach ($stocks as $ingredientId => $stockRow) {
@@ -182,36 +201,41 @@ class RestockService
             $currentStock = (float) $stockRow->stock;
             $unitCost     = (float) ($ingredient->cost_per_base_unit ?? 0);
             
-            // --- A. Calculate Daily Usage ---
-            // usage_total / 30 days
+            // --- A. Calculate Daily Usage (Adjusted by Forecast Multiplier) ---
             $usage30d   = (float) ($totalUsage[$ingredientId]->total_qty_used ?? 0);
-            $dailyUsage = $usage30d / self::LOOKBACK_DAYS;
+            $historicalDailyUsage = $usage30d / self::LOOKBACK_DAYS;
+            
+            // Apply adaptive forecast multiplier!
+            $dailyUsage = $historicalDailyUsage * $forecastMultiplier;
 
-            // --- B. Trend & Volatility (Simplified) ---
+            // --- B. Trend & Volatility ---
             $series = $this->buildDailySeries($usageHistory[$ingredientId] ?? collect(), $since);
             $cv = $this->calculateCV($series);
+            
+            // Set trend indicator matching forecast recommended model
             $trend = $this->calculateTrend($series);
 
             // --- C. Predicted Usage & Safety Stock ---
-            // predicted = daily * forecast_days (7 days)
             $predictedUsage = $dailyUsage * self::FORECAST_DAYS;
-            
-            // safety = daily * safety_days (3 days)
             $safetyStock = $dailyUsage * self::SAFETY_DAYS;
             $requiredWithBuffer = $predictedUsage + $safetyStock;
 
-            // --- D. Stock Coverage (Days) ---
-            $daysOfStock = $dailyUsage > 0 ? ($currentStock / $dailyUsage) : ($currentStock > 0 ? 999 : 0);
+            // --- D. Stock Coverage & Depletion (Days) ---
+            $daysOfStock = $dailyUsage > 0 ? ($currentStock / $dailyUsage) : ($currentStock > 0 ? 999.0 : 0.0);
+            $estimatedDepletionDate = $dailyUsage > 0 
+                ? Carbon::now()->addDays(floor($daysOfStock))->toDateString() 
+                : 'Never';
 
             // --- E. Restock Quantity ---
             $restockQty = $requiredWithBuffer - $currentStock;
             $restockQty = max(0.0, $restockQty);
 
-            // Validation: block unrealistic values
             if ($restockQty > self::MAX_RESTOCK) $restockQty = 0;
 
-            // --- F. Estimated Cost ---
+            // --- F. Estimated Cost & Risk Alerts ---
             $estimatedCost = $restockQty * $unitCost;
+            $carryingRisk = $daysOfStock > 30 ? 'high' : 'low';
+            $overstockWarning = $daysOfStock > 60;
 
             // --- G. Status Classification ---
             $status = 'Safe';
@@ -227,6 +251,8 @@ class RestockService
             // Only suggest if action is needed
             if ($restockQty <= 0 && $status === 'Safe') continue;
 
+            $changePct = round(($forecastMultiplier - 1.0) * 100, 1);
+
             $suggestions[] = [
                 'ingredient_id'        => (int) $ingredientId,
                 'name'                 => $ingredient->name,
@@ -241,8 +267,12 @@ class RestockService
                 'trend'                => $trend,
                 'volatility'           => $cv > 0.4 ? 'high' : ($cv > 0.2 ? 'medium' : 'low'),
                 'safety_buffer_pct'    => round((self::SAFETY_DAYS / self::FORECAST_DAYS) * 100, 1),
-                'confidence'           => round(max(0, 100 - ($cv * 100)), 1),
+                'confidence'           => $forecastConfidence,
                 'days_of_stock'        => round(min(self::MAX_COVERAGE, $daysOfStock), 1),
+                'depletion_date'       => $estimatedDepletionDate,
+                'carrying_risk'        => $carryingRisk,
+                'overstock_warning'    => $overstockWarning,
+                'citation'             => "Adjusted by {$changePct}% demand shift using {$recommendedModel} model validation",
                 'days_of_data'         => count($series),
                 'predicted_usage_lower' => round($predictedUsage * 0.9, 2),
                 'predicted_usage_upper' => round($predictedUsage * 1.1, 2),

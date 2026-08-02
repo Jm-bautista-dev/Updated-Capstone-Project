@@ -14,6 +14,9 @@ import { useInitials } from '@/hooks/use-initials';
 import { Button } from '@/components/ui/button';
 import { FiChevronDown } from 'react-icons/fi';
 
+import { useOfflineSync } from '@/hooks/use-offline-sync';
+import { cn } from '@/lib/utils';
+
 export function AppSidebarHeader({
     breadcrumbs = [],
 }: {
@@ -21,6 +24,7 @@ export function AppSidebarHeader({
 }) {
     const { auth } = usePage().props as { auth: { user: User } };
     const getInitials = useInitials();
+    const { status, pendingCount } = useOfflineSync();
 
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border/50 px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4 bg-background/50 backdrop-blur-sm sticky top-0 z-50">
@@ -43,9 +47,24 @@ export function AppSidebarHeader({
             
             <div className="flex items-center gap-2 md:gap-4">
                 {/* System Status - Quick Look */}
-                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/5 border border-emerald-500/10">
-                    <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600/80">System Live</span>
+                <div className={cn(
+                    "hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300",
+                    status === 'online' && "bg-emerald-500/5 border-emerald-500/10 text-emerald-600",
+                    status === 'offline' && "bg-rose-500/5 border-rose-500/10 text-rose-600",
+                    status === 'syncing' && "bg-amber-500/5 border-amber-500/10 text-amber-600"
+                )}>
+                    <div className={cn(
+                        "size-1.5 rounded-full transition-all duration-300",
+                        status === 'online' && "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse",
+                        status === 'offline' && "bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]",
+                        status === 'syncing' && "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)] animate-pulse"
+                    )} />
+                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                        {status === 'online' && 'Online'}
+                        {status === 'offline' && 'Offline'}
+                        {status === 'syncing' && 'Syncing'}
+                        {pendingCount > 0 && ` (${pendingCount})`}
+                    </span>
                 </div>
 
                 <div className="h-4 w-px bg-primary/10 mx-1 hidden md:block" />

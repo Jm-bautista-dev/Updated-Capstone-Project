@@ -46,7 +46,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                     <p className="font-black text-sm tracking-tight truncate">
                                         {delivery.sale?.order_number || (delivery.order && `#ORD-${delivery.order.id}`)}
                                     </p>
-                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <p className="text-[10px] text-[var(--ops-text-muted)] flex items-center gap-1">
                                         <Clock className="size-2.5" />
                                         {formatTime(delivery.created_at)}
                                     </p>
@@ -60,8 +60,8 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         {/* Middle row: Customer + Type */}
                         <div className="flex items-center gap-3 text-xs">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <div className="size-6 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
-                                    <User className="size-3 text-muted-foreground" />
+                                <div className="size-6 rounded-lg bg-[var(--ops-surface-sunken)]/200 flex items-center justify-center shrink-0">
+                                    <User className="size-3 text-[var(--ops-text-muted)]" />
                                 </div>
                                 <span className="font-semibold truncate">{delivery.customer_name}</span>
                             </div>
@@ -82,7 +82,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         </div>
 
                         {/* Branch */}
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <div className="flex items-center gap-2 text-[10px] text-[var(--ops-text-muted)]">
                             <Building2 className="size-3" />
                             <span className="font-bold">
                                 {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Victoria Plains'}
@@ -101,12 +101,12 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         {((delivery.sale?.items || delivery.order?.items) || []).length > 0 && (
                             <div className="flex flex-wrap gap-1.5 pt-0.5">
                                 {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item: any) => (
-                                    <Badge key={item.id} variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
+                                    <Badge key={item.id} variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-[var(--ops-surface-sunken)]/200 text-[var(--ops-text-muted)] border-none">
                                         {item.quantity}× {item.product?.name || 'Product'}
                                     </Badge>
                                 ))}
                                 {((delivery.sale?.items || delivery.order?.items) || []).length > 3 && (
-                                    <span className="text-[9px] text-muted-foreground font-bold pl-0.5 self-center">
+                                    <span className="text-[9px] text-[var(--ops-text-muted)] font-bold pl-0.5 self-center">
                                         +{((delivery.sale?.items || delivery.order?.items) || []).length - 3} more
                                     </span>
                                 )}
@@ -157,7 +157,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                                     onAssignRider(delivery);
                                                 }}
                                             >
-                                                <Bike className="size-3.5 text-muted-foreground" />
+                                                <Bike className="size-3.5 text-[var(--ops-text-muted)]" />
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>Reassign Rider</TooltipContent>

@@ -55,7 +55,7 @@ const TableRow = React.memo(function TableRow({
         <div
             style={style}
             className={cn(
-                "flex items-center gap-2 px-5 border-b border-border/50 hover:bg-muted/30 cursor-pointer group transition-colors duration-150",
+                "flex items-center gap-2 px-5 border-b border-[var(--ops-border)] border-[var(--ops-border)] hover:bg-[var(--ops-surface-sunken)]/60 cursor-pointer group transition-colors duration-150",
                 isUnassignedInternal && "bg-amber-500/5 hover:bg-amber-500/10"
             )}
             onClick={() => onSelect(delivery)}
@@ -77,7 +77,7 @@ const TableRow = React.memo(function TableRow({
             <div className="w-[60px] shrink-0 flex items-center justify-center">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 text-muted-foreground/60 hover:text-primary transition-colors cursor-help">
+                        <div className="flex items-center gap-1.5 text-[var(--ops-text-muted)]/60 hover:text-primary transition-colors cursor-help">
                             <Package className="size-3.5" />
                             <span className="text-[10px] font-black">
                                 {((delivery.sale?.items || delivery.order?.items) || []).length}
@@ -86,16 +86,16 @@ const TableRow = React.memo(function TableRow({
                     </TooltipTrigger>
                     <TooltipContent className="p-0 overflow-hidden rounded-xl border-none shadow-2xl bg-popover" side="right">
                         <div className="p-3 min-w-[180px] space-y-2">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/50 pb-2">Order Contents</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] border-b border-[var(--ops-border)] border-[var(--ops-border)] pb-2">Order Contents</p>
                             <div className="space-y-1.5">
                                 {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
                                     <div key={item.id} className="flex justify-between items-center gap-3 text-[11px]">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <div className="size-6 rounded bg-muted/50 flex items-center justify-center shrink-0 border overflow-hidden">
+                                            <div className="size-6 rounded bg-[var(--ops-surface-sunken)]/200 flex items-center justify-center shrink-0 border overflow-hidden">
                                                 {item.product?.image_url ? (
                                                     <img src={item.product.image_url} alt="" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    <Package className="size-2.5 text-muted-foreground/40" />
+                                                    <Package className="size-2.5 text-[var(--ops-text-muted)]/40" />
                                                 )}
                                             </div>
                                             <span className="font-semibold truncate max-w-[110px]">{item.product?.name || 'Product'}</span>
@@ -131,7 +131,7 @@ const TableRow = React.memo(function TableRow({
 
             {/* Branch */}
             <div className="w-[100px] shrink-0 hidden xl:block">
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-xs text-[var(--ops-text-muted)] truncate">
                     {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Main Branch'}
                 </p>
             </div>
@@ -145,7 +145,7 @@ const TableRow = React.memo(function TableRow({
 
             {/* Date */}
             <div className="w-[80px] shrink-0 hidden lg:block">
-                <p className="text-[10px] text-muted-foreground">{formatTime(delivery.created_at)}</p>
+                <p className="text-[10px] text-[var(--ops-text-muted)]">{formatTime(delivery.created_at)}</p>
             </div>
 
             {/* Actions */}
@@ -225,7 +225,7 @@ function SortableHeader({
     const isActive = currentSort === sortKey;
     return (
         <button
-            className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors ${className || ''}`}
+            className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] hover:text-[var(--ops-text-primary)] transition-colors ${className || ''}`}
             onClick={() => onSort(sortKey)}
         >
             {label}
@@ -288,10 +288,10 @@ const DeliveryTable = React.memo(function DeliveryTable({
     const listHeight = Math.min(containerHeight, sortedDeliveries.length * ROW_HEIGHT);
 
     return (
-        <div className="rounded-2xl border overflow-hidden bg-background shadow-sm">
+        <div className="rounded-2xl border overflow-hidden bg-[var(--ops-page-bg)] shadow-sm">
             {/* Table Header */}
             <div
-                className="flex items-center gap-2 px-5 bg-muted/30 border-b select-none"
+                className="flex items-center gap-2 px-5 bg-[var(--ops-surface-sunken)]/60 border-b border-[var(--ops-border)] select-none"
                 style={{ height: HEADER_HEIGHT }}
                 role="row"
             >
@@ -302,16 +302,16 @@ const DeliveryTable = React.memo(function DeliveryTable({
                     <SortableHeader label="Order #" sortKey="order" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-[60px] shrink-0 flex justify-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Items</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Items</span>
                 </div>
                 <div className="flex-1 min-w-[140px]">
                     <SortableHeader label="Customer" sortKey="customer" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-[100px] shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Type</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Type</span>
                 </div>
                 <div className="w-[120px] shrink-0 hidden xl:block">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Branch</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Branch</span>
                 </div>
                 <div className="w-[100px] shrink-0 text-right">
                     <SortableHeader label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="justify-end" />
@@ -320,7 +320,7 @@ const DeliveryTable = React.memo(function DeliveryTable({
                     <SortableHeader label="Date" sortKey="date" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-[100px] shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right block">Actions</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right block">Actions</span>
                 </div>
             </div>
 

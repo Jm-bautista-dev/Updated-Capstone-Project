@@ -212,16 +212,16 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
 
             <div className="flex flex-col h-full">
                 {/* Sticky Header: title + stats + filters */}
-                <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border/40">
-                    <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
+                <div className="sticky top-0 z-20 bg-[var(--ops-page-bg)]/80 backdrop-blur-xl border-b border-[var(--ops-border)] border-[var(--ops-border-subtle)]">
+                    <div className="p-4 sm:p-6 lg:p-8 space-y-6 ">
                         {/* Title row */}
                         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
                             <div className="flex flex-col gap-1">
-                                <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 text-foreground">
+                                <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 text-[var(--ops-text-primary)]">
                                     <Navigation className="size-7 text-primary" />
                                     Delivery Dashboard
                                 </h1>
-                                <div className="flex items-center bg-muted/50 rounded-xl p-1 w-fit mt-2">
+                                <div className="flex items-center bg-[var(--ops-surface-sunken)]/200 rounded-xl p-1 w-fit mt-2">
                                     {[
                                         { id: 'all', label: 'All' },
                                         { id: 'pending', label: 'Pending / New' },
@@ -235,10 +235,10 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                             className={cn(
                                                 "px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
                                                 (filters.status || 'all') === tab.id 
-                                                    ? "bg-background shadow-sm text-primary ring-1 ring-black/5" 
+                                                    ? "bg-[var(--ops-page-bg)] shadow-sm text-primary ring-1 ring-black/5" 
                                                     : (tab.id === 'pending' && filters.status === 'waiting_for_kitchen')
-                                                        ? "bg-background shadow-sm text-primary ring-1 ring-black/5"
-                                                        : "text-muted-foreground hover:text-foreground"
+                                                        ? "bg-[var(--ops-page-bg)] shadow-sm text-primary ring-1 ring-black/5"
+                                                        : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-primary)]"
                                             )}
                                         >
                                             {tab.label}
@@ -276,7 +276,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 p-4 md:p-6 space-y-6 max-w-6xl mx-auto w-full">
+                <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 w-full">
                     {accumulatedDeliveries.length === 0 ? (
                         <DeliveryEmptyState
                             hasFilters={hasFilters}
@@ -341,10 +341,10 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
 
                             {/* Pagination Info */}
                             <div className="flex items-center gap-4">
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">
-                                    Showing <span className="text-foreground font-bold">{accumulatedDeliveries.length}</span> of {deliveries.total} deliveries
+                                <p className="text-xs text-[var(--ops-text-muted)] font-medium uppercase tracking-widest">
+                                    Showing <span className="text-[var(--ops-text-primary)] font-bold">{accumulatedDeliveries.length}</span> of {deliveries.total} deliveries
                                     {deliveries.last_page > 1 && (
-                                        <> • Page <span className="text-foreground font-bold">{currentPage}</span> of {deliveries.last_page}</>
+                                        <> • Page <span className="text-[var(--ops-text-primary)] font-bold">{currentPage}</span> of {deliveries.last_page}</>
                                     )}
                                 </p>
 

@@ -92,6 +92,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 break;
             case 'password':
                 if (!editingEmployee) {
+                    if (data.auto_generate) break;
                     if (!value) error = 'Password is required';
                     else if (value.length < 8) error = 'Minimum 8 characters required';
                     else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';

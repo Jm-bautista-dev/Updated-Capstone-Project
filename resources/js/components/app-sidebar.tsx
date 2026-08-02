@@ -17,6 +17,7 @@ import {
     TrendingUp,
     Zap,
     MapPin,
+    Cpu,
 } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -85,6 +86,11 @@ const mainNavItems: NavItem[] = [
         icon: Zap,
     },
     {
+        title: 'Forecast Benchmarking',
+        href: '/analytics/forecast-benchmarking',
+        icon: Cpu,
+    },
+    {
         title: 'Suggestions',
         href: '/analytics/restock-suggestions',
         icon: ShoppingCart,
@@ -109,6 +115,11 @@ const mainNavItems: NavItem[] = [
         href: '/branches',
         icon: MapPin,
     },
+    {
+        title: 'Sales Data Management',
+        href: '/admin/sales-data',
+        icon: Database,
+    },
 ];
 
 const footerNavItems: NavItem[] = [
@@ -124,7 +135,7 @@ export function AppSidebar() {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Suggestions', 'Branches'];
+        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions', 'Branches', 'Sales Data Management'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 
@@ -132,9 +143,9 @@ export function AppSidebar() {
         { label: 'Core', titles: ['Dashboard', 'Pos'] },
         { label: 'Operations', titles: ['Products', 'Categories', 'Inventory'] },
         { label: 'Sales', titles: ['Sales', 'Reports'] },
-        { label: 'Analytics', titles: ['Performance', 'Forecast', 'Suggestions'] },
+        { label: 'Analytics', titles: ['Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'] },
         { label: 'Logistics', titles: ['Delivery', 'Riders'] },
-        { label: 'Management', titles: ['Employees', 'Branches'] },
+        { label: 'Management', titles: ['Employees', 'Branches', 'Sales Data Management'] },
     ];
 
     return (
@@ -174,8 +185,8 @@ export function AppSidebar() {
                 })}
             </SidebarContent>
 
-            <SidebarFooter className="p-4 border-t border-primary/5">
-                <NavFooter items={footerNavItems} />
+            <SidebarFooter className="p-4 mt-auto">
+                <NavUser />
             </SidebarFooter>
         </Sidebar>
     );

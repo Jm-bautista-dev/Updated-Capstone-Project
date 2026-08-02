@@ -107,6 +107,29 @@
     --sidebar-accent-foreground: #E75480;
     --sidebar-border: #F8C8DC;
     --sidebar-ring: #E75480;
+
+    /* Operations Module Design Tokens — Light */
+    --ops-page-bg: #F8FAFC;
+    --ops-surface: #FFFFFF;
+    --ops-surface-raised: #FFFFFF;
+    --ops-surface-sunken: #F1F5F9;
+    --ops-surface-hover: #F8FAFC;
+    --ops-border: #E2E8F0;
+    --ops-border-subtle: #F1F5F9;
+    --ops-text-primary: #0F172A;
+    --ops-text-secondary: #475569;
+    --ops-text-muted: #94A3B8;
+    --ops-text-faint: #CBD5E1;
+    --ops-hover: #F1F5F9;
+    --ops-input-bg: #F8FAFC;
+    --ops-input-border: #E2E8F0;
+    --ops-thead-bg: #F8FAFC;
+    --ops-chip-bg: #F1F5F9;
+    --ops-chip-active-bg: #E2E8F0;
+    --ops-chip-text: #64748B;
+    --ops-chip-active-text: #0F172A;
+    --ops-scrollbar-thumb: rgba(231, 84, 128, 0.15);
+    --ops-scrollbar-thumb-hover: rgba(231, 84, 128, 0.35);
 }
 
 .dark {
@@ -150,6 +173,29 @@
     --sidebar-accent-foreground: #e2e8f0;
     --sidebar-border: rgba(255, 255, 255, 0.05);
     --sidebar-ring: #E1062C;
+
+    /* Operations Module Design Tokens — Dark */
+    --ops-page-bg: #050505;
+    --ops-surface: rgba(255, 255, 255, 0.02);
+    --ops-surface-raised: rgba(255, 255, 255, 0.04);
+    --ops-surface-sunken: rgba(0, 0, 0, 0.2);
+    --ops-surface-hover: rgba(255, 255, 255, 0.03);
+    --ops-border: rgba(255, 255, 255, 0.06);
+    --ops-border-subtle: rgba(255, 255, 255, 0.03);
+    --ops-text-primary: #F1F5F9;
+    --ops-text-secondary: #94A3B8;
+    --ops-text-muted: #64748B;
+    --ops-text-faint: #475569;
+    --ops-hover: rgba(255, 255, 255, 0.04);
+    --ops-input-bg: rgba(0, 0, 0, 0.2);
+    --ops-input-border: rgba(255, 255, 255, 0.08);
+    --ops-thead-bg: rgba(255, 255, 255, 0.03);
+    --ops-chip-bg: rgba(255, 255, 255, 0.04);
+    --ops-chip-active-bg: rgba(255, 255, 255, 0.1);
+    --ops-chip-text: #64748B;
+    --ops-chip-active-text: #F1F5F9;
+    --ops-scrollbar-thumb: rgba(255, 255, 255, 0.08);
+    --ops-scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
 }
 
 @layer base {
@@ -283,4 +329,95 @@
     border-radius: 50%;
     pointer-events: none;
     z-index: -2;
+}
+
+/* Custom Scrollbar Styles — Theme Aware */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--ops-scrollbar-thumb);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ops-scrollbar-thumb-hover);
+}
+
+/* Floating Sidebar overrides */
+div[data-slot="sidebar"] {
+    --sidebar-width: 15.5rem;
+}
+div[data-slot="sidebar"] > div:nth-child(2) {
+    padding: 1.25rem 0.75rem 1.25rem 1.25rem !important;
+    background: transparent !important;
+}
+div[data-sidebar="sidebar"] {
+    background: rgba(255, 250, 251, 0.75) !important;
+    backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(248, 200, 220, 0.45) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 10px 40px -10px rgba(231, 84, 128, 0.08) !important;
+    overflow: hidden !important;
+    transition: all 0.3s ease-in-out;
+}
+.dark div[data-sidebar="sidebar"] {
+    background: rgba(10, 10, 10, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.03) !important;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Floating Cards elevation & shadow overrides */
+[data-slot="card"] {
+    border-radius: 24px !important;
+    border: 1px solid rgba(248, 200, 220, 0.3) !important;
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 8px 30px -4px rgba(231, 84, 128, 0.05) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+[data-slot="card"]:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 16px 40px -8px rgba(231, 84, 128, 0.1) !important;
+    border-color: rgba(248, 200, 220, 0.6) !important;
+}
+.dark [data-slot="card"] {
+    background: rgba(20, 20, 20, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.03) !important;
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.4) !important;
+}
+.dark [data-slot="card"]:hover {
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.6), 0 0 25px rgba(225, 6, 44, 0.08) !important;
+    background: rgba(25, 25, 25, 0.5) !important;
+}
+
+/* Modern inputs & focus overrides */
+input[data-slot="input"], textarea[data-slot="input"], select[data-slot="select"] {
+    border-radius: 12px !important;
+    border: 1px solid rgba(248, 200, 220, 0.5) !important;
+    background: rgba(253, 245, 246, 0.3) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+input[data-slot="input"]:focus, textarea[data-slot="input"]:focus {
+    background: #FFFFFF !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(231, 84, 128, 0.1) !important;
+}
+.dark input[data-slot="input"], .dark textarea[data-slot="input"], .dark select[data-slot="select"] {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.dark input[data-slot="input"]:focus, .dark textarea[data-slot="input"]:focus {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(225, 6, 44, 0.15) !important;
+}
+
+/* Rounded Buttons elevation overrides */
+button[data-slot="button"] {
+    border-radius: 14px !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }

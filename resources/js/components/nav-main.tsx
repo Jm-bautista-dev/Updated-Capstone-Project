@@ -20,7 +20,7 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
                     {label}
                 </SidebarGroupLabel>
             )}
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-2">
                 {items.map((item) => {
                     const active = isCurrentUrl(item.href);
                     return (
@@ -30,30 +30,26 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
                                 isActive={active}
                                 tooltip={{ children: item.title }}
                                 className={cn(
-                                    "h-10 px-4 rounded-xl relative group overflow-hidden",
-                                    "hover:bg-primary/[0.04]",
-                                    active && "bg-primary/[0.08] text-primary font-bold"
+                                    "h-11 px-5 rounded-2xl relative group overflow-hidden transition-all duration-300",
+                                    "hover:bg-primary/[0.04] hover:translate-x-1",
+                                    active && "bg-accent/80 text-primary font-bold shadow-sm shadow-primary/5 hover:translate-x-0"
                                 )}
                             >
-                                <Link href={item.href} className="flex items-center gap-4">
-                                    {/* Left Accent Bar for Active State */}
-                                    {active && (
-                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full shadow-[0_0_8px_rgba(225,6,44,0.4)]" />
-                                    )}
-
+                                <Link href={item.href} className="flex items-center gap-4 w-full">
                                     {item.icon && (
                                         <item.icon 
                                             className={cn(
-                                                "size-4.5", 
-                                                active ? "text-primary font-bold" : "text-primary/40 group-hover:text-primary/60"
+                                                "size-4.5 transition-colors duration-300", 
+                                                active ? "text-primary stroke-[2.5px]" : "text-primary/45 group-hover:text-primary/70"
                                             )} 
                                         />
                                     )}
-                                    <span className="text-xs tracking-wide font-medium">
+                                    <span className={cn(
+                                        "text-xs tracking-wide transition-colors duration-300",
+                                        active ? "font-bold text-primary" : "font-medium text-foreground/80 group-hover:text-foreground"
+                                    )}>
                                         {item.title}
                                     </span>
-                                    
-                                    {/* Removed active pulse dot for cleaner look */}
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>

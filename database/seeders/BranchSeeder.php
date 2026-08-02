@@ -9,7 +9,7 @@ class BranchSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('branches')->insert([
+        $branches = [
             [
                 'id'         => 1,
                 'name'       => 'Maki Desu Victoria',
@@ -24,6 +24,13 @@ class BranchSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-        ]);
+        ];
+
+        foreach ($branches as $branch) {
+            DB::table('branches')->updateOrInsert(
+                ['id' => $branch['id']],
+                $branch
+            );
+        }
     }
 }

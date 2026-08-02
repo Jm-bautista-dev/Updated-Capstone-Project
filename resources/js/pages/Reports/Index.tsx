@@ -54,10 +54,10 @@ const SALES_MOCK = [
 ];
 
 const CATEGORY_MOCK = [
-  { name: 'Ramen', value: 45, color: '#6366f1' },
-  { name: 'Sushi', value: 25, color: '#10b981' },
-  { name: 'Beverages', value: 20, color: '#f59e0b' },
-  { name: 'Sides', value: 10, color: '#ec4899' },
+  { name: 'Ramen', value: 45, color: '#E1062C' }, // Red Accent
+  { name: 'Sushi', value: 25, color: '#10b981' }, // Green Success
+  { name: 'Beverages', value: 20, color: '#f59e0b' }, // Orange Warning
+  { name: 'Sides', value: 10, color: '#3b82f6' }, // Blue Info
 ];
 
 const RECENT_HISTORY_MOCK = [
@@ -71,31 +71,33 @@ const RECENT_HISTORY_MOCK = [
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 
-// --- Stat Card Component ---
+// --- Standardized KPI Card Component ---
 function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: any) {
+  const isUp = trend === 'up';
+  
   return (
-    <Card className="relative overflow-hidden group border-none shadow-sm ring-1 ring-border bg-card hover:ring-primary/40 transition-all duration-300">
-      <div className={cn("absolute -top-4 -right-4 size-24 blur-3xl opacity-10", colorClass)} />
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className={cn("p-2 rounded-xl bg-muted transition-all duration-300 group-hover:scale-110", colorClass.replace('bg-', 'text-'))}>
-            <Icon className="size-5" />
-          </div>
+    <Card className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+      <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-[0.01] group-hover:opacity-[0.03] transition-opacity" />
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">{title}</p>
+        <div className="flex items-center gap-2">
           {trend && (
-            <div className={cn(
-               "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-tighter",
-               trend === 'up' ? "text-emerald-500 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"
+            <span className={cn(
+              "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-[6px] shrink-0 border",
+              isUp 
+                ? "bg-emerald-500/5 text-emerald-500 border-emerald-500/10" 
+                : "bg-rose-500/5 text-rose-500 border-rose-500/10"
             )}>
-              {trend === 'up' ? <FiArrowUpRight className="size-3" /> : <FiArrowDownRight className="size-3" />}
               {trendValue}
-            </div>
+            </span>
           )}
+          <Icon className="size-4 text-[var(--ops-text-secondary)]" />
         </div>
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{title}</p>
-          <h3 className="text-2xl font-black tracking-tight text-foreground dark:text-white tabular-nums">{value}</h3>
-        </div>
-      </CardContent>
+      </div>
+      <div>
+        <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{value}</h3>
+        <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">System Telemetry Data</p>
+      </div>
     </Card>
   );
 }
@@ -115,41 +117,42 @@ export default function Reports() {
     <AppLayout breadcrumbs={breadcrumbs}>
       <Head title="Maki Desu Reports Intelligence" />
       
-      <div className="p-6 lg:p-8 space-y-8 bg-background dark:bg-zinc-950 min-h-[calc(100vh-64px)]">
+      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
         
-        {/* ── Header Section ── */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-           <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                 <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                    <FiBarChart2 className="size-6" />
-                 </div>
-                 <h1 className="text-4xl font-black tracking-tighter italic uppercase text-foreground dark:text-white">Reports</h1>
-              </div>
-              <p className="text-muted-foreground dark:text-zinc-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
+        {/* ── Header Area ── */}
+        <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <FiBarChart2 className="text-primary size-6 animate-pulse" />
+            <div>
+              <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground leading-none">Reports & Analytics</h1>
+              <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
                 Analytics overview of sales, inventory, and system performance
               </p>
-           </div>
-           
-           <div className="flex items-center gap-3">
-              <Button variant="outline" className="h-11 rounded-xl font-black uppercase text-[10px] tracking-widest italic border-border/50 transition-all hover:bg-muted">
-                 <FiDownload className="size-4 mr-2" /> Export Data
-              </Button>
-              <Button className="h-11 rounded-xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-primary/20">
-                 <FiRefreshCw className="size-4 mr-2" /> Sync Intelligence
-              </Button>
-           </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button variant="outline" size="sm" className="h-10 rounded-[12px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[10px] font-black uppercase tracking-wider hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-secondary)] hover:text-foreground">
+              <FiDownload className="size-4 mr-1.5" /> Export Data
+            </Button>
+            <Button className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0">
+              <FiRefreshCw className="size-4 mr-1.5" /> Sync Intel
+            </Button>
+          </div>
         </div>
 
-        {/* ── KPI Summary Cards ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* ── Content Layout ── */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
+          
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             <StatCard 
               title="Gross Sales Inflow" 
               value={formatCurrency(73380.50)} 
               icon={FiDollarSign} 
               trend="up" 
               trendValue="+12.5%" 
-              colorClass="bg-indigo-500" 
+              colorClass="bg-primary" 
             />
             <StatCard 
               title="Transaction Velocity" 
@@ -173,195 +176,203 @@ export default function Reports() {
               trendValue="Safe" 
               colorClass="bg-rose-500" 
             />
-        </div>
+          </div>
 
-        {/* ── Tabbed Navigation (UI Only) ── */}
-        <div className="flex flex-wrap items-center gap-1 bg-muted/30 p-1.5 rounded-2xl w-fit ring-1 ring-border/40 backdrop-blur-sm">
-           {tabs.map((tab) => (
-             <button
-               key={tab.id}
-               onClick={() => setActiveTab(tab.id)}
-               className={cn(
-                 "relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest italic transition-all duration-300",
-                 activeTab === tab.id 
-                  ? "text-white shadow-xl" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-               )}
-             >
-               {activeTab === tab.id && (
-                 <motion.div
-                   layoutId="active-tab"
-                   className="absolute inset-0 bg-primary rounded-xl -z-10 shadow-lg shadow-primary/30"
-                   transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                 />
-               )}
-               <tab.icon className="size-3.5" />
-               {tab.label}
-             </button>
-           ))}
-        </div>
+          {/* Sticky Tab Toolbar */}
+          <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "h-8 px-4 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5 border",
+                      isActive
+                        ? "bg-primary border-primary text-foreground shadow-sm"
+                        : "bg-[var(--ops-thead-bg)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground hover:bg-[var(--ops-chip-active-bg)]"
+                    )}
+                  >
+                    <Icon className="size-3 text-[var(--ops-text-secondary)]" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            {activeTab === 'overview' && (
-              <div className="space-y-8">
-                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          {/* TAB CONTENTS */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {activeTab === 'overview' ? (
+                <div className="space-y-6">
+                  
+                  {/* Recharts Charts Matrix */}
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                    
                     {/* Area Chart */}
-                    <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden group">
-                        <CardHeader className="flex flex-row items-center justify-between p-8">
-                            <div className="space-y-1">
-                                <CardTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-2">
-                                  Growth Trajectory
-                                </CardTitle>
-                                <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Revenue Performance Vector</CardDescription>
-                            </div>
-                            <Select defaultValue="7d">
-                                <SelectTrigger className="w-32 h-9 bg-muted/50 border-none ring-1 ring-border rounded-xl text-[10px] font-black uppercase italic">
-                                   <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border">
-                                   <SelectItem value="24h" className="text-[10px] font-bold py-2">Last 24h</SelectItem>
-                                   <SelectItem value="7d" className="text-[10px] font-bold py-2">Standard 7D</SelectItem>
-                                   <SelectItem value="30d" className="text-[10px] font-bold py-2">Monthly 30D</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                             <div className="h-[380px] w-full px-6 pb-6">
-                                <ResponsiveContainer width="99%" height="100%">
-                                    <AreaChart data={SALES_MOCK} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15}/>
-                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
-                                        <XAxis dataKey="date" hide />
-                                        <YAxis stroke="currentColor" className="text-muted-foreground/40" fontSize={10} fontWeight="black" axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v/1000}k`} />
-                                        <Tooltip 
-                                           contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)' }}
-                                        />
-                                        <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" animationDuration={2000} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                             </div>
-                        </CardContent>
+                    <Card className="xl:col-span-8 border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] overflow-hidden group shadow-sm flex flex-col">
+                      <CardHeader className="flex flex-row items-center justify-between p-6 pb-2">
+                        <div>
+                          <CardTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-2 text-foreground">
+                            Growth Trajectory
+                          </CardTitle>
+                          <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)] mt-1">Revenue Performance Vector</CardDescription>
+                        </div>
+                        <Select defaultValue="7d">
+                          <SelectTrigger className="w-32 h-8.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[8px] text-[9px] font-black uppercase text-[var(--ops-text-secondary)]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground">
+                            <SelectItem value="24h" className="text-xs font-bold py-2">Last 24h</SelectItem>
+                            <SelectItem value="7d" className="text-xs font-bold py-2">Standard 7D</SelectItem>
+                            <SelectItem value="30d" className="text-xs font-bold py-2">Monthly 30D</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </CardHeader>
+                      <CardContent className="p-0 pt-4">
+                        <div className="h-[320px] w-full px-6 pb-4">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={SALES_MOCK} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#E1062C" stopOpacity={0.15}/>
+                                  <stop offset="95%" stopColor="#E1062C" stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
+                              <XAxis dataKey="date" stroke="currentColor" className="text-[var(--ops-text-muted)] font-bold" fontSize={8} axisLine={false} tickLine={false} />
+                              <YAxis stroke="currentColor" className="text-[var(--ops-text-muted)] font-bold font-mono" fontSize={8} axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v/1000}k`} />
+                              <Tooltip 
+                                contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', background: '#09090b', color: '#fff' }}
+                              />
+                              <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#E1062C" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" animationDuration={1000} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
                     </Card>
 
                     {/* Donut Chart */}
-                    <Card className="xl:col-span-4 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-full">
-                         <CardHeader className="p-8">
-                            <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Market Share</CardTitle>
-                            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Category Distribution</CardDescription>
-                         </CardHeader>
-                         <CardContent className="flex-1 flex flex-col items-center justify-center pb-8 pt-0">
-                             <div className="h-[240px] w-full relative">
-                                <ResponsiveContainer width="99%" height="100%">
-                                    <PieChart>
-                                        <Pie data={CATEGORY_MOCK} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value" stroke="none">
-                                            {CATEGORY_MOCK.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total</p>
-                                    <p className="text-xl font-black italic text-foreground leading-none">100%</p>
-                                </div>
-                             </div>
-                             <div className="w-full space-y-3 mt-6">
-                                {CATEGORY_MOCK.map((cat) => (
-                                    <div key={cat.name} className="flex items-center justify-between group cursor-default">
-                                        <div className="flex items-center gap-2">
-                                            <div className="size-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors">{cat.name}</span>
-                                        </div>
-                                        <span className="text-[11px] font-black tabular-nums">{cat.value}%</span>
-                                    </div>
+                    <Card className="xl:col-span-4 border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] flex flex-col h-full shadow-sm">
+                      <CardHeader className="p-6 pb-2">
+                        <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground">Market Share</CardTitle>
+                        <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)] mt-1">Category Distribution</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-1 flex flex-col items-center justify-center pb-6 pt-0">
+                        <div className="h-[200px] w-full relative">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={CATEGORY_MOCK} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={8} dataKey="value" stroke="none">
+                                {CATEGORY_MOCK.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
-                             </div>
-                         </CardContent>
-                    </Card>
-                 </div>
-
-                 {/* Table Block */}
-                 <Card className="border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden">
-                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between p-8 bg-muted/20 dark:bg-black/20 border-b border-border/40 gap-6">
-                        <div className="space-y-1">
-                           <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Terminal Stream</CardTitle>
-                           <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Real-time Sale Events</CardDescription>
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                            <p className="text-[8px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest mb-0.5">Total</p>
+                            <p className="text-lg font-black italic text-foreground leading-none">100%</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="relative w-full sm:w-64">
-                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                                <Input placeholder="Search records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-11 bg-card dark:bg-zinc-800/50 border-none ring-1 ring-border rounded-xl text-[10px] font-bold uppercase" />
+                        <div className="w-full space-y-2 mt-4 px-2">
+                          {CATEGORY_MOCK.map((cat) => (
+                            <div key={cat.name} className="flex items-center justify-between group cursor-default">
+                              <div className="flex items-center gap-2">
+                                <div className="size-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] group-hover:text-foreground transition-colors">{cat.name}</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-foreground font-mono">{cat.value}%</span>
                             </div>
-                            <Button variant="outline" className="h-11 w-11 p-0 rounded-xl border-border"><FiFilter className="size-4" /></Button>
+                          ))}
                         </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Terminal Stream Table */}
+                  <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] overflow-hidden shadow-sm">
+                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-[var(--ops-surface-sunken)]/30 border-b border-[var(--ops-border)] gap-4">
+                      <div className="space-y-1">
+                        <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground">Terminal Stream</CardTitle>
+                        <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)] mt-1">Real-time Sale Events</CardDescription>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-full sm:w-64">
+                          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                          <Input placeholder="Search records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-bold uppercase text-foreground placeholder-zinc-500" />
+                        </div>
+                        <Button variant="outline" className="h-9.5 w-9.5 p-0 rounded-[10px] border-[var(--ops-border)] bg-[var(--ops-surface-sunken)] text-[var(--ops-text-secondary)] hover:text-foreground"><FiFilter className="size-4" /></Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-muted/30 dark:bg-black/40 border-b border-border/40">
-                                    <tr>
-                                        {['Timestamp', 'Item Specification', 'Qty', 'Scale', 'Vector (Value)', 'Status'].map((h) => (
-                                           <th key={h} className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border/20">
-                                    {RECENT_HISTORY_MOCK.map((row) => (
-                                        <tr key={row.id} className="hover:bg-primary/[0.03] dark:hover:bg-white/[0.01] transition-all duration-300 group">
-                                            <td className="px-8 py-5 text-[11px] font-bold text-muted-foreground tabular-nums">{row.timestamp}</td>
-                                            <td className="px-8 py-5">
-                                               <span className="text-sm font-black italic uppercase tracking-tighter text-foreground group-hover:text-primary transition-colors">{row.item}</span>
-                                            </td>
-                                            <td className="px-8 py-5 text-sm font-black tabular-nums">{row.qty}</td>
-                                            <td className="px-8 py-5">
-                                               <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest rounded-lg bg-muted border-none">{row.unit}</Badge>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                               <span className="text-sm font-black italic text-primary dark:text-primary-foreground tabular-nums">{formatCurrency(row.value)}</span>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                               <div className="flex items-center gap-2">
-                                                  <div className={cn("size-2 rounded-full", row.status === 'Completed' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]')} />
-                                                  <span className="text-[10px] font-black uppercase tracking-widest shrink-0">{row.status}</span>
-                                               </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
+                          <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border-subtle)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                            <tr>
+                              {['Timestamp', 'Item Specification', 'Qty', 'Scale', 'Vector (Value)', 'Status'].map((h) => (
+                                <th key={h} className="px-6 py-3.5">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                            {RECENT_HISTORY_MOCK.map((row) => (
+                              <tr key={row.id} className="hover:bg-[var(--ops-surface-sunken)]/30 transition-all duration-150 group">
+                                <td className="px-6 py-4 text-[10px] font-bold text-[var(--ops-text-muted)] font-mono">{row.timestamp}</td>
+                                <td className="px-6 py-4">
+                                  <span className="text-xs font-black uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">{row.item}</span>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-zinc-350 font-mono">{row.qty}</td>
+                                <td className="px-6 py-4">
+                                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest rounded-lg bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[var(--ops-text-secondary)]">
+                                    {row.unit}
+                                  </Badge>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-xs font-black text-primary font-mono">{formatCurrency(row.value)}</span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn(
+                                      "size-1.5 rounded-full",
+                                      row.status === 'Completed' 
+                                        ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                                        : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'
+                                    )} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">{row.status}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </CardContent>
-                 </Card>
-              </div>
-            )}
-
-            {/* Placeholder sections for other tabs */}
-            {activeTab !== 'overview' && (
-              <Card className="p-20 text-center border-dashed ring-1 ring-border bg-card/50">
-                 <div className="flex flex-col items-center gap-4">
-                    <FiRefreshCw className="size-12 text-muted-foreground opacity-20 animate-spin-slow" />
+                  </Card>
+                </div>
+              ) : (
+                <Card className="p-20 text-center border-dashed border border-[var(--ops-border)] bg-[var(--ops-surface-sunken)]/20 rounded-[14px]">
+                  <div className="flex flex-col items-center gap-4">
+                    <FiRefreshCw className="size-10 text-primary animate-spin" />
                     <div>
-                      <p className="text-xl font-black italic uppercase tracking-tighter text-muted-foreground">Module Initializing</p>
-                      <p className="text-xs font-bold text-muted-foreground/60 uppercase mt-1">Deep analysis module is synchronizing with the telemetry network</p>
+                      <p className="text-base font-black italic uppercase tracking-tighter text-[var(--ops-text-muted)]">Module Initializing</p>
+                      <p className="text-[10px] font-bold text-[var(--ops-text-faint)] uppercase mt-1">Deep analysis module is synchronizing with the telemetry network</p>
                     </div>
-                 </div>
-              </Card>
-            )}
-          </motion.div>
-        </AnimatePresence>
+                  </div>
+                </Card>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     </AppLayout>
   );

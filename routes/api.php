@@ -88,3 +88,16 @@ Route::prefix('v1')->group(function () {
         Route::post('notifications/mark-as-read', [App\Http\Controllers\NotificationController::class, 'markAsRead']);
     });
 });
+
+// ─── Staff & Admin Offline & Barcode Sync Module ──────────────────
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('transactions/sale', [App\Http\Controllers\Api\SyncApiController::class, 'storeSale']);
+    Route::post('inventory/update', [App\Http\Controllers\Api\SyncApiController::class, 'updateInventory']);
+    Route::post('restock/request', [App\Http\Controllers\Api\SyncApiController::class, 'requestRestock']);
+    Route::post('sync', [App\Http\Controllers\Api\SyncApiController::class, 'sync']);
+    
+    // Receipt-based Inventory Scanner endpoints
+    Route::post('receipts/upload', [App\Http\Controllers\Api\ReceiptController::class, 'upload']);
+    Route::post('receipts/process', [App\Http\Controllers\Api\ReceiptController::class, 'process']);
+    Route::post('inventory/stock-in', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn']);
+});

@@ -69,30 +69,112 @@ class ReportController extends Controller
         ));
     }
 
+    public function prepareExport(Request $request)
+    {
+        $token = 'export_' . bin2hex(random_bytes(16));
+        $payload = $request->all();
+
+        // If the user requests to export all records, dynamically query them on the server
+        if (isset($payload['scope']) && $payload['scope'] === 'all') {
+            $payload['rows'] = $this->compileAllRows($payload, Auth::user());
+        }
+        
+        // Cache the formatted report payload for 5 minutes
+        \Illuminate\Support\Facades\Cache::put('report_export_' . $token, $payload, 300);
+
+        return response()->json(['token' => $token]);
+    }
+
+    private function compileAllRows(array $payload, $user)
+    {
+        $filters = $payload['filters'] ?? [];
+        $activeTab = $payload['activeTab'] ?? 'sales';
+
+        if ($activeTab === 'sales') {
+            $sales = Sale::with(['cashier', 'items.product'])
+                ->when(!$user->isAdmin(), fn($q) => $q
+                    ->where('user_id',   $user->id)
+                    ->where('branch_id', $user->branch_id)
+                )
+                ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
+                ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('created_at', '<=', $filters['date_to']))
+                ->when(isset($filters['cashier_id']) && $filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('user_id', $filters['cashier_id']))
+                ->when(isset($filters['status']) && $filters['status'] !== 'all', fn($q) => $q->where('status', $filters['status']))
+                ->latest()
+                ->get();
+
+            return $sales->map(function ($sale) {
+                return [
+                    'order_number' => $sale->order_number,
+                    'date' => $sale->created_at->format('M d, Y H:i'),
+                    'cashier' => $sale->cashier?->name ?? 'N/A',
+                    'status' => ucfirst($sale->status),
+                    'total' => '₱' . number_format($sale->total, 2),
+                    'profit' => '₱' . number_format($sale->profit, 2),
+                ];
+            })->toArray();
+        } else {
+            $shifts = CashierShift::with('cashier')
+                ->when(!$user->isAdmin(), fn($q) => $q
+                    ->where('cashier_id', $user->id)
+                    ->where('branch_id',  $user->branch_id)
+                )
+                ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('opened_at', '>=', $filters['date_from']))
+                ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('opened_at', '<=', $filters['date_to']))
+                ->when(isset($filters['cashier_id']) && $filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('cashier_id', $filters['cashier_id']))
+                ->latest()
+                ->get();
+
+            return $shifts->map(function ($shift) {
+                return [
+                    'cashier' => $shift->cashier?->name ?? 'N/A',
+                    'opened_at' => $shift->opened_at ? Carbon::parse($shift->opened_at)->format('M d, Y H:i') : 'N/A',
+                    'closed_at' => $shift->closed_at ? Carbon::parse($shift->closed_at)->format('M d, Y H:i') : 'Active',
+                    'opening' => '₱' . number_format($shift->opening_cash, 2),
+                    'ending' => '₱' . number_format($shift->expected_cash, 2),
+                    'actual' => '₱' . number_format($shift->actual_cash, 2),
+                    'diff' => '₱' . number_format($shift->actual_cash - $shift->expected_cash, 2),
+                ];
+            })->toArray();
+        }
+    }
+
     public function exportPdf(Request $request)
     {
-        $user = Auth::user();
+        $token = $request->input('token');
+        if (!$token || !\Illuminate\Support\Facades\Cache::has('report_export_' . $token)) {
+            abort(400, 'Expired or invalid export request token.');
+        }
 
-        $sales = Sale::with(['cashier', 'items.product'])
-            ->when(!$user->isAdmin(), fn($q) => $q
-                ->where('user_id',   $user->id)
-                ->where('branch_id', $user->branch_id)
-            )
-            ->when($request->date_from,  fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
-            ->when($request->date_to,    fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
-            ->when($request->cashier_id && $user->isAdmin(), fn($q) => $q->where('user_id', $request->cashier_id))
-            ->latest()
-            ->get();
+        $payload = \Illuminate\Support\Facades\Cache::get('report_export_' . $token);
+        
+        $filename = str_replace([' ', '/'], '_', $payload['reportName'] ?? 'report') . '_' . date('Y-m-d') . '.pdf';
 
-        $pdf = Pdf::loadView('reports.sales_pdf', compact('sales'));
-        return $pdf->download('sales_report_' . now()->format('Y-m-d') . '.pdf');
+        $pdf = Pdf::loadView('reports.dynamic_pdf', compact('payload'));
+        
+        if (isset($payload['orientation']) && $payload['orientation'] === 'landscape') {
+            $pdf->setPaper($payload['paperSize'] ?? 'A4', 'landscape');
+        } else {
+            $pdf->setPaper($payload['paperSize'] ?? 'A4', 'portrait');
+        }
+
+        return $pdf->download($filename);
     }
 
     public function exportExcel(Request $request)
     {
+        $token = $request->input('token');
+        if (!$token || !\Illuminate\Support\Facades\Cache::has('report_export_' . $token)) {
+            abort(400, 'Expired or invalid export request token.');
+        }
+
+        $payload = \Illuminate\Support\Facades\Cache::get('report_export_' . $token);
+        
+        $filename = str_replace([' ', '/'], '_', $payload['reportName'] ?? 'report') . '_' . date('Y-m-d') . '.xlsx';
+
         return Excel::download(
-            new SalesExport($request->all()),
-            'sales_report_' . now()->format('Y-m-d') . '.xlsx'
+            new \App\Exports\DynamicExport($payload),
+            $filename
         );
     }
 

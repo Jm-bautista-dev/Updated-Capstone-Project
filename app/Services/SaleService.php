@@ -108,7 +108,8 @@ class SaleService
             }
 
             // 2. ── VALIDATE BEFORE MUTATION ─────────────────────────────────────
-            if (!empty($ingredientRequirements)) {
+            $force = $data['force'] ?? false;
+            if (!$force && !empty($ingredientRequirements)) {
                 $this->validateIngredientStock($ingredientRequirements, $branchId);
             }
 
@@ -116,7 +117,7 @@ class SaleService
             $orderRef = $data['order_number'] ?? ('SALE-' . strtoupper(uniqid()));
 
             if (!empty($ingredientRequirements)) {
-                $this->deductIngredientStock($ingredientRequirements, $branchId, $orderRef);
+                $this->deductIngredientStock($ingredientRequirements, $branchId, $orderRef, $force);
             }
 
             // 4. ── (Product Level Stock Deduction Removed) ──────────────────────
@@ -224,7 +225,7 @@ class SaleService
      *
      * 🚫 NEVER touches another branch's stock row.
      */
-    protected function deductIngredientStock(array $requirements, int $branchId, string $ref): void
+    protected function deductIngredientStock(array $requirements, int $branchId, string $ref, bool $force = false): void
     {
         foreach ($requirements as $ingredientId => $qty) {
             /** @var IngredientStock $stockRow */
@@ -235,7 +236,7 @@ class SaleService
                 ->firstOrFail();
 
             $previousStock = (float) $stockRow->stock;
-            $stockRow->deduct($qty); // throws if insufficient
+            $stockRow->deduct($qty, $force); // throws if insufficient
 
             // Audit log
             StockLog::create([

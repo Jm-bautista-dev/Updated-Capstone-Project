@@ -27,7 +27,7 @@ export default function PreparingConfirmationModal({
                             <Package className="size-8 text-blue-600" />
                         </div>
                         <h2 className="text-2xl font-black tracking-tight">Start Preparing?</h2>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <p className="text-sm text-[var(--ops-text-muted)] leading-relaxed">
                             This will <strong>deduct ingredients</strong> from your inventory. <br/>
                             Make sure you have enough stock before starting.
                         </p>

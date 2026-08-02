@@ -12,8 +12,6 @@ import {
   FiPlus,
   FiEdit2,
   FiTrash2,
-  FiArrowUp,
-  FiArrowDown,
   FiChevronDown,
   FiChevronRight,
   FiChevronLeft,
@@ -22,8 +20,16 @@ import {
   FiGrid,
   FiMaximize2,
   FiMinimize2,
-  FiZap
+  FiZap,
+  FiFileText,
+  FiX,
+  FiDownload,
+  FiTrendingUp,
+  FiActivity
 } from 'react-icons/fi';
+import { toast } from 'sonner';
+import axios from 'axios';
+import { ReceiptScannerModal } from '@/components/receipt-scanner-modal';
 import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
 import { WastageModal } from '@/components/wastage-modal';
@@ -55,6 +61,14 @@ import {
   TooltipTrigger,
   TooltipContent
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Inventory', href: '/dashboard' },
@@ -62,7 +76,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 /** One row in the inventory table = one ingredient × one branch */
 type InventoryRow = {
-  id: number;        // ingredient.id (global)
+  id: number;              // ingredient.id (global)
   stock_id: number | null; // ingredient_stocks.id
   name: string;
   unit: string;
@@ -115,12 +129,14 @@ export default function InventoryIndex() {
   // --- State ---
   const [search, setSearch] = useState('');
   const [filterUnit, setFilterUnit] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'low' | 'out' | 'updated' | 'restocked'>('all');
+  const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
-  const [expandedBranches, setExpandedBranches] = useState<string[]>([]);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -128,15 +144,111 @@ export default function InventoryIndex() {
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
   const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
   const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
     type: 'success', title: '', message: '',
   });
   const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
   const [isMassRestockModalOpen, setIsMassRestockModalOpen] = useState(false);
+
+  // Receipt Scanner States
+  const [isReceiptScannerOpen, setIsReceiptScannerOpen] = useState(false);
   const [activeRestockBranch, setActiveRestockBranch] = useState<{ id: number; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState('');
+  const [bulkRestockQuantities, setBulkRestockQuantities] = useState<Record<number, { quantity: string, unit: string }> | undefined>(undefined);
+
+  // Dynamic logs state for Dynamic Timestamps & Detail Drawer History
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [lastUpdatedMap, setLastUpdatedMap] = useState<Record<string, any>>({});
+  const [updatedTodayCount, setUpdatedTodayCount] = useState(0);
+  const [drawerLogs, setDrawerLogs] = useState<any[]>([]);
+  const [loadingDrawerLogs, setLoadingDrawerLogs] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'history' | 'procurement'>('overview');
+
+  // Load activity logs on page mount (without changing backend logic)
+  const fetchActivityLogs = async () => {
+    try {
+      const response = await axios.get('/inventory/activity', {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Inertia': 'true',
+          'X-Inertia-Partial-Component': 'Inventory/Activity',
+          'X-Inertia-Partial-Data': 'logs'
+        }
+      });
+      if (response.data?.props?.logs?.data) {
+        const logs = response.data.props.logs.data;
+        setRecentLogs(logs);
+        
+        // Build last updated lookup
+        const map: Record<string, any> = {};
+        let todayCount = 0;
+        const todayStr = new Date().toDateString();
+        
+        logs.forEach((log: any) => {
+          const key = `${log.ingredient_id}-${log.branch_id}`;
+          if (!map[key]) {
+            map[key] = log;
+          }
+          
+          const logDate = new Date(log.created_at);
+          if (logDate.toDateString() === todayStr) {
+            todayCount++;
+          }
+        });
+        
+        setLastUpdatedMap(map);
+        setUpdatedTodayCount(todayCount);
+      }
+    } catch (err) {
+      console.error("Failed to load activity logs on mount:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivityLogs();
+    const handleFocus = () => fetchActivityLogs();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Fetch detailed logs when drawer opens
+  useEffect(() => {
+    if (isDrawerOpen && selectedRow) {
+      const loadDrawerLogs = async () => {
+        setLoadingDrawerLogs(true);
+        try {
+          const response = await axios.get('/inventory/activity', {
+            params: {
+              ingredient_id: selectedRow.id,
+              branch_id: selectedRow.branch_id
+            },
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-Inertia': 'true',
+              'X-Inertia-Partial-Component': 'Inventory/Activity',
+              'X-Inertia-Partial-Data': 'logs'
+            }
+          });
+          if (response.data?.props?.logs?.data) {
+            setDrawerLogs(response.data.props.logs.data);
+          } else {
+            setDrawerLogs([]);
+          }
+        } catch (err) {
+          console.error("Failed to load drawer logs:", err);
+        } finally {
+          setLoadingDrawerLogs(false);
+        }
+      };
+      loadDrawerLogs();
+    } else {
+      setDrawerLogs([]);
+    }
+  }, [isDrawerOpen, selectedRow]);
 
   const openStockInModal = (row: InventoryRow) => {
     setSelectedRow(row);
@@ -151,6 +263,12 @@ export default function InventoryIndex() {
   const openMassRestockModal = (branchId: number, branchName: string) => {
     setActiveRestockBranch({ id: branchId, name: branchName });
     setIsMassRestockModalOpen(true);
+  };
+
+  const handleRowClick = (row: InventoryRow) => {
+    setSelectedRow(row);
+    setDrawerTab('overview');
+    setIsDrawerOpen(true);
   };
 
   const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
@@ -196,25 +314,22 @@ export default function InventoryIndex() {
         break;
       case 'branch_ids':
         if (!isEditModalOpen && value.length === 0 && isAdmin) {
-            // If admin is adding, and no branches selected, we assume all, but user requested "At least one branch must be selected"
-            // Wait, the current logic says "If none, apply to all". 
-            // The prompt says "At least one branch must be selected". I will follow the prompt.
-            error = 'Select at least one branch';
+          error = 'Select at least one branch';
         }
         break;
       case 'avg_weight_per_piece':
         if (data.unit === 'pcs') {
-            if (!value) error = 'Avg weight is required for piece measurements';
-            else if (Number(value) <= 0) error = 'Must be greater than 0';
+          if (!value) error = 'Avg weight is required for piece measurements';
+          else if (Number(value) <= 0) error = 'Must be greater than 0';
         }
         break;
     }
 
     setLocalErrors(prev => {
-        const next = { ...prev };
-        if (error) next[name] = error;
-        else delete next[name];
-        return next;
+      const next = { ...prev };
+      if (error) next[name] = error;
+      else delete next[name];
+      return next;
     });
 
     return error;
@@ -224,50 +339,107 @@ export default function InventoryIndex() {
     const totalCost = Number(data.cost_per_base_unit);
     const totalStock = Number(data.stock);
     if (totalStock > 0 && totalCost > 0) {
-        return (totalCost / totalStock).toFixed(4);
+      return (totalCost / totalStock).toFixed(4);
     }
     return '0.00';
   }, [data.cost_per_base_unit, data.stock]);
 
   // --- Stats ---
   const stats = useMemo(() => {
-    if (serverStats) return serverStats;
+    if (serverStats) return { ...serverStats, updates: updatedTodayCount };
     const total = [...new Set(inventory.map(i => i.id))].length;
     const low   = inventory.filter(i => i.is_low_stock).length;
     const out   = inventory.filter(i => i.is_out_of_stock).length;
-    return { total, low_stock: low, out_of_stock: out };
-  }, [inventory, serverStats]);
+    return { total, low_stock: low, out_of_stock: out, updates: updatedTodayCount };
+  }, [inventory, serverStats, updatedTodayCount]);
 
-  // --- Filtered & Sorted ---
+  // --- Filtered & Sorted Flat Data ---
   const filteredData = useMemo(() => {
     return inventory
       .filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) ||
-          (item.branch_name ?? '').toLowerCase().includes(search.toLowerCase());
-        const matchesUnit   = filterUnit === 'all' || item.unit === filterUnit;
-        return matchesSearch && matchesUnit;
+        // Search matches ingredient name, SKU, branch name, unit
+        const skuString = `ING-${item.id.toString().padStart(5, '0')}`;
+        const matchesSearch = 
+          item.name.toLowerCase().includes(search.toLowerCase()) ||
+          skuString.toLowerCase().includes(search.toLowerCase()) ||
+          (item.branch_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+          item.unit.toLowerCase().includes(search.toLowerCase());
+
+        const matchesUnit = filterUnit === 'all' || item.unit === filterUnit;
+
+        // Custom status filter (optimal, low, out, overstocked)
+        let matchesStatus = true;
+        if (filterStatus === 'optimal') {
+          matchesStatus = !item.is_low_stock && !item.is_out_of_stock;
+        } else if (filterStatus === 'low') {
+          matchesStatus = item.is_low_stock && !item.is_out_of_stock;
+        } else if (filterStatus === 'out') {
+          matchesStatus = item.is_out_of_stock;
+        } else if (filterStatus === 'overstocked') {
+          matchesStatus = item.stock > item.low_stock_level * 4;
+        }
+
+        // Quick chips filter
+        let matchesQuick = true;
+        const key = `${item.id}-${item.branch_id}`;
+        const lastLog = lastUpdatedMap[key];
+
+        if (quickFilter === 'low') {
+          matchesQuick = item.is_low_stock || item.is_out_of_stock;
+        } else if (quickFilter === 'out') {
+          matchesQuick = item.is_out_of_stock;
+        } else if (quickFilter === 'updated') {
+          matchesQuick = !!lastLog;
+        } else if (quickFilter === 'restocked') {
+          if (lastLog) {
+            const logDate = new Date(lastLog.created_at);
+            const isToday = logDate.toDateString() === new Date().toDateString();
+            const isPositive = Number(lastLog.change_qty) > 0;
+            matchesQuick = isToday && isPositive;
+          } else {
+            matchesQuick = false;
+          }
+        }
+
+        return matchesSearch && matchesUnit && matchesStatus && matchesQuick;
       })
       .sort((a, b) => {
         let valA: any = a[sortBy as keyof InventoryRow];
         let valB: any = b[sortBy as keyof InventoryRow];
+
+        if (sortBy === 'last_updated') {
+          const logA = lastUpdatedMap[`${a.id}-${a.branch_id}`];
+          const logB = lastUpdatedMap[`${b.id}-${b.branch_id}`];
+          const timeA = logA ? new Date(logA.created_at).getTime() : 0;
+          const timeB = logB ? new Date(logB.created_at).getTime() : 0;
+          return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        }
+
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
         if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
         if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [inventory, search, filterUnit, sortBy, sortOrder]);
+  }, [inventory, search, filterUnit, filterStatus, quickFilter, sortBy, sortOrder, lastUpdatedMap]);
 
-  // --- Grouped Data by Branch ---
-  const groupedData = useMemo(() => {
-    const groups: Record<string, InventoryRow[]> = {};
-    filteredData.forEach(item => {
-      const bName = item.branch_name || 'Unassigned';
-      if (!groups[bName]) groups[bName] = [];
-      groups[bName].push(item);
+  // Active Branch Stats computed for current filter
+  const activeBranchName = useMemo(() => {
+    if (!currentBranchId || currentBranchId === 'all') return 'All Branches';
+    const branch = branchList.find(b => String(b.id) === String(currentBranchId));
+    return branch ? branch.name : 'All Branches';
+  }, [currentBranchId, branchList]);
+
+  const activeBranchStats = useMemo(() => {
+    const branchRows = inventory.filter(item => {
+      if (!currentBranchId || currentBranchId === 'all') return true;
+      return String(item.branch_id) === String(currentBranchId);
     });
-    return groups;
-  }, [filteredData]);
+    const total = [...new Set(branchRows.map(i => i.id))].length;
+    const low = branchRows.filter(i => i.is_low_stock && !i.is_out_of_stock).length;
+    const out = branchRows.filter(i => i.is_out_of_stock).length;
+    return { total, low, out };
+  }, [inventory, currentBranchId]);
 
   // --- Pagination ---
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -276,30 +448,7 @@ export default function InventoryIndex() {
     return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
 
-  // Group paginated data for display
-  const paginatedGroups = useMemo(() => {
-    const groups: Record<string, InventoryRow[]> = {};
-    paginatedData.forEach(item => {
-      const bName = item.branch_name || 'Unassigned';
-      if (!groups[bName]) groups[bName] = [];
-      groups[bName].push(item);
-    });
-    return groups;
-  }, [paginatedData]);
-
-  // Auto-expand logic: Expand branch with lowest stock health
-  useEffect(() => {
-    if (Object.keys(paginatedGroups).length > 0 && expandedBranches.length === 0) {
-      const branchesWithScores = Object.entries(paginatedGroups).map(([name, rows]) => {
-        const lowCount = rows.filter(r => r.is_low_stock || r.is_out_of_stock).length;
-        return { name, score: lowCount };
-      });
-      const topPriority = branchesWithScores.sort((a, b) => b.score - a.score)[0];
-      if (topPriority) setExpandedBranches([topPriority.name]);
-    }
-  }, [paginatedGroups]);
-
-  useEffect(() => { setCurrentPage(1); setExpandedRowKey(null); }, [search, filterUnit]);
+  useEffect(() => { setCurrentPage(1); }, [search, filterUnit, filterStatus, quickFilter]);
 
   // --- Handlers ---
   const handleAdd = () => { reset(); setIsAddModalOpen(true); };
@@ -312,7 +461,7 @@ export default function InventoryIndex() {
       stock: String(row.stock),
       low_stock_level: String(row.low_stock_level ?? 5),
       avg_weight_per_piece: row.avg_weight_per_piece ? String(row.avg_weight_per_piece) : '',
-      cost_per_base_unit: String(row.cost_per_unit ?? 0), // Defaulting for edit
+      cost_per_base_unit: String(row.cost_per_unit ?? 0),
       cost_per_unit: String(row.cost_per_unit ?? 0),
       branch_id: row.branch_id ? String(row.branch_id) : '',
       branch_ids: [],
@@ -325,21 +474,20 @@ export default function InventoryIndex() {
   const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Final Validation
     const fields = ['name', 'unit', 'stock', 'low_stock_level', 'cost_per_base_unit', 'branch_ids'];
     if (data.unit === 'pcs') fields.push('avg_weight_per_piece');
     
     let hasError = false;
     fields.forEach(f => {
-        const err = validateField(f, (data as any)[f]);
-        if (err) hasError = true;
+      const err = validateField(f, (data as any)[f]);
+      if (err) hasError = true;
     });
 
     if (hasError) return;
 
     const calculatedCostPerUnit = Number(data.stock) > 0 
-        ? Number(data.cost_per_base_unit) / Number(data.stock)
-        : Number(data.cost_per_base_unit);
+      ? Number(data.cost_per_base_unit) / Number(data.stock)
+      : Number(data.cost_per_base_unit);
 
     router.post('/inventory', {
       name: data.name,
@@ -358,12 +506,12 @@ export default function InventoryIndex() {
         setLocalErrors({});
         stateChannel.postMessage({ type: 'inventory-updated' });
         router.reload({ only: ['inventory', 'stats'] });
+        fetchActivityLogs();
         setResultModal({ type: 'success', title: 'Ingredient Added', message: 'The global ingredient and its branch stock have been created.' });
         setIsResultModalOpen(true);
       },
       onError: (errs) => {
-          // If server returns validation errors, show them too
-          setLocalErrors(prev => ({ ...prev, ...errs }));
+        setLocalErrors(prev => ({ ...prev, ...errs }));
       }
     });
   };
@@ -371,14 +519,13 @@ export default function InventoryIndex() {
   const submitEdit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Final Validation
     const fields = ['name', 'unit', 'stock', 'low_stock_level', 'cost_per_unit'];
     if (data.unit === 'pcs') fields.push('avg_weight_per_piece');
     
     let hasError = false;
     fields.forEach(f => {
-        const err = validateField(f, (data as any)[f]);
-        if (err) hasError = true;
+      const err = validateField(f, (data as any)[f]);
+      if (err) hasError = true;
     });
 
     if (hasError) return;
@@ -394,15 +541,17 @@ export default function InventoryIndex() {
     }, {
       onSuccess: () => {
         setIsEditModalOpen(false);
+        setIsDrawerOpen(false);
         reset();
         setLocalErrors({});
         stateChannel.postMessage({ type: 'inventory-updated' });
         router.reload({ only: ['inventory', 'stats'] });
+        fetchActivityLogs();
         setResultModal({ type: 'success', title: 'Ingredient Updated', message: 'Ingredient and stock record have been updated.' });
         setIsResultModalOpen(true);
       },
       onError: (errs) => {
-          setLocalErrors(prev => ({ ...prev, ...errs }));
+        setLocalErrors(prev => ({ ...prev, ...errs }));
       }
     });
   };
@@ -411,8 +560,10 @@ export default function InventoryIndex() {
     router.delete(`/inventory/${selectedRow?.id}?branch_id=${selectedRow?.branch_id}`, {
       onSuccess: () => {
         setIsDeleteModalOpen(false);
+        setIsDrawerOpen(false);
         stateChannel.postMessage({ type: 'inventory-updated' });
         router.reload({ only: ['inventory', 'stats'] });
+        fetchActivityLogs();
         setResultModal({ type: 'success', title: 'Inventory Updated', message: `Ingredient removed from ${selectedRow?.branch_name}.` });
         setIsResultModalOpen(true);
       },
@@ -424,21 +575,13 @@ export default function InventoryIndex() {
     else { setSortBy(column); setSortOrder('asc'); }
   };
 
-  const toggleBranch = (branchName: string) => {
-    setExpandedBranches(prev => 
-      prev.includes(branchName) 
-        ? prev.filter(b => b !== branchName) 
-        : [...prev, branchName]
-    );
-  };
-
-  const toggleSelectAll = (rows: InventoryRow[], isChecked: boolean) => {
+  const toggleSelectAll = (isChecked: boolean) => {
     if (isChecked) {
-      const ids = rows.map(r => r.id);
-      setSelectedIds(prev => Array.from(new Set([...prev, ...ids])));
+      const pageIds = paginatedData.map(r => r.id);
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
     } else {
-      const idsToRemove = new Set(rows.map(r => r.id));
-      setSelectedIds(prev => prev.filter(id => !idsToRemove.has(id)));
+      const pageIdsSet = new Set(paginatedData.map(r => r.id));
+      setSelectedIds(prev => prev.filter(id => !pageIdsSet.has(id)));
     }
   };
 
@@ -459,6 +602,7 @@ export default function InventoryIndex() {
         setBulkDeleteConfirmation('');
         stateChannel.postMessage({ type: 'inventory-updated' });
         router.reload({ only: ['inventory', 'stats'] });
+        fetchActivityLogs();
         setResultModal({ 
           type: 'success', 
           title: 'Bulk Delete Successful', 
@@ -478,542 +622,977 @@ export default function InventoryIndex() {
     });
   };
 
-  const rowKey = (row: InventoryRow) => `${row.id}-${row.branch_id}`;
+  // Bulk operation actions
+  const handleBulkRestock = () => {
+    if (selectedIds.length === 0) return;
+    const selectedRows = inventory.filter(r => selectedIds.includes(r.id));
+    const firstRow = selectedRows[0];
+    if (!firstRow) return;
 
-  // Simple icon for the intelligence cards
-  const FiCheckCircle = (props: any) => (
-    <svg 
-      stroke="currentColor" 
-      fill="none" 
-      strokeWidth="2" 
-      viewBox="0 0 24 24" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      height="1em" 
-      width="1em" 
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-    </svg>
-  );
+    // Check if multiple branches selected
+    const uniqueBranches = Array.from(new Set(selectedRows.map(r => r.branch_id)));
+    if (uniqueBranches.length > 1) {
+      toast.error("Please select ingredients from the same branch for bulk restocking.");
+      return;
+    }
+
+    const prefilled: Record<number, { quantity: string, unit: string }> = {};
+    selectedRows.forEach(row => {
+      prefilled[row.id] = { quantity: '', unit: row.unit };
+    });
+
+    setBulkRestockQuantities(prefilled);
+    openMassRestockModal(firstRow.branch_id, firstRow.branch_name || 'Selected Branch');
+  };
+
+  const handleExportCSV = () => {
+    const rowsToExport = selectedIds.length > 0 
+      ? inventory.filter(r => selectedIds.includes(r.id))
+      : filteredData;
+      
+    const csvContent = [
+      ["Ingredient Name", "SKU", "Branch", "Current Stock", "Minimum Stock", "Unit", "Procurement Cost (PHP)", "Status"],
+      ...rowsToExport.map(r => [
+        r.name,
+        `ING-${r.id.toString().padStart(5, '0')}`,
+        r.branch_name || "Unassigned",
+        r.stock,
+        r.low_stock_level,
+        r.unit,
+        r.cost_per_unit.toFixed(2),
+        r.is_out_of_stock ? "Out of Stock" : r.is_low_stock ? "Low Stock" : "Optimal"
+      ])
+    ]
+      .map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `maki_desu_inventory_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("CSV Exported successfully!");
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setFilterUnit('all');
+    setFilterStatus('all');
+    setQuickFilter('all');
+  };
+
+  // Get status color string for styling logic
+  const getItemStatus = (row: InventoryRow) => {
+    if (row.is_out_of_stock) return 'out';
+    if (row.is_low_stock) return 'low';
+    if (row.stock > row.low_stock_level * 4) return 'overstocked';
+    return 'optimal';
+  };
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Maki Desu Inventory Intelligence" />
+      <Head title="Maki Desu Inventory control console" />
       <TooltipProvider>
-        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background dark:bg-zinc-950">
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
 
-          {/* ── Header Layer ── */}
-          <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:gap-6 sm:px-8 bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <FiPackage className="text-primary size-5 sm:size-6" />
+          {/* ── Header Area ── */}
+          <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <FiPackage className="text-primary size-6 animate-pulse" />
               <div>
-                <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground dark:text-white leading-none">Inventory</h1>
-                <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground dark:text-zinc-500 tracking-widest mt-1">
-                  Keep track of your ingredients and stock levels across shops.
+                <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground leading-none">Inventory</h1>
+                <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
+                  Manage ingredient inventory across all branches
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Desktop Filter Bar - EXACT REPLICA OF ORIGINAL (HIDDEN ON MOBILE) */}
-              <div className="hidden md:flex items-center gap-3">
-                {isAdmin && (
-                  <Select
-                    value={currentBranchId ? String(currentBranchId) : 'all'}
-                    onValueChange={handleBranchFilter}
-                  >
-                    <SelectTrigger className="w-48 h-11 bg-muted/20 border-none ring-1 ring-border/50 shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                      <SelectValue placeholder="All Branches" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-border shadow-2xl">
-                      <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Branches</SelectItem>
-                      {branchList.map(b => (
-                        <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase tracking-widest py-3">{b.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="relative w-64">
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground dark:text-zinc-500" />
-                  <Input
-                    placeholder="Search item or location..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-9 h-11 bg-card dark:bg-zinc-800/50 focus:bg-background dark:focus:bg-zinc-900 transition-all border-none ring-1 ring-border group-hover:ring-primary/40 text-[11px] font-bold uppercase tracking-tight"
-                  />
-                </div>
-                <Select value={filterUnit} onValueChange={setFilterUnit}>
-                  <SelectTrigger className="w-32 h-11 bg-muted/20 border-none ring-1 ring-border/50 shadow-sm font-black text-[10px] uppercase tracking-widest italic">
-                    <SelectValue placeholder="Unit" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border shadow-2xl">
-                    <SelectItem value="all" className="text-[10px] font-bold uppercase tracking-widest py-3">All Units</SelectItem>
-                    <SelectItem value="g" className="text-[10px] font-bold uppercase tracking-widest py-3">g (Grams)</SelectItem>
-                    <SelectItem value="ml" className="text-[10px] font-bold uppercase tracking-widest py-3">ml (Milliliters)</SelectItem>
-                    <SelectItem value="pcs" className="text-[10px] font-bold uppercase tracking-widest py-3">pcs (Pieces)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Mobile Filter Trigger (HIDDEN ON DESKTOP) */}
-              <MobileFilter
-                title="Inventory Filters"
-                description="Refine your view by branch or unit"
-                activeFilterCount={(search ? 1 : 0) + (currentBranchId && currentBranchId !== 'all' ? 1 : 0) + (filterUnit !== 'all' ? 1 : 0)}
-                activeFilterSummary={`${search ? `"${search}" • ` : ''}${currentBranchId && currentBranchId !== 'all' ? (branchList.find(b => String(b.id) === String(currentBranchId))?.name || 'Branch') : 'All Branches'} • ${filterUnit === 'all' ? 'All Units' : filterUnit === 'g' ? 'g' : filterUnit === 'ml' ? 'ml' : 'pcs'}`}
-                onClear={() => {
-                  setSearch('');
-                  handleBranchFilter('all');
-                  setFilterUnit('all');
-                }}
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                className="h-10 px-3.5 rounded-[12px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] hover:bg-[var(--ops-chip-active-bg)] text-muted-foreground hover:text-foreground transition-all shadow-sm shrink-0 gap-2 text-[10px] font-black uppercase tracking-wider"
+                onClick={() => setIsReceiptScannerOpen(true)}
+                title="Scan Receipt"
               >
-                <div className="flex flex-col gap-6 w-full">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Search Stock</label>
-                    <div className="relative">
-                      <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
-                      <Input
-                        placeholder="Type to search..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-12 h-14 bg-muted/30 border-none rounded-2xl text-base font-bold shadow-inner"
-                      />
-                    </div>
-                  </div>
-
-                  {isAdmin && (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Branch Location</label>
-                      <Select value={currentBranchId ? String(currentBranchId) : 'all'} onValueChange={handleBranchFilter}>
-                        <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
-                          <SelectValue placeholder="All Branches" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Branches</SelectItem>
-                          {branchList.map(b => (
-                            <SelectItem key={b.id} value={String(b.id)} className="font-bold py-3 uppercase text-[10px] tracking-widest">{b.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Stock Unit</label>
-                    <Select value={filterUnit} onValueChange={setFilterUnit}>
-                      <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-none ring-1 ring-black/5 font-bold uppercase text-[10px] tracking-widest px-4 font-black">
-                        <SelectValue placeholder="Unit" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="all" className="font-bold py-3 uppercase text-[10px] tracking-widest">All Units</SelectItem>
-                        <SelectItem value="g" className="font-bold py-3 uppercase text-[10px] tracking-widest text-primary">g (Grams)</SelectItem>
-                        <SelectItem value="ml" className="font-bold py-3 uppercase text-[10px] tracking-widest text-primary">ml (Milliliters)</SelectItem>
-                        <SelectItem value="pcs" className="font-bold py-3 uppercase text-[10px] tracking-widest text-primary">pcs (Pieces)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </MobileFilter>
-
+                <FiFileText className="size-4 text-primary" />
+                <span className="hidden md:inline">Scan Receipt</span>
+              </Button>
               {isAdmin && (
-                <Button onClick={handleAdd} className="h-10 sm:h-11 w-10 sm:w-auto p-0 sm:px-5 gap-2 shadow-lg shadow-primary/20 rounded-xl font-black uppercase text-[10px] tracking-widest italic shrink-0">
-                  <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Item</span>
+                <Button 
+                  onClick={handleAdd} 
+                  className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0"
+                >
+                  <FiPlus className="size-4" /> <span>Add Ingredient</span>
                 </Button>
               )}
             </div>
           </div>
 
-
-          {/* ── Content Layer ── */}
-          <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-8 scroll-smooth no-scrollbar">
+          {/* ── Content Layout ── */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
             
-            {/* Global Stats Matrix */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-                 <div className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group h-full">
-                                <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-10" />
-                                <div className="flex items-center justify-between mb-4">
-                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Total Items</p>
-                                     <FiGrid className="size-5 text-primary" />
-                                </div>
-                                <h3 className="text-3xl font-black text-foreground dark:text-white tabular-nums">{stats.total}</h3>
-                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Ingredients across all branches</p>
-                 </div>
-                 <div className="bg-amber-500/5 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group h-full">
-                                <div className="absolute top-0 right-0 size-24 bg-amber-500 blur-3xl opacity-10" />
-                                <div className="flex items-center justify-between mb-4">
-                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/70 dark:text-amber-500/70">Low Stock</p>
-                                     <FiAlertTriangle className="size-5 text-amber-500" />
-                                </div>
-                                <h3 className="text-3xl font-black text-amber-600 dark:text-amber-500 tabular-nums">{stats.low_stock}</h3>
-                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Items running low</p>
-                 </div>
-                 <div className="bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/20 dark:border-rose-500/30 p-6 rounded-3xl border shadow-sm relative overflow-hidden group h-full">
-                                <div className="absolute top-0 right-0 size-24 bg-rose-500 blur-3xl opacity-10" />
-                                <div className="flex items-center justify-between mb-4">
-                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-600/70 dark:text-rose-500/70">Out of Stock</p>
-                                     <FiSlash className="size-5 text-rose-500" />
-                                </div>
-                                <h3 className="text-3xl font-black text-rose-600 dark:text-rose-500 tabular-nums">{stats.out_of_stock}</h3>
-                                <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mt-2 tracking-widest">Items with zero stock</p>
-                 </div>
+            {/* KPI Cards Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Ingredients</p>
+                  <FiGrid className="size-4 text-[var(--ops-text-secondary)]" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.total}</h3>
+                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Across all branches</p>
+                </div>
+              </div>
+              
+              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/70">Low Stock</p>
+                  <FiAlertTriangle className="size-4 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-amber-500 tabular-nums leading-none">{stats.low_stock}</h3>
+                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Needs Restocking</p>
+                </div>
+              </div>
+
+              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500/70">Out of Stock</p>
+                  <FiSlash className="size-4 text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-rose-500 tabular-nums leading-none">{stats.out_of_stock}</h3>
+                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Critical Alert</p>
+                </div>
+              </div>
+
+              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Stock Updates</p>
+                  <FiRefreshCw className="size-4 text-primary group-hover:rotate-180 transition-transform duration-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.updates}</h3>
+                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Updated Today</p>
+                </div>
+              </div>
             </div>
 
-            {/* Grouped Branch View */}
-            <div className="space-y-6">
-              {paginatedData.length === 0 ? (
-                <Card className="p-20 text-center border-dashed border-2 bg-card/50">
-                   <div className="flex flex-col items-center gap-4">
-                      <FiSearch className="size-12 text-muted-foreground opacity-20" />
-                      <div>
-                        <p className="text-xl font-black italic uppercase tracking-tighter text-muted-foreground">No items found</p>
-                        <p className="text-xs font-bold text-muted-foreground/60 uppercase mt-1">Try a different search or filter</p>
-                      </div>
-                      <Button variant="outline" onClick={() => {setSearch(''); setFilterUnit('all');}} className="mt-4 font-black uppercase text-[10px] tracking-widest italic">Clear Filters</Button>
-                   </div>
-                </Card>
-              ) : (
-                Object.entries(paginatedGroups).map(([branchName, items]) => (
-                  <Card key={branchName} className={cn(
-                    "border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/40 overflow-hidden transition-all duration-500",
-                    expandedBranches.includes(branchName) ? "ring-primary/40 shadow-xl" : "hover:ring-border/80"
-                  )}>
-                    <CardHeader 
-                      className="p-6 cursor-pointer select-none relative group"
-                      onClick={() => toggleBranch(branchName)}
-                    >
-                      <div className="absolute top-0 left-0 h-full w-1 bg-primary transform origin-bottom transition-transform duration-500" style={{ transform: expandedBranches.includes(branchName) ? 'scaleY(1)' : 'scaleY(0)' }} />
-                      
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                           <div className={cn(
-                             "size-12 rounded-2xl flex items-center justify-center transition-all duration-500",
-                             expandedBranches.includes(branchName) ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-muted/50 dark:bg-zinc-800 text-muted-foreground"
-                           )}>
-                              <FiMapPin className="size-5" />
-                           </div>
-                           <div>
-                              <h2 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-                                {branchName}
-                                {items.some(i => i.is_out_of_stock) && <Badge className="bg-rose-500 text-white border-none font-black text-[9px] uppercase tracking-widest shadow-lg shadow-rose-500/30 ring-1 ring-rose-500/20">Critical</Badge>}
-                              </h2>
-                              <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mt-0.5">Store Stock</p>
-                           </div>
-                        </div>
+            {/* Branch Header (Context Statistics) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] px-4 py-2.5 rounded-[12px] text-xs font-black uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center gap-2 text-[var(--ops-text-secondary)]">
+                <FiMapPin className="text-primary size-4" />
+                <span>{activeBranchName}</span>
+              </div>
+              <div className="flex items-center gap-4 text-[10px] font-bold text-[var(--ops-text-muted)]">
+                <span>{activeBranchStats.total} Ingredients</span>
+                {activeBranchStats.low > 0 && <span className="text-amber-500">{activeBranchStats.low} Low Stock</span>}
+                {activeBranchStats.out > 0 && <span className="text-rose-500">{activeBranchStats.out} Out of Stock</span>}
+              </div>
+            </div>
 
-                        <div className="flex items-center gap-6">
-                           <div className="flex items-center gap-8 px-8 border-x border-border/40">
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">Total</p>
-                                    <p className="text-sm font-black italic text-foreground dark:text-white tabular-nums leading-none">{items.length}</p> 
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black uppercase text-amber-600/70 tracking-widest leading-none mb-1">Low</p>
-                                    <p className="text-sm font-black italic text-amber-600 tabular-nums leading-none">{items.filter(i => i.is_low_stock && !i.is_out_of_stock).length}</p> 
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-[9px] font-black uppercase text-rose-600/70 tracking-widest leading-none mb-1">Out</p>
-                                    <p className="text-sm font-black italic text-rose-600 tabular-nums leading-none">{items.filter(i => i.is_out_of_stock).length}</p> 
-                                </div>
-                           </div>
-
-                               <div className="flex items-center gap-3">
-                                   <Button 
-                                     variant="outline" 
-                                     size="sm" 
-                                     className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       const bId = items[0]?.branch_id;
-                                       if (bId) openMassRestockModal(bId, branchName);
-                                     }}
-                                   >
-                                     <FiZap className="size-3 text-amber-500 fill-amber-500" /> Mass Restock
-                                   </Button>
-
-                                   {isAdmin && selectedIds.length > 0 && (
-                                     <Button 
-                                       variant="destructive" 
-                                       size="sm" 
-                                       className="h-9 px-4 rounded-xl font-black uppercase text-[10px] tracking-widest italic gap-2 shadow-lg shadow-rose-500/20 animate-in fade-in zoom-in-95 duration-300"
-                                       onClick={(e) => {
-                                         e.stopPropagation();
-                                         setIsBulkDeleteModalOpen(true);
-                                       }}
-                                     >
-                                       <FiTrash2 className="size-3" /> Delete ({selectedIds.length})
-                                     </Button>
-                                   )}
-
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className={cn("size-9 rounded-xl transition-all duration-300", expandedBranches.includes(branchName) ? "bg-primary/10 text-primary rotate-180" : "bg-muted/30")}
-                                  >
-                                    <FiChevronDown className="size-4" />
-                                  </Button>
-                               </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <AnimatePresence>
-                      {expandedBranches.includes(branchName) && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                        >
-                          <CardContent className="p-0 border-t border-border/40">
-                             <div className="overflow-x-auto overflow-y-hidden">
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b border-border/40 bg-muted/20 dark:bg-black/20">
-                                      <th className="h-12 w-14"></th>
-                                      <th className="h-12 w-10 text-center">
-                                        {isAdmin && (
-                                          <input 
-                                            type="checkbox" 
-                                            className="size-4 rounded border-border text-primary focus:ring-primary/30 cursor-pointer"
-                                            checked={items.every(r => selectedIds.includes(r.id))}
-                                            onChange={(e) => toggleSelectAll(items, e.target.checked)}
-                                          />
-                                        )}
-                                      </th>
-                                      {[
-                                        { label: 'Item Name', key: 'name' },
-                                        { label: 'Unit', key: 'unit' },
-                                        { label: 'Current Stock', key: 'stock' },
-                                        { label: 'Status', key: null },
-                                        { label: 'Actions', key: null },
-                                      ].map((col, idx) => (
-                                        <th key={idx} className="h-12 px-6 text-left align-middle">
-                                          {col.key ? (
-                                            <button
-                                              onClick={() => toggleSort(col.key!)}
-                                              className="flex items-center gap-2 group"
-                                            >
-                                              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover:text-primary transition-colors">{col.label}</span>
-                                              {sortBy === col.key
-                                                ? sortOrder === 'asc'
-                                                  ? <FiArrowUp className="text-primary size-3" />
-                                                  : <FiArrowDown className="text-primary size-3" />
-                                                : <FiArrowUp className="opacity-0 group-hover:opacity-30 size-3 text-muted-foreground" />
-                                              }
-                                            </button>
-                                          ) : <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{col.label}</span>}
-                                        </th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-border/20">
-                                      {items.map(item => {
-                                          const key = rowKey(item);
-                                          const isExpanded = expandedRowKey === key;
-                                          const isCritical = item.is_low_stock || item.is_out_of_stock;
-
-                                          return (
-                                            <React.Fragment key={key}>
-                                              <tr 
-                                                className={cn(
-                                                  'group hover:bg-muted/30 dark:hover:bg-primary/[0.02] cursor-pointer transition-all duration-200 h-16',
-                                                  isExpanded && 'bg-primary/[0.04]',
-                                                  isCritical && 'bg-amber-500/[0.02] dark:bg-amber-500/[0.01]'
-                                                )}
-                                                onClick={() => setExpandedRowKey(isExpanded ? null : key)}
-                                              >
-                                                <td className="w-14 text-center">
-                                                   <div className={cn(
-                                                     "size-6 mx-auto rounded-lg flex items-center justify-center transition-all",
-                                                     isExpanded ? "bg-primary text-white" : "bg-muted text-muted-foreground/40 group-hover:bg-primary/20 group-hover:text-primary"
-                                                   )}>
-                                                      {isExpanded ? <FiMaximize2 className="size-3" /> : <FiChevronRight className="size-3" />}
-                                                   </div>
-                                                </td>
-                                                <td className="w-10 text-center" onClick={e => e.stopPropagation()}>
-                                                  {isAdmin && (
-                                                    <input 
-                                                      type="checkbox" 
-                                                      className="size-4 rounded border-border text-primary focus:ring-primary/30 cursor-pointer"
-                                                      checked={selectedIds.includes(item.id)}
-                                                      onChange={() => toggleSelectRow(item.id)}
-                                                    />
-                                                  )}
-                                                </td>
-                                                <td className="px-6 align-middle">
-                                                   <div className="flex flex-col">
-                                                      <span className={cn("text-sm font-black italic uppercase tracking-tighter tracking-tight transition-colors tabular-nums", isExpanded ? "text-primary" : "text-foreground group-hover:text-primary")}>{item.name}</span>
-                                                      <span className="text-[9px] font-bold text-muted-foreground uppercase opacity-40">#ING-{item.id.toString().padStart(4, '0')}</span>
-                                                   </div>
-                                                </td>
-                                                <td className="px-6 align-middle">
-                                                   <Badge variant="outline" className="bg-muted/50 dark:bg-zinc-800 border-none px-2 rounded-lg font-black text-[9px] uppercase tabular-nums tracking-widest italic">{item.display_unit || item.unit}</Badge>
-                                                </td>
-                                                <td className="px-6 align-middle">
-                                                    <div className="flex items-baseline gap-1.5 flex-col">
-                                                      <div>
-                                                          <span className={cn("font-black text-lg italic tracking-tighter tabular-nums", isCritical ? "text-rose-600 dark:text-rose-500" : "text-foreground")}>
-                                                            {Number(item.display_stock ?? item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}
-                                                          </span>
-                                                          <span className="text-[9px] font-black uppercase text-muted-foreground opacity-50 tracking-widest ml-1">{item.display_unit || item.unit}</span>
-                                                      </div>
-                                                      <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter tabular-nums">avg. ₱{Number(item.display_price ?? item.cost_per_unit).toFixed(2)} / {item.display_unit || item.unit}</span>
-                                                   </div>
-                                                </td>
-                                                <td className="px-6 align-middle">
-                                                   <div className="flex">
-                                                      {item.is_out_of_stock ? (
-                                                        <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full ring-1 ring-rose-500/20">Depleted</Badge>
-                                                      ) : item.is_low_stock ? (
-                                                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-500 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full ring-1 ring-amber-500/20">Critical Alert</Badge>
-                                                      ) : (
-                                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full ring-1 ring-emerald-500/20">Optimal</Badge>
-                                                      )}
-                                                   </div>
-                                                </td>
-                                                <td className="px-6 align-middle text-right">
-                                                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform scale-95 group-hover:scale-100 duration-200" onClick={e => e.stopPropagation()}>
-                                                      <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-primary/10 hover:text-primary hover:border-primary/30" onClick={() => openStockInModal(item)}>
-                                                          <FiRefreshCw className="size-4" />
-                                                      </Button>
-                                                      <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => openWastageModal(item)}>
-                                                          <FiTrash2 className="size-4" />
-                                                      </Button>
-                                                      {isAdmin && (
-                                                        <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-indigo-500/10 hover:text-indigo-500 hover:border-indigo-500/30" onClick={() => handleEdit(item)}>
-                                                            <FiEdit2 className="size-4" />
-                                                        </Button>
-                                                      )}
-                                                      {isAdmin && (
-                                                        <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30" onClick={() => handleDelete(item)}>
-                                                            <FiTrash2 className="size-4" />
-                                                        </Button>
-                                                      )}
-                                                   </div>
-                                                </td>
-                                              </tr>
-                                              <AnimatePresence>
-                                                {isExpanded && (
-                                                  <motion.tr
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: "auto", opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    className="bg-muted/10 dark:bg-black/20"
-                                                  >
-                                                     <td colSpan={6} className="p-0 border-b border-border/40 border-dashed">
-                                                        <div className="px-14 py-8 grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-                                                            <div className="absolute top-0 left-[2.4rem] h-full w-0.5 bg-primary/20" />
-                                                            <div className="space-y-4">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Item Details</span>
-                                                                    <div className="flex items-center gap-3">
-                                                                       <Badge variant="outline" className="font-mono text-xs font-black bg-background dark:bg-zinc-800/80 px-2 py-1 rounded-lg border-primary/20 text-primary">#ING-{item.id.toString().padStart(4, '0')}</Badge>
-                                                                       <span className="text-[11px] font-bold text-muted-foreground">{item.name} Information</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="space-y-4">
-                                                                 <div className="flex flex-col gap-1">
-                                                                     <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Procurement Cost</span>
-                                                                     <div className="flex items-center gap-2">
-                                                                         <span className="text-sm font-black italic uppercase tracking-tighter text-emerald-600">₱{Number(item.display_price ?? item.cost_per_unit).toFixed(2)} / {item.display_unit || item.unit}</span>
-                                                                         <span className="text-[9px] font-bold text-muted-foreground/60 leading-none lowercase">actual cost</span>
-                                                                     </div>
-                                                                 </div>
-                                                                 <div className="flex flex-col gap-1">
-                                                                     <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-[0.2em]">Low Stock Alert</span>
-                                                                     <div className="flex items-center gap-2">
-                                                                         <span className="text-sm font-black italic uppercase tracking-tighter text-rose-500">{(item.display_unit === 'kg' || item.display_unit === 'L') ? (item.low_stock_level / 1000) : item.low_stock_level} {item.display_unit || item.unit}</span>
-                                                                         <span className="text-[9px] font-bold text-muted-foreground/60 leading-none lowercase">alert level</span>
-                                                                     </div>
-                                                                 </div>
-                                                             </div>
-                                                            <div className="flex justify-end items-center">
-                                                                <Button variant="default" className="shadow-lg shadow-primary/20 font-black uppercase text-[10px] tracking-widest italic rounded-xl px-6 h-10 gap-2" onClick={() => openStockInModal(item)}>
-                                                                   <FiPackage className="size-4" /> Restock Item
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                     </td>
-                                                  </motion.tr>
-                                                )}
-                                              </AnimatePresence>
-                                            </React.Fragment>
-                                          );
-                                      })}
-                                  </tbody>
-                                </table>
-                             </div>
-                          </CardContent>
-                        </motion.div>
+            {/* STICKY TOOLBAR FILTERS */}
+            <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+              
+              {/* Quick Chips Row */}
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'all', label: 'All Ingredients' },
+                  { id: 'low', label: 'Low Stock', icon: FiAlertTriangle, color: 'text-amber-500' },
+                  { id: 'out', label: 'Out of Stock', icon: FiSlash, color: 'text-rose-500' },
+                  { id: 'updated', label: 'Recently Updated', icon: FiActivity, color: 'text-[var(--ops-text-secondary)]' },
+                  { id: 'restocked', label: 'Restocked Today', icon: FiTrendingUp, color: 'text-emerald-500' }
+                ].map(chip => {
+                  const isActive = quickFilter === chip.id;
+                  const Icon = chip.icon;
+                  return (
+                    <button
+                      key={chip.id}
+                      onClick={() => setQuickFilter(chip.id as any)}
+                      className={cn(
+                        "h-8 px-3 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5 border",
+                        isActive
+                          ? "bg-primary border-primary text-foreground shadow-sm"
+                          : "bg-[var(--ops-thead-bg)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground hover:bg-[var(--ops-chip-active-bg)]"
                       )}
-                    </AnimatePresence>
-                  </Card>
-                ))
-              )}
-            </div>
+                    >
+                      {Icon && <Icon className={cn("size-3", chip.color)} />}
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Pagination Zone */}
-            <div className="p-8 bg-card dark:bg-zinc-900 border border-border shadow-xl rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="flex items-center gap-8">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black italic uppercase text-muted-foreground/60 tracking-widest">Display Rows</span>
-                    <Select value={String(itemsPerPage)} onValueChange={val => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
-                      <SelectTrigger className="w-[80px] h-10 rounded-xl border-none bg-muted/50 dark:bg-zinc-800 shadow-inner font-black text-xs ring-1 ring-border">
-                        <SelectValue />
+              {/* Advanced Toolbar Controls */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+                  
+                  {/* Search box */}
+                  <div className="relative w-full sm:w-64">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                    <Input
+                      placeholder="Search ingredient or SKU..."
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
+                    />
+                  </div>
+
+                  {/* Branch selector (Admin only) */}
+                  {isAdmin && (
+                    <Select
+                      value={currentBranchId ? String(currentBranchId) : 'all'}
+                      onValueChange={handleBranchFilter}
+                    >
+                      <SelectTrigger className="w-full sm:w-44 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                        <SelectValue placeholder="All Branches" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {[5, 10, 25, 50].map(val => (
-                          <SelectItem key={val} value={String(val)} className="text-xs font-bold">{val}</SelectItem>
+                      <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                        <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>
+                        {branchList.map(b => (
+                          <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <span className="text-[10px] font-black italic uppercase text-primary tracking-widest flex items-center gap-2">
-                    <div className="size-1.5 rounded-full bg-primary animate-pulse" />
-                    Viewing {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)}–{Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length} records
-                  </span>
+                  )}
+
+                  {/* Unit filter */}
+                  <Select value={filterUnit} onValueChange={setFilterUnit}>
+                    <SelectTrigger className="w-full sm:w-32 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                      <SelectValue placeholder="All Units" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                      <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Units</SelectItem>
+                      <SelectItem value="g" className="text-[10px] font-bold uppercase py-2">g (Grams)</SelectItem>
+                      <SelectItem value="ml" className="text-[10px] font-bold uppercase py-2">ml (Milliliters)</SelectItem>
+                      <SelectItem value="pcs" className="text-[10px] font-bold uppercase py-2">pcs (Pieces)</SelectItem>
+                      <SelectItem value="kg" className="text-[10px] font-bold uppercase py-2">kg (Kilograms)</SelectItem>
+                      <SelectItem value="liters" className="text-[10px] font-bold uppercase py-2">liters (Liters)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Status filter */}
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-full sm:w-36 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                      <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Status</SelectItem>
+                      <SelectItem value="optimal" className="text-[10px] font-bold uppercase py-2 text-emerald-500">Optimal</SelectItem>
+                      <SelectItem value="low" className="text-[10px] font-bold uppercase py-2 text-amber-500">Low Stock</SelectItem>
+                      <SelectItem value="out" className="text-[10px] font-bold uppercase py-2 text-rose-500">Out of Stock</SelectItem>
+                      <SelectItem value="overstocked" className="text-[10px] font-bold uppercase py-2 text-blue-400">Overstocked</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {/* Density Toggle Controls */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center border border-[var(--ops-border)] rounded-[10px] p-0.5 bg-[var(--ops-surface-sunken)]">
+                    <button
+                      onClick={() => setDensity('compact')}
+                      className={cn(
+                        "p-1.5 rounded-[8px] transition-all",
+                        density === 'compact' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                      )}
+                      title="Compact Density"
+                    >
+                      <FiMinimize2 className="size-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDensity('comfortable')}
+                      className={cn(
+                        "p-1.5 rounded-[8px] transition-all",
+                        density === 'comfortable' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                      )}
+                      title="Comfortable Density"
+                    >
+                      <FiMaximize2 className="size-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Mass Restock shortcut */}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const activeId = currentBranchId && currentBranchId !== 'all' ? Number(currentBranchId) : branchList[0]?.id;
+                      const activeName = branchList.find(b => b.id === activeId)?.name || 'Victoria';
+                      if (activeId) openMassRestockModal(activeId, activeName);
+                    }}
+                    className="h-9.5 rounded-[10px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] hover:bg-[var(--ops-chip-active-bg)] text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5 shrink-0"
+                  >
+                    <FiZap className="size-3.5" />
+                    <span>Mass Restock</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* INGREDIENT INVENTORY TABLE ZONE */}
+            <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
+                  <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                    <tr>
+                      <th className="px-4 py-3.5 w-10">
+                        {isAdmin && (
+                          <input
+                            type="checkbox"
+                            className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                            checked={paginatedData.length > 0 && paginatedData.every(r => selectedIds.includes(r.id))}
+                            onChange={(e) => toggleSelectAll(e.target.checked)}
+                          />
+                        )}
+                      </th>
+                      <th className="px-4 py-3.5 cursor-pointer hover:text-foreground" onClick={() => toggleSort('name')}>
+                        <span className="flex items-center gap-1">
+                          Ingredient
+                          {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </span>
+                      </th>
+                      <th className="px-4 py-3.5 cursor-pointer hover:text-foreground hidden sm:table-cell" onClick={() => toggleSort('id')}>
+                        <span className="flex items-center gap-1">
+                          SKU
+                          {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </span>
+                      </th>
+                      <th className="px-4 py-3.5 cursor-pointer hover:text-foreground hidden md:table-cell" onClick={() => toggleSort('branch_name')}>
+                        <span className="flex items-center gap-1">
+                          Branch
+                          {sortBy === 'branch_name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </span>
+                      </th>
+                      <th className="px-4 py-3.5 cursor-pointer hover:text-foreground text-right" onClick={() => toggleSort('stock')}>
+                        <span className="flex items-center justify-end gap-1">
+                          Stock
+                          {sortBy === 'stock' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </span>
+                      </th>
+                      <th className="px-4 py-3.5 text-right hidden sm:table-cell">
+                        Min. Stock
+                      </th>
+                      <th className="px-4 py-3.5 hidden md:table-cell text-center">
+                        Unit
+                      </th>
+                      <th className="px-4 py-3.5 cursor-pointer hover:text-foreground text-center" onClick={() => toggleSort('is_low_stock')}>
+                        <span className="flex items-center justify-center gap-1">
+                          Status
+                          {sortBy === 'is_low_stock' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </span>
+                      </th>
+                      <th className="px-4 py-3.5 cursor-pointer hover:text-foreground hidden lg:table-cell" onClick={() => toggleSort('last_updated')}>
+                        <span className="flex items-center gap-1">
+                          Last Updated
+                          {sortBy === 'last_updated' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </span>
+                      </th>
+                      <th className="px-4 py-3.5 w-12 text-right"></th>
+                    </tr>
+                  </thead>
+                  
+                  <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                    {paginatedData.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <FiPackage className="size-10 text-[var(--ops-text-faint)] animate-bounce" />
+                            <p className="text-base font-bold italic uppercase tracking-tighter text-[var(--ops-text-muted)]">No ingredients found</p>
+                            <p className="text-[10px] text-[var(--ops-text-faint)] font-bold uppercase tracking-widest">Try adjusting filters or reset the view</p>
+                            <Button 
+                              onClick={handleResetFilters}
+                              className="mt-2 h-8 px-4 rounded-[8px] bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[9px] font-black uppercase tracking-wider text-foreground hover:bg-[var(--ops-chip-active-bg)]"
+                            >
+                              Reset Filters
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedData.map(item => {
+                        const isChecked = selectedIds.includes(item.id);
+                        const statusType = getItemStatus(item);
+                        const key = `${item.id}-${item.branch_id}`;
+                        const lastLog = lastUpdatedMap[key];
+                        
+                        const activeSegments = Math.min(10, Math.ceil((item.stock / (item.low_stock_level * 2 || 10)) * 10));
+
+                        return (
+                          <tr
+                            key={key}
+                            onClick={() => handleRowClick(item)}
+                            className={cn(
+                              "cursor-pointer group select-none hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative",
+                              isChecked && "bg-primary/[0.015]",
+                              (item.is_low_stock || item.is_out_of_stock) && "hover:bg-rose-950/5"
+                            )}
+                          >
+                            {/* Checkbox select */}
+                            <td className={cn(
+                              "px-4 transition-all",
+                              density === 'compact' ? "py-1.5" : "py-3"
+                            )} onClick={e => e.stopPropagation()}>
+                              {isAdmin && (
+                                <input
+                                  type="checkbox"
+                                  className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                                  checked={isChecked}
+                                  onChange={() => toggleSelectRow(item.id)}
+                                />
+                              )}
+                            </td>
+
+                            {/* Name */}
+                            <td className="px-4">
+                              <div className="flex flex-col">
+                                <span className={cn(
+                                  "font-bold uppercase tracking-tight text-foreground",
+                                  density === 'compact' ? "text-xs" : "text-sm"
+                                )}>
+                                  {item.name}
+                                </span>
+                                <span className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase tracking-widest sm:hidden">
+                                  ING-{item.id.toString().padStart(5, '0')}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* SKU */}
+                            <td className="px-4 hidden sm:table-cell text-[var(--ops-text-muted)] font-bold font-mono text-[10px]">
+                              ING-{item.id.toString().padStart(5, '0')}
+                            </td>
+
+                            {/* Branch */}
+                            <td className="px-4 hidden md:table-cell">
+                              <div className="flex items-center gap-1.5 text-[var(--ops-text-secondary)] text-xs font-bold uppercase tracking-tight">
+                                <FiMapPin className="size-3 text-[var(--ops-text-faint)]" />
+                                <span>{item.branch_name || 'N/A'}</span>
+                              </div>
+                            </td>
+
+                            {/* Stock */}
+                            <td className="px-4 text-right">
+                              <div className="flex flex-col items-end gap-1.5">
+                                <div className="flex items-baseline gap-1">
+                                  <span className={cn(
+                                    "font-black font-mono leading-none tracking-tight",
+                                    density === 'compact' ? "text-xs" : "text-sm",
+                                    item.is_out_of_stock ? "text-rose-500" : item.is_low_stock ? "text-amber-500" : "text-foreground"
+                                  )}>
+                                    {Number(item.display_stock ?? item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                  </span>
+                                  <span className="text-[8px] font-black uppercase text-[var(--ops-text-faint)]">
+                                    {item.display_unit || item.unit}
+                                  </span>
+                                </div>
+                                
+                                {/* Micro segmented bar */}
+                                <div className="flex gap-0.5">
+                                  {Array.from({ length: 10 }).map((_, i) => (
+                                    <div
+                                      key={i}
+                                      className={cn(
+                                        "w-1 h-2 rounded-[0.5px]",
+                                        i < activeSegments
+                                          ? (item.is_out_of_stock ? "bg-rose-500" : item.is_low_stock ? "bg-amber-500" : "bg-emerald-500")
+                                          : "bg-[var(--ops-chip-active-bg)]"
+                                      )}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Minimum stock */}
+                            <td className="px-4 text-right hidden sm:table-cell text-[var(--ops-text-muted)] font-bold font-mono text-[10px]">
+                              {item.low_stock_level} {item.unit}
+                            </td>
+
+                            {/* Unit */}
+                            <td className="px-4 hidden md:table-cell text-center text-[var(--ops-text-muted)] font-black uppercase text-[10px] tracking-widest">
+                              {item.unit}
+                            </td>
+
+                            {/* Status Badge */}
+                            <td className="px-4 text-center">
+                              <div className="flex justify-center">
+                                {statusType === 'out' ? (
+                                  <Badge className="bg-rose-500/5 text-rose-500 border border-rose-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px] shrink-0">
+                                    Depleted
+                                  </Badge>
+                                ) : statusType === 'low' ? (
+                                  <Badge className="bg-amber-500/5 text-amber-500 border border-amber-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px] shrink-0">
+                                    Low Stock
+                                  </Badge>
+                                ) : statusType === 'overstocked' ? (
+                                  <Badge className="bg-blue-500/5 text-blue-400 border border-blue-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px] shrink-0">
+                                    Overstocked
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px] shrink-0">
+                                    Optimal
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Dynamic update timestamp */}
+                            <td className="px-4 hidden lg:table-cell text-[10px] font-bold text-[var(--ops-text-muted)]">
+                              {lastLog ? lastLog.time_ago : 'System Sync'}
+                            </td>
+
+                            {/* Action overflow menu */}
+                            <td className="px-4 text-right" onClick={e => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="p-1 rounded hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-muted)] hover:text-foreground transition-colors">
+                                    <span className="text-base font-bold">⋮</span>
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px] p-1.5 shadow-2xl text-[var(--ops-text-secondary)]">
+                                  <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Stock Controls</DropdownMenuLabel>
+                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => openStockInModal(item)}>
+                                    <FiZap className="size-3.5 text-emerald-500" />
+                                    <span>Restock (Stock In)</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => openWastageModal(item)}>
+                                    <FiSlash className="size-3.5 text-rose-500" />
+                                    <span>Report Wastage</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => handleRowClick(item)}>
+                                    <FiFileText className="size-3.5 text-indigo-400" />
+                                    <span>View Audit History</span>
+                                  </DropdownMenuItem>
+                                  
+                                  {isAdmin && (
+                                    <>
+                                      <DropdownMenuSeparator className="bg-[var(--ops-chip-active-bg)] my-1.5" />
+                                      <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Administration</DropdownMenuLabel>
+                                      <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => handleEdit(item)}>
+                                        <FiEdit2 className="size-3.5 text-amber-500" />
+                                        <span>Adjust Stock Limits</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground text-rose-500 hover:text-rose-400" onClick={() => handleDelete(item)}>
+                                        <FiTrash2 className="size-3.5" />
+                                        <span>Delete from Branch</span>
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="p-5 bg-[var(--ops-surface-sunken)]/30 border border-[var(--ops-border)] rounded-[14px] flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="rounded-xl h-11 w-11 ring-1 ring-border bg-muted/20 hover:bg-primary/10 transition-all">
-                    <FiChevronLeft className="size-5" />
-                  </Button>
-                  <div className="flex items-center gap-1 mx-2">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum = i + 1;
-                      if (totalPages > 5 && currentPage > 3) {
-                        pageNum = currentPage - 3 + i + 1;
-                        if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                      }
-                      if (pageNum <= 0) return null;
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? 'default' : 'ghost'}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={cn(
-                            'h-11 w-11 rounded-xl font-black italic text-[11px] transition-all transform duration-300',
-                            currentPage === pageNum ? 'bg-primary shadow-[0_8px_20px_rgba(99,102,241,0.4)] scale-110 text-white' : 'hover:bg-muted text-muted-foreground'
-                          )}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <Button variant="ghost" size="icon" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p => p + 1)} className="rounded-xl h-11 w-11 ring-1 ring-border bg-muted/20 hover:bg-primary/10 transition-all">
-                    <FiChevronRight className="size-5" />
-                  </Button>
+                  <span className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Rows per page</span>
+                  <Select value={String(itemsPerPage)} onValueChange={val => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
+                    <SelectTrigger className="w-[70px] h-8.5 rounded-[8px] border-[var(--ops-border)] bg-[var(--ops-surface-sunken)] font-bold text-xs ring-1 ring-zinc-800 text-foreground">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)]">
+                      {[10, 25, 50, 100].map(val => (
+                        <SelectItem key={val} value={String(val)} className="text-xs font-bold">{val}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <span className="text-[9px] font-black uppercase text-primary tracking-wider flex items-center gap-1.5">
+                  <div className="size-1 rounded-full bg-primary animate-pulse" />
+                  Showing {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)}–{Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length} entries
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Button 
+                  variant="ghost" 
+                  disabled={currentPage === 1} 
+                  onClick={() => setCurrentPage(p => p - 1)} 
+                  className="rounded-[8px] h-8 px-2 bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground"
+                >
+                  <FiChevronLeft className="size-4" />
+                </Button>
+                
+                <div className="flex items-center gap-1 mx-1.5">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5 && currentPage > 3) {
+                      pageNum = currentPage - 3 + i + 1;
+                      if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                    }
+                    if (pageNum <= 0) return null;
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? 'default' : 'ghost'}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={cn(
+                          'h-8 w-8 rounded-[8px] font-bold text-xs transition-all',
+                          currentPage === pageNum 
+                            ? 'bg-primary text-foreground scale-105 shadow-sm' 
+                            : 'hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-secondary)]'
+                        )}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button 
+                  variant="ghost" 
+                  disabled={currentPage === totalPages || totalPages === 0} 
+                  onClick={() => setCurrentPage(p => p + 1)} 
+                  className="rounded-[8px] h-8 px-2 bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground"
+                >
+                  <FiChevronRight className="size-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </TooltipProvider>
 
-      {/* ── Modals ────────────────────────────────────────────────────────── */}
+      {/* ── BULK OPERATIONS FLOATING TOOLBAR ── */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ y: 80, opacity: 0, x: "-50%" }}
+            animate={{ y: 0, opacity: 1, x: "-50%" }}
+            exit={{ y: 80, opacity: 0, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-950/95 border border-[var(--ops-border)] shadow-2xl px-5 py-3 rounded-[14px] flex items-center gap-4 sm:gap-6 z-40 backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2 pr-4 border-r border-[var(--ops-border)] text-xs text-[var(--ops-text-secondary)]">
+              <div className="size-2 rounded-full bg-primary animate-pulse" />
+              <span className="font-bold font-mono text-foreground">{selectedIds.length}</span>
+              <span className="font-black uppercase tracking-wider text-[9px]">Selected</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkRestock}
+                className="h-8.5 px-3 rounded-[10px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-emerald-500 hover:bg-[var(--ops-chip-active-bg)] hover:text-emerald-400 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
+              >
+                <FiZap className="size-3.5" />
+                <span>Restock</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                className="h-8.5 px-3 rounded-[10px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
+              >
+                <FiDownload className="size-3.5" />
+                <span>Export</span>
+              </Button>
+              
+              {isAdmin && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsBulkDeleteModalOpen(true)}
+                  className="h-8.5 px-3 rounded-[10px] bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-foreground text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                >
+                  <FiTrash2 className="size-3.5" />
+                  <span>Delete</span>
+                </Button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSelectedIds([])}
+              className="p-1 rounded hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-muted)] hover:text-foreground transition-colors"
+            >
+              <FiX className="size-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── RIGHT-SIDE DETAILS DRAWER ── */}
+      <AnimatePresence>
+        {isDrawerOpen && selectedRow && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDrawerOpen(false)}
+              className="fixed inset-0 bg-black/60 z-40"
+            />
+            {/* Slide-out Panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="fixed top-0 right-0 h-full w-full max-w-md md:max-w-lg bg-zinc-950 border-l border-[var(--ops-border)] shadow-2xl z-50 flex flex-col font-sans"
+            >
+              {/* Drawer Header */}
+              <div className="p-6 border-b border-[var(--ops-border)] flex items-center justify-between flex-shrink-0 bg-[var(--ops-surface-sunken)]/20">
+                <div className="flex items-center gap-2">
+                  <FiPackage className="text-primary size-5" />
+                  <div>
+                    <h2 className="text-sm font-black italic uppercase tracking-tighter text-foreground">Ingredient Details</h2>
+                    <p className="text-[9px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest">ING-{selectedRow.id.toString().padStart(5, '0')}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsDrawerOpen(false)}
+                  className="p-1.5 rounded-[8px] bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground transition-colors"
+                >
+                  <FiX className="size-4" />
+                </button>
+              </div>
+
+              {/* Drawer Body Tabs */}
+              <div className="px-6 pt-3 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border-subtle)] flex-shrink-0">
+                <div className="flex gap-2">
+                  {[
+                    { id: 'overview', label: 'Overview' },
+                    { id: 'history', label: 'Audit History' },
+                    { id: 'procurement', label: 'Procurement' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setDrawerTab(tab.id as any)}
+                      className={cn(
+                        "pb-2.5 text-[9px] font-black uppercase tracking-wider relative px-1",
+                        drawerTab === tab.id 
+                          ? "text-primary" 
+                          : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                      )}
+                    >
+                      <span>{tab.label}</span>
+                      {drawerTab === tab.id && (
+                        <motion.div layoutId="drawerTabIndicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                
+                {/* ── TAB 1: OVERVIEW ── */}
+                {drawerTab === 'overview' && (
+                  <div className="space-y-6">
+                    {/* Visual Card */}
+                    <div className="bg-[var(--ops-surface-sunken)]/30 border border-[var(--ops-border)] rounded-[14px] p-6 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm text-center">
+                      <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500" />
+                      <div className="size-16 rounded-[14px] bg-gradient-to-br from-zinc-800 to-zinc-900/80 border border-zinc-700/50 flex items-center justify-center text-xl font-black italic uppercase tracking-tighter text-primary mb-3.5 shadow-inner select-none">
+                        {selectedRow.name.slice(0, 2)}
+                      </div>
+                      <h3 className="text-lg font-black uppercase italic tracking-tighter text-foreground">{selectedRow.name}</h3>
+                      <p className="text-[9px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest mt-1">Global ID: ING-{selectedRow.id.toString().padStart(5, '0')}</p>
+
+                      <div className="mt-4 flex items-center gap-1.5">
+                        {selectedRow.is_out_of_stock ? (
+                          <Badge className="bg-rose-500/5 text-rose-500 border border-rose-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px]">Depleted</Badge>
+                        ) : selectedRow.is_low_stock ? (
+                          <Badge className="bg-amber-500/5 text-amber-500 border border-amber-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px]">Low Stock</Badge>
+                        ) : (
+                          <Badge className="bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 font-black text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[6px]">Optimal</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stock matrix */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] p-4 rounded-[12px]">
+                        <p className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Current Stock</p>
+                        <p className="text-xl font-black italic tracking-tighter text-foreground mt-1 tabular-nums">
+                          {Number(selectedRow.display_stock ?? selectedRow.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          <span className="text-[10px] font-normal uppercase text-[var(--ops-text-secondary)] ml-1 tracking-wider">{selectedRow.display_unit || selectedRow.unit}</span>
+                        </p>
+                      </div>
+                      <div className="bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] p-4 rounded-[12px]">
+                        <p className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Minimum Level</p>
+                        <p className="text-xl font-black italic tracking-tighter text-foreground mt-1 tabular-nums">
+                          {selectedRow.low_stock_level}
+                          <span className="text-[10px] font-normal uppercase text-[var(--ops-text-secondary)] ml-1 tracking-wider">{selectedRow.unit}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Details Lists */}
+                    <div className="border border-[var(--ops-border)] rounded-[12px] bg-[var(--ops-surface-sunken)] divide-y divide-zinc-900">
+                      {[
+                        { label: 'Assigned Branch', value: selectedRow.branch_name || 'N/A' },
+                        { label: 'Purchase Unit', value: selectedRow.unit },
+                        { label: 'Cost Per Unit', value: `₱ ${selectedRow.cost_per_unit.toFixed(2)}` },
+                        { label: 'Total Stock Value', value: `₱ ${(selectedRow.stock * selectedRow.cost_per_unit).toFixed(2)}` },
+                        { label: 'Piece Weight', value: selectedRow.avg_weight_per_piece ? `${selectedRow.avg_weight_per_piece} g / piece` : 'N/A' }
+                      ].map((info, idx) => (
+                        <div key={idx} className="flex justify-between items-center px-4 py-3 text-xs">
+                          <span className="font-bold text-[var(--ops-text-muted)] uppercase tracking-wider text-[9px]">{info.label}</span>
+                          <span className="font-black text-foreground uppercase tracking-tight">{info.value}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Quick Operations Button Matrix */}
+                    <div className="space-y-2.5 pt-4 border-t border-[var(--ops-border-subtle)]">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <Button
+                          onClick={() => openStockInModal(selectedRow)}
+                          className="h-10 rounded-[10px] bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-foreground border border-emerald-500/20 font-black uppercase text-[10px] tracking-wider transition-all gap-2"
+                        >
+                          <FiZap className="size-4" />
+                          <span>Restock (Stock In)</span>
+                        </Button>
+                        <Button
+                          onClick={() => openWastageModal(selectedRow)}
+                          className="h-10 rounded-[10px] bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-foreground border border-rose-500/20 font-black uppercase text-[10px] tracking-wider transition-all gap-2"
+                        >
+                          <FiSlash className="size-4" />
+                          <span>Report Wastage</span>
+                        </Button>
+                      </div>
+
+                      {isAdmin && (
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <Button
+                            onClick={() => handleEdit(selectedRow)}
+                            className="h-10 rounded-[10px] bg-[var(--ops-surface-sunken)] hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-secondary)] border border-[var(--ops-border)] font-black uppercase text-[10px] tracking-wider gap-2"
+                          >
+                            <FiEdit2 className="size-3.5 text-amber-500" />
+                            <span>Edit Thresholds</span>
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(selectedRow)}
+                            className="h-10 rounded-[10px] bg-[var(--ops-surface-sunken)] hover:bg-rose-600 hover:text-foreground text-[var(--ops-text-secondary)] border border-[var(--ops-border)] hover:border-transparent font-black uppercase text-[10px] tracking-wider gap-2"
+                          >
+                            <FiTrash2 className="size-3.5 text-[var(--ops-text-muted)] hover:text-foreground" />
+                            <span>Delete Item</span>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── TAB 2: AUDIT HISTORY ── */}
+                {drawerTab === 'history' && (
+                  <div className="space-y-4">
+                    {loadingDrawerLogs ? (
+                      <div className="space-y-3">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="animate-pulse border border-[var(--ops-border)] rounded-[12px] p-4 flex flex-col gap-2 bg-[var(--ops-surface-sunken)]">
+                            <div className="h-4 w-28 bg-[var(--ops-chip-active-bg)] rounded" />
+                            <div className="h-3 w-16 bg-[var(--ops-chip-active-bg)] rounded" />
+                            <div className="h-3 w-20 bg-[var(--ops-chip-active-bg)] rounded" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : drawerLogs.length === 0 ? (
+                      <div className="text-center py-12 border border-dashed border-[var(--ops-border)] rounded-[14px]">
+                        <FiFileText className="size-8 text-[var(--ops-text-faint)] mx-auto mb-2 animate-bounce" />
+                        <p className="text-xs font-bold text-[var(--ops-text-muted)] uppercase tracking-wider">No audit history found</p>
+                        <p className="text-[9px] text-[var(--ops-text-faint)] font-bold uppercase mt-1">Actions on this item will be logged here</p>
+                      </div>
+                    ) : (
+                      <div className="relative border-l border-[var(--ops-border)] pl-4.5 space-y-5 py-2">
+                        {drawerLogs.map((log: any) => {
+                          const isPositive = Number(log.change_qty) > 0;
+                          const changeVal = Number(log.change_qty);
+                          
+                          return (
+                            <div key={log.id} className="relative text-xs">
+                              {/* Dot marker */}
+                              <div className={cn(
+                                "absolute -left-[24.5px] top-0.5 size-2 rounded-full border border-zinc-950",
+                                isPositive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+                              )} />
+                              
+                              <div className="bg-[var(--ops-surface-sunken)]/30 border border-[var(--ops-border)] p-3.5 rounded-[12px] space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className={cn(
+                                    "font-black font-mono tracking-tight",
+                                    isPositive ? "text-emerald-500" : "text-rose-500"
+                                  )}>
+                                    {isPositive ? '+' : ''}{changeVal.toFixed(2)} {selectedRow.unit}
+                                  </span>
+                                  <span className="text-[8px] text-[var(--ops-text-muted)] font-bold uppercase tracking-widest">
+                                    {log.time_ago || 'recent'}
+                                  </span>
+                                </div>
+                                
+                                <p className="text-foreground font-bold uppercase tracking-tight text-[10px]">
+                                  Reason: {log.source || log.reason || 'manual adjustment'}
+                                </p>
+                                
+                                <div className="flex items-center justify-between text-[8px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest pt-1 border-t border-[var(--ops-border-subtle)]/60">
+                                  <span>Handler: {log.employee_name || 'System'}</span>
+                                  <span>Remaining: {log.remaining || `${selectedRow.stock} ${selectedRow.unit}`}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── TAB 3: PROCUREMENT ── */}
+                {drawerTab === 'procurement' && (
+                  <div className="space-y-6">
+                    <div className="bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] p-4.5 rounded-[12px] space-y-2">
+                      <h4 className="text-[10px] font-black uppercase text-[var(--ops-text-secondary)] tracking-wider flex items-center gap-1.5">
+                        <div className="size-1.5 rounded-full bg-emerald-500" />
+                        Costing Summary
+                      </h4>
+                      <p className="text-[10px] text-[var(--ops-text-muted)] leading-relaxed">
+                        Total investment calculations based on procurement records. Values represent current inventory unit rates mapped across branches.
+                      </p>
+                    </div>
+
+                    <div className="border border-[var(--ops-border)] rounded-[12px] bg-[var(--ops-surface-sunken)] divide-y divide-zinc-900">
+                      {[
+                        { label: 'Current Base Price', value: `₱ ${selectedRow.cost_per_unit.toFixed(4)} / ${selectedRow.unit}` },
+                        { label: 'Computed Volume Price', value: `₱ ${(selectedRow.display_price ?? selectedRow.cost_per_unit).toFixed(2)} / ${selectedRow.display_unit || selectedRow.unit}` },
+                        { label: 'Average Piece Weight', value: selectedRow.avg_weight_per_piece ? `${selectedRow.avg_weight_per_piece} grams` : 'N/A' },
+                        { label: 'Total Valuation', value: `₱ ${(selectedRow.stock * selectedRow.cost_per_unit).toFixed(2)}` }
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center px-4 py-3 text-xs">
+                          <span className="font-bold text-[var(--ops-text-muted)] uppercase tracking-wider text-[9px]">{item.label}</span>
+                          <span className="font-black text-foreground uppercase tracking-tight">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border border-[var(--ops-border)]/50 p-4 rounded-[12px] bg-[var(--ops-surface-sunken)]/5 text-[9px] text-[var(--ops-text-muted)] leading-relaxed font-bold uppercase tracking-wider">
+                      <p className="text-[var(--ops-text-secondary)] font-black mb-1">Procurement Rule Reminder:</p>
+                      Procurement cost updates reflect dynamically under "Procurement Costing" when a stock adjustment is submitted. Formula: Total Cost / Batch volume in base units.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── EXISTING MODALS ────────────────────────────────────────── */}
       <ResultModal
         open={isResultModalOpen}
         onClose={() => setIsResultModalOpen(false)}
@@ -1038,22 +1617,26 @@ export default function InventoryIndex() {
 
       <MassRestockModal
         open={isMassRestockModalOpen}
-        onOpenChange={setIsMassRestockModalOpen}
+        onOpenChange={(isOpen) => {
+          setIsMassRestockModalOpen(isOpen);
+          if (!isOpen) setBulkRestockQuantities(undefined);
+        }}
         branchName={activeRestockBranch?.name || ''}
         branchId={activeRestockBranch?.id || 0}
         inventory={inventory}
+        initialQuantities={bulkRestockQuantities}
       />
 
-      {/* ── Add/Edit Ingredient Modal ────────────────────────────────────── */}
+      {/* Add / Edit Dialogs */}
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={open => {
         if (!open) { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); setLocalErrors({}); }
       }}>
-        <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[500px] rounded-[16px] border border-[var(--ops-border)] bg-zinc-950 text-foreground shadow-2xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-               <FiPackage className="text-primary size-5" /> {isEditModalOpen ? 'Edit Item' : 'Add Item'}
+            <DialogTitle className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3 text-foreground">
+              <FiPackage className="text-primary size-5" /> {isEditModalOpen ? 'Edit Limits' : 'Add Item'}
             </DialogTitle>
-            <DialogDescription className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
+            <DialogDescription className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-widest mt-1">
               {isEditModalOpen
                 ? 'Update the details for this inventory item.'
                 : 'Add a new inventory item that will be used across branches.'
@@ -1061,353 +1644,328 @@ export default function InventoryIndex() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={isEditModalOpen ? submitEdit : submitAdd} className="space-y-6 pt-6">
+          <form onSubmit={isEditModalOpen ? submitEdit : submitAdd} className="space-y-5 pt-4">
             <div className="space-y-4">
-                {/* Name */}
-                <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <div className="size-1 rounded-full bg-primary" /> Item Name
+              
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                  <div className="size-1 rounded-full bg-primary" /> Item Name
                 </label>
                 <Input
-                    maxLength={50}
-                    value={data.name}
-                    onChange={e => {
-                        const cleaned = e.target.value.replace(/[^A-Za-z0-9\s]/g, '');
-                        setData('name', cleaned);
-                        validateField('name', cleaned);
-                    }}
-                    onBlur={() => validateField('name', data.name)}
-                    placeholder="e.g. Flour"
-                    className={cn(
-                        "h-11 bg-muted/50 rounded-xl border-none ring-1 transition-all font-bold", 
-                        localErrors.name ? "ring-destructive animate-shake" : "ring-border focus:ring-primary/50"
-                    )}
+                  maxLength={50}
+                  value={data.name}
+                  onChange={e => {
+                    const cleaned = e.target.value.replace(/[^A-Za-z0-9\s]/g, '');
+                    setData('name', cleaned);
+                    validateField('name', cleaned);
+                  }}
+                  onBlur={() => validateField('name', data.name)}
+                  placeholder="e.g. Flour"
+                  className={cn(
+                    "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold focus:ring-primary/45", 
+                    localErrors.name ? "ring-destructive ring-1 border-transparent" : ""
+                  )}
                 />
                 {localErrors.name && (
-                    <div className="flex items-center gap-1.5 mt-1 ml-1 text-destructive animate-in fade-in slide-in-from-top-1">
-                        <FiAlertTriangle className="size-3" />
-                        <p className="text-[9px] font-black uppercase tracking-widest">{localErrors.name}</p>
-                    </div>
+                  <p className="text-[8px] font-black uppercase tracking-wider text-rose-500 mt-1">{localErrors.name}</p>
                 )}
+              </div>
+
+              {/* Unit */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                  <div className="size-1 rounded-full bg-primary" /> Purchase Unit
+                </label>
+                <Select value={data.unit} onValueChange={val => {
+                  setData(prev => ({
+                    ...prev, 
+                    unit: val, 
+                    avg_weight_per_piece: (val === 'pcs') ? prev.avg_weight_per_piece : ''
+                  }));
+                  validateField('unit', val);
+                }}>
+                  <SelectTrigger className={cn(
+                    "w-full h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold", 
+                    localErrors.unit ? "ring-destructive ring-1" : ""
+                  )}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-foreground rounded-[12px]">
+                    <SelectItem value="g" className="text-xs font-bold py-2">g (Gram)</SelectItem>
+                    <SelectItem value="ml" className="text-xs font-bold py-2">ml (Milliliter)</SelectItem>
+                    <SelectItem value="pcs" className="text-xs font-bold py-2">pcs (Pieces)</SelectItem>
+                    <SelectItem value="kg" className="text-xs font-bold py-2">kg (Kilogram)</SelectItem>
+                    <SelectItem value="liters" className="text-xs font-bold py-2">liters (Liters)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {localErrors.unit && (
+                  <p className="text-[8px] font-black uppercase tracking-wider text-rose-500 mt-1">{localErrors.unit}</p>
+                )}
+              </div>
+
+              {/* Stock and Low Stock Mark */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                    <div className="size-1 rounded-full bg-primary" /> Current Stock
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={data.stock}
+                    onChange={e => {
+                      setData('stock', e.target.value);
+                      validateField('stock', e.target.value);
+                    }}
+                    onBlur={() => validateField('stock', data.stock)}
+                    className={cn(
+                      "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold font-mono",
+                      localErrors.stock ? "ring-destructive ring-1" : ""
+                    )}
+                  />
+                  {localErrors.stock && (
+                    <p className="text-[8px] font-black uppercase tracking-wider text-rose-500 mt-1">{localErrors.stock}</p>
+                  )}
                 </div>
 
-                {/* Unit */}
-                <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <div className="size-1 rounded-full bg-primary" /> Purchase Unit
-                </label>
-                <div className="flex flex-col gap-1">
-                  <Select value={data.unit} onValueChange={val => {
-                     setData(prev => ({
-                        ...prev, 
-                        unit: val, 
-                        avg_weight_per_piece: (val === 'pcs') ? prev.avg_weight_per_piece : ''
-                     }));
-                     validateField('unit', val);
-                  }}>
-                      <SelectTrigger className={cn(
-                          "w-full h-11 bg-muted/50 rounded-xl border-none ring-1 transition-all font-bold", 
-                          localErrors.unit ? "ring-destructive" : "ring-border"
-                      )}>
-                    <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl shadow-2xl">
-                    <SelectItem value="g" className="text-xs font-bold py-2.5">g (Gram)</SelectItem>
-                    <SelectItem value="ml" className="text-xs font-bold py-2.5">ml (Milliliter)</SelectItem>
-                    <SelectItem value="pcs" className="text-xs font-bold py-2.5">pcs (Pieces)</SelectItem>
-                    <SelectItem value="kg" className="text-xs font-bold py-2.5">kg (Kilogram)</SelectItem>
-                    <SelectItem value="liters" className="text-xs font-bold py-2.5">liters (Liters)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {localErrors.unit && (
-                    <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.unit}</p>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                    <div className="size-1 rounded-full bg-rose-500" /> Low Stock Mark
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={data.low_stock_level}
+                    onChange={e => {
+                      setData('low_stock_level', e.target.value);
+                      validateField('low_stock_level', e.target.value);
+                    }}
+                    onBlur={() => validateField('low_stock_level', data.low_stock_level)}
+                    placeholder="e.g. 50"
+                    className={cn(
+                      "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold font-mono",
+                      localErrors.low_stock_level ? "ring-destructive ring-1" : ""
+                    )}
+                  />
+                  {localErrors.low_stock_level && (
+                    <p className="text-[8px] font-black uppercase tracking-wider text-rose-500 mt-1">{localErrors.low_stock_level}</p>
                   )}
-                  <p className="text-[9px] text-muted-foreground font-bold italic opacity-70 mt-1 pl-1">
-                    Garlic: 1 clove = 5g | Onion: 1 piece = 10g | Milk: measured in liters | Flour: measured in kg
+                </div>
+              </div>
+
+              {/* Procurement Pricing Costing */}
+              <div className="pt-3 border-t border-[var(--ops-border-subtle)] space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                    <div className="size-1.5 rounded-full bg-emerald-500" /> Procurement Costing
+                  </label>
+                  <p className="text-[8px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest leading-normal pl-3">
+                    Enter the total cost. Formula: Cost / Batch stock = Per unit rate.
                   </p>
                 </div>
-                </div>
 
-                {/* Initial Stock Matrix */}
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <div className="size-1 rounded-full bg-primary" /> Current Stock
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={data.stock}
-                            onChange={e => {
-                                setData('stock', e.target.value);
-                                validateField('stock', e.target.value);
-                            }}
-                            onBlur={() => validateField('stock', data.stock)}
-                            className={cn(
-                                "h-11 bg-muted/50 rounded-xl border-none ring-1 font-bold tabular-nums transition-all",
-                                localErrors.stock ? "ring-destructive" : "ring-border"
-                            )}
-                        />
-                        {localErrors.stock && (
-                            <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.stock}</p>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <div className="size-1 rounded-full bg-rose-500" /> Low Stock Mark
-                        </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={data.low_stock_level}
-                            onChange={e => {
-                                setData('low_stock_level', e.target.value);
-                                validateField('low_stock_level', e.target.value);
-                            }}
-                            onBlur={() => validateField('low_stock_level', data.low_stock_level)}
-                            placeholder="e.g. 500"
-                            className={cn(
-                                "h-11 bg-muted/50 rounded-xl border-none ring-1 font-bold tabular-nums transition-all",
-                                localErrors.low_stock_level ? "ring-destructive" : "ring-border"
-                            )}
-                        />
-                        {localErrors.low_stock_level && (
-                            <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.low_stock_level}</p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Costing Engine (Procurement Truth) */}
-                <div className="pt-4 border-t border-border/40">
-                    <div className="space-y-4">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                                <div className="size-1.5 rounded-full bg-emerald-500" /> Procurement Costing
-                            </label>
-                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-3 leading-tight">
-                                Enter the total amount paid for this stock batch. <br/>
-                                <span className="text-emerald-600/80 italic">Rule: 10kg for ₱500 results in ₱0.05 per gram.</span>
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Total Purchase Cost (Batch Total)</label>
-                            <div className="relative">
-                                <span className={cn(
-                                    "absolute left-3 top-1/2 -translate-y-1/2 font-bold transition-colors",
-                                    localErrors.cost_per_base_unit ? "text-destructive" : "text-emerald-600"
-                                )}>₱</span>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={data.cost_per_base_unit}
-                                    onChange={e => {
-                                        const val = e.target.value;
-                                        setData(d => ({
-                                            ...d,
-                                            cost_per_base_unit: val,
-                                            cost_per_unit: val 
-                                        }));
-                                        validateField('cost_per_base_unit', val);
-                                    }}
-                                    onBlur={() => validateField('cost_per_base_unit', data.cost_per_base_unit)}
-                                    placeholder="0.00"
-                                    className={cn(
-                                        "h-11 bg-muted/50 rounded-xl pl-8 border-none ring-1 font-bold tabular-nums transition-all",
-                                        localErrors.cost_per_base_unit ? "ring-destructive" : "ring-border"
-                                    )}
-                                />
-                            </div>
-                            <div className="flex justify-between items-center px-1">
-                                {localErrors.cost_per_base_unit ? (
-                                    <p className="text-[9px] text-destructive font-black uppercase tracking-widest leading-none mt-1">{localErrors.cost_per_base_unit}</p>
-                                ) : (
-                                    <div className="flex items-center gap-1.5 mt-1 animate-in fade-in duration-500">
-                                        <div className="size-1 rounded-full bg-emerald-500" />
-                                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                                            Auto-Calculated: ₱{costPerUnitPreview} per {data.unit || 'unit'}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Average Weight Settings */}
-                {data.unit === 'pcs' && (
-                   <div className="pt-4 border-t border-border/40">
-                       <div className="space-y-2">
-                           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                               <div className="size-1 rounded-full bg-indigo-500" /> Average weight per Piece (g / pc)
-                           </label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            value={data.avg_weight_per_piece}
-                            onChange={e => {
-                                setData('avg_weight_per_piece', e.target.value);
-                                validateField('avg_weight_per_piece', e.target.value);
-                            }}
-                            onBlur={() => validateField('avg_weight_per_piece', data.avg_weight_per_piece)}
-                            placeholder="e.g. 5 (for 5g/clove)"
-                            className={cn(
-                                "h-11 bg-muted/50 rounded-xl border-none ring-1 font-bold tabular-nums transition-all",
-                                localErrors.avg_weight_per_piece ? "ring-destructive" : "ring-border"
-                            )}
-                        />
-                        {localErrors.avg_weight_per_piece && (
-                            <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.avg_weight_per_piece}</p>
-                        )}
-                       </div>
-                   </div>
-                )}
-
-                {/* Distribution (add mode) */}
-                {isAdmin && !isEditModalOpen && (
-                <div className="space-y-4 border-t border-border/40 pt-6">
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <div className="size-1.5 rounded-full bg-primary" /> Store Selection
-                        </label>
-                        <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-3">
-                            Choose which branches will carry this item.
-                        </p>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 pt-2">
-                    {branchList.map(branch => {
-                        const isSelected = data.branch_ids.includes(branch.id.toString());
-                        return (
-                            <div
-                                key={branch.id}
-                                onClick={() => {
-                                    const ids = [...data.branch_ids];
-                                    const idx = ids.indexOf(branch.id.toString());
-                                    if (idx > -1) ids.splice(idx, 1);
-                                    else ids.push(branch.id.toString());
-                                    setData('branch_ids', ids);
-                                }}
-                                className={cn(
-                                    'cursor-pointer px-4 py-2 rounded-xl border-2 transition-all flex items-center gap-3',
-                                    isSelected
-                                    ? 'bg-primary/10 border-primary/50 text-foreground ring-4 ring-primary/5'
-                                    : 'bg-muted/30 border-transparent text-muted-foreground hover:bg-muted/60 opacity-60'
-                                )}
-                            >
-                                <div className={cn(
-                                    'size-2 rounded-full shadow-inner',
-                                    isSelected ? 'bg-primary shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-muted-foreground/30'
-                                )} />
-                                <span className={cn("text-[10px] font-black italic uppercase tracking-tighter", isSelected && "text-primary")}>{branch.name}</span>
-                            </div>
-                        );
-                    })}
-                    </div>
-                    {localErrors.branch_ids && (
-                        <p className="text-[9px] text-destructive font-black uppercase tracking-widest mt-1 ml-1">{localErrors.branch_ids}</p>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">Total Purchase Cost</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-500 text-xs">₱</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={data.cost_per_base_unit}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setData(d => ({
+                          ...d,
+                          cost_per_base_unit: val,
+                          cost_per_unit: val 
+                        }));
+                        validateField('cost_per_base_unit', val);
+                      }}
+                      onBlur={() => validateField('cost_per_base_unit', data.cost_per_base_unit)}
+                      placeholder="0.00"
+                      className={cn(
+                        "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] pl-7 rounded-[10px] text-foreground font-bold font-mono",
+                        localErrors.cost_per_base_unit ? "ring-destructive ring-1" : ""
+                      )}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center px-1">
+                    {localErrors.cost_per_base_unit ? (
+                      <p className="text-[8px] text-rose-500 font-black uppercase tracking-widest mt-1">{localErrors.cost_per_base_unit}</p>
+                    ) : (
+                      <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mt-1">
+                        Auto-calculated rate: ₱{costPerUnitPreview} per {data.unit || 'unit'}
+                      </p>
                     )}
+                  </div>
                 </div>
-                )}
+              </div>
 
-                {/* Node selection (edit mode) */}
-                {isAdmin && isEditModalOpen && (
-                <div className="space-y-2 border-t border-border/40 pt-6">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <div className="size-1 rounded-full bg-primary" /> Branch Assignment
-                    </label>
-                    <Select value={data.branch_id} onValueChange={val => setData('branch_id', val)}>
-                    <SelectTrigger className="w-full h-11 bg-muted/50 rounded-xl border-none ring-1 ring-border font-bold">
-                        <SelectValue placeholder="Select branch..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                        {branchList.map(b => (
-                        <SelectItem key={b.id} value={String(b.id)} className="text-xs font-bold py-2.5">{b.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
+              {/* Piece Weighing Settings */}
+              {data.unit === 'pcs' && (
+                <div className="pt-3 border-t border-[var(--ops-border-subtle)] space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                    <div className="size-1 rounded-full bg-indigo-500" /> Avg Weight Per Piece (grams)
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={data.avg_weight_per_piece}
+                    onChange={e => {
+                      setData('avg_weight_per_piece', e.target.value);
+                      validateField('avg_weight_per_piece', e.target.value);
+                    }}
+                    onBlur={() => validateField('avg_weight_per_piece', data.avg_weight_per_piece)}
+                    placeholder="e.g. 5"
+                    className={cn(
+                      "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold font-mono",
+                      localErrors.avg_weight_per_piece ? "ring-destructive ring-1" : ""
+                    )}
+                  />
+                  {localErrors.avg_weight_per_piece && (
+                    <p className="text-[8px] font-black uppercase tracking-wider text-rose-500 mt-1">{localErrors.avg_weight_per_piece}</p>
+                  )}
                 </div>
-                )}
+              )}
+
+              {/* Branch Selection (add mode) */}
+              {isAdmin && !isEditModalOpen && (
+                <div className="space-y-3 border-t border-[var(--ops-border-subtle)] pt-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                    <div className="size-1 rounded-full bg-primary" /> Store Selection
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {branchList.map(branch => {
+                      const isSelected = data.branch_ids.includes(branch.id.toString());
+                      return (
+                        <div
+                          key={branch.id}
+                          onClick={() => {
+                            const ids = [...data.branch_ids];
+                            const idx = ids.indexOf(branch.id.toString());
+                            if (idx > -1) ids.splice(idx, 1);
+                            else ids.push(branch.id.toString());
+                            setData('branch_ids', ids);
+                          }}
+                          className={cn(
+                            'cursor-pointer px-3 py-1.5 rounded-[8px] border-2 text-[10px] font-black uppercase tracking-tight transition-all flex items-center gap-2 select-none',
+                            isSelected
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : 'bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]'
+                          )}
+                        >
+                          <div className={cn(
+                            'size-1.5 rounded-full',
+                            isSelected ? 'bg-primary' : 'bg-zinc-700'
+                          )} />
+                          <span>{branch.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {localErrors.branch_ids && (
+                    <p className="text-[8px] text-rose-500 font-black uppercase tracking-widest mt-1">{localErrors.branch_ids}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Single Branch select (edit mode) */}
+              {isAdmin && isEditModalOpen && (
+                <div className="space-y-1.5 border-t border-[var(--ops-border-subtle)] pt-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">Branch Assignment</label>
+                  <Select value={data.branch_id} onValueChange={val => setData('branch_id', val)}>
+                    <SelectTrigger className="w-full h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold">
+                      <SelectValue placeholder="Select branch..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-foreground rounded-[12px]">
+                      {branchList.map(b => (
+                        <SelectItem key={b.id} value={String(b.id)} className="text-xs font-bold py-2">{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
             </div>
 
-            <DialogFooter className="pt-6 border-t border-border/40 gap-3">
-              <Button type="button" variant="ghost" className="rounded-xl h-11 px-6 font-black uppercase text-[10px] tracking-widest hover:bg-muted/80 underline underline-offset-4 decoration-border" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }}>
+            <DialogFooter className="pt-4 border-t border-[var(--ops-border-subtle)] gap-2">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="rounded-[10px] h-10 px-4 font-black uppercase text-[10px] tracking-wider text-[var(--ops-text-secondary)] hover:bg-[var(--ops-surface-sunken)]" 
+                onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }}
+              >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={processing}
-                className="rounded-xl h-11 px-8 gap-3 shadow-[0_10px_25px_-5px_rgba(99,102,241,0.4)] font-black uppercase text-[10px] tracking-widest italic"
+                className="rounded-[10px] h-10 px-6 gap-2 bg-primary hover:bg-primary-hover text-foreground font-black uppercase text-[10px] tracking-wider italic shadow-sm"
               >
                 {processing ? <FiRefreshCw className="size-4 animate-spin" /> : <FiZap className="size-4" />}
-                {isEditModalOpen ? 'Save Changes' : 'Add Item'}
+                <span>{isEditModalOpen ? 'Save Changes' : 'Add Item'}</span>
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Modal */}
+      {/* Delete Item Confirmation Modal */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-8">
+        <DialogContent className="max-w-md rounded-[20px] border border-[var(--ops-border)] bg-zinc-950 text-foreground shadow-2xl p-6">
           <DialogHeader className="items-center text-center">
-            <div className="size-20 rounded-[2rem] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6 group">
-                 <div className="size-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                    <FiTrash2 className="size-10" />
-                 </div>
+            <div className="size-16 rounded-[14px] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4">
+              <FiTrash2 className="size-8" />
             </div>
-            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-rose-600">
-              Delete Item?
+            <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-rose-500">
+              Delete Ingredient?
             </DialogTitle>
-            <DialogDescription className="pt-4 text-sm font-medium text-muted-foreground/80 leading-relaxed max-w-[300px]">
-              Are you sure you want to remove <span className="font-black italic text-foreground uppercase tracking-tight">"{selectedRow?.name}"</span> from <span className="font-black text-rose-500">{selectedRow?.branch_name}</span>? 
-              This will only remove the stock record for this branch. Other locations will not be affected.
+            <DialogDescription className="pt-2 text-xs font-semibold text-[var(--ops-text-secondary)] leading-normal">
+              Confirm removal of <span className="font-black italic text-foreground uppercase tracking-tight">"{selectedRow?.name}"</span> from <span className="font-black text-rose-400">{selectedRow?.branch_name}</span>. 
+              This will delete this branch stock record only. Other locations are unaffected.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="pt-10 flex flex-col sm:flex-row gap-3">
-            <Button variant="ghost" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-muted/50" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
-            <Button variant="destructive" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-rose-500/30" onClick={submitDelete} disabled={processing}>Delete Item</Button>
+          <DialogFooter className="pt-6 flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider text-[var(--ops-text-secondary)] hover:bg-[var(--ops-surface-sunken)]" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider bg-rose-600 hover:bg-rose-500 text-foreground italic" onClick={submitDelete} disabled={processing}>Confirm Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* ── Bulk Delete Confirmation Modal ────────────────────────────────── */}
+
+      {/* Bulk Delete Dialog */}
       <Dialog open={isBulkDeleteModalOpen} onOpenChange={setIsBulkDeleteModalOpen}>
-        <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-8">
+        <DialogContent className="max-w-md rounded-[20px] border border-[var(--ops-border)] bg-zinc-950 text-foreground shadow-2xl p-6">
           <DialogHeader className="items-center text-center">
-            <div className="size-20 rounded-[2rem] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6 group">
-                 <div className="size-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                    <FiTrash2 className="size-10" />
-                 </div>
+            <div className="size-16 rounded-[14px] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4">
+              <FiTrash2 className="size-8" />
             </div>
-            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter text-rose-600">
+            <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-rose-500">
               Bulk Delete
             </DialogTitle>
-            <DialogDescription className="pt-4 text-sm font-medium text-muted-foreground/80 leading-relaxed text-center">
-              You are about to delete <span className="font-black text-rose-600">{selectedIds.length}</span> ingredients. 
+            <DialogDescription className="pt-2 text-xs font-semibold text-[var(--ops-text-secondary)] leading-normal">
+              You are about to delete <span className="font-black text-rose-400">{selectedIds.length}</span> selected items.
               This will move them to the trash and hide them from active inventory.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center block">
-                Type <span className="text-rose-500 font-black italic">"DELETE"</span> to confirm
-              </label>
-              <Input
-                value={bulkDeleteConfirmation}
-                onChange={e => setBulkDeleteConfirmation(e.target.value.toUpperCase())}
-                placeholder="Confirmation..."
-                className="h-12 bg-muted/50 rounded-2xl border-none ring-1 ring-rose-500/30 focus:ring-rose-500 text-center font-black uppercase tracking-widest italic"
-              />
-            </div>
+          <div className="space-y-3 py-4 text-center">
+            <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">
+              Type <span className="text-rose-500 font-black italic">"DELETE"</span> to confirm action
+            </label>
+            <Input
+              value={bulkDeleteConfirmation}
+              onChange={e => setBulkDeleteConfirmation(e.target.value.toUpperCase())}
+              placeholder="CONFIRMATION..."
+              className="h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-center font-black uppercase tracking-wider text-foreground"
+            />
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-3">
-            <Button variant="ghost" className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-muted/50" onClick={() => setIsBulkDeleteModalOpen(false)}>Cancel</Button>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider text-[var(--ops-text-secondary)] hover:bg-[var(--ops-surface-sunken)]" onClick={() => setIsBulkDeleteModalOpen(false)}>Cancel</Button>
             <Button 
               variant="destructive" 
-              className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-lg shadow-rose-500/30" 
+              className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider bg-rose-600 hover:bg-rose-500 italic" 
               onClick={submitBulkDelete} 
               disabled={bulkDeleteConfirmation !== 'DELETE' || processing}
             >
@@ -1416,24 +1974,17 @@ export default function InventoryIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReceiptScannerModal
+        open={isReceiptScannerOpen}
+        onOpenChange={setIsReceiptScannerOpen}
+        branchId={currentBranchId || branches?.[0]?.id || 1}
+        inventory={inventory}
+        onSuccess={() => {
+          router.reload({ only: ['inventory'] });
+          fetchActivityLogs();
+        }}
+      />
     </AppLayout>
   );
-}
-
-
-// Add CSS to hide scrollbar but allow functional scrolling
-const scrollbarHideStyles = `
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-`;
-
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.appendChild(document.createTextNode(scrollbarHideStyles));
-  document.head.appendChild(style);
 }

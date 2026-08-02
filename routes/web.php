@@ -54,6 +54,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('analytics/cashier-performance', [AnalyticsController::class, 'cashierPerformance'])->name('analytics.cashier-performance');
             Route::get('analytics/cashier-performance/export', [AnalyticsController::class, 'exportPerformance'])->name('analytics.cashier-performance.export');
             Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
+            Route::get('analytics/forecast-benchmarking', [AnalyticsController::class, 'forecastBenchmarking'])->name('analytics.forecast-benchmarking');
+            Route::post('analytics/forecast-benchmarking/run', [AnalyticsController::class, 'runBenchmark'])->name('analytics.forecast-benchmarking.run');
+            Route::post('analytics/forecast-benchmarking/save', [AnalyticsController::class, 'saveForecast'])->name('analytics.forecast-benchmarking.save');
+            Route::get('analytics/forecast-benchmarking/export', [AnalyticsController::class, 'exportBenchmarkReport'])->name('analytics.forecast-benchmarking.export');
             Route::get('analytics/restock-suggestions', [AnalyticsController::class, 'restockSuggestions'])->name('analytics.restock-suggestions');
 
             // Supplier Management
@@ -84,6 +88,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
             Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
             Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
+
+            // Sales Data Management (Admin only)
+            Route::get('admin/sales-data', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'index'])->name('admin.sales-data.index');
+            Route::post('admin/sales-data/validate', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'validateFile'])->name('admin.sales-data.validate');
+            Route::post('admin/sales-data/import', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'import'])->name('admin.sales-data.import');
+            Route::post('admin/sales-data/restore/{backup}', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'restore'])->name('admin.sales-data.restore');
+            Route::delete('admin/sales-data/backup/{backup}', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'destroyBackup'])->name('admin.sales-data.backup.destroy');
         }); // end role:admin
 
         // POS Routes (Cashier ONLY)
@@ -117,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Reports
             Route::get('reports', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('reports.index');
+            Route::post('reports/export/prepare', [App\Http\Controllers\Admin\ReportController::class, 'prepareExport'])->name('reports.export.prepare');
             Route::get('reports/pdf', [App\Http\Controllers\Admin\ReportController::class, 'exportPdf'])->name('reports.pdf');
             Route::get('reports/excel', [App\Http\Controllers\Admin\ReportController::class, 'exportExcel'])->name('reports.excel');
 

@@ -90,9 +90,9 @@ class IngredientStock extends Model
      *
      * @throws \Exception
      */
-    public function deduct(float $amount): void
+    public function deduct(float $amount, bool $force = false): void
     {
-        if ((float) $this->stock < $amount) {
+        if (!$force && (float) $this->stock < $amount) {
             throw new \Exception(
                 "Insufficient stock for ingredient '{$this->ingredient->name}' in branch '{$this->branch->name}'. " .
                 "Available: {$this->stock} {$this->ingredient->unit}, Required: {$amount} {$this->ingredient->unit}."

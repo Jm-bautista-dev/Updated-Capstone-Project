@@ -9,14 +9,26 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\BelongsToBranch;
 
 /**
- * @mixin \Illuminate\Database\Eloquent\Builder
+ * @mixin Builder
  */
 class Product extends Model
 {
     use BelongsToBranch, SoftDeletes;
-    protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id'];
+    protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id', 'barcode'];
 
     protected $appends = ['computed_stock', 'image_url'];
+
+    protected static function booted()
+    {
+        static::creating(function ($product) {
+            if (!$product->barcode) {
+                do {
+                    $barcode = '888' . str_pad(mt_rand(0, 999999999), 9, '0', STR_PAD_LEFT);
+                } while (static::withTrashed()->where(['barcode' => $barcode])->exists());
+                $product->barcode = $barcode;
+            }
+        });
+    }
 
     public function getImageUrlAttribute()
     {

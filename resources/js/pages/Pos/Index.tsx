@@ -4,6 +4,9 @@ import { useState, useMemo, useEffect } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { ResultModal } from '@/components/result-modal';
 import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage, FiLock, FiUnlock, FiTrendingUp, FiActivity, FiDollarSign } from 'react-icons/fi';
+import { toast } from 'sonner';
+import axios from 'axios';
+import { addToOfflineQueue } from '@/lib/offline-db';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,8 +71,10 @@ export default function PosIndex() {
  const [alertModal, setAlertModal] = useState<{ type: 'error' | 'warning'; title: string; message: string }>({
  type: 'warning', title: '', message: '',
  });
- const [cashReceived, setCashReceived] = useState('');
- const [lastSale, setLastSale] = useState<any>(null);
+  const [cashReceived, setCashReceived] = useState('');
+  const [lastSale, setLastSale] = useState<any>(null);
+
+
 
  // Shift Management States
  const [isShiftModalOpen, setIsShiftModalOpen] = useState(!activeShift);
@@ -295,11 +300,41 @@ export default function PosIndex() {
  const confirmPayment = () => {
  const paid = paymentMethod === 'cash' ? parseFloat(cashReceived) : cartTotal;
 
- if (paymentMethod === 'cash' && paid < cartTotal) {
- setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
- setIsAlertModalOpen(true);
- return;
- }
+  if (paymentMethod === 'cash' && paid < cartTotal) {
+  setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
+  setIsAlertModalOpen(true);
+  return;
+  }
+
+  if (!navigator.onLine) {
+    const opId = 'local_' + Math.random().toString(36).substr(2, 9);
+    const salePayload = {
+      type: orderType,
+      items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+      total: cartTotal,
+      payment_method: paymentMethod,
+      paid_amount: paid,
+      change_amount: paymentMethod === 'cash' ? changeDue : 0,
+      delivery_info: orderType === 'delivery' ? deliveryInfo : null
+    };
+
+    addToOfflineQueue({
+      id: opId,
+      type: 'SALE',
+      payload: salePayload
+    }).then(() => {
+      toast.success('Offline Mode: Order saved locally. It will auto-sync when online.');
+      setCart([]);
+      setCashReceived('');
+      setProofFile(null);
+      setProofPreview(null);
+      setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
+      setIsPaymentModalOpen(false);
+    }).catch(err => {
+      toast.error('Offline Mode: Failed to save order locally.');
+    });
+    return;
+  }
 
  const formData = new FormData();
  formData.append('type', orderType);
@@ -452,8 +487,10 @@ export default function PosIndex() {
    </div>
  )}
 
- {/* Search Bar (Apple Style) */}
- <div className="relative group">
+
+
+  {/* Search Bar (Apple Style) */}
+  <div className="relative group">
  <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-4 group-focus-within:text-primary transition-colors" />
  <Input
  placeholder="Search..."
@@ -488,232 +525,242 @@ export default function PosIndex() {
  ))}
  </div>
 
- {/* Grid */}
- <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
- <AnimatePresence mode="popLayout">
- <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 lg:gap-5">
- {filteredProducts.map((p: Product) => (
- <motion.div
- key={p.id}
- layout
- initial={{ opacity: 0, scale: 0.9, y: 20 }}
- animate={{ opacity: 1, scale: 1, y: 0 }}
- exit={{ opacity: 0, scale: 0.9 }}
- transition={{ type: 'spring', damping: 25, stiffness: 300 }}
- whileHover={p.stock > 0 ? { y: -8, scale: 1.02 } : {}}
- whileTap={p.stock > 0 ? { scale: 0.98 } : {}}
- onClick={() => addToCart(p)}
- className={cn(
-"group relative rounded-3xl overflow-hidden cursor-pointer shadow-lg transition-all duration-500",
- p.stock > 0 ?"hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] hover:ring-1 hover:ring-white/20" :"opacity-40 grayscale pointer-events-none"
- )}
- style={{ aspectRatio: '4/5' }}
- >
- {/* Hero Image Background */}
- <div className="absolute inset-0 bg-muted">
- {p.image_url ? (
- <img src={p.image_url} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
- ) : (
- <div className="w-full h-full bg-gradient-to-tr from-[#18181b] to-[#27272a] flex items-center justify-center">
- <FiPackage className="size-12 text-foreground/10" />
- </div>
- )}
- {/* Rich dark gradient for text legibility */}
- <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
- </div>
+  {/* Grid */}
+  <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+  <AnimatePresence mode="popLayout">
+  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-6">
+  {filteredProducts.map((p: Product) => (
+  <motion.div
+  key={p.id}
+  layout
+  initial={{ opacity: 0, scale: 0.95, y: 15 }}
+  animate={{ opacity: 1, scale: 1, y: 0 }}
+  exit={{ opacity: 0, scale: 0.95 }}
+  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+  whileHover={p.stock > 0 ? { y: -6 } : {}}
+  whileTap={p.stock > 0 ? { scale: 0.98 } : {}}
+  onClick={() => addToCart(p)}
+  className={cn(
+    "group flex flex-col bg-white/80 dark:bg-zinc-900/60 border border-primary/5 dark:border-white/5 rounded-[24px] cursor-pointer shadow-sm hover:shadow-lg transition-all duration-300 relative",
+    p.stock <= 0 && "opacity-40 grayscale pointer-events-none"
+  )}
+  >
+  {/* Nested Product Image Container */}
+  <div className="relative aspect-[4/3] rounded-[18px] overflow-hidden bg-muted m-2 shrink-0">
+    {p.image_url ? (
+      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+    ) : (
+      <div className="w-full h-full bg-gradient-to-tr from-accent/20 to-primary/10 flex items-center justify-center">
+        <FiPackage className="size-8 text-primary/30" />
+      </div>
+    )}
 
- {/* Price Badge */}
- <div className="absolute top-2 left-2 bg-muted/90 backdrop-blur-md border border-border px-2 py-1 rounded-lg shadow-lg max-w-[90%]">
-  <span className="text-foreground font-black text-xs lg:text-sm tracking-tight truncate block">{formatCurrency(p.selling_price)}</span>
- </div>
+    {/* Low Stock Badge */}
+    {p.stock <= 5 && p.stock > 0 && (
+      <div className="absolute top-2 right-2 bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">
+        Low ({p.stock})
+      </div>
+    )}
 
- {/* Add Button - Reveal on Hover */}
- <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
- <div className="size-14 rounded-full bg-primary/90 backdrop-blur-sm text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/50 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
- <FiPlus className="size-6" />
- </div>
- </div>
-
- {/* Stock Warning */}
- {p.stock <= 5 && p.stock > 0 && (
- <div className="absolute top-4 right-4 bg-amber-500/80 backdrop-blur-md px-2 py-1 rounded-lg text-[9px] font-black text-foreground uppercase tracking-wider shadow-lg">
- Low
- </div>
- )}
-
- {/* Details */}
- <div className="absolute bottom-0 left-0 right-0 p-3 lg:p-4 transform transition-transform duration-300">
-  <h3 className="text-white font-bold text-xs lg:text-sm leading-tight drop-shadow-md group-hover:text-primary-foreground transition-colors line-clamp-2">{p.name}</h3>
-  <p className="text-white/80 text-[10px] font-medium mt-0.5 truncate drop-shadow-md hidden sm:block">{p.sku}</p>
+    {/* Price Tag Overlay */}
+    <div className="absolute bottom-2 left-2 bg-black/45 backdrop-blur-md px-2.5 py-0.5 rounded-full shadow">
+       <span className="text-white font-extrabold text-xs tracking-tight">{formatCurrency(p.selling_price)}</span>
+    </div>
   </div>
- </motion.div>
- ))}
- 
- {filteredProducts.length === 0 && (
- <motion.div
- initial={{ opacity: 0 }}
- animate={{ opacity: 1 }}
- className="col-span-full flex flex-col items-center justify-center py-24 text-muted-foreground/80 gap-4"
- >
- <div className="size-24 rounded-full border border-dashed border-border flex items-center justify-center bg-card/70">
- <FiPackage className="size-10 opacity-50" />
- </div>
- <p className="text-sm font-medium tracking-widest uppercase">No products found</p>
- </motion.div>
- )}
- </div>
- </AnimatePresence>
- </div>
- </div>
 
- {/* CENTER RIGHT: Cart Container */}
- <div className="w-full lg:w-[280px] xl:w-[320px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0 lg:max-h-full max-h-[280px]">
- <div className="h-14 px-4 flex items-center justify-between border-b border-border/50 bg-transparent shrink-0">
- <div className="flex items-center gap-3">
- <div className="size-10 rounded-2xl bg-primary/20 text-primary flex items-center justify-center border border-primary/20">
- <FiShoppingCart className="size-5" />
- </div>
- <div>
- <h2 className="text-lg font-black text-foreground tracking-tight">Order</h2>
- <p className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold">{cart.length} Items</p>
- </div>
- </div>
- <Button variant="ghost" size="icon" className="text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 rounded-xl" onClick={() => setCart([])}>
- <FiTrash2 className="size-4" />
- </Button>
- </div>
+  {/* Info Section */}
+  <div className="p-3 pt-1 flex-1 flex flex-col justify-between gap-2">
+    <div>
+      <h3 className="text-foreground font-black text-xs uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+        {p.name}
+      </h3>
+      <span className="text-[8px] font-bold text-muted-foreground/45 uppercase tracking-widest leading-none mt-1 block">
+        {p.sku}
+      </span>
+    </div>
 
- <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
- <AnimatePresence>
- {cart.map(item => (
- <motion.div
- key={item.id}
- layout
- initial={{ opacity: 0, x: 20, scale: 0.95 }}
- animate={{ opacity: 1, x: 0, scale: 1 }}
- exit={{ opacity: 0, x: -20, scale: 0.95 }}
- className="group flex flex-col gap-3 p-3 rounded-2xl bg-card border border-border/50 hover:bg-accent hover:border-border transition-all shadow-sm"
- >
- <div className="flex gap-3">
- <div className="size-14 rounded-xl overflow-hidden bg-muted border border-border/50">
- {item.image_url ? (
- <img src={item.image_url} className="w-full h-full object-cover" />
- ) : (
- <FiPackage className="size-5 text-foreground/20 m-auto h-full mt-4" />
- )}
- </div>
- <div className="flex-1 min-w-0 flex flex-col justify-center">
- <p className="text-sm font-bold text-foreground truncate">{item.name}</p>
- <p className="text-primary font-black text-xs mt-0.5">{formatCurrency(item.selling_price)}</p>
- </div>
- </div>
- 
- <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-1">
- <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80">Qty</span>
- <div className="flex items-center bg-muted rounded-xl border border-border p-0.5">
- <Button variant="ghost" size="icon" className="h-7 w-8 rounded-lg hover:bg-accent text-muted-foreground" onClick={() => updateQuantity(item.id, -1)}>
- <FiMinus className="size-3" />
- </Button>
- <span className="w-8 text-center text-sm font-black text-foreground">{item.quantity}</span>
- <Button variant="ghost" size="icon" className="h-7 w-8 rounded-lg hover:bg-accent text-muted-foreground" onClick={() => updateQuantity(item.id, 1)}>
- <FiPlus className="size-3" />
- </Button>
- </div>
- </div>
- </motion.div>
- ))}
- </AnimatePresence>
- {cart.length === 0 && (
- <div className="h-full flex flex-col items-center justify-center text-muted-foreground/80 gap-4 opacity-50">
- <div className="size-20 rounded-full border border-dashed border-border/80 flex items-center justify-center">
- <FiShoppingCart className="size-8" />
- </div>
- <p className="text-sm font-medium tracking-wide">Select an item to add</p>
- </div>
- )}
- </div>
- </div>
-
- {/* FAR RIGHT: Checkout Panel */}
- <div className="w-full lg:w-[270px] xl:w-[310px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0">
- <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide">
- 
- {/* Order Type Toggle (Linear style Segmented Control) */}
- <div className="space-y-3">
- <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">Order Type</label>
- <div className="flex p-1 bg-muted rounded-2xl border border-border/50 relative">
- {['dine-in', 'take-out'].map((type) => (
- <button
- key={type}
- onClick={() => setOrderType(type)}
- className={cn(
-"flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all z-10",
- orderType === type ?"text-foreground drop-shadow-md" :"text-muted-foreground/80 hover:text-muted-foreground"
- )}
- >
- {type.replace('-', ' ')}
- </button>
- ))}
- <div 
- className="absolute top-1 bottom-1 bg-accent rounded-xl border border-border shadow-sm transition-all duration-300"
- style={{
- width: 'calc(50% - 4px)',
- left: orderType === 'dine-in' ? '4px' : 'calc(50% + 2px)'
- }}
- />
- </div>
- </div>
-
- {/* Payment Selection */}
- <div className="space-y-3">
- <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 ml-1">Payment</label>
- <div className="grid grid-cols-3 gap-2">
- {['cash', 'card', 'e-wallet'].map((method) => (
- <button
- key={method}
- onClick={() => setPaymentMethod(method)}
- className={cn(
-"py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all duration-300",
- paymentMethod === method
- ?"bg-primary/20 border-primary shadow-sm shadow-primary/20"
- :"bg-card border-border/50 hover:bg-accent/80 hover:border-border/80 text-muted-foreground"
- )}
- >
- <div className={cn("size-8 rounded-full flex items-center justify-center border transition-colors", paymentMethod === method ?"border-primary/50 text-primary bg-primary/10" :"border-border text-muted-foreground/80 bg-muted")}>
- {method === 'cash' ? <span className="text-sm font-bold">₱</span> : method === 'card' ? <FiPackage className="size-3"/> : <FiLayers className="size-3"/>}
- </div>
- <span className={cn("text-[9px] font-bold uppercase tracking-widest", paymentMethod === method ?"text-primary" :"")}>{method}</span>
- </button>
- ))}
- </div>
- </div>
- </div>
-
- {/* Sticky Bottom Total & Checkout */}
- <div className="p-5 bg-background/80 backdrop-blur-2xl border-t border-border space-y-4">
- <div className="space-y-2.5">
- <div className="flex justify-between items-center text-muted-foreground text-sm font-medium">
- <span>Subtotal</span>
- <span className="text-foreground/90">{formatCurrency(cartTotal)}</span>
- </div>
- <div className="flex justify-between items-center pt-3 border-t border-border gap-2">
-  <span className="text-sm font-black uppercase tracking-widest text-foreground shrink-0">Total</span>
-  <span className="text-xl xl:text-2xl font-black text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.4)] text-right truncate">{formatCurrency(cartTotal)}</span>
+    <div className="flex items-center justify-between border-t border-border/10 pt-2 mt-auto">
+      <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">
+        Stock: {p.stock}
+      </span>
+      <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
+        <FiPlus className="size-3.5" />
+      </div>
+    </div>
   </div>
- </div>
+  </motion.div>
+  ))}
+  
+  {filteredProducts.length === 0 && (
+  <motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  className="col-span-full flex flex-col items-center justify-center py-24 text-muted-foreground/80 gap-4"
+  >
+  <div className="size-24 rounded-full border border-dashed border-border flex items-center justify-center bg-card/70">
+  <FiPackage className="size-10 opacity-50" />
+  </div>
+  <p className="text-sm font-medium tracking-widest uppercase">No products found</p>
+  </motion.div>
+  )}
+  </div>
+  </AnimatePresence>
+  </div>
+  </div>
 
- <Button
- className="w-full h-12 lg:h-14 text-sm lg:text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/60 hover:shadow-xl shadow-primary/80 active:scale-[0.98] transition-all disabled:opacity-50 border border-primary/50 relative overflow-hidden group"
- disabled={cart.length === 0 || processing}
- onClick={handleCheckout}
- >
- <span className="relative z-10 text-foreground">{processing ? 'Processing...' : 'Checkout'}</span>
- <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent z-0" />
- <div className="absolute top-0 left-0 right-0 h-1/2 bg-accent/80 rounded-b-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
- </Button>
- </div>
- </div>
-</div>
+  {/* RIGHT SIDEBAR: Unified Cart & Checkout Panel */}
+  <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0 lg:max-h-full max-h-[380px]">
+      {/* Header */}
+      <div className="h-16 px-5 flex items-center justify-between border-b border-border/50 bg-transparent shrink-0">
+          <div className="flex items-center gap-3">
+              <div className="size-10 rounded-2xl bg-primary/20 text-primary flex items-center justify-center border border-primary/20">
+                  <FiShoppingCart className="size-5" />
+              </div>
+              <div>
+                  <h2 className="text-lg font-black text-foreground tracking-tight">Order Cart</h2>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold">{cart.length} Items</p>
+              </div>
+          </div>
+          <Button variant="ghost" size="icon" className="text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 rounded-xl" onClick={() => setCart([])}>
+              <FiTrash2 className="size-4" />
+          </Button>
+      </div>
+
+      {/* Cart Items List */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-3 scrollbar-hide">
+          <AnimatePresence>
+              {cart.map(item => (
+                  <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, x: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -20, scale: 0.95 }}
+                      className="group flex flex-col gap-3 p-3 rounded-2xl bg-card border border-border/30 hover:bg-accent/40 hover:border-border/50 transition-all shadow-sm"
+                  >
+                      <div className="flex gap-3">
+                          <div className="size-14 rounded-xl overflow-hidden bg-muted border border-border/50 shrink-0">
+                              {item.image_url ? (
+                                  <img src={item.image_url} className="w-full h-full object-cover" />
+                              ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-accent/20 to-primary/10">
+                                      <FiPackage className="size-5 text-primary/30" />
+                                  </div>
+                              )}
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-center">
+                              <p className="text-xs font-black uppercase text-foreground truncate">{item.name}</p>
+                              <p className="text-primary font-black text-xs mt-0.5">{formatCurrency(item.selling_price)}</p>
+                          </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between border-t border-border/10 pt-2.5 mt-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Qty</span>
+                          <div className="flex items-center bg-muted dark:bg-zinc-800 rounded-xl border border-border/30 p-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-8 rounded-lg hover:bg-accent text-muted-foreground" onClick={() => updateQuantity(item.id, -1)}>
+                                  <FiMinus className="size-3" />
+                              </Button>
+                              <span className="w-8 text-center text-xs font-black text-foreground">{item.quantity}</span>
+                              <Button variant="ghost" size="icon" className="h-7 w-8 rounded-lg hover:bg-accent text-muted-foreground" onClick={() => updateQuantity(item.id, 1)}>
+                                  <FiPlus className="size-3" />
+                              </Button>
+                          </div>
+                      </div>
+                  </motion.div>
+              ))}
+          </AnimatePresence>
+          {cart.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground/85 gap-4 py-16 opacity-60">
+                  <div className="size-20 rounded-full border border-dashed border-border/80 flex items-center justify-center">
+                      <FiShoppingCart className="size-7 text-primary/40" />
+                  </div>
+                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground/60">No items in cart</p>
+              </div>
+          )}
+      </div>
+
+      {/* Checkout Section at the bottom */}
+      <div className="p-5 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-2xl border-t border-border/30 space-y-5 shrink-0">
+          {/* Order Type Toggle */}
+          <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/65 ml-1">Order Settings</label>
+              <div className="flex p-1 bg-muted dark:bg-zinc-800 rounded-2xl border border-border/20 relative">
+                  {['dine-in', 'take-out'].map((type) => (
+                      <button
+                          key={type}
+                          onClick={() => setOrderType(type)}
+                          className={cn(
+                              "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all z-10",
+                              orderType === type ? "text-foreground drop-shadow" : "text-muted-foreground/60 hover:text-muted-foreground"
+                          )}
+                      >
+                          {type.replace('-', ' ')}
+                      </button>
+                  ))}
+                  <div 
+                      className="absolute top-1 bottom-1 bg-accent/80 dark:bg-zinc-700/80 rounded-xl border border-border/10 shadow-sm transition-all duration-300"
+                      style={{
+                          width: 'calc(50% - 4px)',
+                          left: orderType === 'dine-in' ? '4px' : 'calc(50% + 2px)'
+                      }}
+                  />
+              </div>
+          </div>
+
+          {/* Payment Selection */}
+          <div className="space-y-2">
+              <label className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/65 ml-1">Payment Method</label>
+              <div className="grid grid-cols-3 gap-2">
+                  {['cash', 'card', 'e-wallet'].map((method) => (
+                      <button
+                          key={method}
+                          onClick={() => setPaymentMethod(method)}
+                          className={cn(
+                              "py-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all duration-300",
+                              paymentMethod === method
+                                  ? "bg-primary/10 border-primary/50 shadow-sm"
+                                  : "bg-card border-border/30 hover:bg-accent/30 text-muted-foreground/80"
+                          )}
+                      >
+                          <div className={cn(
+                              "size-7 rounded-full flex items-center justify-center border transition-colors", 
+                              paymentMethod === method 
+                                  ? "border-primary/30 text-primary bg-primary/10" 
+                                  : "border-border/30 text-muted-foreground bg-muted"
+                          )}>
+                              {method === 'cash' ? <span className="text-xs font-black">₱</span> : method === 'card' ? <FiPackage className="size-3"/> : <FiLayers className="size-3"/>}
+                          </div>
+                          <span className={cn("text-[8px] font-black uppercase tracking-widest", paymentMethod === method ? "text-primary" : "text-muted-foreground/60")}>{method}</span>
+                      </button>
+                  ))}
+              </div>
+          </div>
+
+          {/* Pricing Summary */}
+          <div className="space-y-2 pt-2 border-t border-border/10">
+              <div className="flex justify-between items-center text-muted-foreground/75 text-xs font-bold uppercase tracking-wider">
+                  <span>Subtotal</span>
+                  <span className="text-foreground dark:text-zinc-200 tabular-nums">{formatCurrency(cartTotal)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2.5 border-t border-border/20 gap-2">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-foreground">Total Amount</span>
+                  <span className="text-xl font-black text-primary drop-shadow-[0_0_12px_rgba(231,84,128,0.25)] text-right truncate tabular-nums">
+                      {formatCurrency(cartTotal)}
+                  </span>
+              </div>
+          </div>
+
+          <Button
+              className="w-full h-12 text-xs font-black uppercase tracking-[0.25em] rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/45 active:scale-[0.98] transition-all disabled:opacity-50 border border-primary/20 relative overflow-hidden group"
+              disabled={cart.length === 0 || processing}
+              onClick={handleCheckout}
+          >
+              <span className="relative z-10">{processing ? 'Processing...' : 'Checkout'}</span>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent z-0" />
+          </Button>
+      </div>
+  </div>
+  </div>
 
  {/* Payment Modal */}
  <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
@@ -1084,7 +1131,7 @@ export default function PosIndex() {
      </DialogFooter>
    </DialogContent>
  </Dialog>
- </AppLayout>
+
+  </AppLayout>
  );
 }
-

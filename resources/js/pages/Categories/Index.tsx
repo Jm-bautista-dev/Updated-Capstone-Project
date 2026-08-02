@@ -5,10 +5,19 @@ import AppLayout from '@/layouts/app-layout';
 import { ResultModal } from '@/components/result-modal';
 import {
     FiEdit2, FiTrash2, FiPlus, FiSearch, FiLayers, FiChevronLeft, FiChevronRight,
-    FiGrid, FiList 
+    FiGrid, FiList, FiMoreHorizontal, FiMinimize2, FiMaximize2, FiTrendingUp
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
     Dialog,
@@ -18,6 +27,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 type Category = {
     id: number;
@@ -94,6 +111,24 @@ export default function CategoriesIndex() {
     const { data, setData, processing, reset } = useForm({ name: '', description: '' });
 
     const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+    const activeCategories = useMemo(() => categories.filter(c => c.products_count > 0).length, [categories]);
+    const totalProducts = useMemo(() => categories.reduce((sum, c) => sum + (c.products_count || 0), 0), [categories]);
+    const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [sortBy, setSortBy] = useState<string>('name');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+    const toggleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(paginatedData.map(c => c.id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const toggleSelectRow = (id: number) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
 
     const validateField = (name: string, value: any) => {
         let error = '';
@@ -227,23 +262,26 @@ export default function CategoriesIndex() {
         <AppLayout breadcrumbs={[{ title: 'Categories', href: '/categories' }]}>
             <Head title="Categories" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
-                {/* ── Page header ─────────────────────────────────────────── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b bg-background flex-shrink-0">
-                    <div className="flex items-center gap-4">
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
+                {/* ── Executive Header ── */}
+                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        <FiLayers className="text-primary size-6 animate-pulse" />
                         <div>
-                            <h1 className="text-base font-semibold text-foreground">Categories</h1>
-                            <p className="text-sm text-muted-foreground mt-0.5 whitespace-nowrap">
-                                Unified product labels.
+                            <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground leading-none">Categories</h1>
+                            <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
+                                Manage all product categories and organization labels.
                             </p>
                         </div>
-                        
-                        {/* View Switcher */}
-                        <div className="hidden sm:flex border rounded-lg p-0.5 bg-muted/30 ml-2">
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Desktop View Switcher */}
+                        <div className="hidden md:flex border rounded-lg p-0.5 bg-[var(--ops-surface-sunken)]/60">
                              <Button 
                                 variant={viewMode === 'table' ? 'secondary' : 'ghost'} 
                                 size="sm" 
-                                className="h-7 px-3 rounded-md gap-1.5 text-[10px] font-black uppercase transition-all shadow-sm"
+                                className="h-7 px-3 rounded-md gap-1.5 text-[10px] font-black uppercase transition-all"
                                 onClick={() => toggleViewMode('table')}
                              >
                                 <FiList className="size-3" />
@@ -252,213 +290,265 @@ export default function CategoriesIndex() {
                              <Button 
                                 variant={viewMode === 'card' ? 'secondary' : 'ghost'} 
                                 size="sm" 
-                                className="h-7 px-3 rounded-md gap-1.5 text-[10px] font-black uppercase transition-all shadow-sm"
+                                className="h-7 px-3 rounded-md gap-1.5 text-[10px] font-black uppercase transition-all"
                                 onClick={() => toggleViewMode('card')}
                              >
                                 <FiGrid className="size-3" />
                                 Cards
                              </Button>
                         </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
-                            <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                            <Input
-                                placeholder="Search..."
-                                value={search}
-                                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                                className="pl-8 h-9 w-40 sm:w-56 text-sm bg-muted/20"
-                            />
-                        </div>
                         {isAdmin && (
-                            <Button size="sm" onClick={openAddModal} className="h-9 gap-1.5 text-sm font-bold shadow-lg shadow-primary/20">
-                                <FiPlus className="size-3.5" />
-                                <span className="hidden sm:inline">Add Category</span>
+                            <Button 
+                                onClick={openAddModal} 
+                                className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0"
+                            >
+                                <FiPlus className="size-4" /> <span>Add Category</span>
                             </Button>
                         )}
                     </div>
                 </div>
 
-                {/* ── Summary strip ───────────────────────────────────────── */}
-                <div className="flex items-center gap-6 px-6 py-2.5 border-b bg-muted/5 flex-shrink-0">
-                    <div className="flex items-center gap-2 text-sm">
-                        <FiLayers className="size-3.5 text-muted-foreground" />
-                        <span className="font-bold text-foreground">{summary?.total_categories ?? categories.length}</span>
-                        <span className="text-muted-foreground text-[11px] uppercase font-black tracking-wider">categories</span>
-                    </div>
-                    <div className="text-[11px] uppercase font-black text-muted-foreground tracking-wider">
-                        {filteredData.length !== categories.length && (
-                            <span>{filteredData.length} matches found</span>
-                        )}
-                    </div>
-                </div>
+                {/* ── Content Layout ── */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
+                    {/* KPI Cards Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Categories</p>
+                                <FiGrid className="size-4 text-[var(--ops-text-secondary)]" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{categories.length}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Active groups</p>
+                            </div>
+                        </div>
 
-                {/* ── Content View ────────────────────────────────────────── */}
-                <div className="flex-1 overflow-auto bg-muted/5 p-6 custom-scrollbar">
-                    {viewMode === 'table' ? (
-                        /* TABLE VIEW (Unchanged design, wrapped in overflow container) */
-                        <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
-                            <table className="w-full text-sm">
-                                <thead className="bg-muted/50 border-b">
-                                    <tr>
-                                        <th className="h-10 px-6 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Category</th>
-                                        <th className="h-10 px-6 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Products</th>
-                                        {isAdmin && (
-                                            <th className="h-10 px-6 text-right text-[10px] font-black uppercase tracking-widest text-muted-foreground">Actions</th>
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Active Categories</p>
+                                <FiTrendingUp className="size-4 text-emerald-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-emerald-500 tabular-nums leading-none">{activeCategories}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Contains products</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Products</p>
+                                <FiLayers className="size-4 text-[var(--ops-text-secondary)]" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-[var(--ops-text-primary)] tabular-nums leading-none">{totalProducts}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Across all categories</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* STICKY TOOLBAR FILTERS */}
+                    <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+                                {/* Search box */}
+                                <div className="relative w-full sm:w-64">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                                    <Input
+                                        placeholder="Search categories..."
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                        className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Density & Grid Toggle */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center border border-[var(--ops-border)] rounded-[10px] p-0.5 bg-[var(--ops-surface-sunken)]">
+                                    <button
+                                        onClick={() => setDensity('compact')}
+                                        className={cn(
+                                            "p-1.5 rounded-[8px] transition-all",
+                                            density === 'compact' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
                                         )}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {paginatedData.length === 0 ? (
+                                        title="Compact Density"
+                                    >
+                                        <FiMinimize2 className="size-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setDensity('comfortable')}
+                                        className={cn(
+                                            "p-1.5 rounded-[8px] transition-all",
+                                            density === 'comfortable' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                                        )}
+                                        title="Comfortable Density"
+                                    >
+                                        <FiMaximize2 className="size-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CATEGORY TABLE CONTAINER */}
+                    {viewMode === 'table' ? (
+                        <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
+                                    <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
                                         <tr>
-                                            <td colSpan={3} className="px-6 py-12 text-center text-sm text-muted-foreground">
-                                                {search ? `No categories match "${search}".` : 'No categories yet.'}
-                                            </td>
+                                            <th className="px-4 py-3.5 w-10">
+                                                {isAdmin && (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                                                        checked={paginatedData.length > 0 && paginatedData.every(r => selectedIds.includes(r.id))}
+                                                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                                                    />
+                                                )}
+                                            </th>
+                                            <th className="px-6 py-3.5 font-black">Category details</th>
+                                            <th className="px-6 py-3.5 font-black text-center">Products Count</th>
+                                            <th className="px-6 py-3.5 font-black text-right">Actions</th>
                                         </tr>
-                                    ) : paginatedData.map((category) => (
-                                        <tr key={category.id} className="hover:bg-muted/40 transition-colors group">
-                                            <td className="px-6 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="size-10 rounded-lg bg-muted border overflow-hidden flex-shrink-0 shadow-inner">
-                                                        {category.image_url ? (
-                                                            <img src={category.image_url} alt="" className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center">
-                                                                <FiLayers className="size-4 text-muted-foreground/40" />
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--ops-border-subtle)] bg-[var(--ops-surface-raised)]">
+                                        <AnimatePresence mode="popLayout">
+                                            {paginatedData.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-12 text-center">
+                                                        <div className="flex flex-col items-center justify-center text-[var(--ops-text-muted)] gap-3">
+                                                            <FiLayers className="size-10 opacity-30 animate-bounce" />
+                                                            <p className="text-sm font-bold uppercase tracking-widest text-[var(--ops-text-primary)]">No categories found</p>
+                                                            <p className="text-[10px] font-medium max-w-xs uppercase tracking-wider text-[var(--ops-text-muted)]">Try adjusting filters or add a new category label</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paginatedData.map(category => (
+                                                    <tr 
+                                                        key={category.id}
+                                                        className="cursor-pointer group select-none hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative border-b border-[var(--ops-border)]"
+                                                        onClick={() => openEditModal(category)}
+                                                    >
+                                                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                                                                checked={selectedIds.includes(category.id)}
+                                                                onChange={() => toggleSelectRow(category.id)}
+                                                            />
+                                                        </td>
+                                                        <td className={cn("px-6", density === 'compact' ? "py-2" : "py-3.5")}>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="size-10 rounded-lg bg-[var(--ops-surface-sunken)] border overflow-hidden shrink-0 shadow-inner flex items-center justify-center">
+                                                                    {category.image_url ? (
+                                                                        <img src={category.image_url} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <FiLayers className="size-5 text-[var(--ops-text-muted)]/30" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-[var(--ops-text-primary)] leading-tight">{category.name}</span>
+                                                                    {category.description && (
+                                                                        <span className="text-[9px] text-[var(--ops-text-muted)] mt-0.5 truncate max-w-xs">{category.description}</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-foreground">{category.name}</p>
-                                                        {category.description && (
-                                                            <p className="text-[11px] text-muted-foreground truncate max-w-xs leading-none mt-1">
-                                                                {category.description}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <span className="text-sm font-bold text-foreground">{category.products_count}</span>
-                                                <span className="text-xs text-muted-foreground ml-1 font-medium">
-                                                    {category.products_count === 1 ? 'product' : 'products'}
-                                                </span>
-                                            </td>
-                                            {isAdmin && (
-                                                <td className="px-6 py-3 text-right">
-                                                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 duration-200">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                                                            onClick={() => openEditModal(category)}
-                                                        >
-                                                            <FiEdit2 className="size-3.5" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg"
-                                                            onClick={() => openDeleteModal(category)}
-                                                        >
-                                                            <FiTrash2 className="size-3.5" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
+                                                        </td>
+                                                        <td className="px-6 text-center">
+                                                            <span className="font-black text-lg italic tracking-tighter leading-none text-[var(--ops-text-primary)]">
+                                                                {category.products_count}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 text-right" onClick={e => e.stopPropagation()}>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-[var(--ops-surface-sunken)]">
+                                                                        <FiMoreHorizontal className="size-4 text-[var(--ops-text-muted)]" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-40 bg-[var(--ops-surface-raised)] border-[var(--ops-border)] rounded-[12px] p-1.5 shadow-2xl text-[var(--ops-text-secondary)]">
+                                                                    <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Options</DropdownMenuLabel>
+                                                                    <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)]" onClick={() => openEditModal(category)}>
+                                                                        Edit Category
+                                                                    </DropdownMenuItem>
+                                                                    {isAdmin && (
+                                                                        <>
+                                                                            <DropdownMenuSeparator className="bg-[var(--ops-border)] my-1" />
+                                                                            <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)] text-rose-500 hover:text-rose-600" onClick={() => openDeleteModal(category)}>
+                                                                                Delete Category
+                                                                            </DropdownMenuItem>
+                                                                        </>
+                                                                    )}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </td>
+                                                    </tr>
+                                                ))
                                             )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                        </AnimatePresence>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     ) : (
-                        /* CARD VIEW (New modern layout) */
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-                            {paginatedData.length === 0 ? (
-                                <div className="col-span-full h-40 flex items-center justify-center border-2 border-dashed rounded-3xl text-muted-foreground italic">
-                                    No categories found.
-                                </div>
-                            ) : paginatedData.map((category) => (
-                                <div 
+                        /* CARD VIEW */
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                            {paginatedData.map(category => (
+                                <motion.div
                                     key={category.id}
-                                    className="group relative flex flex-col bg-card border rounded-[32px] p-5 shadow-sm hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1.5 transition-all duration-300 overflow-hidden"
+                                    layout
+                                    className="group relative rounded-3xl bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
+                                    onClick={() => openEditModal(category)}
                                 >
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="size-14 rounded-2xl bg-muted border-2 border-background overflow-hidden flex-shrink-0 shadow-lg">
-                                            {category.image_url ? (
-                                                <img src={category.image_url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                                                    <FiLayers className="size-6 text-primary/30" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="bg-primary/10 text-primary text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
-                                            {category.products_count} Items
+                                    <div className="relative aspect-square w-full bg-[var(--ops-surface-sunken)] overflow-hidden">
+                                        {category.image_url ? (
+                                            <img src={category.image_url} alt={category.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center opacity-25">
+                                                <FiLayers className="size-10 text-[var(--ops-text-muted)]" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-4 flex flex-col gap-1.5 bg-[var(--ops-surface-raised)]">
+                                        <h3 className="font-bold text-foreground text-sm leading-tight truncate">{category.name}</h3>
+                                        <div className="flex justify-between items-end mt-2 pt-2 border-t border-[var(--ops-border-subtle)]">
+                                            <span className="text-xs font-bold text-[var(--ops-text-primary)]">{category.products_count} products</span>
                                         </div>
                                     </div>
-
-                                    <div className="space-y-1.5">
-                                        <h3 className="font-black text-foreground text-lg tracking-tight group-hover:text-primary transition-colors">{category.name}</h3>
-                                        <p className="text-xs text-muted-foreground line-clamp-2 min-h-[32px] leading-relaxed">
-                                            {category.description || 'Global product classification.'}
-                                        </p>
-                                    </div>
-
-                                    {isAdmin && (
-                                        <div className="flex gap-2 mt-5 pt-4 border-t border-muted/50 opacity-0 group-hover:opacity-100 transition-all translate-y-3 group-hover:translate-y-0 duration-300">
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                className="flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-widest gap-2 shadow-sm"
-                                                onClick={() => openEditModal(category)}
-                                            >
-                                                <FiEdit2 className="size-3" />
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-muted/30"
-                                                onClick={() => openDeleteModal(category)}
-                                            >
-                                                <FiTrash2 className="size-3.5" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
+                                </motion.div>
                             ))}
                         </div>
                     )}
-                </div>
 
-                {/* ── Pagination ──────────────────────────────────────────── */}
-                <div className="flex items-center justify-between px-6 py-3 border-t bg-background flex-shrink-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {filteredData.length === 0
-                            ? '0 RESULTS'
-                            : `${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, filteredData.length)} of ${filteredData.length}`}
-                    </p>
-                    <div className="flex gap-1.5">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="size-8 rounded-lg shadow-sm"
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(p => p - 1)}
-                        >
-                            <FiChevronLeft className="size-4" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="size-8 rounded-lg shadow-sm"
-                            disabled={currentPage >= totalPages}
-                            onClick={() => setCurrentPage(p => p + 1)}
-                        >
-                            <FiChevronRight className="size-4" />
-                        </Button>
+                    {/* PAGINATION BOTTOM BAR */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-2xl shadow-sm gap-4 shrink-0">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">Show</span>
+                            <Select value={String(itemsPerPage)} onValueChange={() => {}}>
+                                <SelectTrigger className="w-16 h-8 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-lg text-xs font-bold text-[var(--ops-text-primary)]">
+                                    <SelectValue placeholder="10" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[var(--ops-surface-raised)] border-[var(--ops-border)]">
+                                    {[5, 10, 25, 50].map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <span className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">
+                                Results {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length}
+                            </span>
+                        </div>
+
+                        <div className="flex gap-1">
+                            <Button variant="outline" size="icon" disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="rounded-lg size-8"><FiChevronLeft className="size-4" /></Button>
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                const p = i + 1;
+                                return (
+                                    <Button key={p} variant={currentPage === p ? 'default' : 'ghost'} onClick={() => setCurrentPage(p)} className="size-8 rounded-lg text-xs font-bold">{p}</Button>
+                                );
+                            })}
+                            <Button variant="outline" size="icon" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(c => c + 1)} className="rounded-lg size-8"><FiChevronRight className="size-4" /></Button>
+                        </div>
                     </div>
                 </div>
             </div>

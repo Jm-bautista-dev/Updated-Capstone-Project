@@ -55,7 +55,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
             <div className="flex items-start justify-between w-full px-2 overflow-x-auto no-scrollbar relative">
                 {/* Continuous Background Line (Fixed Position) */}
-                <div className="absolute top-[18px] left-0 right-0 h-0.5 bg-muted/30 -z-0 mx-8" />
+                <div className="absolute top-[18px] left-0 right-0 h-0.5 bg-[var(--ops-surface-sunken)]/60 -z-0 mx-8" />
                 
                 {STATUS_STEPS.map((step, i) => {
                     const isCompleted = i < currentIndex;
@@ -70,7 +70,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                                 "relative border-2 border-transparent",
                                 isCompleted ? "bg-emerald-100 text-emerald-600 border-emerald-200 shadow-sm" : "",
                                 isCurrent ? "bg-primary text-primary-foreground shadow-xl shadow-primary/30 scale-110 ring-4 ring-primary/10 animate-pulse-subtle" : "",
-                                !isCompleted && !isCurrent ? "bg-background border-muted text-muted-foreground/40" : ""
+                                !isCompleted && !isCurrent ? "bg-[var(--ops-page-bg)] border-muted text-[var(--ops-text-muted)]/40" : ""
                             )}>
                                 <Icon className={cn("size-4 transition-transform duration-500", isCurrent && "scale-110")} />
                                 
@@ -84,7 +84,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                             <div className="mt-3 h-10 flex items-start justify-center">
                                 <span className={cn(
                                     "text-[8px] sm:text-[9px] font-black uppercase tracking-tighter sm:tracking-widest text-center leading-[1.1] transition-all duration-500",
-                                    isCurrent ? "text-primary scale-110" : "text-muted-foreground/60",
+                                    isCurrent ? "text-primary scale-110" : "text-[var(--ops-text-muted)]/60",
                                     isCompleted ? "text-emerald-600/80" : ""
                                 )}>
                                     {step.label}
@@ -113,9 +113,9 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                     <Image className="size-4 text-emerald-600" />
                 </div>
                 <div>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Proof of Delivery</p>
+                    <p className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">Proof of Delivery</p>
                     {deliveredAt && (
-                        <p className="text-xs text-muted-foreground">{formatDate(deliveredAt)} at {formatTime(deliveredAt)}</p>
+                        <p className="text-xs text-[var(--ops-text-muted)]">{formatDate(deliveredAt)} at {formatTime(deliveredAt)}</p>
                     )}
                 </div>
             </div>
@@ -132,15 +132,15 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                     className="w-full object-cover max-h-48 group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 flex items-center gap-1.5 transition-all">
+                    <div className="opacity-0 group-hover:opacity-100 bg-[var(--ops-surface-raised)]/90 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 flex items-center gap-1.5 transition-all">
                         <ExternalLink className="size-3" /> Click to zoom
                     </div>
                 </div>
             </button>
 
             {riderName && (
-                <p className="text-xs text-muted-foreground font-medium px-1">
-                    📸 Captured by <span className="font-bold text-foreground">{riderName}</span>
+                <p className="text-xs text-[var(--ops-text-muted)] font-medium px-1">
+                    📸 Captured by <span className="font-bold text-[var(--ops-text-primary)]">{riderName}</span>
                 </p>
             )}
 
@@ -169,11 +169,11 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
 function InfoRow({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
     return (
         <div className="flex items-start gap-3">
-            <div className="size-9 rounded-xl bg-muted/50 flex items-center justify-center shrink-0 mt-0.5">
-                <Icon className="size-4 text-muted-foreground" />
+            <div className="size-9 rounded-xl bg-[var(--ops-surface-sunken)]/200 flex items-center justify-center shrink-0 mt-0.5">
+                <Icon className="size-4 text-[var(--ops-text-muted)]" />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">{label}</p>
+                <p className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest mb-0.5">{label}</p>
                 <div className="text-sm">{children}</div>
             </div>
         </div>
@@ -224,15 +224,15 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     <Separator />
 
                     {/* Amount */}
-                    <div className="bg-muted/30 rounded-2xl p-4 flex items-center justify-between">
+                    <div className="bg-[var(--ops-surface-sunken)]/60 rounded-2xl p-4 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Order Total</p>
+                            <p className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">Order Total</p>
                             <p className="text-2xl font-black text-primary tabular-nums">
                                 {formatCurrency(delivery.sale?.total ?? delivery.order?.total_amount ?? 0)}
                             </p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Delivery Fee</p>
+                            <p className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">Delivery Fee</p>
                             <p className="text-lg font-bold tabular-nums">{formatCurrency(delivery.delivery_fee)}</p>
                         </div>
                     </div>
@@ -241,7 +241,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 
                     {/* Customer Info */}
                     <div className="space-y-4">
-                        <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Customer Information</h4>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Customer Information</h4>
 
                         <InfoRow icon={User} label="Name">
                             <p className="font-bold">{delivery.customer_name}</p>
@@ -261,7 +261,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         <InfoRow icon={MapPin} label="Delivery Address">
                             <p className="font-medium leading-relaxed">{delivery.customer_address}</p>
                             {delivery.distance_km && (
-                                <p className="text-xs text-muted-foreground mt-1">{delivery.distance_km}km from origin</p>
+                                <p className="text-xs text-[var(--ops-text-muted)] mt-1">{delivery.distance_km}km from origin</p>
                             )}
                         </InfoRow>
                     </div>
@@ -271,7 +271,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     {/* Order Items */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Order Items</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Order Items</h4>
                             <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] font-bold">
                                 {((delivery.sale?.items || delivery.order?.items) || []).length} items
                             </Badge>
@@ -279,8 +279,8 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 
                         <div className="space-y-2">
                             {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
-                                <div key={item.id} className="flex items-center gap-3 bg-muted/20 p-2.5 rounded-xl border border-transparent hover:border-border transition-colors">
-                                    <div className="size-10 rounded-lg bg-background flex items-center justify-center shrink-0 border overflow-hidden">
+                                <div key={item.id} className="flex items-center gap-3 bg-[var(--ops-surface-sunken)]/20 p-2.5 rounded-xl border border-transparent hover:border-[var(--ops-border)] transition-colors">
+                                    <div className="size-10 rounded-lg bg-[var(--ops-page-bg)] flex items-center justify-center shrink-0 border overflow-hidden">
                                         {item.product?.image_url ? (
                                             <img 
                                                 src={item.product.image_url} 
@@ -288,12 +288,12 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                                 className="w-full h-full object-cover" 
                                             />
                                         ) : (
-                                            <Package className="size-5 text-muted-foreground/40" />
+                                            <Package className="size-5 text-[var(--ops-text-muted)]/40" />
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-bold truncate">{item.product?.name || 'Product'}</p>
-                                        <p className="text-xs text-muted-foreground font-medium">
+                                        <p className="text-xs text-[var(--ops-text-muted)] font-medium">
                                             {formatCurrency(item.unit_price ?? item.price ?? 0)} × {item.quantity}
                                         </p>
                                     </div>
@@ -305,7 +305,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                 </div>
                             ))}
                             {(!delivery.sale?.items && !delivery.order?.items) && (
-                                <p className="text-xs text-muted-foreground italic text-center py-4">No items listed for this order.</p>
+                                <p className="text-xs text-[var(--ops-text-muted)] italic text-center py-4">No items listed for this order.</p>
                             )}
                         </div>
                     </div>
@@ -315,7 +315,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     {/* Courier Info */}
                     <div className="space-y-4 pb-8">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Courier Details</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Courier Details</h4>
                             {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
                                 <Button
                                     variant="outline"
@@ -344,7 +344,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             </div>
                             {delivery.tracking_number && (
                                 <div className="flex items-center gap-2 mt-1">
-                                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-muted/30">
+                                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-[var(--ops-surface-sunken)]/60">
                                         {delivery.tracking_number}
                                     </Badge>
                                 </div>
@@ -357,7 +357,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 
                         {delivery.external_notes && (
                             <InfoRow icon={FileText} label="Notes">
-                                <p className="text-muted-foreground">{delivery.external_notes}</p>
+                                <p className="text-[var(--ops-text-muted)]">{delivery.external_notes}</p>
                             </InfoRow>
                         )}
 
@@ -416,7 +416,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         />
                     )}
 
-                    <Button variant="ghost" className="col-span-2 rounded-2xl gap-2 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 text-xs font-bold">
+                    <Button variant="ghost" className="col-span-2 rounded-2xl gap-2 text-[var(--ops-text-muted)] hover:text-rose-600 hover:bg-rose-50 text-xs font-bold">
                         <AlertCircle className="size-3.5" />
                         Report Issue
                     </Button>
@@ -424,7 +424,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
             </SheetContent>
 
             {/* 🖨️ PRINT-ONLY WAYBILL SECTION */}
-            <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8 text-black font-sans">
+            <div className="hidden print:block fixed inset-0 bg-[var(--ops-surface-raised)] z-[9999] p-8 text-black font-sans">
                 <style dangerouslySetInnerHTML={{ __html: `
                     @media print {
                         body * { visibility: hidden; }
@@ -436,13 +436,13 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                 
                 <div className="print-content max-w-[400px] mx-auto border-2 border-black p-6 space-y-6">
                     {/* Header */}
-                    <div className="text-center border-b-2 border-black pb-4">
+                    <div className="text-center border-b border-[var(--ops-border)]-2 border-black pb-4">
                         <h1 className="text-2xl font-black uppercase tracking-tighter">MAKI DESU</h1>
                         <p className="text-[10px] font-bold uppercase">Official Delivery Waybill</p>
                     </div>
 
                     {/* Order Meta */}
-                    <div className="flex justify-between items-end border-b-2 border-dashed border-black pb-4">
+                    <div className="flex justify-between items-end border-b border-[var(--ops-border)]-2 border-dashed border-black pb-4">
                         <div>
                             <p className="text-[8px] font-black uppercase text-gray-500">Tracking / Order ID</p>
                             <p className="text-xl font-black italic">
@@ -523,7 +523,7 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
                             <AlertCircle className="size-8 text-rose-600" />
                         </div>
                         <h2 className="text-2xl font-black tracking-tight">Cancel Delivery?</h2>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <p className="text-sm text-[var(--ops-text-muted)] leading-relaxed">
                             This will permanently stop the delivery process. <br/>
                             This action is final and will be logged.
                         </p>
@@ -531,11 +531,11 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
 
                     <div className="space-y-4">
                         <div>
-                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Reason for Cancellation</label>
+                            <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] ml-1">Reason for Cancellation</label>
                             <textarea
                                 value={reason}
                                 onChange={e => setReason(e.target.value)}
-                                className="w-full mt-1.5 p-4 rounded-2xl border bg-muted/20 text-sm min-h-[100px] focus:ring-2 focus:ring-rose-500/20 transition-all outline-none resize-none"
+                                className="w-full mt-1.5 p-4 rounded-2xl border bg-[var(--ops-surface-sunken)]/20 text-sm min-h-[100px] focus:ring-2 focus:ring-rose-500/20 transition-all outline-none resize-none"
                                 placeholder="Why is this order being cancelled?"
                             />
                         </div>

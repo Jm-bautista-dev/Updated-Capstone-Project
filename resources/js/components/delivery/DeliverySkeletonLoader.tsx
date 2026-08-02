@@ -12,7 +12,7 @@ function TableSkeleton({ count = 8 }: { count?: number }) {
     return (
         <div className="rounded-2xl border overflow-hidden">
             {/* Header */}
-            <div className="bg-muted/30 px-6 py-3 flex gap-4 items-center border-b">
+            <div className="bg-[var(--ops-surface-sunken)]/60 px-6 py-3 flex gap-4 items-center border-b border-[var(--ops-border)]">
                 {[80, 100, 120, 80, 100, 80, 80, 60].map((w, i) => (
                     <Skeleton key={i} className="h-3 rounded-full" style={{ width: w }} />
                 ))}
@@ -21,7 +21,7 @@ function TableSkeleton({ count = 8 }: { count?: number }) {
             {Array.from({ length: count }).map((_, i) => (
                 <div
                     key={i}
-                    className="px-6 py-4 flex gap-4 items-center border-b last:border-b-0"
+                    className="px-6 py-4 flex gap-4 items-center border-b border-[var(--ops-border)] last:border-b border-[var(--ops-border)]-0"
                     style={{ animationDelay: `${i * 75}ms` }}
                 >
                     <Skeleton className="h-6 w-20 rounded-full" />

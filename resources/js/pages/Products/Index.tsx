@@ -20,7 +20,14 @@ import {
     FiList,
     FiZap,
     FiCheck,
-    FiChevronDown
+    FiChevronDown,
+    FiMoreHorizontal,
+    FiActivity,
+    FiTrendingUp,
+    FiX,
+    FiMinimize2,
+    FiMaximize2,
+    FiLayers,
 } from 'react-icons/fi';
 import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
@@ -52,10 +59,18 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
-import { 
-    normalizeUnit, 
-    convertToBaseQuantityWithIngredient 
+import {
+    normalizeUnit,
+    convertToBaseQuantityWithIngredient
 } from '@/lib/unit-converter';
 
 type Category = {
@@ -102,6 +117,7 @@ type Product = {
     max_servings?: number;
     blocking_ingredients?: { name: string; stock: number; required: number; unit: string }[];
     created_at: string;
+    barcode?: string;
 };
 
 type Summary = {
@@ -134,18 +150,18 @@ const SearchableIngredientSelect = ({ value, onValueChange, ingredients, placeho
                     variant="outline" 
                     role="combobox" 
                     aria-expanded={open} 
-                    className={cn("flex-1 h-9 bg-muted/10 border-input/50 text-[11px] font-bold justify-between px-3", className)}
+                    className={cn("flex-1 h-9 bg-[var(--ops-surface-sunken)]/40 border-[var(--ops-border)] text-[11px] font-bold justify-between px-3", className)}
                 >
                     <span className="truncate">{selectedIng ? selectedIng.name : placeholder}</span>
                     <FiChevronDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0 shadow-2xl border-primary/10 rounded-xl overflow-hidden" align="start">
-                <div className="flex items-center border-b border-border/50 px-3 bg-muted/5">
-                    <FiSearch className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <div className="flex items-center border-b border-[var(--ops-border)] border-[var(--ops-border)] px-3 bg-[var(--ops-surface-sunken)]/20">
+                    <FiSearch className="mr-2 h-3.5 w-3.5 shrink-0 text-[var(--ops-text-muted)]" />
                     <Input 
                         placeholder="Search materials..." 
-                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-xs outline-none border-none focus-visible:ring-0 placeholder:text-muted-foreground/50 font-medium" 
+                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-xs outline-none border-none focus-visible:ring-0 placeholder:text-[var(--ops-text-muted)]/50 font-medium" 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         autoFocus
@@ -153,7 +169,7 @@ const SearchableIngredientSelect = ({ value, onValueChange, ingredients, placeho
                 </div>
                 <div className="max-h-[250px] overflow-y-auto p-1 custom-scrollbar">
                     {filteredIngredients.length === 0 ? (
-                        <div className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 italic">No material found</div>
+                        <div className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]/40 italic">No material found</div>
                     ) : (
                         filteredIngredients.map(ing => (
                             <div
@@ -234,6 +250,8 @@ export default function ProductsIndex() {
     const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [drawerTab, setDrawerTab] = useState<'overview' | 'recipe'>('overview');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
@@ -254,6 +272,26 @@ export default function ProductsIndex() {
     });
 
     const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+    const activeProducts = useMemo(() => products.filter(p => p.status?.toLowerCase() === 'active').length, [products]);
+    const inactiveProducts = useMemo(() => products.filter(p => p.status?.toLowerCase() === 'inactive' || p.status?.toLowerCase() === 'archived').length, [products]);
+    const outOfStockProducts = useMemo(() => products.filter(p => p.stock <= 0).length, [products]);
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [sortBy, setSortBy] = useState<string>('name');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+    const toggleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(paginatedData.map(p => p.id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const toggleSelectRow = (id: number) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
     const [costWarning, setCostWarning] = useState<string | null>(null);
 
     const validateField = (name: string, value: any) => {
@@ -390,9 +428,21 @@ export default function ProductsIndex() {
                 (product.category?.name?.toLowerCase().includes(search.toLowerCase())) ||
                 (product.branch?.name?.toLowerCase().includes(search.toLowerCase()));
             const matchesCategory = !filterCategory || product.category_id.toString() === filterCategory;
-            return matchesSearch && matchesCategory;
+            
+            let matchesStatus = true;
+            if (filterStatus === 'active') {
+                matchesStatus = product.status.toLowerCase() === 'active';
+            } else if (filterStatus === 'inactive' || filterStatus === 'archived') {
+                matchesStatus = product.status.toLowerCase() === 'inactive' || product.status.toLowerCase() === 'archived';
+            } else if (filterStatus === 'out') {
+                matchesStatus = product.stock <= 0;
+            } else if (filterStatus === 'low') {
+                matchesStatus = product.stock > 0 && product.stock <= 5;
+            }
+
+            return matchesSearch && matchesCategory && matchesStatus;
         });
-    }, [products, search, filterCategory]);
+    }, [products, search, filterCategory, filterStatus]);
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const paginatedData = useMemo(() => {
@@ -547,8 +597,8 @@ export default function ProductsIndex() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'In Stock': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
-            case 'Low Stock': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-            case 'Out of Stock': return 'bg-destructive/10 text-destructive border-destructive/20';
+            case 'Low Stock': return 'bg-amber-500/10 text-amber-500 border-amber-500/30';
+            case 'Out of Stock': return 'bg-destructive/10 text-rose-500 bg-transparent border-rose-500/30';
             default: return '';
         }
     };
@@ -583,1382 +633,541 @@ export default function ProductsIndex() {
         <AppLayout breadcrumbs={[{ title: 'Products', href: '/products' }]}>
             <Head title="Products" />
 
-            {resolvedAppearance === 'dark' ? (
-<div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-[#050505] text-slate-200 font-sans relative selection:bg-primary/30">
-    {/* Ambient Gradients */}
-    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full pointer-events-none z-0" />
-    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none z-0" />
-
-    {/* Header */}
-    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 bg-white/[0.01] border-b border-white/5 backdrop-blur-3xl shrink-0">
-        <div className="flex items-center gap-4">
-            <div className="size-12 rounded-2xl bg-primary/20 flex items-center justify-center border border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.3)]">
-                <FiPackage className="text-primary size-6" />
-            </div>
-            <div>
-                <h1 className="text-2xl font-black text-white tracking-tight leading-none drop-shadow-md">Stock</h1>
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1.5">Stock Management</p>
-            </div>
-            
-            {/* View Switcher Toggle */}
-            <div className="hidden md:flex border border-white/10 rounded-xl p-1 bg-white/5 ml-4 shadow-inner">
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className={cn("h-8 px-4 rounded-lg gap-2 text-[10px] font-black uppercase transition-all shadow-sm", viewMode === 'table' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white')}
-                    onClick={() => toggleViewMode('table')}
-                >
-                    <FiList className="size-4" />
-                    List
-                </Button>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className={cn("h-8 px-4 rounded-lg gap-2 text-[10px] font-black uppercase transition-all shadow-sm", viewMode === 'card' ? 'bg-primary text-white' : 'text-slate-400 hover:text-white')}
-                    onClick={() => toggleViewMode('card')}
-                >
-                    <FiGrid className="size-4" />
-                    Cards
-                </Button>
-            </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-            {isAdmin && (
-                <Select value={currentBranchId ? String(currentBranchId) : 'all'} onValueChange={handleBranchFilter}>
-                    <SelectTrigger className="w-40 h-11 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-slate-200 focus:ring-1 focus:ring-primary shadow-inner">
-                        <SelectValue placeholder="All Branches" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#121212] border-white/10 text-slate-200">
-                        <SelectItem value="all">All Branches</SelectItem>
-                        {branches?.map((b: any) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
-                    </SelectContent>
-                </Select>
-            )}
-            
-            <div className="relative group">
-                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 size-4 group-focus-within:text-primary transition-colors" />
-                <Input
-                    placeholder="Search stock..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-11 h-11 w-64 bg-black/40 border border-white/10 rounded-xl text-slate-200 placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-primary transition-all shadow-inner"
-                />
-            </div>
-
-            <Select value={String(filterCategory)} onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}>
-                <SelectTrigger className="w-40 h-11 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-slate-200 focus:ring-1 focus:ring-primary shadow-inner">
-                    <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#121212] border-white/10 text-slate-200">
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map((c: any) => (<SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>))}
-                </SelectContent>
-            </Select>
-
-            {isAdmin && (
-                <Button 
-                    onClick={openAddModal} 
-                    className="h-11 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary),0.5)] active:scale-95 transition-all bg-primary text-primary-foreground border border-primary/50 group"
-                >
-                    <FiPlus className="size-4 mr-2 group-hover:rotate-90 transition-transform" /> New Product
-                </Button>
-            )}
-        </div>
-    </div>
-
-    {/* Main Content */}
-    <div className="relative z-10 flex-1 overflow-hidden flex flex-col p-6 gap-6">
-        
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-6 shrink-0">
-            {[
-                { label: 'Items in Stock', value: summary.total_products, icon: FiPackage, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-                { label: 'Running Low', value: summary.low_stock, icon: FiAlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-                { label: 'No Stock Available', value: summary.out_of_stock, icon: FiSlash, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
-            ].map((stat, i) => (
-                <div key={i} className={cn("relative p-5 rounded-3xl bg-white/[0.02] backdrop-blur-xl border flex items-center justify-between overflow-hidden group", stat.border)}>
-                    <div className={cn("absolute -right-4 -bottom-4 size-24 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity", stat.bg)} />
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{stat.label}</p>
-                        <p className={cn("text-3xl font-black mt-1", stat.color)}>{stat.value}</p>
+            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
+                {/* ── Executive Header ── */}
+                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        <FiPackage className="text-primary size-6 animate-pulse" />
+                        <div>
+                            <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground leading-none">Products</h1>
+                            <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
+                                Manage all products available in the inventory.
+                            </p>
+                        </div>
                     </div>
-                    <div className={cn("size-12 rounded-2xl flex items-center justify-center border", stat.bg, stat.border)}>
-                        <stat.icon className={cn("size-5", stat.color)} />
+
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Desktop View Switcher */}
+                        <div className="hidden md:flex border rounded-lg p-0.5 bg-[var(--ops-surface-sunken)]/60">
+                             <Button 
+                                variant={viewMode === 'table' ? 'secondary' : 'ghost'} 
+                                size="sm" 
+                                className="h-7 px-3 rounded-md gap-1.5 text-[10px] font-black uppercase transition-all"
+                                onClick={() => toggleViewMode('table')}
+                             >
+                                <FiList className="size-3" />
+                                Table
+                             </Button>
+                             <Button 
+                                variant={viewMode === 'card' ? 'secondary' : 'ghost'} 
+                                size="sm" 
+                                className="h-7 px-3 rounded-md gap-1.5 text-[10px] font-black uppercase transition-all"
+                                onClick={() => toggleViewMode('card')}
+                             >
+                                <FiGrid className="size-3" />
+                                Cards
+                             </Button>
+                        </div>
+                        {isAdmin && (
+                            <Button 
+                                onClick={openAddModal} 
+                                className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0"
+                            >
+                                <FiPlus className="size-4" /> <span>Add Product</span>
+                            </Button>
+                        )}
                     </div>
                 </div>
-            ))}
-        </div>
 
-        {/* View Mode content */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide pb-6">
-            {viewMode === 'table' ? (
-                /* DARK TABLE VIEW */
-                <div className="flex flex-col shadow-2xl border border-white/5 bg-white/[0.01] rounded-3xl backdrop-blur-md overflow-hidden min-w-max md:min-w-0">
-                    <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-10 bg-black/40 backdrop-blur-xl border-b border-white/5">
-                            <tr>
-                                <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-slate-400">Product Details</th>
+                {/* ── Content Layout ── */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
+                    {/* KPI Cards Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Products</p>
+                                <FiGrid className="size-4 text-[var(--ops-text-secondary)]" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{products.length}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Active catalog fleet</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Active Products</p>
+                                <FiTrendingUp className="size-4 text-emerald-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-emerald-500 tabular-nums leading-none">{activeProducts}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Currently live</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Archived Products</p>
+                                <FiLayers className="size-4 text-[var(--ops-text-muted)]" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-[var(--ops-text-secondary)] tabular-nums leading-none">{inactiveProducts}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">De-activated / drafts</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500/70">Out of Stock</p>
+                                <FiSlash className="size-4 text-rose-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-rose-500 tabular-nums leading-none">{outOfStockProducts}</h3>
+                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Needs replenishment</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* STICKY TOOLBAR FILTERS */}
+                    <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+                                {/* Search box */}
+                                <div className="relative w-full sm:w-64">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                                    <Input
+                                        placeholder="Search catalog SKU or name..."
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                        className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
+                                    />
+                                </div>
+
+                                {/* Branch selector (Admin only) */}
                                 {isAdmin && (
-                                    <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-slate-400 hidden xl:table-cell">Branch</th>
-                                )}
-                                <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-slate-400 hidden lg:table-cell">Category</th>
-                                <th className="h-12 px-6 text-center font-black uppercase tracking-widest text-[10px] text-slate-400">Stock Status</th>
-                                <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-slate-400 hidden sm:table-cell">Price</th>
-                                <th className="h-12 px-6 text-right font-black uppercase tracking-widest text-[10px] text-slate-400">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            <AnimatePresence mode="popLayout">
-                                {paginatedData.length === 0 ? (
-                                    <tr className="h-32 text-center text-slate-500 italic">
-                                        <td colSpan={5}>Empty catalog results.</td>
-                                    </tr>
-                                ) : paginatedData.map((product) => (
-                                    <motion.tr
-                                        key={product.id}
-                                        layout
-                                        className="transition-colors hover:bg-white/[0.04] group cursor-default"
+                                    <Select
+                                        value={currentBranchId ? String(currentBranchId) : 'all'}
+                                        onValueChange={handleBranchFilter}
                                     >
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="size-10 rounded-xl bg-black/40 border border-white/10 overflow-hidden shrink-0 shadow-inner">
-                                                    {product.image_url ? (
-                                                        <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center opacity-20"><FiPackage className="size-5" /></div>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-200 leading-tight">{product.name}</span>
-                                                    <span className="text-[10px] text-slate-500 font-mono uppercase font-black">{product.sku || 'No SKU'}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        {isAdmin && (
-                                            <td className="p-4 hidden xl:table-cell">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-black uppercase text-primary/80 tracking-wider italic">{product.branch?.name || 'N/A'}</span>
-                                                </div>
-                                            </td>
+                                        <SelectTrigger className="w-full sm:w-44 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                                            <SelectValue placeholder="All Branches" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                                            <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>
+                                            {branches?.map((b: any) => (
+                                                <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                {/* Category selector */}
+                                <Select value={String(filterCategory || 'all')} onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}>
+                                    <SelectTrigger className="w-full sm:w-44 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                                        <SelectValue placeholder="All Categories" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                                        <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Categories</SelectItem>
+                                        {categories.map((c: any) => (
+                                            <SelectItem key={c.id} value={String(c.id)} className="text-[10px] font-bold uppercase py-2">{c.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Status filter */}
+                                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                    <SelectTrigger className="w-full sm:w-36 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                                        <SelectValue placeholder="All Status" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                                        <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Status</SelectItem>
+                                        <SelectItem value="active" className="text-[10px] font-bold uppercase py-2 text-emerald-500">Active</SelectItem>
+                                        <SelectItem value="inactive" className="text-[10px] font-bold uppercase py-2 text-slate-500">Archived</SelectItem>
+                                        <SelectItem value="out" className="text-[10px] font-bold uppercase py-2 text-rose-500">Out of Stock</SelectItem>
+                                        <SelectItem value="low" className="text-[10px] font-bold uppercase py-2 text-amber-500">Low Stock</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Density & Grid Toggle */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center border border-[var(--ops-border)] rounded-[10px] p-0.5 bg-[var(--ops-surface-sunken)]">
+                                    <button
+                                        onClick={() => setDensity('compact')}
+                                        className={cn(
+                                            "p-1.5 rounded-[8px] transition-all",
+                                            density === 'compact' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
                                         )}
-                                        <td className="p-4 hidden lg:table-cell">
-                                            <Badge variant="outline" className="bg-primary/10 text-[10px] font-black text-primary uppercase tracking-tighter border-none px-2">{product.category?.name || 'GENERIC'}</Badge>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className={cn(
-                                                    "font-black text-xl italic tracking-tighter leading-none shadow-text",
-                                                    product.stock <= 0 ? "text-rose-500" : product.stock <= 5 ? "text-amber-500" : "text-emerald-500"
-                                                )}>
-                                                    {product.stock}
-                                                </span>
-                                                <span className="text-[8px] font-black uppercase text-slate-500 tracking-wider mt-1">Items Ready to Sell</span>
-                                                {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
-                                                    <div className="mt-2 flex flex-col items-center gap-1 w-full max-w-[120px]">
-                                                        <span className="text-[8px] font-black text-rose-500 uppercase">Missing:</span>
-                                                        <div className="flex flex-wrap justify-center gap-1">
-                                                            {product.blocking_ingredients.slice(0, 2).map((ing: any, i: number) => (
-                                                                <Badge key={i} variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-500 bg-rose-500/10 truncate max-w-full">
-                                                                    {ing.name}
-                                                                </Badge>
-                                                            ))}
-                                                            {product.blocking_ingredients.length > 2 && (
-                                                                <Badge variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-500 bg-rose-500/10">
-                                                                    +{product.blocking_ingredients.length - 2}
-                                                                </Badge>
-                                                            )}
+                                        title="Compact Density"
+                                    >
+                                        <FiMinimize2 className="size-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setDensity('comfortable')}
+                                        className={cn(
+                                            "p-1.5 rounded-[8px] transition-all",
+                                            density === 'comfortable' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                                        )}
+                                        title="Comfortable Density"
+                                    >
+                                        <FiMaximize2 className="size-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PRODUCT TABLE CONTAINER */}
+                    {viewMode === 'table' ? (
+                        <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
+                                    <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                                        <tr>
+                                            <th className="px-4 py-3.5 w-10">
+                                                {isAdmin && (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                                                        checked={paginatedData.length > 0 && paginatedData.every(r => selectedIds.includes(r.id))}
+                                                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                                                    />
+                                                )}
+                                            </th>
+                                            <th className="px-6 py-3.5 font-black">Product Details</th>
+                                            {isAdmin && <th className="px-6 py-3.5 font-black">Branch</th>}
+                                            <th className="px-6 py-3.5 font-black">Category</th>
+                                            <th className="px-6 py-3.5 font-black text-center">Stock Status</th>
+                                            <th className="px-6 py-3.5 font-black">Selling Price</th>
+                                            <th className="px-6 py-3.5 font-black text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--ops-border-subtle)] bg-[var(--ops-surface-raised)]">
+                                        <AnimatePresence mode="popLayout">
+                                            {paginatedData.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={7} className="px-6 py-12 text-center">
+                                                        <div className="flex flex-col items-center justify-center text-[var(--ops-text-muted)] gap-3">
+                                                            <FiPackage className="size-10 opacity-30 animate-bounce" />
+                                                            <p className="text-sm font-bold uppercase tracking-widest text-[var(--ops-text-primary)]">No products found</p>
+                                                            <p className="text-[10px] font-medium max-w-xs uppercase tracking-wider text-[var(--ops-text-muted)]">Try adjusting filters or add a new product specifications</p>
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-4 hidden sm:table-cell">
-                                            <span className="text-sm font-black text-emerald-400">{formatCurrency(product.selling_price)}</span>
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {isAdmin && (
-                                                    <Button variant="ghost" size="icon" onClick={() => openEditModal(product)} className="h-8 w-8 text-blue-400 hover:bg-blue-500/20 rounded-xl shadow-sm">
-                                                        <FiEdit2 className="size-3.5" />
-                                                    </Button>
-                                                )}
-                                                {isAdmin && (
-                                                    <Button variant="ghost" size="icon" onClick={() => openDeleteModal(product)} className="h-8 w-8 text-rose-400 hover:bg-rose-500/20 rounded-xl">
-                                                        <FiTrash2 className="size-3.5" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </motion.tr>
-                                ))}
-                            </AnimatePresence>
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                /* DARK CARD VIEW */
-                <AnimatePresence mode="popLayout">
-                    {paginatedData.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-4">
-                            <FiPackage className="size-12 opacity-50" />
-                            <p className="text-sm font-bold uppercase tracking-widest">No products found</p>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paginatedData.map(product => (
+                                                    <tr 
+                                                        key={product.id}
+                                                        className="cursor-pointer group select-none hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative border-b border-[var(--ops-border)]"
+                                                        onClick={() => { setSelectedProduct(product); setIsDrawerOpen(true); }}
+                                                    >
+                                                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                                                                checked={selectedIds.includes(product.id)}
+                                                                onChange={() => toggleSelectRow(product.id)}
+                                                            />
+                                                        </td>
+                                                        <td className={cn("px-6", density === 'compact' ? "py-2" : "py-3.5")}>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="size-10 rounded-lg bg-[var(--ops-surface-sunken)] border overflow-hidden shrink-0 shadow-inner flex items-center justify-center">
+                                                                    {product.image_url ? (
+                                                                        <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <FiPackage className="size-5 text-[var(--ops-text-muted)]/30" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-[var(--ops-text-primary)] leading-tight">{product.name}</span>
+                                                                    <span className="text-[9px] text-[var(--ops-text-muted)] font-mono uppercase font-bold mt-0.5">{product.sku || 'No SKU'}{product.barcode && ` • [${product.barcode}]`}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        {isAdmin && (
+                                                            <td className="px-6 text-xs font-bold text-[var(--ops-text-secondary)]">
+                                                                {product.branch?.name || 'N/A'}
+                                                            </td>
+                                                        )}
+                                                        <td className="px-6">
+                                                            <Badge variant="outline" className="bg-[var(--ops-surface-sunken)] text-[9px] font-black uppercase border-none px-2">{product.category?.name || 'GENERIC'}</Badge>
+                                                        </td>
+                                                        <td className="px-6 text-center">
+                                                            <div className="flex flex-col items-center">
+                                                                <span className={cn(
+                                                                    "font-black text-lg italic tracking-tighter leading-none",
+                                                                    product.stock <= 0 ? "text-rose-500" : product.stock <= 5 ? "text-amber-500" : "text-emerald-500"
+                                                                )}>
+                                                                    {product.stock}
+                                                                </span>
+                                                                <span className="text-[8px] font-black uppercase text-[var(--ops-text-muted)]/60 tracking-wider mt-0.5">Servings</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 font-mono text-xs font-bold text-emerald-500">
+                                                            {formatCurrency(product.selling_price)}
+                                                        </td>
+                                                        <td className="px-6 text-right" onClick={e => e.stopPropagation()}>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-[var(--ops-surface-sunken)]">
+                                                                        <FiMoreHorizontal className="size-4 text-[var(--ops-text-muted)]" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-40 bg-[var(--ops-surface-raised)] border-[var(--ops-border)] rounded-[12px] p-1.5 shadow-2xl text-[var(--ops-text-secondary)]">
+                                                                    <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Options</DropdownMenuLabel>
+                                                                    <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)]" onClick={() => { setSelectedProduct(product); setIsDrawerOpen(true); }}>
+                                                                        View Specifications
+                                                                    </DropdownMenuItem>
+                                                                    {isAdmin && (
+                                                                        <>
+                                                                            <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)]" onClick={() => openEditModal(product)}>
+                                                                                Edit Specifications
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuSeparator className="bg-[var(--ops-border)] my-1" />
+                                                                            <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)] text-rose-500 hover:text-rose-600" onClick={() => openDeleteModal(product)}>
+                                                                                Delete Product
+                                                                            </DropdownMenuItem>
+                                                                        </>
+                                                                    )}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </AnimatePresence>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     ) : (
+                        /* CARD VIEW */
                         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                            {paginatedData.map((product) => (
+                            {paginatedData.map(product => (
                                 <motion.div
                                     key={product.id}
                                     layout
-                                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    whileHover={{ y: -5 }}
-                                    className="group relative rounded-3xl bg-white/[0.02] border border-white/5 backdrop-blur-xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-white/10"
+                                    className="group relative rounded-3xl bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
+                                    onClick={() => { setSelectedProduct(product); setIsDrawerOpen(true); }}
                                 >
-                                    {/* Image Hero */}
-                                    <div className="relative aspect-square w-full bg-black/40 overflow-hidden">
+                                    <div className="relative aspect-square w-full bg-[var(--ops-surface-sunken)] overflow-hidden">
                                         {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <FiPackage className="size-10 text-white/10" />
+                                            <div className="w-full h-full flex items-center justify-center opacity-25">
+                                                <FiPackage className="size-10 text-[var(--ops-text-muted)]" />
                                             </div>
                                         )}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent opacity-80" />
-                                        
-                                        {/* Action Buttons Overlay */}
-                                        {isAdmin && (
-                                            <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-300">
-                                                <Button size="icon" variant="ghost" onClick={() => openEditModal(product)} className="size-10 rounded-xl bg-black/60 backdrop-blur-md hover:bg-primary/20 text-white hover:text-primary border border-white/10 shadow-lg">
-                                                    <FiEdit2 className="size-4" />
-                                                </Button>
-                                                <Button size="icon" variant="ghost" onClick={() => openDeleteModal(product)} className="size-10 rounded-xl bg-black/60 backdrop-blur-md hover:bg-rose-500/20 text-white hover:text-rose-400 border border-white/10 shadow-lg">
-                                                    <FiTrash2 className="size-4" />
-                                                </Button>
-                                            </div>
-                                        )}
-
-                                        {/* Status Badge */}
                                         <div className="absolute top-4 left-4">
-                                            <Badge className={cn("text-[9px] font-black uppercase tracking-widest px-2.5 py-1 border-none shadow-lg backdrop-blur-md", 
-                                                product.stock <= 0 ? "bg-rose-500/80 text-white" : product.stock <= 5 ? "bg-amber-500/80 text-white" : "bg-emerald-500/80 text-white"
+                                            <Badge className={cn("text-[9px] font-black uppercase tracking-widest px-2.5 py-1 border-none shadow-md",
+                                                product.stock <= 0 ? "bg-rose-500 text-white" : product.stock <= 5 ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
                                             )}>
                                                 {product.stock <= 0 ? 'Out of Stock' : `${product.stock} Ready`}
                                             </Badge>
                                         </div>
                                     </div>
-
-                                    {/* Content */}
-                                    <div className="p-5 flex flex-col gap-1 relative z-10 bg-gradient-to-b from-[#121212] to-[#050505]">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary">{product.category?.name || 'Generic'}</span>
-                                            {isAdmin && <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 italic">{product.branch?.name || 'N/A'}</span>}
+                                    <div className="p-4 flex flex-col gap-1.5 bg-[var(--ops-surface-raised)]">
+                                        <div className="flex justify-between items-center text-[9px] font-black uppercase text-[var(--ops-text-muted)]">
+                                            <span>{product.category?.name || 'Generic'}</span>
+                                            {product.branch && <span>{product.branch.name}</span>}
                                         </div>
-                                        <h3 className="font-bold text-white leading-tight truncate text-base">{product.name}</h3>
-                                        <div className="flex items-center justify-between mt-3">
-                                            <span className="text-xl font-black text-white">{formatCurrency(product.selling_price)}</span>
-                                            <div className="flex flex-col text-right">
-                                                <span className="text-[10px] text-slate-500 font-mono mb-1">{product.sku}</span>
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <span className={cn(
-                                                        "font-black text-lg italic tracking-tighter leading-none shadow-text",
-                                                        product.stock <= 0 ? "text-rose-500" : product.stock <= 5 ? "text-amber-500" : "text-emerald-500"
-                                                    )}>
-                                                        {product.stock}
-                                                    </span>
-                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mt-0.5">Servings Ready</span>
-                                                </div>
-                                            </div>
+                                        <h3 className="font-bold text-foreground text-sm leading-tight truncate">{product.name}</h3>
+                                        <div className="flex justify-between items-end mt-2 pt-2 border-t border-[var(--ops-border-subtle)]">
+                                            <span className="text-base font-black text-emerald-500 font-mono">{formatCurrency(product.selling_price)}</span>
+                                            <span className="text-[9px] text-[var(--ops-text-muted)] font-mono">{product.sku}</span>
                                         </div>
-                                        
-                                        {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
-                                            <div className="mt-3 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 animate-in fade-in slide-in-from-bottom-2">
-                                                <div className="flex items-center gap-1.5 mb-1.5">
-                                                    <FiAlertTriangle className="size-3 text-rose-500" />
-                                                    <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Missing Materials</span>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    {product.blocking_ingredients.slice(0, 3).map((ing: any, i: number) => (
-                                                        <div key={i} className="flex justify-between items-center text-[10px]">
-                                                            <span className="font-bold text-slate-300 line-clamp-1">{ing.name}</span>
-                                                            <span className="font-black text-rose-400 shrink-0 tabular-nums">
-                                                                {ing.stock}/{ing.required} <span className="text-[8px] uppercase text-rose-500/70">{ing.unit}</span>
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                    {product.blocking_ingredients.length > 3 && (
-                                                        <div className="text-[9px] font-bold text-slate-500 italic text-center pt-1 border-t border-rose-500/10">
-                                                            + {product.blocking_ingredients.length - 3} more ingredients missing
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </motion.div>
                             ))}
                         </div>
                     )}
-                </AnimatePresence>
-            )}
-        </div>
 
-        {/* Pagination Apple Style */}
-        <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-xl shrink-0">
-            <div className="flex items-center gap-4">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Show</span>
-                <Select value={String(itemsPerPage)} onValueChange={(val) => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
-                    <SelectTrigger className="w-20 h-9 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-slate-200">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#121212] border-white/10 text-slate-200">
-                        {[5, 10, 25, 50].map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden sm:inline">
-                    Results {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length}
-                </span>
-            </div>
-            
-            <div className="flex gap-1.5 bg-black/40 p-1 rounded-xl border border-white/5">
-                <Button variant="ghost" size="icon" disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="rounded-lg size-8 text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30">
-                    <FiChevronLeft className="size-4" />
-                </Button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const p = i + 1;
-                    return (
-                        <Button key={p} variant="ghost" onClick={() => setCurrentPage(p)} className={cn("size-8 rounded-lg text-xs font-bold transition-all", currentPage === p ? "bg-primary text-primary-foreground shadow-lg" : "text-slate-400 hover:text-white hover:bg-white/10")}>
-                            {p}
-                        </Button>
-                    );
-                })}
-                <Button variant="ghost" size="icon" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(c => c + 1)} className="rounded-lg size-8 text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30">
-                    <FiChevronRight className="size-4" />
-                </Button>
-            </div>
-        </div>
-    </div>
-</div>
-
-) : (
-<div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
-                {/* Header Bar */}
-                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <FiPackage className="text-primary size-7" />
-                        <div>
-                            <h1 className="text-xl font-black italic uppercase tracking-tighter leading-none">Products</h1>
-                            <p className="hidden sm:block text-[11px] text-muted-foreground uppercase font-black tracking-widest mt-1">Inventory Management</p>
-                        </div>
-                        
-                        {/* View Switcher Toggle */}
-                        <div className="hidden md:flex border rounded-xl p-1 bg-muted/30 ml-4">
-                            <Button 
-                                variant={viewMode === 'table' ? 'secondary' : 'ghost'} 
-                                size="sm" 
-                                className="h-8 px-4 rounded-lg gap-2 text-[10px] font-black uppercase transition-all shadow-sm"
-                                onClick={() => toggleViewMode('table')}
-                            >
-                                <FiList className="size-4" />
-                                List
-                            </Button>
-                            <Button 
-                                variant={viewMode === 'card' ? 'secondary' : 'ghost'} 
-                                size="sm" 
-                                className="h-8 px-4 rounded-lg gap-2 text-[10px] font-black uppercase transition-all shadow-sm"
-                                onClick={() => toggleViewMode('card')}
-                            >
-                                <FiGrid className="size-4" />
-                                Cards
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        {/* Desktop Search Bars */}
-                        <div className="hidden md:flex items-center gap-3">
-                            {isAdmin && (
-                                <Select value={currentBranchId ? String(currentBranchId) : 'all'} onValueChange={handleBranchFilter}>
-                                    <SelectTrigger className="w-44 h-10 bg-muted/30 border-none font-bold text-xs uppercase tracking-widest">
-                                        <SelectValue placeholder="All Branches" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Branches</SelectItem>
-                                        {branches?.map((b: any) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            <div className="relative w-56">
-                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search catalog..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-9 h-10 bg-muted/30 border-none focus:ring-2 focus:ring-primary/20 text-sm font-medium"
-                                />
-                            </div>
-                            <Select value={String(filterCategory)} onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}>
-                                <SelectTrigger className="w-44 h-10 bg-muted/30 border-none font-bold text-xs uppercase tracking-widest">
-                                    <SelectValue placeholder="All Categories" />
+                    {/* PAGINATION BOTTOM BAR */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-2xl shadow-sm gap-4 shrink-0">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">Show</span>
+                            <Select value={String(itemsPerPage)} onValueChange={(val) => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
+                                <SelectTrigger className="w-16 h-8 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-lg text-xs font-bold text-[var(--ops-text-primary)]">
+                                    <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Categories</SelectItem>
-                                    {categories.map((c: any) => (<SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>))}
+                                <SelectContent className="bg-[var(--ops-surface-raised)] border-[var(--ops-border)]">
+                                    {[5, 10, 25, 50].map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                            <span className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">
+                                Results {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length}
+                            </span>
                         </div>
 
-                        {/* Mobile Trigger */}
-                        <MobileFilter
-                            title="Catalog Filters"
-                            description="Refine your list"
-                            activeFilterCount={(search ? 1 : 0) + (filterCategory ? 1 : 0)}
-                            onClear={() => { setSearch(''); setFilterCategory(''); }}
-                        >
-                            <div className="flex flex-col gap-6 w-full">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Search</label>
-                                    <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-14 rounded-2xl bg-muted/30" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Category</label>
-                                    <Select value={String(filterCategory || 'all')} onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}>
-                                        <SelectTrigger className="h-14 rounded-2xl bg-muted/30"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Categories</SelectItem>
-                                            {categories.map((c: any) => (<SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        </MobileFilter>
-
-                        {isAdmin && (
-                            <Button onClick={openAddModal} className="h-10 px-5 gap-2 shadow-lg shadow-primary/20 rounded-xl font-black uppercase text-[10px] tracking-widest italic transition-all active:scale-95">
-                                <FiPlus className="size-4" /> <span className="hidden sm:inline">Add Product</span>
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-hidden p-6 flex flex-col gap-6">
-                    {/* Summary Counters */}
-                    <div className="grid gap-4 md:grid-cols-3 flex-shrink-0">
-                        <Card className="bg-primary/5 border-primary/20 shadow-sm relative overflow-hidden group">
-                           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><FiPackage className="size-12" /></div>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Units</CardTitle>
-                            </CardHeader>
-                            <CardContent><div className="text-2xl font-black">{summary.total_products}</div></CardContent>
-                        </Card>
-                        <Card className="bg-amber-500/5 border-amber-500/20 shadow-sm">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Low Stock</CardTitle>
-                                <FiAlertTriangle className="size-4 text-amber-500" />
-                            </CardHeader>
-                            <CardContent><div className="text-2xl font-black text-amber-600">{summary.low_stock}</div></CardContent>
-                        </Card>
-                        <Card className="bg-destructive/5 border-destructive/20 shadow-sm">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Out of Stock</CardTitle>
-                                <FiSlash className="size-4 text-destructive" />
-                            </CardHeader>
-                            <CardContent><div className="text-2xl font-black text-destructive">{summary.out_of_stock}</div></CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Main Content Area */}
-                    <div className="flex-1 overflow-auto bg-transparent custom-scrollbar">
-                        {viewMode === 'table' ? (
-                            /* TABLE VIEW */
-                            <Card className="flex flex-col shadow-xl border-none ring-1 ring-black/5 bg-card min-w-max md:min-w-0">
-                                <table className="w-full text-sm">
-                                    <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
-                                        <tr className="bg-muted/30">
-                                            <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground">Product Details</th>
-                                            {isAdmin && (
-                                                <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground hidden xl:table-cell">Branch</th>
-                                            )}
-                                            <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground hidden lg:table-cell">Category</th>
-                                            <th className="h-12 px-6 text-center font-black uppercase tracking-widest text-[10px] text-muted-foreground">Stock Status</th>
-                                            <th className="h-12 px-6 text-left font-black uppercase tracking-widest text-[10px] text-muted-foreground hidden sm:table-cell">Price</th>
-                                            <th className="h-12 px-6 text-right font-black uppercase tracking-widest text-[10px] text-muted-foreground">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        <AnimatePresence mode="popLayout">
-                                            {paginatedData.length === 0 ? (
-                                                <tr className="h-32 text-center text-muted-foreground italic">
-                                                    <td colSpan={5}>Empty catalog results.</td>
-                                                </tr>
-                                            ) : paginatedData.map((product) => (
-                                                <motion.tr
-                                                    key={product.id}
-                                                    layout
-                                                    className="border-b transition-colors hover:bg-muted/40 group cursor-default"
-                                                >
-                                                    <td className="p-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="size-10 rounded-lg bg-muted border overflow-hidden shrink-0 shadow-inner">
-                                                                {product.image_url ? (
-                                                                    <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center opacity-20"><FiPackage className="size-5" /></div>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-bold text-foreground leading-tight">{product.name}</span>
-                                                                <span className="text-[10px] text-muted-foreground font-mono uppercase font-black">{product.sku || 'No SKU'}</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    {isAdmin && (
-                                                        <td className="p-4 hidden xl:table-cell">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] font-black uppercase text-primary/60 tracking-wider italic">{product.branch?.name || 'N/A'}</span>
-                                                            </div>
-                                                        </td>
-                                                    )}
-                                                    <td className="p-4 hidden lg:table-cell">
-                                                        <Badge variant="outline" className="bg-primary/5 text-[10px] font-black uppercase tracking-tighter border-none px-2">{product.category?.name || 'GENERIC'}</Badge>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <div className="flex flex-col items-center">
-                                                            <span className={cn(
-                                                                "font-black text-xl italic tracking-tighter leading-none shadow-text",
-                                                                product.stock <= 0 ? "text-destructive" : product.stock <= 5 ? "text-amber-600" : "text-primary"
-                                                            )}>
-                                                                {product.stock}
-                                                            </span>
-                                                            <span className="text-[8px] font-black uppercase text-muted-foreground/60 tracking-wider mt-1">Servings Ready</span>
-                                                            {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
-                                                                <div className="mt-2 flex flex-col items-center gap-1 w-full max-w-[120px]">
-                                                                    <span className="text-[8px] font-black text-rose-500 uppercase">Missing:</span>
-                                                                    <div className="flex flex-wrap justify-center gap-1">
-                                                                        {product.blocking_ingredients.slice(0, 2).map((ing: any, i: number) => (
-                                                                            <Badge key={i} variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-600 bg-rose-50 truncate max-w-full">
-                                                                                {ing.name}
-                                                                            </Badge>
-                                                                        ))}
-                                                                        {product.blocking_ingredients.length > 2 && (
-                                                                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-4 border-rose-500/30 text-rose-600 bg-rose-50">
-                                                                                +{product.blocking_ingredients.length - 2}
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-4 hidden sm:table-cell">
-                                                        <span className="text-sm font-black text-emerald-600">{formatCurrency(product.selling_price)}</span>
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            {isAdmin && (
-                                                                <Button variant="ghost" size="icon" onClick={() => openEditModal(product)} className="h-8 w-8 text-blue-600 hover:bg-blue-50 rounded-lg shadow-sm">
-                                                                    <FiEdit2 className="size-3.5" />
-                                                                </Button>
-                                                            )}
-                                                            {isAdmin && (
-                                                                <Button variant="ghost" size="icon" onClick={() => openDeleteModal(product)} className="h-8 w-8 text-destructive hover:bg-destructive/5 rounded-lg">
-                                                                    <FiTrash2 className="size-3.5" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </motion.tr>
-                                            ))}
-                                        </AnimatePresence>
-                                    </tbody>
-                                </table>
-                            </Card>
-                        ) : (
-                            /* CARD VIEW */
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                                {paginatedData.map((product) => (
-                                    <motion.div
-                                        key={product.id}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        whileHover={{ y: -8 }}
-                                        className="group relative flex flex-col bg-card rounded-[40px] overflow-hidden border border-border/40 shadow-sm hover:shadow-2xl hover:shadow-primary/20 transition-all duration-500"
-                                    >
-                                        <div className="relative aspect-[4/3] w-full bg-muted overflow-hidden">
-                                            {product.image_url ? (
-                                                <img src={product.image_url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" alt="" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-primary/5 opacity-20"><FiPackage className="size-20" /></div>
-                                            )}
-                                            <div className="absolute top-4 left-4 flex flex-col gap-2">
-                                                <Badge className={cn("rounded-full border-none shadow-xl font-black italic tracking-tighter text-[9px] px-3 py-1", getStatusColor(product.status))}>
-                                                    {product.status.toUpperCase()}
-                                                </Badge>
-                                            </div>
-                                            <div className="absolute bottom-4 right-4 bg-background/90 backdrop-blur px-3 py-1.5 rounded-2xl shadow-2xl border border-white/20">
-                                                <p className="text-[8px] font-black text-muted-foreground uppercase leading-none pb-0.5">Price</p>
-                                                <p className="text-sm font-black text-emerald-600 tracking-tighter">{formatCurrency(product.selling_price)}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-6 flex-1 flex flex-col gap-4">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/60">{product.category?.name || 'GENERIC'}</p>
-                                                    <Badge variant="outline" className="text-[8px] font-black text-muted-foreground p-0 uppercase">#{product.id}</Badge>
-                                                </div>
-                                                <h3 className="text-lg font-black tracking-tighter leading-tight group-hover:text-primary transition-colors line-clamp-1">{product.name}</h3>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-[10px] text-muted-foreground font-mono font-bold">{product.sku || 'N/A'}</p>
-                                                    {isAdmin && product.branch && (
-                                                        <>
-                                                            <span className="text-[10px] text-muted-foreground/30">•</span>
-                                                            <span className="text-[9px] font-black uppercase text-primary/60 tracking-wider italic">{product.branch.name}</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {product.stock <= 0 && product.blocking_ingredients && product.blocking_ingredients.length > 0 && (
-                                                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 animate-in fade-in slide-in-from-bottom-2">
-                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                        <FiAlertTriangle className="size-3 text-rose-500" />
-                                                        <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Missing Materials</span>
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        {product.blocking_ingredients.slice(0, 3).map((ing: any, i: number) => (
-                                                            <div key={i} className="flex justify-between items-center text-[10px]">
-                                                                <span className="font-bold text-foreground line-clamp-1">{ing.name}</span>
-                                                                <span className="font-black text-rose-500 shrink-0 tabular-nums">
-                                                                    {ing.stock}/{ing.required} <span className="text-[8px] uppercase">{ing.unit}</span>
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                        {product.blocking_ingredients.length > 3 && (
-                                                            <div className="text-[9px] font-bold text-muted-foreground italic text-center pt-1 border-t border-rose-500/10">
-                                                                + {product.blocking_ingredients.length - 3} more ingredients missing
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            
-                                            <div className="grid grid-cols-2 gap-4 items-center pt-3 border-t border-muted/30 mt-auto">
-                                                <div>
-                                                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest opacity-60">Ready to serve</p>
-                                                    <p className={cn(
-                                                        "text-2xl font-black italic tracking-tighter leading-none mt-1 shadow-text",
-                                                        product.stock <= 5 ? "text-amber-500" : "text-foreground"
-                                                    )}>
-                                                        {product.stock} <span className="text-[10px] font-black not-italic text-muted-foreground/40 ml-0.5">PCS</span>
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                     {isAdmin && (
-                                                        <div className="flex justify-end gap-1 px-1">
-                                                            <Button
-                                                                variant="secondary"
-                                                                size="icon"
-                                                                className="size-8 rounded-xl shadow-sm hover:translate-y-[-2px] transition-all"
-                                                                onClick={() => openEditModal(product)}
-                                                            >
-                                                                <FiEdit2 className="size-3.5" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="size-8 rounded-xl text-rose-500 hover:bg-rose-50 border border-muted/50"
-                                                                onClick={() => openDeleteModal(product)}
-                                                            >
-                                                                <FiTrash2 className="size-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                     )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Pagination Bottom Bar */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-background border shadow-2xl rounded-[32px] gap-4">
-                        <div className="flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">SHOW</span>
-                                <Select value={String(itemsPerPage)} onValueChange={(val) => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="w-16 h-8 rounded-lg border-none bg-muted/30 font-black text-[10px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>{[5, 10, 25, 50].map(v => <SelectItem key={v} value={String(v)}>{v}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">
-                                Result {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredData.length, currentPage * itemsPerPage)} OF {filteredData.length}
-                            </p>
-                        </div>
-
-                        <div className="flex gap-1.5">
-                            <Button variant="outline" size="icon" disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="rounded-xl size-9 shadow-sm"><FiChevronLeft className="size-4" /></Button>
-                            <div className="flex gap-1">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    const p = i + 1;
-                                    return (
-                                        <Button key={p} variant={currentPage === p ? 'default' : 'ghost'} onClick={() => setCurrentPage(p)} className={cn("size-9 rounded-xl font-black text-[10px] transition-all", currentPage === p ? "bg-primary shadow-xl shadow-primary/20" : "")}>{p}</Button>
-                                    );
-                                })}
-                            </div>
-                            <Button variant="outline" size="icon" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(c => c + 1)} className="rounded-xl size-9 shadow-sm"><FiChevronRight className="size-4" /></Button>
+                        <div className="flex gap-1">
+                            <Button variant="outline" size="icon" disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="rounded-lg size-8"><FiChevronLeft className="size-4" /></Button>
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                const p = i + 1;
+                                return (
+                                    <Button key={p} variant={currentPage === p ? 'default' : 'ghost'} onClick={() => setCurrentPage(p)} className="size-8 rounded-lg text-xs font-bold">{p}</Button>
+                                );
+                            })}
+                            <Button variant="outline" size="icon" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(c => c + 1)} className="rounded-lg size-8"><FiChevronRight className="size-4" /></Button>
                         </div>
                     </div>
                 </div>
             </div>
 
-
-)}            {/* Modals Sub-Components */}
-            <ResultModal open={isSuccessModalOpen} onClose={() => setIsSuccessModalOpen(false)} type="success" title={successMessage.title} message={successMessage.message} />
-            <ValidationErrorModal open={isErrorModalOpen} onClose={() => setIsErrorModalOpen(false)} title={errorInfo.title} message={errorInfo.message} />
-            <StockInModal open={isStockInModalOpen} onOpenChange={setIsStockInModalOpen} item={selectedProduct} type="product" />
-
-            {/* Add/Edit/Delete dialogs */}
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="sm:max-w-[600px] h-[90vh] flex flex-col p-0 overflow-hidden bg-background">
-                    <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
-                        <DialogTitle className="text-xl font-bold">Add New Product</DialogTitle>
-                        <DialogDescription className="text-sm">
-                            Define product specifications and composition.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col overflow-hidden">
-                        {Object.keys(errors).length > 0 && (
-                            <div className="mx-6 mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex flex-col gap-1">
-                                <p className="text-sm font-bold text-destructive">Please fix the following validation errors:</p>
-                                <ul className="list-disc pl-5 text-xs text-destructive/90">
-                                    {Object.entries(errors).map(([key, error]) => (
-                                        <li key={key}>{key}: {error as string}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-sm font-medium">Product Name <span className="text-destructive">*</span></label>
-                                        <span className={cn(
-                                            "text-[10px] font-bold",
-                                            data.name.length > 70 ? "text-amber-500" : "text-muted-foreground"
-                                        )}>
-                                            {data.name.length}/80
-                                        </span>
+            {/* ── RIGHT-SIDE DETAILS DRAWER ── */}
+            <AnimatePresence>
+                {isDrawerOpen && selectedProduct && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.5 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsDrawerOpen(false)}
+                            className="fixed inset-0 bg-black/60 z-40"
+                        />
+                        <motion.div
+                            initial={{ x: '100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                            className="fixed top-0 right-0 h-full w-full max-w-md md:max-w-lg bg-[var(--ops-surface-raised)] border-l border-[var(--ops-border)] shadow-2xl z-50 flex flex-col font-sans text-[var(--ops-text-secondary)]"
+                        >
+                            <div className="p-6 border-b border-[var(--ops-border)] flex items-center justify-between flex-shrink-0 bg-[var(--ops-surface-sunken)]/25">
+                                <div className="flex items-center gap-2">
+                                    <FiPackage className="text-primary size-5" />
+                                    <div>
+                                        <h2 className="text-sm font-black italic uppercase tracking-tighter text-foreground">Product Specification</h2>
+                                        <p className="text-[9px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest">PROD-{selectedProduct.id.toString().padStart(5, '0')}</p>
                                     </div>
-                                    <Input 
-                                        maxLength={80}
-                                        value={data.name} 
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setData('name', val);
-                                            validateField('name', val);
-                                        }} 
-                                        onBlur={() => validateField('name', data.name)}
-                                        placeholder="e.g. Chicken Burger Deluxe" 
-                                        className={cn(
-                                            "h-10 rounded-lg transition-all",
-                                            localErrors.name ? "border-destructive ring-1 ring-destructive" : ""
-                                        )} 
-                                    />
-                                    {localErrors.name && (
-                                        <div className="flex items-center gap-1 mt-1 animate-in slide-in-from-top-1 fade-in">
-                                            <FiAlertTriangle className="size-3 text-destructive" />
-                                            <p className="text-[10px] text-destructive font-bold">{localErrors.name}</p>
-                                        </div>
-                                    )}
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">SKU</label>
-                                    <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} placeholder="Auto-generated if empty" className="h-10 rounded-lg" />
-                                    {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
-                                </div>
+                                <button
+                                    onClick={() => setIsDrawerOpen(false)}
+                                    className="p-1.5 rounded-[8px] bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground transition-colors"
+                                >
+                                    <FiX className="size-4" />
+                                </button>
+                            </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Category</label>
-                                    <Select 
-                                        value={data.category_id ? String(data.category_id) : ''} 
-                                        onValueChange={(val) => {
-                                            setData('category_id', val);
-                                            validateField('category_id', val);
-                                        }}
-                                    >
-                                        <SelectTrigger className="w-full h-11 bg-muted/30 border-none ring-1 ring-border rounded-xl font-bold transition-all">
-                                            <SelectValue placeholder="Select Category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories
-                                                .filter((c: any) => {
-                                                    if (!data.branch_id) return true;
-                                                    const targetId = Number(data.branch_id);
-                                                    const hasDirectMatch = c.branch_id && Number(c.branch_id) === targetId;
-                                                    const hasRelationMatch = c.branches?.some((b: any) => Number(b.id) === targetId);
-                                                    const isGlobal = !c.branch_id && (!c.branches || c.branches.length === 0);
-                                                    return hasDirectMatch || hasRelationMatch || isGlobal;
-                                                })
-                                                .map((c: any) => (
-                                                    <SelectItem key={c.id} value={String(c.id)} className="font-bold py-2.5">
-                                                        {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
+                            <div className="px-6 pt-3 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border-subtle)] flex-shrink-0">
+                                <div className="flex gap-2">
+                                    {[
+                                        { id: 'overview', label: 'Overview' },
+                                        { id: 'recipe', label: 'Recipe Composition' }
+                                    ].map(tab => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setDrawerTab(tab.id as any)}
+                                            className={cn(
+                                                "pb-2.5 text-[9px] font-black uppercase tracking-wider relative px-1",
+                                                drawerTab === tab.id 
+                                                    ? "text-primary border-b-2 border-primary" 
+                                                    : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                                            )}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
                                 </div>
-                                {isAdmin && (
-                                    <div className="space-y-4 col-span-2 border p-4 rounded-xl bg-primary/5 border-primary/10">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-bold flex items-center gap-2">
-                                                <div className="size-2 bg-primary rounded-full" />
-                                                Branch Configuration
-                                            </label>
-                                            <p className="text-[10px] text-muted-foreground font-medium uppercase leading-tight">
-                                                Choose "Both Branches" to automatically create this product in all locations.
-                                            </p>
-                                            
-                                            <div className="flex gap-4 mt-3">
-                                                {['single', 'both'].map((opt) => (
-                                                    <div 
-                                                        key={opt}
-                                                        onClick={() => handleBranchOptionChange(opt)}
-                                                        className={cn(
-                                                            "flex-1 p-3 rounded-lg border-2 cursor-pointer transition-all text-center font-bold text-xs uppercase",
-                                                            data.branch_option === opt 
-                                                                ? "bg-primary text-white border-primary shadow-md scale-[1.02]" 
-                                                                : "bg-background border-muted text-muted-foreground hover:border-primary/30"
-                                                        )}
-                                                    >
-                                                        {opt === 'single' ? 'Specific Branch' : 'Both Branches'}
-                                                    </div>
-                                                ))}
-                                            </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                                {drawerTab === 'overview' ? (
+                                    <div className="space-y-6">
+                                        <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden border border-[var(--ops-border)] bg-[var(--ops-surface-sunken)] flex items-center justify-center relative shadow-inner">
+                                            {selectedProduct.image_url ? (
+                                                <img src={selectedProduct.image_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <FiPackage className="size-20 text-[var(--ops-text-muted)]/20" />
+                                            )}
                                         </div>
 
-                                        {data.branch_option === 'single' && (
-                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                <label className="text-[10px] uppercase font-bold text-muted-foreground">Select Owner Branch</label>
-                                                <Select
-                                                    value={data.branch_id ? String(data.branch_id) : ''}
-                                                    onValueChange={(val) => {
-                                                        setData(d => ({ ...d, branch_id: val }));
-                                                        validateField('branch_id', val);
-                                                    }}
-                                                >
-                                                    <SelectTrigger className={cn(
-                                                        "w-full h-11 bg-muted/30 rounded-xl border-none ring-1 font-bold shadow-sm transition-all",
-                                                        localErrors.branch_id ? "ring-destructive" : "ring-border focus:ring-primary/20"
-                                                    )}>
-                                                        <SelectValue placeholder="-- Choose Branch --" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {branches?.map((b: any) => (
-                                                            <SelectItem key={b.id} value={String(b.id)} className="font-bold py-2.5">
-                                                                {b.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                {localErrors.branch_id && <p className="text-[10px] text-destructive font-bold mt-1">{localErrors.branch_id}</p>}
+                                        <div className="space-y-4">
+                                            <div>
+                                                <h3 className="text-xl font-black uppercase italic tracking-tighter text-foreground">{selectedProduct.name}</h3>
+                                                <p className="text-[10px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest mt-1">
+                                                    SKU: {selectedProduct.sku || 'N/A'} {selectedProduct.barcode && `| Barcode: ${selectedProduct.barcode}`}
+                                                </p>
                                             </div>
-                                        )}
-                                        {data.branch_option === 'both' && (
-                                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                                                <p className="text-[10px] text-emerald-600 font-bold uppercase italic">System will auto-duplicate this product for:</p>
-                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                    {branches?.map((b: any) => (
-                                                        <Badge key={b.id} variant="outline" className="bg-emerald-500/20 text-emerald-700 border-none px-2 py-0.5 text-[9px] font-black">
-                                                            {b.name.toUpperCase()}
-                                                        </Badge>
-                                                    ))}
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="p-4 bg-[var(--ops-surface-sunken)] border border-[var(--ops-border-subtle)] rounded-2xl">
+                                                    <span className="text-[8px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest block">Selling Price</span>
+                                                    <span className="text-lg font-black text-emerald-500 font-mono">{formatCurrency(selectedProduct.selling_price)}</span>
+                                                </div>
+                                                <div className="p-4 bg-[var(--ops-surface-sunken)] border border-[var(--ops-border-subtle)] rounded-2xl">
+                                                    <span className="text-[8px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest block">Cost Price</span>
+                                                    <span className="text-lg font-black text-amber-500 font-mono">{formatCurrency(selectedProduct.cost_price)}</span>
                                                 </div>
                                             </div>
-                                        )}
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <span className="text-[9px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest block">Category</span>
+                                                    <span className="text-xs font-bold text-foreground">{selectedProduct.category?.name || 'GENERIC'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-[9px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest block">Status</span>
+                                                    <Badge className={cn("text-[9px] font-black uppercase rounded-md border", getStatusColor(selectedProduct.status))}>
+                                                        {selectedProduct.status}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+
+                                            {selectedProduct.description && (
+                                                <div className="border-t border-[var(--ops-border-subtle)] pt-4">
+                                                    <span className="text-[9px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest block">Product Description</span>
+                                                    <p className="text-xs leading-relaxed text-foreground/80 mt-1">{selectedProduct.description}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between border-b border-[var(--ops-border-subtle)] pb-3">
+                                            <span className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Required Ingredients</span>
+                                            <span className="text-xs font-black font-mono text-primary">{selectedProduct.ingredients?.length || 0} Materials</span>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {selectedProduct.ingredients?.map((ing, idx) => (
+                                                <div key={idx} className="p-3.5 bg-[var(--ops-surface-sunken)]/60 rounded-xl border border-[var(--ops-border-subtle)] flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-foreground">{ing.name}</p>
+                                                        <p className="text-[9px] text-[var(--ops-text-muted)] font-mono">ID: ING-{ing.id.toString().padStart(5, '0')}</p>
+                                                    </div>
+                                                    <span className="text-xs font-black text-foreground font-mono bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] px-2 py-1 rounded-md">
+                                                        {ing.pivot?.quantity_required} {ing.unit}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {(!selectedProduct.ingredients || selectedProduct.ingredients.length === 0) && (
+                                                <p className="text-xs text-[var(--ops-text-muted)] italic text-center py-8">This is a direct selling product with no recipe ingredients.</p>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
-                                {/* LIVE RECIPE COST PANEL */}
-                                <div className="col-span-2 space-y-3 mt-4">
-                                    <div className="p-4 bg-muted/30 border border-border/60 rounded-2xl shadow-inner space-y-3">
-                                        <div className="flex items-center gap-2 border-b border-border/40 pb-2">
-                                            <FiZap className="size-4 text-emerald-500" />
-                                            <h4 className="text-[11px] font-black uppercase tracking-widest text-foreground">Live Recipe Cost Panel</h4>
-                                        </div>
-                                        
-                                        {data.recipe.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center py-6 border-2 border-dashed border-border/30 rounded-xl bg-background/40">
-                                                <FiPackage className="size-6 text-muted-foreground/30 mb-2" />
-                                                <p className="text-[10px] italic font-bold text-muted-foreground/60 text-center">Add ingredients to build your recipe.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                                                    {data.recipe.map((rItem, idx) => {
-                                                        const ing = ingredients.find((i: any) => i.id.toString() === rItem.ingredient_id);
-                                                        if (!ing) return null;
-                                                        const qty = Number(rItem.quantity_required) || 0;
-                                                        const branchId = data.branch_option === 'both' ? null : data.branch_id;
-                                                        const stockRow = ing.stocks?.find((s: any) => branchId ? String(s.branch_id) === String(branchId) : true);
-                                                        const cpu = stockRow && Number(stockRow.cost_per_unit) > 0 ? Number(stockRow.cost_per_unit) : Number(ing.cost_per_base_unit || 0);
-                                                        const u = (rItem.unit || ing.unit).toLowerCase().trim();
-                                                        const baseQty = convertToBaseQuantityWithIngredient(qty, u, ing.unit, Number(ing.avg_weight_per_piece || 0));
-                                                        const itemTotalCost = baseQty * cpu;
-                                                        return (
-                                                            <div key={idx} className="flex justify-between items-center p-2 rounded-lg border border-border/40 bg-background/60">
-                                                                <span className="text-[11px] font-bold">{ing.name} ({qty}{u})</span>
-                                                                <span className="text-[11px] font-black text-emerald-600">₱{itemTotalCost.toFixed(2)}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <div className="pt-4 border-t border-dashed flex justify-between items-center">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Cost</span>
-                                                    <span className="text-xl font-black text-emerald-600">₱{calculateComputedCost().toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Selling Price (₱) <span className="text-destructive">*</span></label>
-                                    <Input 
-                                        type="number" step="0.01" 
-                                        value={data.selling_price} 
-                                        onChange={(e) => {
-                                            setData('selling_price', e.target.value);
-                                            validateField('selling_price', e.target.value);
-                                        }} 
-                                        onBlur={() => validateField('selling_price', data.selling_price)}
-                                        className={cn(
-                                            "h-10 rounded-lg",
-                                            localErrors.selling_price ? "border-destructive ring-1 ring-destructive" : ""
-                                        )}
-                                    />
-                                    {localErrors.selling_price && <p className="text-[10px] text-destructive font-bold">{localErrors.selling_price}</p>}
-                                    {costWarning && <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1 italic"><FiAlertTriangle className="size-3" /> {costWarning}</p>}
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Unit Label</label>
-                                    <Select
-                                        value={data.unit}
-                                        onValueChange={(val) => setData('unit', val)}
-                                    >
-                                        <SelectTrigger className="w-full h-11 bg-muted/30 border-none ring-1 ring-border rounded-xl font-bold">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {allowedUnits?.map((u: string) => (
-                                                <SelectItem key={u} value={u} className="font-bold py-2.5">
-                                                    {u.toUpperCase()}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="col-span-2 space-y-2">
-                                    <label className="text-sm font-medium">Description</label>
-                                    <Textarea 
-                                        value={data.description} 
-                                        onChange={(e) => setData('description', e.target.value)} 
-                                        placeholder="Enter product description..." 
-                                        className="min-h-[80px] rounded-lg"
-                                    />
-                                    {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
-                                </div>
-                                <div className="col-span-2 space-y-2.5">
-                                    <label className="text-sm font-medium">Product Image</label>
-                                    <div className="flex flex-col gap-4">
-                                        {imagePreview && (
-                                            <div className="relative size-32 rounded-2xl overflow-hidden border border-border/40 group/img">
-                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setImageFile(null);
-                                                        setImagePreview(null);
-                                                        setData('image', null);
-                                                    }}
-                                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                                                >
-                                                    <FiTrash2 className="size-6 text-white" />
-                                                </button>
-                                            </div>
-                                        )}
-                                        <div className="relative">
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                id="add-product-image"
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0] || null;
-                                                    setImageFile(file);
-                                                    setData('image', file);
-                                                    if (file) {
-                                                        setImagePreview(URL.createObjectURL(file));
-                                                        validateField('image', file);
-                                                    }
-                                                }}
-                                                className="hidden"
-                                            />
-                                            <label 
-                                                htmlFor="add-product-image"
-                                                className="flex flex-col items-center justify-center w-full h-24 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
-                                            >
-                                                <FiPlus className="size-6 text-primary/40 mb-1" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
-                                                    {imagePreview ? 'Change Image' : 'Upload Image'}
-                                                </span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    {localErrors.image && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.image}</p>}
-                                </div>
-                                <div className="col-span-2 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Ingredients Recipe</label>
-                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-7 text-[9px] gap-1.5 font-bold uppercase border-muted-foreground/20 hover:bg-muted transition-all">
-                                            <FiPlus className="size-3" /> Add Material
-                                        </Button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {data.recipe.map((item, idx) => {
-                                            const selectedIng = ingredients.find(ing => ing.id.toString() === item.ingredient_id);
-                                            const units = getAvailableUnits(selectedIng);
-                                            return (
-                                                <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-1 duration-200">
-                                                    <SearchableIngredientSelect
-                                                        value={item.ingredient_id}
-                                                        ingredients={ingredients}
-                                                        onValueChange={(val) => {
-                                                            const ing = ingredients.find(i => i.id.toString() === val);
-                                                            updateRecipeItem(idx, 'ingredient_id', val);
-                                                            if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
-                                                            validateField('recipe', data.recipe);
-                                                        }}
-                                                    />
-                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
-                                                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
-                                                        <Input 
-                                                            type="number" step="0.001" 
-                                                            value={item.quantity_required} 
-                                                            onChange={(e) => {
-                                                                updateRecipeItem(idx, 'quantity_required', e.target.value);
-                                                                validateField('recipe', data.recipe);
-                                                            }} 
-                                                            className="w-16 h-8 border-none bg-transparent text-center text-[11px] font-black focus-visible:ring-0 px-1"
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-1 bg-muted/5 border rounded-lg px-2 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
-                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
-                                                         <Select
-                                                            value={item.unit}
-                                                            onValueChange={(val) => {
-                                                                updateRecipeItem(idx, 'unit', val);
-                                                                validateField('recipe', data.recipe);
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="w-20 h-8 border-none bg-muted/20 text-[10px] font-black uppercase">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {units.map(u => (
-                                                                    <SelectItem key={u} value={u} className="text-[10px] font-black uppercase">
-                                                                        {u.toUpperCase()}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-8 text-destructive/40 hover:text-destructive hover:bg-destructive/5"><FiTrash2 className="size-3.5" /></Button>
-                                                </div>
-                                            );
-                                        })}
-                                        {localErrors.recipe && <p className="text-[10px] text-destructive font-bold italic mt-1">{localErrors.recipe}</p>}
-                                    </div>
-                                </div>
                             </div>
-                        </div>
-                        <DialogFooter className="p-6 border-t bg-muted/10">
-                            <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={processing} className="bg-primary font-bold">Register Product</Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
 
-            {/* Edit Product Modal */}
-            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-[600px] h-[90vh] flex flex-col p-0 overflow-hidden bg-background">
-                    <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
-                        <DialogTitle className="text-xl font-bold italic tracking-tighter uppercase">Modify Product</DialogTitle>
-                        <DialogDescription className="text-sm">Update pricing and recipe composition.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleEditSubmit} className="flex-1 flex flex-col overflow-hidden">
-                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 space-y-2.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Product Details</label>
-                                    <div className="relative group">
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
-                                            <FiPackage className="size-4" />
-                                        </div>
-                                        <Input 
-                                            value={data.name} 
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setData('name', val);
-                                                validateField('name', val);
-                                            }} 
-                                            className="h-11 pl-10 rounded-xl border-input/50 bg-muted/5 font-bold focus:ring-2 focus:ring-primary/20 transition-all" 
-                                            placeholder="Product Name"
-                                        />
-                                    </div>
-                                    {localErrors.name && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.name}</p>}
-                                </div>
-
-                                <div className="space-y-2.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Selling Price</label>
-                                    <div className="relative group">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-muted-foreground group-focus-within:text-primary">₱</span>
-                                        <Input 
-                                            type="number" step="0.01" 
-                                            value={data.selling_price} 
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setData('selling_price', val);
-                                                validateField('selling_price', val);
-                                            }} 
-                                            className="h-11 pl-8 rounded-xl bg-muted/5 font-black text-lg tracking-tighter" 
-                                        />
-                                    </div>
-                                    {localErrors.selling_price && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.selling_price}</p>}
-                                </div>
-
-                                <div className="space-y-2.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Sales Unit</label>
-                                    <select 
-                                        value={data.unit} 
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setData('unit', val);
-                                            validateField('unit', val);
-                                        }} 
-                                        className="w-full h-11 px-4 rounded-xl border border-input/50 bg-muted/5 text-sm font-black uppercase appearance-none focus:ring-2 focus:ring-primary/20"
+                            {/* Drawer Footer Actions */}
+                            {isAdmin && (
+                                <div className="p-6 border-t border-[var(--ops-border)] bg-[var(--ops-surface-sunken)]/20 flex gap-3 flex-shrink-0">
+                                    <Button
+                                        onClick={() => { setIsDrawerOpen(false); openEditModal(selectedProduct); }}
+                                        className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700 text-white animate-in fade-in"
                                     >
-                                        {allowedUnits?.map((u: string) => (<option key={u} value={u}>{u.toUpperCase()}</option>))}
-                                    </select>
-                                    {localErrors.unit && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.unit}</p>}
+                                        Edit Product
+                                    </Button>
+                                    <Button
+                                        onClick={() => { setIsDrawerOpen(false); openDeleteModal(selectedProduct); }}
+                                        variant="ghost"
+                                        className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500/10 border border-rose-500/20"
+                                    >
+                                        Delete
+                                    </Button>
                                 </div>
-
-                                <div className="col-span-2 space-y-2.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Description</label>
-                                    <Textarea 
-                                        value={data.description} 
-                                        onChange={(e) => setData('description', e.target.value)} 
-                                        placeholder="Enter product description..." 
-                                        className="min-h-[80px] rounded-xl border-input/50 bg-muted/5 font-medium focus:ring-2 focus:ring-primary/20 transition-all"
-                                    />
-                                    {errors.description && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{errors.description}</p>}
-                                </div>
-
-                                <div className="col-span-2 space-y-2.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Product Image</label>
-                                    <div className="flex flex-col gap-4">
-                                        {imagePreview && (
-                                            <div className="relative size-32 rounded-2xl overflow-hidden border border-border/40 group/img">
-                                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setImageFile(null);
-                                                        setImagePreview(null);
-                                                        setData('image', null);
-                                                    }}
-                                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                                                >
-                                                    <FiTrash2 className="size-6 text-white" />
-                                                </button>
-                                            </div>
-                                        )}
-                                        <div className="relative">
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                id="edit-product-image"
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0] || null;
-                                                    setImageFile(file);
-                                                    setData('image', file);
-                                                    if (file) {
-                                                        setImagePreview(URL.createObjectURL(file));
-                                                        validateField('image', file);
-                                                    }
-                                                }}
-                                                className="hidden"
-                                            />
-                                            <label 
-                                                htmlFor="edit-product-image"
-                                                className="flex flex-col items-center justify-center w-full h-24 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
-                                            >
-                                                <FiPlus className="size-6 text-primary/40 mb-1" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">
-                                                    {imagePreview ? 'Change Image' : 'Upload Image'}
-                                                </span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    {localErrors.image && <p className="text-[10px] text-destructive font-bold uppercase tracking-wide ml-1">{localErrors.image}</p>}
-                                </div>
-                                {/* Financial Insights Panel */}
-                                <div className="col-span-2 p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-black uppercase tracking-tighter text-primary/60">Live Financial Insight</span>
-                                        <Badge variant="outline" className="bg-background/50 border-primary/20 text-[9px] font-black uppercase tracking-widest">MARKUP %</Badge>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Computed Cost</p>
-                                            <p className="text-lg font-black tracking-tighter">₱{Number(computedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Profit Margin</p>
-                                            <p className={cn(
-                                                "text-lg font-black tracking-tighter",
-                                                Number(data.selling_price) - computedCost > 0 ? "text-emerald-600" : "text-rose-600"
-                                            )}>
-                                                ₱{(Number(data.selling_price) - computedCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1 text-right">
-                                            <p className="text-[9px] font-bold text-muted-foreground uppercase">Rate (%)</p>
-                                            <p className={cn(
-                                                "text-lg font-black tracking-tighter",
-                                                ((Number(data.selling_price) - computedCost) / (Number(data.selling_price) || 1) * 100) > 20 ? "text-emerald-600" : "text-amber-600"
-                                            )}>
-                                                {((Number(data.selling_price) - computedCost) / (Number(data.selling_price) || 1) * 100).toFixed(1)}%
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="col-span-2 border-t pt-5 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary/60 italic ml-1">Recipe Construction</label>
-                                        <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-7 text-[9px] gap-1.5 font-bold uppercase border-primary/20 hover:bg-primary/5 transition-all">
-                                            <FiPlus className="size-3" /> Add Material
-                                        </Button>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        {data.recipe.map((item, idx) => {
-                                            const selectedIng = ingredients.find(ing => ing.id.toString() === item.ingredient_id);
-                                            const units = getAvailableUnits(selectedIng);
-
-                                            return (
-                                                <div key={idx} className="flex gap-2 items-center group animate-in fade-in slide-in-from-top-1">
-                                                    <SearchableIngredientSelect
-                                                        value={item.ingredient_id}
-                                                        ingredients={ingredients}
-                                                        onValueChange={(val) => {
-                                                            const ing = ingredients.find(i => i.id.toString() === val);
-                                                            updateRecipeItem(idx, 'ingredient_id', val);
-                                                            if (ing) updateRecipeItem(idx, 'unit', (ing.unit || 'pcs').toLowerCase());
-                                                            validateField('recipe', data.recipe);
-                                                        }}
-                                                        className="h-10 text-[11px] font-black"
-                                                    />
-                                                    <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                                                        <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Qty:</span>
-                                                        <Input 
-                                                            type="number" step="0.001" 
-                                                            value={item.quantity_required} 
-                                                            onChange={(e) => {
-                                                                updateRecipeItem(idx, 'quantity_required', e.target.value);
-                                                                validateField('recipe', data.recipe);
-                                                            }} 
-                                                            className="w-16 h-10 border-none bg-transparent text-center text-[11px] font-black focus-visible:ring-0 px-1"
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-1 bg-muted/10 border rounded-xl px-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                                                         <span className="text-[9px] font-black text-muted-foreground/40 uppercase">Unit:</span>
-                                                         <Select
-                                                            value={item.unit}
-                                                            onValueChange={(val) => {
-                                                                updateRecipeItem(idx, 'unit', val);
-                                                                validateField('recipe', data.recipe);
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="w-20 h-10 border-none bg-muted/10 text-[10px] font-black uppercase">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {units.map(u => (
-                                                                    <SelectItem key={u} value={u} className="text-[10px] font-black uppercase">
-                                                                        {u.toUpperCase()}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="size-10 text-destructive/40 hover:text-destructive hover:bg-destructive/5 rounded-xl"><FiTrash2 className="size-4" /></Button>
-                                                </div>
-                                            );
-                                        })}
-                                        {localErrors.recipe && <p className="text-[10px] text-destructive font-bold italic ml-1">{localErrors.recipe}</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter className="p-6 border-t bg-muted/5 gap-2">
-                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl font-bold">Discard</Button>
-                            <Button type="submit" disabled={processing} className="bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-tighter rounded-xl px-8 shadow-lg shadow-primary/20 transition-all active:scale-95">
-                                {processing ? (
-                                    <div className="flex items-center gap-2">
-                                        <div className="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                                        SAVING...
-                                    </div>
-                                ) : 'Update Product'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-
-            {/* Delete Confirmation Modal */}
-            <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="sm:max-w-[400px] rounded-[32px] p-8">
-                    <DialogHeader className="p-0 space-y-4">
-                        <div className="size-16 rounded-[24px] bg-destructive/10 flex items-center justify-center mx-auto mb-2">
-                            <FiTrash2 className="size-8 text-destructive animate-pulse" />
-                        </div>
-                        <DialogTitle className="text-2xl font-black text-center italic tracking-tighter uppercase">De-register Product?</DialogTitle>
-                        <DialogDescription className="text-center font-medium leading-relaxed">
-                            This will permanently remove <span className="font-bold text-foreground">"{selectedProduct?.name}"</span> from your catalog. This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex-col sm:flex-col gap-3 mt-8 border-none p-0">
-                        <Button
-                            variant="destructive"
-                            onClick={handleDeleteSubmit}
-                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] italic transition-all active:scale-95 shadow-xl shadow-destructive/20"
-                        >
-                            Confirm De-registration
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setIsDeleteModalOpen(false)}
-                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] text-muted-foreground hover:bg-muted"
-                        >
-                            Keep Product
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                            )}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </AppLayout>
     );
 }

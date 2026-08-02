@@ -15,7 +15,12 @@ return new class extends Migration
         });
 
         Schema::table('deliveries', function (Blueprint $table) {
-            $indexExists = collect(DB::select("SHOW INDEX FROM deliveries"))->contains('Key_name', 'deliveries_status_created_at_index');
+            $driverName = Illuminate\Support\Facades\DB::connection()->getDriverName();
+            if ($driverName === 'sqlite') {
+                $indexExists = collect(Schema::getIndexes('deliveries'))->contains(fn($index) => ($index['name'] ?? '') === 'deliveries_status_created_at_index');
+            } else {
+                $indexExists = collect(Illuminate\Support\Facades\DB::select("SHOW INDEX FROM deliveries"))->contains(fn($index) => (($index->Key_name ?? $index['Key_name'] ?? '') === 'deliveries_status_created_at_index'));
+            }
             if (!$indexExists) {
                 $table->index(['status', 'created_at']);
             }

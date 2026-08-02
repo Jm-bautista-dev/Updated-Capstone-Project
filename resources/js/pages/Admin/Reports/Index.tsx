@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { useState, useMemo } from 'react';
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, isBefore, parseISO } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import axios from 'axios';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell
@@ -54,7 +56,7 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 px-4 rounded-xl font-bold text-[11px] justify-start gap-3 border-border/50 bg-background hover:bg-muted/50 min-w-[240px] transition-all">
+                <Button variant="outline" className="h-10 px-4 rounded-xl font-bold text-[11px] justify-start gap-3 border-[var(--ops-border)] bg-[var(--ops-surface-raised)] hover:bg-[var(--ops-hover)] min-w-[240px] text-[var(--ops-text-secondary)] transition-all">
                     <FiCalendar className="size-4 text-primary" />
                     <span className="truncate">{currentLabel}</span>
                     <div className="ml-auto flex items-center gap-2">
@@ -64,17 +66,17 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
                     </div>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0 rounded-2xl border-border/50 shadow-2xl overflow-hidden backdrop-blur-xl" align="end">
+            <PopoverContent className="w-[320px] p-0 rounded-2xl border-[var(--ops-border)] bg-[var(--ops-surface-raised)] shadow-2xl overflow-hidden backdrop-blur-xl" align="end">
                 <div className="flex flex-col">
-                    <div className="p-4 border-b border-border/40 bg-muted/20">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 mb-3">Predefined Periods</p>
+                    <div className="p-4 border-b border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/20">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] mb-3">Predefined Periods</p>
                         <div className="grid grid-cols-2 gap-2">
                             {presets.map((preset) => (
                                 <Button
                                     key={preset.label}
                                     variant="ghost"
                                     onClick={() => handlePreset(preset)}
-                                    className="h-9 justify-start px-3 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all"
+                                    className="h-9 justify-start px-3 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-[var(--ops-hover)] text-[var(--ops-text-secondary)] transition-all"
                                 >
                                     {preset.label}
                                 </Button>
@@ -83,31 +85,31 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
                     </div>
                     
                     <div className="p-5 space-y-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Custom Analytics Interval</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Custom Analytics Interval</p>
                         <div className="space-y-3">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-black uppercase text-muted-foreground/80 px-1">Start Point</label>
+                                <label className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] px-1">Start Point</label>
                                 <Input 
                                     type="date" 
                                     value={from} 
                                     onChange={(e) => onUpdate(e.target.value, to)} 
-                                    className="h-10 rounded-xl bg-muted/30 border-none font-bold text-xs" 
+                                    className="h-10 rounded-xl bg-[var(--ops-surface-sunken)]/40 border-none font-bold text-xs" 
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-black uppercase text-muted-foreground/80 px-1">End Point</label>
+                                <label className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] px-1">End Point</label>
                                 <Input 
                                     type="date" 
                                     value={to} 
                                     min={from}
                                     onChange={(e) => onUpdate(from, e.target.value)} 
-                                    className="h-10 rounded-xl bg-muted/30 border-none font-bold text-xs" 
+                                    className="h-10 rounded-xl bg-[var(--ops-surface-sunken)]/40 border-none font-bold text-xs" 
                                 />
                             </div>
                         </div>
                         
                         <div className="flex gap-2 pt-2">
-                            <Button variant="ghost" onClick={handleReset} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            <Button variant="ghost" onClick={handleReset} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">
                                 Reset
                             </Button>
                             <Button onClick={() => setOpen(false)} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">
@@ -125,13 +127,13 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-background/90 backdrop-blur-md border border-border shadow-xl rounded-xl p-3 ring-1 ring-black/5">
-                <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">{label}</p>
+            <div className="bg-background/90 backdrop-blur-md border border-[var(--ops-border)] shadow-xl rounded-xl p-3 ring-1 ring-black/5 text-[var(--ops-text-secondary)]">
+                <p className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] mb-2">{label}</p>
                 {payload.map((entry: any, index: number) => (
                     <div key={index} className="flex items-center justify-between gap-4 mt-1">
                         <div className="flex items-center gap-1.5">
                             <div className="size-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span className="text-[11px] font-bold text-foreground/80">{entry.name}</span>
+                            <span className="text-[11px] font-bold">{entry.name}</span>
                         </div>
                         <span className="text-[11px] font-black tabular-nums">
                             {entry.name === 'Revenue' ? formatCurrency(entry.value) : entry.value}
@@ -147,12 +149,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 // ── ADMIN UI STAT CARD ──
 function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: any) {
     return (
-        <Card className="relative overflow-hidden group border-none shadow-lg ring-1 ring-primary/5 hover:ring-primary/40 transition-all duration-300">
-            <div className={cn("absolute -top-4 -right-4 size-24 blur-3xl opacity-10", colorClass)} />
+        <Card className="relative overflow-hidden group border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] shadow-lg ring-1 ring-primary/5 hover:ring-primary/40 transition-all duration-300">
+            <div className="absolute -top-4 -right-4 size-24 blur-3xl opacity-10" />
             <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <div className={cn("p-2 rounded-xl bg-muted transition-all duration-300 group-hover:scale-110", colorClass.replace('bg-', 'text-'))}>
-                        <Icon className="size-5" />
+                    <div className="p-2 rounded-xl bg-[var(--ops-surface-sunken)] transition-all duration-300 group-hover:scale-110">
+                        <Icon className="size-5 text-primary" />
                     </div>
                     {trend && (
                         <div className={cn(
@@ -164,8 +166,8 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: a
                     )}
                 </div>
                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{title}</p>
-                    <h3 className="text-2xl font-black tracking-tight text-foreground dark:text-white tabular-nums">{value}</h3>
+                    <p className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-widest">{title}</p>
+                    <h3 className="text-2xl font-black tracking-tight text-foreground tabular-nums">{value}</h3>
                 </div>
             </CardContent>
         </Card>
@@ -182,24 +184,286 @@ function getPeriodLabel(filters: any, type: 'Sales' | 'Orders') {
     return `All-Time ${type}`;
 }
 
+// ── DYNAMIC EXPORT MODAL ──
+function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean, onClose: () => void, onExport: (options: any) => void, activeTab: 'sales' | 'shifts' }) {
+    const [formatOption, setFormatOption] = useState<'pdf' | 'excel'>('pdf');
+    const [scope, setScope] = useState<'view' | 'all'>('view');
+    const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+    const [paperSize, setPaperSize] = useState<'A4' | 'Letter' | 'Legal'>('A4');
+    const [includedData, setIncludedData] = useState({
+        summary: true,
+        table: true,
+        charts: true,
+        filters: true,
+        kpis: true
+    });
+
+    const handleExport = () => {
+        onExport({
+            format: formatOption,
+            scope,
+            orientation,
+            paperSize,
+            includedData
+        });
+        onClose();
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[480px] rounded-2xl border border-[var(--ops-border)] shadow-2xl overflow-hidden bg-[var(--ops-surface-raised)] text-[var(--ops-text-secondary)]">
+                <DialogHeader className="p-6 bg-[var(--ops-surface-sunken)]/40 border-b border-[var(--ops-border-subtle)] pb-4">
+                    <DialogTitle className="text-base font-black uppercase tracking-wider flex items-center gap-2 text-foreground">
+                        <FiDownload className="text-primary size-5 animate-pulse" /> Export Configuration
+                    </DialogTitle>
+                    <DialogDescription className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">
+                        Configure layout boundaries, formatting targets, and data scoping
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="p-6 space-y-5">
+                    {/* Format */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Target Format</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button 
+                                type="button"
+                                variant={formatOption === 'pdf' ? 'default' : 'outline'}
+                                onClick={() => setFormatOption('pdf')}
+                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                            >
+                                <FiFileText className="size-4 mr-2" /> PDF Document
+                            </Button>
+                            <Button 
+                                type="button"
+                                variant={formatOption === 'excel' ? 'default' : 'outline'}
+                                onClick={() => setFormatOption('excel')}
+                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                            >
+                                <FiDatabase className="size-4 mr-2" /> Excel Workbook
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Scope */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Data Boundaries</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button 
+                                type="button"
+                                variant={scope === 'view' ? 'default' : 'outline'}
+                                onClick={() => setScope('view')}
+                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                            >
+                                Current Page View
+                            </Button>
+                            <Button 
+                                type="button"
+                                variant={scope === 'all' ? 'default' : 'outline'}
+                                onClick={() => setScope('all')}
+                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                            >
+                                All Filtered Records
+                            </Button>
+                        </div>
+                    </div>
+
+                    {formatOption === 'pdf' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Orientation */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Orientation</label>
+                                <Select value={orientation} onValueChange={(v: any) => setOrientation(v)}>
+                                    <SelectTrigger className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] text-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-[var(--ops-border)] shadow-2xl bg-[var(--ops-surface-raised)] text-foreground">
+                                        <SelectItem value="portrait">Portrait</SelectItem>
+                                        <SelectItem value="landscape">Landscape</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Paper Size */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Paper Size</label>
+                                <Select value={paperSize} onValueChange={(v: any) => setPaperSize(v)}>
+                                    <SelectTrigger className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] text-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-[var(--ops-border)] shadow-2xl bg-[var(--ops-surface-raised)] text-foreground">
+                                        <SelectItem value="A4">A4</SelectItem>
+                                        <SelectItem value="Letter">Letter</SelectItem>
+                                        <SelectItem value="Legal">Legal</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Content inclusions */}
+                    <div className="space-y-2.5 pt-2 border-t border-[var(--ops-border-subtle)]">
+                        <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider block">Content Inclusions</label>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-[var(--ops-text-secondary)] hover:text-foreground">
+                                <input 
+                                    type="checkbox" 
+                                    checked={includedData.kpis} 
+                                    onChange={() => setIncludedData(p => ({ ...p, kpis: !p.kpis }))}
+                                    className="size-4.5 rounded-[4px] accent-primary" 
+                                />
+                                KPI Summaries
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-[var(--ops-text-secondary)] hover:text-foreground">
+                                <input 
+                                    type="checkbox" 
+                                    checked={includedData.table} 
+                                    onChange={() => setIncludedData(p => ({ ...p, table: !p.table }))}
+                                    className="size-4.5 rounded-[4px] accent-primary" 
+                                />
+                                Data Grid
+                            </label>
+                            {formatOption === 'pdf' && activeTab === 'sales' && (
+                                <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-[var(--ops-text-secondary)] hover:text-foreground">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={includedData.charts} 
+                                        onChange={() => setIncludedData(p => ({ ...p, charts: !p.charts }))}
+                                        className="size-4.5 rounded-[4px] accent-primary" 
+                                    />
+                                    Include Charts
+                                </label>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter className="p-6 bg-[var(--ops-surface-sunken)]/40 border-t border-[var(--ops-border-subtle)] flex justify-between gap-3">
+                    <Button 
+                        type="button" 
+                        variant="ghost" 
+                        onClick={onClose}
+                        className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]"
+                    >
+                        Cancel
+                    </Button>
+                    <Button 
+                        type="button" 
+                        onClick={handleExport}
+                        className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20"
+                    >
+                        Export Now
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // ── ADMIN REPORTS DASHBOARD ──
 function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_data, top_product, peak_day, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: any) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo,   setDateTo]   = useState(filters.date_to   || '');
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const updateRange = (from: string, to: string) => {
         setDateFrom(from);
         setDateTo(to);
-        // Instant apply for presets
         if (from !== dateFrom || to !== dateTo) {
              router.get('/reports', { date_from: from, date_to: to }, { preserveState: true });
         }
     };
 
-    const handleExport = (type: 'pdf' | 'excel') => {
-        const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo }).toString();
-        window.open(`/reports/${type}?${params}`, '_blank');
+    const triggerExport = async (options: any) => {
+        const kpis = [];
+        if (options.includedData.kpis) {
+            if (activeTab === 'sales') {
+                kpis.push({ title: "Today's Sales", value: formatCurrency(today_sales ?? 0) });
+                kpis.push({ title: "Total Revenue", value: formatCurrency(total_revenue ?? 0) });
+                kpis.push({ title: "Total Orders", value: (total_orders ?? 0).toLocaleString() });
+                kpis.push({ title: "Net Profit", value: formatCurrency(total_profit ?? 0) });
+                kpis.push({ title: "Cancelled Orders", value: (cancelled_count ?? 0).toLocaleString() });
+            } else {
+                kpis.push({ title: "Total Shift Transactions", value: shifts.total?.toString() || '0' });
+            }
+        }
+
+        const columns = [];
+        if (activeTab === 'sales') {
+            columns.push({ title: 'Order #', key: 'order_number', align: 'text-left' });
+            columns.push({ title: 'Date', key: 'date', align: 'text-left' });
+            columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Status', key: 'status', align: 'text-left' });
+            columns.push({ title: 'Total Sales', key: 'total', align: 'text-right' });
+            columns.push({ title: 'Net Profit', key: 'profit', align: 'text-right' });
+        } else {
+            columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Opened At', key: 'opened_at', align: 'text-left' });
+            columns.push({ title: 'Closed At', key: 'closed_at', align: 'text-left' });
+            columns.push({ title: 'Opening Balance', key: 'opening', align: 'text-right' });
+            columns.push({ title: 'Ending Balance', key: 'ending', align: 'text-right' });
+            columns.push({ title: 'Actual Cash', key: 'actual', align: 'text-right' });
+            columns.push({ title: 'Difference', key: 'diff', align: 'text-right' });
+        }
+
+        let rows: any[] = [];
+        if (options.scope === 'view') {
+            if (activeTab === 'sales') {
+                rows = (sales.data || []).map((sale: any) => ({
+                    order_number: sale.order_number,
+                    date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
+                    cashier: sale.cashier?.name ?? 'N/A',
+                    status: sale.status,
+                    total: formatCurrency(sale.total),
+                    profit: formatCurrency(sale.profit)
+                }));
+            } else {
+                rows = (shifts.data || []).map((s: any) => ({
+                    cashier: s.cashier?.name ?? 'N/A',
+                    opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
+                    closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
+                    opening: formatCurrency(s.opening_cash),
+                    ending: formatCurrency(s.expected_cash),
+                    actual: formatCurrency(s.actual_cash),
+                    diff: formatCurrency(s.actual_cash - s.expected_cash)
+                }));
+            }
+        }
+
+        let chartImage = null;
+        if (options.includedData.charts && activeTab === 'sales') {
+            const svgEl = document.querySelector('.recharts-responsive-container svg');
+            if (svgEl) {
+                const svgString = new XMLSerializer().serializeToString(svgEl);
+                chartImage = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgString);
+            }
+        }
+
+        try {
+            const res = await axios.post('/reports/export/prepare', {
+                reportName: activeTab === 'sales' ? 'Sales Performance Report' : 'Cash Drawer Shifts Log',
+                branch: 'All Branches',
+                dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : 'All Time',
+                generatedBy: 'System Administrator',
+                kpis,
+                columns,
+                rows,
+                scope: options.scope,
+                orientation: options.orientation,
+                paperSize: options.paperSize,
+                includeCharts: options.includedData.charts,
+                chartImage,
+                activeTab,
+                filters: { date_from: dateFrom, date_to: dateTo }
+            });
+            
+            if (res.data?.token) {
+                window.open(`/reports/${options.format}?token=${res.data.token}`, '_blank');
+            }
+        } catch (err) {
+            console.error('Prepared dynamic export failed:', err);
+        }
     };
 
     const TREND_DATA: any[] = trend_data    || [];
@@ -207,17 +471,17 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
     const hasChart = TREND_DATA.length > 0;
 
     return (
-        <div className="p-6 lg:p-8 space-y-10 bg-background dark:bg-[#0B0B0F] min-h-[calc(100vh-64px)]">
+        <div className="p-6 lg:p-8 space-y-10 bg-background min-h-[calc(100vh-64px)] text-[var(--ops-text-secondary)]">
             {/* 1. INSIGHT HEADER */}
-            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-border/40 pb-8">
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-[var(--ops-border)] pb-8">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                             <FiActivity className="size-6" />
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground dark:text-white">Business Overview</h1>
+                        <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Business Overview</h1>
                     </div>
-                    <p className="text-muted-foreground dark:text-zinc-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
+                    <p className="text-[var(--ops-text-muted)] font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
                             : 'Real-time performance summary'}
@@ -226,20 +490,17 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
 
                 <div className="flex flex-col items-center xl:items-end gap-3 w-full xl:w-auto">
                     <div className="flex flex-wrap items-center justify-center xl:justify-end gap-2">
-                        <Button variant="outline" onClick={() => handleExport('pdf')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
-                            <FiFileText className="size-3.5 mr-2" /> PDF
+                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-[var(--ops-border)] bg-[var(--ops-surface-raised)] hover:bg-[var(--ops-hover)] text-[var(--ops-text-secondary)]">
+                            <FiDownload className="size-3.5 mr-2 text-primary" /> Configure Export
                         </Button>
-                        <Button variant="outline" onClick={() => handleExport('excel')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
-                            <FiDatabase className="size-3.5 mr-2" /> Excel
-                        </Button>
-                        <div className="h-4 w-px bg-border/40 mx-1 hidden sm:block" />
+                        <div className="h-4 w-px bg-border/45 mx-1 hidden sm:block" />
                         <DateRangePicker from={dateFrom} to={dateTo} onUpdate={updateRange} />
                     </div>
                 </div>
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex items-center gap-2 p-1 bg-muted/30 rounded-2xl border border-border/40 w-fit">
+            <div className="flex items-center gap-2 p-1 bg-[var(--ops-surface-sunken)] rounded-2xl border border-[var(--ops-border-subtle)] w-fit">
                 <Button 
                     variant={activeTab === 'sales' ? 'default' : 'ghost'} 
                     onClick={() => setActiveTab('sales')}
@@ -258,360 +519,261 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
 
             {activeTab === 'sales' ? (
                 <>
-            {/* 2. PERFORMANCE OVERVIEW — real KPIs */}
-            <div className="space-y-5">
-                <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary" /> Performance Overview
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                    <StatCard
-                        title="Today's Sales"
-                        value={formatCurrency(today_sales ?? 0)}
-                        icon={FiZap}
-                        colorClass="bg-primary"
-                    />
-                    <StatCard
-                        title={getPeriodLabel(filters, 'Sales')}
-                        value={formatCurrency(total_revenue ?? 0)}
-                        icon={FiDollarSign}
-                        colorClass="bg-indigo-500"
-                    />
-                    <StatCard
-                        title={getPeriodLabel(filters, 'Orders')}
-                        value={(total_orders ?? 0).toLocaleString()}
-                        icon={FiShoppingBag}
-                        colorClass="bg-emerald-500"
-                    />
-                    <StatCard
-                        title="Net Profit"
-                        value={formatCurrency(total_profit ?? 0)}
-                        icon={FiTrendingUp}
-                        colorClass="bg-amber-500"
-                    />
-                    <StatCard
-                        title="Cancelled"
-                        value={(cancelled_count ?? 0).toLocaleString()}
-                        icon={FiAlertTriangle}
-                        trend={(cancelled_count ?? 0) > 5 ? 'down' : 'up'}
-                        trendValue={(cancelled_count ?? 0) > 5 ? 'High' : 'Low'}
-                        colorClass="bg-rose-500"
-                    />
+                {/* 2. PERFORMANCE OVERVIEW — real KPIs */}
+                <div className="space-y-5">
+                    <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-primary" /> Performance Overview
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                        <StatCard
+                            title="Today's Sales"
+                            value={formatCurrency(today_sales ?? 0)}
+                            icon={FiZap}
+                            colorClass="bg-primary"
+                        />
+                        <StatCard
+                            title={getPeriodLabel(filters, 'Sales')}
+                            value={formatCurrency(total_revenue ?? 0)}
+                            icon={FiDollarSign}
+                            colorClass="bg-indigo-500"
+                        />
+                        <StatCard
+                            title={getPeriodLabel(filters, 'Orders')}
+                            value={(total_orders ?? 0).toLocaleString()}
+                            icon={FiShoppingBag}
+                            colorClass="bg-emerald-500"
+                        />
+                        <StatCard
+                            title="Net Profit"
+                            value={formatCurrency(total_profit ?? 0)}
+                            icon={FiTrendingUp}
+                            colorClass="bg-amber-500"
+                        />
+                        <StatCard
+                            title="Cancelled"
+                            value={(cancelled_count ?? 0).toLocaleString()}
+                            icon={FiAlertTriangle}
+                            trend={(cancelled_count ?? 0) > 5 ? 'down' : 'up'}
+                            trendValue={(cancelled_count ?? 0) > 5 ? 'High' : 'Low'}
+                            colorClass="bg-rose-500"
+                        />
+                    </div>
                 </div>
-            </div>
 
-            {/* 3. SALES ANALYTICS — real charts */}
-            <div className="space-y-5">
-                <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2 mt-2">
-                    <span className="size-2 rounded-full bg-indigo-500" /> Trends & Insights
-                </h2>
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-
-                    {/* Revenue + Profit area chart */}
-                    <Card className="xl:col-span-8 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 overflow-hidden group flex flex-col min-w-0">
-                        <CardHeader className="flex flex-row items-center justify-between p-8 shrink-0">
-                            <div className="space-y-1">
-                                <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Sales Growth Trend</CardTitle>
-                                <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                                    {filters.date_from ? 'Filtered Range' : 'Last 14 Days'} · {TREND_DATA.length} days
-                                </CardDescription>
-                            </div>
-                            <div className="hidden sm:flex items-center gap-6">
-                                <div className="flex items-center gap-2 text-primary">
-                                    <div className="size-2.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Sales</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-emerald-500">
-                                    <div className="size-2.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Profit</span>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {hasChart ? (
-                                <div className="w-full px-6 pb-6" style={{ height: 400, minWidth: 0 }}>
-                                    <ResponsiveContainer width="100%" height={400} debounce={50}>
-                                        <AreaChart data={TREND_DATA} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                {/* 3. CHARTS GRID */}
+                {hasChart ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <Card className="lg:col-span-2 border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl shadow-lg">
+                            <CardHeader className="border-b border-[var(--ops-border-subtle)] pb-4">
+                                <CardTitle className="text-base font-black uppercase text-foreground">Revenue & Profit Trajectory</CardTitle>
+                                <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)]">Walk-forward performance trajectory mapping</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6">
+                                <div className="h-[320px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={TREND_DATA} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}   />
-                                                </linearGradient>
-                                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.15} />
-                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}    />
+                                                    <stop offset="5%" stopColor="#E1062C" stopOpacity={0.2} />
+                                                    <stop offset="95%" stopColor="#E1062C" stopOpacity={0} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
-                                            <XAxis 
-                                                dataKey="date" 
-                                                axisLine={false} 
-                                                tickLine={false} 
-                                                tick={{ fontSize: 10, fontWeight: "900", fill: '#94a3b8' }}
-                                                dy={10}
-                                            />
-                                            <YAxis 
-                                                axisLine={false} 
-                                                tickLine={false} 
-                                                tick={{ fontSize: 10, fontWeight: "900", fill: '#94a3b8' }}
-                                                dx={-10}
-                                                tickFormatter={(v) => `₱${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`} 
-                                            />
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
+                                            <XAxis dataKey="date" fontSize={9} stroke="currentColor" className="text-[var(--ops-text-muted)] font-black" axisLine={false} tickLine={false} />
+                                            <YAxis fontSize={9} stroke="currentColor" className="text-[var(--ops-text-muted)] font-black font-mono" axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v}`} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Area 
-                                                type="monotone" 
-                                                dataKey="Revenue" 
-                                                name="Revenue"
-                                                stroke="#6366f1" 
-                                                strokeWidth={4} 
-                                                fillOpacity={1} 
-                                                fill="url(#colorRev)" 
-                                                animationDuration={1000}
-                                                dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#6366f1' }}
-                                                activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }}
-                                            />
-                                            <Area 
-                                                type="monotone" 
-                                                dataKey="Profit"  
-                                                name="Profit"
-                                                stroke="#10b981" 
-                                                strokeWidth={3} 
-                                                fillOpacity={1} 
-                                                fill="url(#colorProfit)" 
-                                                strokeDasharray="5 5" 
-                                                animationDuration={1000}
-                                                dot={{ r: 3, strokeWidth: 2, fill: '#fff', stroke: '#10b981' }}
-                                                activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981' }}
-                                            />
+                                            <Area type="monotone" dataKey="Revenue" stroke="#E1062C" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                                            <Area type="monotone" dataKey="Profit" stroke="#10b981" strokeWidth={2} fill="none" />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
-                            ) : (
-                                <div className="h-[400px] flex flex-col items-center justify-center p-12 text-center">
-                                    <div className="size-16 rounded-3xl bg-muted flex items-center justify-center mb-4">
-                                        <FiActivity className="size-8 text-muted-foreground/40" />
-                                    </div>
-                                    <p className="text-sm font-black uppercase italic tracking-widest text-muted-foreground/60">No data points detected</p>
-                                    <p className="text-[10px] font-bold text-muted-foreground/40 mt-1 uppercase">Telemetry stream is currently empty for this vector</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
 
-                    {/* Product revenue pie */}
-                    <Card className="xl:col-span-4 border-none shadow-sm ring-1 ring-border bg-card dark:bg-zinc-900/50 flex flex-col h-full min-h-[450px] min-w-0 overflow-hidden">
-                        <CardHeader className="p-8 pb-4 shrink-0">
-                            <CardTitle className="text-xl font-black italic uppercase tracking-tighter">Sales by Category</CardTitle>
-                            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Top Items by Total Sales</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex-1 flex flex-col items-center justify-center p-8 pt-0 min-h-0">
-                            {CAT_DATA.length > 0 ? (
-                                <>
-                                    <div className="w-full relative shrink-0 focus:outline-none" style={{ height: 240, minWidth: 0 }}>
-                                        <ResponsiveContainer width="100%" height={240} debounce={50}>
-                                            <PieChart>
-                                                <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={8} dataKey="value" stroke="none" isAnimationActive={true}>
-                                                    {CAT_DATA.map((entry: any, index: number) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} className="focus:outline-none" />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip content={<CustomTooltip />} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total</p>
-                                            <p className="text-xl font-black italic text-foreground leading-none">100%</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Legend with scrollable area */}
-                                    <div className="w-full mt-6 px-2 overflow-hidden flex-1 min-h-0 flex flex-col">
-                                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
-                                            <div className="grid grid-cols-2 xl:grid-cols-1 gap-x-6 gap-y-3">
-                                                {CAT_DATA.map((cat: any) => (
-                                                    <div key={cat.name} className="flex items-center justify-between group cursor-default gap-3 min-w-0 transition-all duration-200 hover:translate-x-1">
-                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                            <div className="size-2 rounded-full shrink-0 shadow-[0_0_5px_rgba(0,0,0,0.1)]" style={{ backgroundColor: cat.color }} />
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground transition-colors truncate">
-                                                                {cat.name}
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-[10px] font-black tabular-nums shrink-0 text-muted-foreground group-hover:text-primary transition-colors">
-                                                            {cat.value}%
-                                                        </span>
-                                                    </div>
+                        <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl shadow-lg">
+                            <CardHeader className="border-b border-[var(--ops-border-subtle)] pb-4">
+                                <CardTitle className="text-base font-black uppercase text-foreground">Category Proportions</CardTitle>
+                                <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)]">Sales volume distribution by item type</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 flex flex-col items-center justify-center">
+                                <div className="h-[200px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value">
+                                                {CAT_DATA.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#E1062C', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'][index % 6]} />
                                                 ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-40">
-                                    <FiActivity className="size-10 mb-4" />
-                                    <p className="text-[10px] font-black uppercase tracking-widest italic">Mix Distribution Null</p>
+                                            </Pie>
+                                            <Tooltip />
+                                        </PieChart>
+                                    </ResponsiveContainer>
                                 </div>
-                            )}
+                                <div className="grid grid-cols-2 gap-3 w-full mt-4 text-[10px] font-bold">
+                                    {CAT_DATA.map((entry, index) => (
+                                        <div key={entry.name} className="flex items-center gap-1.5 truncate">
+                                            <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: ['#E1062C', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'][index % 6] }} />
+                                            <span className="truncate text-foreground/80">{entry.name} ({entry.value}%)</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                ) : null}
+
+                {/* 4. SALES DATA TABLE */}
+                <div className="space-y-4">
+                    <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-primary" /> Transaction Registry
+                    </h2>
+                    <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl overflow-hidden shadow-lg">
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-[var(--ops-border-subtle)] bg-[var(--ops-thead-bg)]">
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Order #</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Date</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Cashier</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Status</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Total Sales</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Net Profit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                                        {sales.data.map((sale: any) => (
+                                            <tr key={sale.id} className="hover:bg-[var(--ops-surface-sunken)]/20 transition-colors">
+                                                <td className="p-4 font-bold text-sm text-foreground">{sale.order_number}</td>
+                                                <td className="p-4 text-xs text-[var(--ops-text-muted)]">
+                                                    {format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                                                        <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                                                            {sale.cashier?.name?.charAt(0)}
+                                                        </div>
+                                                        <span>{sale.cashier?.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <Badge variant="outline" className={cn(
+                                                        "capitalize text-[9px] font-black tracking-wider rounded-md",
+                                                        sale.status === 'completed' && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+                                                        sale.status === 'cancelled' && "bg-rose-500/10 text-rose-500 border-rose-500/20",
+                                                        sale.status === 'pending' && "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                                    )}>
+                                                        {sale.status}
+                                                    </Badge>
+                                                </td>
+                                                <td className="p-4 text-right font-black font-mono text-sm text-foreground">
+                                                    {formatCurrency(sale.total)}
+                                                </td>
+                                                <td className="p-4 text-right font-black font-mono text-sm text-emerald-500">
+                                                    {formatCurrency(sale.profit)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-4 border-t border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/30 flex justify-between items-center flex-wrap gap-3">
+                                <p className="text-[10px] font-bold text-[var(--ops-text-muted)]">Showing {sales.from} to {sales.to} of {sales.total} results</p>
+                                <div className="flex gap-1">
+                                    {sales.links.map((link: any, i: number) => (
+                                        <Button
+                                            key={i}
+                                            variant={link.active ? 'default' : 'outline'}
+                                            size="sm"
+                                            disabled={!link.url}
+                                            onClick={() => link.url && router.get(link.url)}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                            className="h-8 min-w-[32px] px-2 text-[10px]"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
-            </div>
-
-            {/* 4. BUSINESS INSIGHTS — real data */}
-            <div className="space-y-5">
-                <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2 mt-2">
-                    <span className="size-2 rounded-full bg-amber-500" /> Business Insights
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Top Performer */}
-                    <div className="bg-muted/30 dark:bg-zinc-900/40 p-5 rounded-3xl border border-border/40 flex items-center justify-between group hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className="size-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
-                                <FiZap className="size-5" />
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-black uppercase text-muted-foreground/70 tracking-tighter leading-none mb-1.5">Top Performer</p>
-                                <p className="text-sm font-black italic uppercase text-foreground dark:text-zinc-200 tracking-tighter leading-none truncate max-w-[120px]">
-                                    {top_product?.name ?? '—'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="bg-background rounded-xl px-3 py-2 border shadow-sm shrink-0">
-                            <p className="text-[10px] font-black tabular-nums text-amber-600">
-                                {top_product ? `${top_product.units} Units` : 'No data'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Peak Revenue Day */}
-                    <div className="bg-muted/30 dark:bg-zinc-900/40 p-5 rounded-3xl border border-border/40 flex items-center justify-between group hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className="size-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                                <FiTrendingUp className="size-5" />
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-black uppercase text-muted-foreground/70 tracking-tighter leading-none mb-1.5">Best Sales Day</p>
-                                <p className="text-sm font-black italic uppercase text-foreground dark:text-zinc-200 tracking-tighter leading-none">
-                                    {peak_day?.date ?? '—'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="bg-background rounded-xl px-3 py-2 border shadow-sm shrink-0">
-                            <p className="text-[10px] font-black tabular-nums text-emerald-600">
-                                {peak_day ? formatCurrency(peak_day.revenue) : 'No data'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Cancellation Risk */}
-                    <div className="bg-muted/30 dark:bg-zinc-900/40 p-5 rounded-3xl border border-border/40 flex items-center justify-between group hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className={cn('size-12 rounded-2xl flex items-center justify-center text-white shadow-lg', (cancelled_count ?? 0) > 5 ? 'bg-rose-500 shadow-rose-500/20' : 'bg-emerald-500 shadow-emerald-500/20')}>
-                                <FiAlertTriangle className="size-5" />
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-black uppercase text-muted-foreground/70 tracking-tighter leading-none mb-1.5">Cancellation Risk</p>
-                                <p className="text-sm font-black italic uppercase text-foreground dark:text-zinc-200 tracking-tighter leading-none">
-                                    {(cancelled_count ?? 0) > 5 ? 'Elevated' : 'Normal'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="bg-background rounded-xl px-3 py-2 border shadow-sm shrink-0">
-                            <p className={cn('text-[10px] font-black tabular-nums', (cancelled_count ?? 0) > 5 ? 'text-rose-600' : 'text-emerald-600')}>
-                                {cancelled_count ?? 0} cancelled
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            </>
+                </>
             ) : (
                 <ShiftHistory shifts={shifts} />
             )}
+
+            <ExportModal 
+                isOpen={isExportOpen}
+                onClose={() => setIsExportOpen(false)}
+                onExport={triggerExport}
+                activeTab={activeTab}
+            />
         </div>
     );
 }
 
+// ── ADMIN SHIFTS GRID COMPONENT ──
 function ShiftHistory({ shifts }: any) {
     return (
-        <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm overflow-hidden mt-6">
-            <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="border-b bg-muted/30">
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Cashier</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Opened</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Closed</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Opening</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Cash Sales</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Expected</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Actual</th>
-                                <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Variance</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {shifts.data.map((shift: any) => (
-                                <tr key={shift.id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                                                {shift.cashier?.name?.charAt(0)}
-                                            </div>
-                                            <span className="text-sm font-medium">{shift.cashier?.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-[11px] font-bold text-muted-foreground">
-                                        {format(new Date(shift.opened_at), 'MMM dd, HH:mm')}
-                                    </td>
-                                    <td className="p-4 text-[11px] font-bold text-muted-foreground">
-                                        {shift.closed_at ? format(new Date(shift.closed_at), 'MMM dd, HH:mm') : 'Active'}
-                                    </td>
-                                    <td className="p-4 text-right text-xs font-medium">{formatCurrency(shift.opening_balance)}</td>
-                                    <td className="p-4 text-right text-xs font-bold text-primary">{formatCurrency(shift.total_cash_sales)}</td>
-                                    <td className="p-4 text-right text-xs font-medium">{formatCurrency(shift.expected_balance)}</td>
-                                    <td className="p-4 text-right text-xs font-black">{shift.closing_balance ? formatCurrency(shift.closing_balance) : '—'}</td>
-                                    <td className="p-4 text-right">
-                                        {shift.variance !== null ? (
-                                            <Badge variant="outline" className={cn(
-                                                "font-black text-[10px]",
-                                                parseFloat(shift.variance) === 0 && "bg-emerald-50 text-emerald-700 border-emerald-200",
-                                                parseFloat(shift.variance) > 0 && "bg-blue-50 text-blue-700 border-blue-200",
-                                                parseFloat(shift.variance) < 0 && "bg-rose-50 text-rose-700 border-rose-200"
-                                            )}>
-                                                {parseFloat(shift.variance) > 0 ? '+' : ''}{formatCurrency(shift.variance)}
-                                            </Badge>
-                                        ) : '—'}
-                                    </td>
+        <div className="space-y-4">
+            <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
+                <span className="size-2 rounded-full bg-primary" /> Drawer Log History
+            </h2>
+            <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl overflow-hidden shadow-lg">
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className="border-b border-[var(--ops-border-subtle)] bg-[var(--ops-thead-bg)]">
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Cashier</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Opened</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Closed</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Opening Cash</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Expected Cash</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Actual Cash</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Difference</th>
                                 </tr>
-                            ))}
-                            {shifts.data.length === 0 && (
-                                <tr>
-                                    <td colSpan={8} className="p-12 text-center text-muted-foreground uppercase text-xs font-black tracking-widest opacity-50">
-                                        No shift records found
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="p-4 border-t bg-muted/10 flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Showing {shifts.from} to {shifts.to} of {shifts.total} shifts</p>
-                    <div className="flex gap-1">
-                        {shifts.links.map((link: any, i: number) => (
-                            <Button
-                                key={i}
-                                variant={link.active ? 'default' : 'outline'}
-                                size="sm"
-                                disabled={!link.url}
-                                onClick={() => link.url && router.get(link.url)}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                                className="h-8 min-w-[32px] px-2 text-[10px]"
-                            />
-                        ))}
+                            </thead>
+                            <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                                {shifts.data.map((s: any) => {
+                                    const diff = s.actual_cash - s.expected_cash;
+                                    return (
+                                        <tr key={s.id} className="hover:bg-[var(--ops-surface-sunken)]/20 transition-colors">
+                                            <td className="p-4 font-bold text-foreground">{s.cashier?.name}</td>
+                                            <td className="p-4 text-[var(--ops-text-muted)]">{format(new Date(s.opened_at), 'MMM dd, HH:mm')}</td>
+                                            <td className="p-4 text-[var(--ops-text-muted)]">
+                                                {s.closed_at ? format(new Date(s.closed_at), 'MMM dd, HH:mm') : <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[7px] font-black rounded-md">Active</Badge>}
+                                            </td>
+                                            <td className="p-4 text-right font-mono font-bold text-foreground">{formatCurrency(s.opening_cash)}</td>
+                                            <td className="p-4 text-right font-mono font-bold text-foreground">{formatCurrency(s.expected_cash)}</td>
+                                            <td className="p-4 text-right font-mono font-bold text-foreground">{formatCurrency(s.actual_cash)}</td>
+                                            <td className={cn("p-4 text-right font-mono font-black", diff >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                                                {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+
+                    <div className="p-4 border-t border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/30 flex justify-between items-center flex-wrap gap-3">
+                        <p className="text-[10px] font-bold text-[var(--ops-text-muted)]">Showing {shifts.from} to {shifts.to} of {shifts.total} results</p>
+                        <div className="flex gap-1">
+                            {shifts.links.map((link: any, i: number) => (
+                                <Button
+                                    key={i}
+                                    variant={link.active ? 'default' : 'outline'}
+                                    size="sm"
+                                    disabled={!link.url}
+                                    onClick={() => link.url && router.get(link.url)}
+                                    dangerouslySetInnerHTML={{ __html: link.label }}
+                                    className="h-8 min-w-[32px] px-2 text-[10px]"
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
@@ -622,15 +784,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
     const [cashierId, setCashierId] = useState(filters.cashier_id || 'all');
     const [status, setStatus] = useState(filters.status || 'all');
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
-
-    const handleFilter = () => {
-        router.get('/reports', {
-            date_from: dateFrom,
-            date_to: dateTo,
-            cashier_id: cashierId === 'all' ? '' : cashierId,
-            status: status === 'all' ? '' : status,
-        }, { preserveState: true });
-    };
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const handleReset = () => {
         setDateFrom('');
@@ -640,20 +794,83 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
         router.get('/reports');
     };
 
-    const handleExport = (type: 'pdf' | 'excel') => {
-        const params = new URLSearchParams({
-            date_from: dateFrom,
-            date_to: dateTo,
-            cashier_id: cashierId === 'all' ? '' : cashierId,
-            status: status === 'all' ? '' : status,
-        }).toString();
-        window.open(`/reports/${type}?${params}`, '_blank');
+    const triggerExport = async (options: any) => {
+        const kpis = [
+            { title: "Sales Today", value: formatCurrency(today_sales ?? 0) },
+            { title: "Total Revenue", value: formatCurrency(total_revenue ?? 0) },
+            { title: "Total Orders", value: (total_orders ?? 0).toLocaleString() }
+        ];
+
+        const columns = [];
+        if (activeTab === 'sales') {
+            columns.push({ title: 'Order #', key: 'order_number', align: 'text-left' });
+            columns.push({ title: 'Date', key: 'date', align: 'text-left' });
+            columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Status', key: 'status', align: 'text-left' });
+            columns.push({ title: 'Total Sales', key: 'total', align: 'text-right' });
+        } else {
+            columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Opened At', key: 'opened_at', align: 'text-left' });
+            columns.push({ title: 'Closed At', key: 'closed_at', align: 'text-left' });
+            columns.push({ title: 'Opening Balance', key: 'opening', align: 'text-right' });
+            columns.push({ title: 'Ending Balance', key: 'ending', align: 'text-right' });
+            columns.push({ title: 'Actual Cash', key: 'actual', align: 'text-right' });
+            columns.push({ title: 'Difference', key: 'diff', align: 'text-right' });
+        }
+
+        let rows: any[] = [];
+        if (options.scope === 'view') {
+            if (activeTab === 'sales') {
+                rows = (sales.data || []).map((sale: any) => ({
+                    order_number: sale.order_number,
+                    date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
+                    cashier: sale.cashier?.name ?? 'N/A',
+                    status: sale.status,
+                    total: formatCurrency(sale.total)
+                }));
+            } else {
+                rows = (shifts.data || []).map((s: any) => ({
+                    cashier: s.cashier?.name ?? 'N/A',
+                    opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
+                    closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
+                    opening: formatCurrency(s.opening_cash),
+                    ending: formatCurrency(s.expected_cash),
+                    actual: formatCurrency(s.actual_cash),
+                    diff: formatCurrency(s.actual_cash - s.expected_cash)
+                }));
+            }
+        }
+
+        try {
+            const res = await axios.post('/reports/export/prepare', {
+                reportName: activeTab === 'sales' ? 'Order History Report' : 'My Cash Drawer Report',
+                branch: 'Assigned Branch',
+                dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : 'Current Period',
+                generatedBy: 'Cashier Member',
+                kpis,
+                columns,
+                rows,
+                scope: options.scope,
+                orientation: options.orientation,
+                paperSize: options.paperSize,
+                includeCharts: false,
+                chartImage: null,
+                activeTab,
+                filters: { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId, status }
+            });
+            
+            if (res.data?.token) {
+                window.open(`/reports/${options.format}?token=${res.data.token}`, '_blank');
+            }
+        } catch (err) {
+            console.error('Prepared dynamic export failed:', err);
+        }
     };
 
     return (
-        <div className="p-6 lg:p-8 space-y-10 bg-background dark:bg-[#0B0B0F] min-h-[calc(100vh-64px)]">
-            {/* Modern Header & Stats Summary */}
-            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-border/40 pb-8">
+        <div className="p-6 lg:p-8 space-y-10 bg-background min-h-[calc(100vh-64px)] text-[var(--ops-text-secondary)]">
+            {/* Header */}
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-[var(--ops-border)] pb-8">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
@@ -661,7 +878,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                         </div>
                         <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Business Overview</h1>
                     </div>
-                    <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
+                    <p className="text-[var(--ops-text-muted)] font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
                             : 'Personalized Sales Report'}
@@ -670,13 +887,10 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
 
                 <div className="flex flex-col items-center xl:items-end gap-3 w-full xl:w-auto">
                     <div className="flex flex-wrap items-center justify-center xl:justify-end gap-2">
-                        <Button variant="outline" onClick={() => handleExport('pdf')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
-                            <FiFileText className="size-3.5 mr-2" /> PDF
+                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-[var(--ops-border)] bg-[var(--ops-surface-raised)] hover:bg-[var(--ops-hover)] text-[var(--ops-text-secondary)]">
+                            <FiDownload className="size-3.5 mr-2 text-primary" /> Configure Export
                         </Button>
-                        <Button variant="outline" onClick={() => handleExport('excel')} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-border/50 hover:bg-muted">
-                            <FiDatabase className="size-3.5 mr-2" /> Excel
-                        </Button>
-                        <div className="h-4 w-px bg-border/40 mx-1 hidden sm:block" />
+                        <div className="h-4 w-px bg-border/45 mx-1 hidden sm:block" />
                         <DateRangePicker from={dateFrom} to={dateTo} onUpdate={(from, to) => {
                             setDateFrom(from);
                             setDateTo(to);
@@ -692,7 +906,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex items-center gap-2 p-1 bg-muted/30 rounded-2xl border border-border/40 w-fit">
+            <div className="flex items-center gap-2 p-1 bg-[var(--ops-surface-sunken)] rounded-2xl border border-[var(--ops-border-subtle)] w-fit">
                 <Button 
                     variant={activeTab === 'sales' ? 'default' : 'ghost'} 
                     onClick={() => setActiveTab('sales')}
@@ -711,156 +925,146 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
 
             {activeTab === 'sales' ? (
                 <>
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard
-                    title="Sales Today"
-                    value={formatCurrency(today_sales ?? 0)}
-                    icon={FiZap}
-                    colorClass="bg-primary"
-                />
-                <StatCard
-                    title={getPeriodLabel(filters, 'Sales')}
-                    value={formatCurrency(total_revenue ?? 0)}
-                    icon={FiDollarSign}
-                    colorClass="bg-emerald-500"
-                />
-                <StatCard
-                    title={getPeriodLabel(filters, 'Orders')}
-                    value={(total_orders ?? 0).toLocaleString()}
-                    icon={FiShoppingBag}
-                    colorClass="bg-indigo-500"
-                />
-            </div>
-
-            {/* Premium Filter Toolbar */}
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-muted/20 p-2 rounded-2xl ring-1 ring-border/40">
-                <div className="flex flex-wrap items-center gap-2 flex-1 w-full lg:w-auto">
-                    <Select value={cashierId} onValueChange={(v) => {
-                        setCashierId(v);
-                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: v === 'all' ? '' : v, status: status === 'all' ? '' : status }, { preserveState: true });
-                    }}>
-                        <SelectTrigger className="h-11 w-full lg:w-[180px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
-                            <SelectValue placeholder="Cashier" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-none shadow-2xl">
-                            <SelectItem value="all">All Cashiers</SelectItem>
-                            {cashiers.map((c: any) => (
-                                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={status} onValueChange={(v) => {
-                        setStatus(v);
-                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : v }, { preserveState: true });
-                    }}>
-                        <SelectTrigger className="h-11 w-full lg:w-[160px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-none shadow-2xl">
-                            <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="preparing">Preparing</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    <Button variant="ghost" onClick={handleReset} className="h-11 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all">
-                        <FiRefreshCw className="size-3.5 mr-2" /> Reset
-                    </Button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <StatCard
+                        title="Sales Today"
+                        value={formatCurrency(today_sales ?? 0)}
+                        icon={FiZap}
+                        colorClass="bg-primary"
+                    />
+                    <StatCard
+                        title={getPeriodLabel(filters, 'Sales')}
+                        value={formatCurrency(total_revenue ?? 0)}
+                        icon={FiDollarSign}
+                        colorClass="bg-emerald-500"
+                    />
+                    <StatCard
+                        title={getPeriodLabel(filters, 'Orders')}
+                        value={(total_orders ?? 0).toLocaleString()}
+                        icon={FiShoppingBag}
+                        colorClass="bg-indigo-500"
+                    />
                 </div>
 
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 bg-background/50 px-4 py-2.5 rounded-xl ring-1 ring-border/20">
-                    <FiSearch className="size-3 text-primary" />
-                    <span>Analyzing <span className="text-foreground">{sales.total}</span> Orders</span>
-                </div>
-            </div>
-
-            {/* Sales Table */}
-            <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm overflow-hidden">
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b bg-muted/30">
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Order #</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Date</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Cashier</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Status</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Total Sales</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Net Profit</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sales.data.map((sale: any) => (
-                                    <tr key={sale.id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
-                                        <td className="p-4">
-                                            <span className="font-bold text-sm tracking-tight">{sale.order_number}</span>
-                                        </td>
-                                        <td className="p-4 text-sm text-muted-foreground">
-                                            {format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                                                    {sale.cashier?.name?.charAt(0)}
-                                                </div>
-                                                <span className="text-sm font-medium">{sale.cashier?.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <Badge variant="outline" className={cn(
-                                                "capitalize",
-                                                sale.status === 'completed' && "bg-green-50 text-green-700 border-green-200",
-                                                sale.status === 'cancelled' && "bg-red-50 text-red-700 border-red-200",
-                                                sale.status === 'pending' && "bg-amber-50 text-amber-700 border-amber-200",
-                                            )}>
-                                                {sale.status}
-                                            </Badge>
-                                        </td>
-                                        <td className="p-4 text-right font-bold text-sm">
-                                            {formatCurrency(sale.total)}
-                                        </td>
-                                        <td className="p-4 text-right font-bold text-sm text-green-600">
-                                            {formatCurrency(sale.profit)}
-                                        </td>
-                                    </tr>
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-[var(--ops-surface-sunken)]/20 p-2 rounded-2xl ring-1 ring-[var(--ops-border)]">
+                    <div className="flex flex-wrap items-center gap-2 flex-1 w-full lg:w-auto">
+                        <Select value={cashierId} onValueChange={(v) => {
+                            setCashierId(v);
+                            router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: v === 'all' ? '' : v, status: status === 'all' ? '' : status }, { preserveState: true });
+                        }}>
+                            <SelectTrigger className="h-11 w-full lg:w-[180px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
+                                <SelectValue placeholder="Cashier" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-none shadow-2xl">
+                                <SelectItem value="all">All Cashiers</SelectItem>
+                                {cashiers.map((c: any) => (
+                                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                 ))}
-                                {sales.data.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="p-12 text-center text-muted-foreground">
-                                            No sales found for the selected criteria.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={status} onValueChange={(v) => {
+                            setStatus(v);
+                            router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : v }, { preserveState: true });
+                        }}>
+                            <SelectTrigger className="h-11 w-full lg:w-[160px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-none shadow-2xl">
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="preparing">Preparing</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Button variant="ghost" onClick={handleReset} className="h-11 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] hover:text-primary transition-all">
+                            <FiRefreshCw className="size-3.5 mr-2" /> Reset
+                        </Button>
                     </div>
 
-                    <div className="p-4 border-t bg-muted/10 flex justify-between items-center">
-                        <p className="text-xs text-muted-foreground">Showing {sales.from} to {sales.to} of {sales.total} results</p>
-                        <div className="flex gap-1">
-                            {sales.links.map((link: any, i: number) => (
-                                <Button
-                                    key={i}
-                                    variant={link.active ? 'default' : 'outline'}
-                                    size="sm"
-                                    disabled={!link.url}
-                                    onClick={() => link.url && router.get(link.url)}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                    className="h-8 min-w-[32px] px-2 text-[10px]"
-                                />
-                            ))}
-                        </div>
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] bg-background/50 px-4 py-2.5 rounded-xl ring-1 ring-border/20">
+                        <FiSearch className="size-3 text-primary" />
+                        <span>Analyzing <span className="text-foreground">{sales.total}</span> Orders</span>
                     </div>
-                </CardContent>
-            </Card>
-            </>
+                </div>
+
+                <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl overflow-hidden shadow-lg">
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-[var(--ops-border-subtle)] bg-[var(--ops-thead-bg)]">
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Order #</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Date</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Cashier</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Status</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Total Sales</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                                    {sales.data.map((sale: any) => (
+                                        <tr key={sale.id} className="hover:bg-[var(--ops-surface-sunken)]/20 transition-colors">
+                                            <td className="p-4 font-bold text-sm text-foreground">{sale.order_number}</td>
+                                            <td className="p-4 text-xs text-[var(--ops-text-muted)]">
+                                                {format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                                                    <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                                                        {sale.cashier?.name?.charAt(0)}
+                                                    </div>
+                                                    <span>{sale.cashier?.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <Badge variant="outline" className={cn(
+                                                    "capitalize text-[9px] font-black tracking-wider rounded-md",
+                                                    sale.status === 'completed' && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+                                                    sale.status === 'cancelled' && "bg-rose-500/10 text-rose-500 border-rose-500/20",
+                                                    sale.status === 'pending' && "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                                )}>
+                                                    {sale.status}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-4 text-right font-black font-mono text-sm text-foreground">
+                                                {formatCurrency(sale.total)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-4 border-t border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/30 flex justify-between items-center flex-wrap gap-3">
+                            <p className="text-[10px] font-bold text-[var(--ops-text-muted)]">Showing {sales.from} to {sales.to} of {sales.total} results</p>
+                            <div className="flex gap-1">
+                                {sales.links.map((link: any, i: number) => (
+                                    <Button
+                                        key={i}
+                                        variant={link.active ? 'default' : 'outline'}
+                                        size="sm"
+                                        disabled={!link.url}
+                                        onClick={() => link.url && router.get(link.url)}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                        className="h-8 min-w-[32px] px-2 text-[10px]"
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                </>
             ) : (
                 <ShiftHistory shifts={shifts} />
             )}
+
+            <ExportModal 
+                isOpen={isExportOpen}
+                onClose={() => setIsExportOpen(false)}
+                onExport={triggerExport}
+                activeTab={activeTab}
+            />
         </div>
     );
 }
