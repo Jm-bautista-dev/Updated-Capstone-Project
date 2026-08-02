@@ -1,4 +1,4 @@
-﻿name: Deploy to Production
+name: Deploy to Production
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Trigger: run this workflow only when code is pushed to the main branch.
@@ -179,9 +179,7 @@ jobs:
 
             cd ~/domains/makidesuoperation.site/public_html
 
-            echo "--- Installing Composer dependencies ---"
-            composer install --no-dev --optimize-autoloader --no-interaction
-
+            # Note: vendor/ is pre-built in GitHub Actions and synced via rsync, avoiding proc_open restrictions on Hostinger
             echo "--- Caching config / routes / views ---"
             php artisan config:cache
             php artisan route:cache
