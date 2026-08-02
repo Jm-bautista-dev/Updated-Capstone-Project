@@ -177,7 +177,22 @@ jobs:
 
             set -e
 
-            cd ~/domains/makidesuoperation.site/public_html
+            # Ensure required storage and cache directories exist with write permissions
+            echo "--- Ensuring storage directory structure & permissions ---"
+            mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/testing storage/logs bootstrap/cache
+            chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+
+            # Ensure root .htaccess routes traffic to public/ folder on Hostinger
+            if [ ! -f .htaccess ]; then
+                echo "--- Creating root .htaccess for Hostinger ---"
+                cat << 'EOF' > .htaccess
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+EOF
+            fi
 
             # Note: vendor/ is pre-built in GitHub Actions and synced via rsync, avoiding proc_open restrictions on Hostinger
             echo "--- Caching config / routes / views ---"
@@ -186,7 +201,7 @@ jobs:
             php artisan view:cache
 
             echo "--- Linking storage ---"
-            php artisan storage:link
+            php artisan storage:link || true
 
             echo "--- Running database migrations ---"
             php artisan migrate --force
