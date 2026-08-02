@@ -194,6 +194,11 @@ jobs:
 EOF
             fi
 
+            # Ensure static asset symlinks exist at public_html root for Hostinger web server
+            echo "--- Creating static asset symlinks ---"
+            ln -sf public/build build
+            ln -sf public/images images
+
             # Note: vendor/ is pre-built in GitHub Actions and synced via rsync, avoiding proc_open restrictions on Hostinger
             echo "--- Caching config / routes / views ---"
             php artisan config:cache
