@@ -3,7 +3,7 @@ import { Head, usePage, useForm } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-    FiPlus, FiSearch, FiLayers, FiGrid, FiList, FiMinimize2, FiMaximize2, FiTrendingUp
+    FiPlus, FiSearch, FiLayers, FiGrid, FiList, FiMinimize2, FiMaximize2, FiTrendingUp, FiMoreHorizontal, FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import { ResultModal } from '@/components/result-modal';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,22 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -43,8 +58,8 @@ interface CategoriesPageProps {
 }
 
 export default function CategoriesIndex() {
-    const { categories: rawCategories, filters = {}, isAdmin } = usePage().props as unknown as CategoriesPageProps;
-    const categories: Category[] = rawCategories || [];
+    const { categories: rawCategories = [], filters = {}, isAdmin } = usePage().props as unknown as CategoriesPageProps;
+    const categories: Category[] = useMemo(() => rawCategories || [], [rawCategories]);
 
     // View mode (persisted in localStorage)
     const [viewMode, setViewMode] = useState<'table' | 'card'>(() => {
@@ -198,7 +213,7 @@ export default function CategoriesIndex() {
         const nameErr = validateField('name', data.name);
         if (nameErr) return;
 
-        router.post('/categories', { name: data.name, description: data.description, image: imageFile } as unknown as Record<string, unknown>, {
+        router.post('/categories', { name: data.name, description: data.description, image: imageFile } as any, {
             forceFormData: true,
             onSuccess: () => {
                 setIsAddModalOpen(false);
@@ -224,7 +239,7 @@ export default function CategoriesIndex() {
         const nameErr = validateField('name', data.name);
         if (nameErr) return;
 
-        router.post(`/categories/${selectedCategory.id}`, { _method: 'PUT', name: data.name, description: data.description, image: imageFile } as unknown as Record<string, unknown>, {
+        router.post(`/categories/${selectedCategory.id}`, { _method: 'PUT', name: data.name, description: data.description, image: imageFile } as any, {
             forceFormData: true,
             onSuccess: () => {
                 setIsEditModalOpen(false);

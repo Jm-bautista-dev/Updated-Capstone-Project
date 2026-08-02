@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -36,7 +36,7 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// -- Types ----------------------------------------------------------------------
 type Urgency = 'Out of Stock' | 'Critical' | 'Warning' | 'Safe';
 type Trend = 'rising' | 'stable' | 'declining';
 type Volatility = 'high' | 'medium' | 'low';
@@ -77,7 +77,7 @@ type ImpactSuggestion = {
   max_servings_unlockable: number;
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// -- Helpers --------------------------------------------------------------------
 const fmt = (v?: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(v ?? 0);
 
@@ -120,7 +120,7 @@ const volatilityColor = (v: Volatility) => {
   return 'text-emerald-500';
 };
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+// -- Main Component -------------------------------------------------------------
 interface RestockPageProps {
   suggestions?: Suggestion[];
   branches?: Array<{ id: number; name: string }>;
@@ -189,7 +189,7 @@ export default function RestockSuggestions() {
     });
   };
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
+  // -- Derived stats ----------------------------------------------------------
   const stats = useMemo(() => {
     const s: Suggestion[] = suggestions || [];
     return {
@@ -219,7 +219,7 @@ export default function RestockSuggestions() {
 
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans text-(--ops-text-secondary)">
 
-        {/* ── Header Area ── */}
+        {/* -- Header Area -- */}
         <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">
           <div className="flex items-center gap-3">
             <FiBox className="text-primary size-6 animate-pulse" />
@@ -231,13 +231,13 @@ export default function RestockSuggestions() {
                 )}
               </h1>
               <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
-                Adaptive demand · Trend-aware · Volatility-weighted safety buffers
+                Adaptive demand � Trend-aware � Volatility-weighted safety buffers
               </p>
             </div>
           </div>
         </div>
 
-        {/* ── Content Layout ── */}
+        {/* -- Content Layout -- */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
 
           {/* Error alerts */}
@@ -275,11 +275,11 @@ export default function RestockSuggestions() {
                     <p className="font-bold leading-relaxed">
                       Tomorrow's predicted revenue is{' '}
                       <strong className="font-black text-foreground">{fmt(tomorrow_forecast)}</strong>
-                      {' '}(range: {fmt(forecast_lower)} – {fmt(forecast_upper)}).{' '}
+                      {' '}(range: {fmt(forecast_lower)} � {fmt(forecast_upper)}).{' '}
                       {demandAboveAvg
-                        ? `Demand is ${Math.round((demand_ratio - 1) * 100)}% above average — buffers have been increased automatically.`
+                        ? `Demand is ${Math.round((demand_ratio - 1) * 100)}% above average � buffers have been increased automatically.`
                         : demandBelowAvg
-                          ? `Demand is ${Math.round((1 - demand_ratio) * 100)}% below average — conservative restocking applied.`
+                          ? `Demand is ${Math.round((1 - demand_ratio) * 100)}% below average � conservative restocking applied.`
                           : 'Demand is in line with the historical average.'}
                     </p>
                   </div>
@@ -476,7 +476,7 @@ export default function RestockSuggestions() {
                                       <p className="font-bold text-sm text-foreground leading-tight">{s.name}</p>
                                       <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[8px] font-bold text-(--ops-text-muted) uppercase">{s.days_of_data}d data</span>
-                                        <span className="text-[8px] text-(--ops-text-faint)">•</span>
+                                        <span className="text-[8px] text-(--ops-text-faint)">�</span>
                                         <span className={cn('text-[8px] font-black uppercase', volatilityColor(s.volatility))}>
                                           {s.volatility} volatility
                                         </span>
@@ -522,7 +522,7 @@ export default function RestockSuggestions() {
                                     {s.predicted_usage} {s.unit}
                                   </Badge>
                                   <p className="text-[8px] text-(--ops-text-muted) font-mono mt-1 font-bold">
-                                    {s.predicted_usage_lower} – {s.predicted_usage_upper}
+                                    {s.predicted_usage_lower} � {s.predicted_usage_upper}
                                   </p>
                                 </td>
 
@@ -709,7 +709,7 @@ export default function RestockSuggestions() {
                     <CardContent className="p-6 space-y-3.5 text-[10px] text-(--ops-text-secondary) font-bold uppercase tracking-wide leading-relaxed">
                       <div className="flex items-start gap-2.5">
                         <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">1</span>
-                        <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders × recipes.</p>
+                        <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders � recipes.</p>
                       </div>
                       <div className="flex items-start gap-2.5">
                         <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">2</span>

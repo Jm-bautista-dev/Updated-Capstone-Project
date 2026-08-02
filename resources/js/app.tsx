@@ -3,7 +3,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../css/app.css';
-import { SakuraLoader } from './components/sakura-loader';
+
 import { initializeTheme } from './hooks/use-appearance';
 import './echo';
 
@@ -27,7 +27,7 @@ createInertiaApp({
 
         root.render(
             <StrictMode>
-                <SakuraLoader />
+
                 <App {...props} />
             </StrictMode>,
         );

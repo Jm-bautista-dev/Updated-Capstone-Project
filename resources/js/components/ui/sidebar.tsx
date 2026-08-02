@@ -364,9 +364,29 @@ function SidebarSeparator({
   )
 }
 
+// Persist sidebar scroll position across Inertia navigations (module-level, survives re-renders)
+let _sidebarScrollTop = 0;
+
 function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  // Restore scroll position after every render
+  React.useLayoutEffect(() => {
+    if (ref.current) {
+      ref.current.scrollTop = _sidebarScrollTop;
+    }
+  });
+
+  const handleScroll = React.useCallback(() => {
+    if (ref.current) {
+      _sidebarScrollTop = ref.current.scrollTop;
+    }
+  }, []);
+
   return (
     <div
+      ref={ref}
+      onScroll={handleScroll}
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(

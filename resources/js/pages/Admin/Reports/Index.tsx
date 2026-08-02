@@ -642,7 +642,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
                             </CardHeader>
                             <CardContent className="pt-6">
                                 <div className="h-80 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                         <AreaChart data={TREND_DATA} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -669,7 +669,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
                             </CardHeader>
                             <CardContent className="pt-6 flex flex-col items-center justify-center">
                                 <div className="h-50 w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                         <PieChart>
                                             <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value">
                                                 {CAT_DATA.map((entry, index) => (
