@@ -1,21 +1,23 @@
-import { Breadcrumbs } from '@/components/breadcrumbs';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import type { BreadcrumbItem as BreadcrumbItemType, User } from '@/types';
-import { NotificationBell } from './notification-bell';
 import { usePage } from '@inertiajs/react';
+import { FiChevronDown } from 'react-icons/fi';
+
+import { Breadcrumbs } from '@/components/breadcrumbs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserMenuContent } from '@/components/user-menu-content';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useInitials } from '@/hooks/use-initials';
-import { Button } from '@/components/ui/button';
-import { FiChevronDown } from 'react-icons/fi';
-
 import { useOfflineSync } from '@/hooks/use-offline-sync';
 import { cn } from '@/lib/utils';
+import type { BreadcrumbItem as BreadcrumbItemType, User } from '@/types';
+
+import { NotificationBell } from './notification-bell';
+
 
 export function AppSidebarHeader({
     breadcrumbs = [],

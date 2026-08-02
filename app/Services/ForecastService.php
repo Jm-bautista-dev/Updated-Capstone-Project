@@ -15,6 +15,18 @@ class ForecastService
      */
     public function benchmark(?int $branchId): array
     {
+        $cacheKey = 'forecast_benchmark_' . ($branchId ?? 'all');
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 600, function () use ($branchId) {
+            return $this->runBenchmark($branchId);
+        });
+    }
+
+    /**
+     * Internal: actually run the benchmark computation (called via cache wrapper above).
+     */
+    private function runBenchmark(?int $branchId): array
+    {
         $startTime = microtime(true);
 
         // 1. Fetch raw daily sales totals

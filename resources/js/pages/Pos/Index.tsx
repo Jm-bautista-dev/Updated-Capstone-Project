@@ -1,18 +1,13 @@
-import { Head, usePage } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
-import { useState, useMemo, useEffect } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { ResultModal } from '@/components/result-modal';
-import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage, FiLock, FiUnlock, FiTrendingUp, FiActivity, FiDollarSign } from 'react-icons/fi';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { addToOfflineQueue } from '@/lib/offline-db';
+import { Head, usePage, useForm } from '@inertiajs/react';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useMemo, useEffect } from 'react';
+import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage, FiLock, FiUnlock, FiActivity } from 'react-icons/fi';
+import { FiCheckCircle, FiPrinter, FiPlusCircle } from 'react-icons/fi';
+import { toast } from 'sonner';
+import { ResultModal } from '@/components/result-modal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { useForm } from '@inertiajs/react';
 import {
  Dialog,
  DialogContent,
@@ -21,8 +16,10 @@ import {
  DialogHeader,
  DialogTitle,
 } from '@/components/ui/dialog';
-import { FiCheckCircle, FiPrinter, FiPlusCircle } from 'react-icons/fi';
-import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import AppLayout from '@/layouts/app-layout';
+import { addToOfflineQueue } from '@/lib/offline-db';
+import { cn } from '@/lib/utils';
 
 type Category = {
  id: number;
@@ -42,14 +39,43 @@ type Product = {
 
 type CartItem = Product & { quantity: number };
 
+interface Rider {
+  id: number;
+  name: string;
+  phone?: string;
+  status?: string;
+}
+
+interface ActiveShift {
+  id: number;
+  opening_balance: number;
+  opened_at: string;
+}
+
+interface BranchInfo {
+  id: number;
+  name: string;
+  base_delivery_fee?: string | number;
+  per_km_fee?: string | number;
+}
+
+interface PosPageProps {
+  products?: Product[];
+  categories?: Category[];
+  branch?: BranchInfo;
+  availableRiders?: Rider[];
+  activeShift?: ActiveShift | null;
+  [key: string]: unknown;
+}
+
 export default function PosIndex() {
- const { products, categories, branch, availableRiders, activeShift } = usePage().props as any;
+ const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
 
  // --- Real-time Sync Logic (Now handled globally by useRealTime hook in AppLayout) ---
  useEffect(() => {
  // Refresh on window focus (Ensures data is fresh when switching back to this tab)
  const handleFocus = () => {
- router.reload({ only: ['products', 'categories'], preserveScroll: true, preserveState: true } as any);
+ router.reload({ only: ['products', 'categories'], preserveScroll: true, preserveState: true });
  };
 
  window.addEventListener('focus', handleFocus);
@@ -72,9 +98,7 @@ export default function PosIndex() {
  type: 'warning', title: '', message: '',
  });
   const [cashReceived, setCashReceived] = useState('');
-  const [lastSale, setLastSale] = useState<any>(null);
-
-
+  const [lastSale, setLastSale] = useState<Record<string, unknown> | null>(null);
 
  // Shift Management States
  const [isShiftModalOpen, setIsShiftModalOpen] = useState(!activeShift);
@@ -90,7 +114,7 @@ export default function PosIndex() {
   const handleOpenShift = () => {
     router.post('/shifts/open', { opening_balance: openingCash }, {
       onSuccess: () => setIsShiftModalOpen(false),
-      onError: (err: any) => {
+      onError: (err: Record<string, string>) => {
         setAlertModal({ type: 'error', title: 'Shift Error', message: err.shift || 'Could not open shift.' });
         setIsAlertModalOpen(true);
       }
@@ -107,7 +131,7 @@ export default function PosIndex() {
         setClosingCash('');
         setVarianceReason('');
       },
-      onError: (err: any) => {
+      onError: (err: Record<string, string>) => {
         setAlertModal({ type: 'error', title: 'Shift Error', message: err.notes || 'Could not close shift.' });
         setIsAlertModalOpen(true);
       }
@@ -125,7 +149,7 @@ export default function PosIndex() {
         setAdjustmentAmount('');
         setAdjustmentNotes('');
       },
-      onError: (err: any) => {
+      onError: () => {
         setAlertModal({ type: 'error', title: 'Adjustment Error', message: 'Could not record adjustment.' });
         setIsAlertModalOpen(true);
       }
@@ -154,16 +178,7 @@ export default function PosIndex() {
  delivery_notes: '',
  external_notes: '',
  });
- const [deliveryRecommendation, setDeliveryRecommendation] = useState<null | {
- type: 'internal' | 'external';
- reason: string;
- fee: number;
- available_riders: number;
- recommended_rider: { id: number; name: string; phone: string } | null;
- }>(null);
- const [recommendationLoading, setRecommendationLoading] = useState(false);
  const [proofFile, setProofFile] = useState<File | null>(null);
- const [proofPreview, setProofPreview] = useState<string | null>(null);
 
  const deliveryFee = useMemo(() => {
  if (orderType !== 'delivery') return 0;
@@ -255,9 +270,6 @@ export default function PosIndex() {
  }).filter(item => item.quantity > 0));
  };
 
- const removeFromCart = (id: number) => {
- setCart(prev => prev.filter(item => item.id !== id));
- };
 
 
  const { processing } = useForm();
@@ -327,10 +339,9 @@ export default function PosIndex() {
       setCart([]);
       setCashReceived('');
       setProofFile(null);
-      setProofPreview(null);
       setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
       setIsPaymentModalOpen(false);
-    }).catch(err => {
+    }).catch(() => {
       toast.error('Offline Mode: Failed to save order locally.');
     });
     return;
@@ -371,17 +382,16 @@ export default function PosIndex() {
  router.post('/pos', formData, {
  forceFormData: true,
  onSuccess: (page) => {
- const sale = (page.props as any).recentOrders[0];
+ const sale = ((page.props as unknown) as { recentOrders?: Record<string, unknown>[] }).recentOrders?.[0] || null;
  setLastSale(sale);
  setCart([]);
  setCashReceived('');
  setProofFile(null);
- setProofPreview(null);
  setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
  setIsPaymentModalOpen(false);
  setIsSuccessModalOpen(true);
  },
- onError: (err: any) => {
+ onError: (err: Record<string, string>) => {
  setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });
  setIsAlertModalOpen(true);
  }
@@ -421,7 +431,7 @@ export default function PosIndex() {
   <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase opacity-80 hidden xl:block">All</span>
  </motion.button>
 
- <div className="w-8 h-[1px] bg-accent my-2" />
+ <div className="w-8 h-px bg-accent my-2" />
 
  <div className="flex-1 overflow-y-auto w-full flex flex-col items-center gap-6 scrollbar-hide pb-6">
  {categories.map((c: Category) => (
@@ -541,16 +551,16 @@ export default function PosIndex() {
   whileTap={p.stock > 0 ? { scale: 0.98 } : {}}
   onClick={() => addToCart(p)}
   className={cn(
-    "group flex flex-col bg-white/80 dark:bg-zinc-900/60 border border-primary/5 dark:border-white/5 rounded-[24px] cursor-pointer shadow-sm hover:shadow-lg transition-all duration-300 relative",
+    "group flex flex-col bg-white/80 dark:bg-zinc-900/60 border border-primary/5 dark:border-white/5 rounded-3xl cursor-pointer shadow-sm hover:shadow-lg transition-all duration-300 relative",
     p.stock <= 0 && "opacity-40 grayscale pointer-events-none"
   )}
   >
   {/* Nested Product Image Container */}
-  <div className="relative aspect-[4/3] rounded-[18px] overflow-hidden bg-muted m-2 shrink-0">
+  <div className="relative aspect-4/3 rounded-[18px] overflow-hidden bg-muted m-2 shrink-0">
     {p.image_url ? (
       <img src={p.image_url} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
     ) : (
-      <div className="w-full h-full bg-gradient-to-tr from-accent/20 to-primary/10 flex items-center justify-center">
+      <div className="w-full h-full bg-linear-to-tr from-accent/20 to-primary/10 flex items-center justify-center">
         <FiPackage className="size-8 text-primary/30" />
       </div>
     )}
@@ -609,7 +619,7 @@ export default function PosIndex() {
   </div>
 
   {/* RIGHT SIDEBAR: Unified Cart & Checkout Panel */}
-  <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0 lg:max-h-full max-h-[380px]">
+  <div className="w-full lg:w-95 xl:w-105 shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0 lg:max-h-full max-h-95">
       {/* Header */}
       <div className="h-16 px-5 flex items-center justify-between border-b border-border/50 bg-transparent shrink-0">
           <div className="flex items-center gap-3">
@@ -643,7 +653,7 @@ export default function PosIndex() {
                               {item.image_url ? (
                                   <img src={item.image_url} className="w-full h-full object-cover" />
                               ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-accent/20 to-primary/10">
+                                  <div className="w-full h-full flex items-center justify-center bg-linear-to-tr from-accent/20 to-primary/10">
                                       <FiPackage className="size-5 text-primary/30" />
                                   </div>
                               )}
@@ -756,7 +766,7 @@ export default function PosIndex() {
               onClick={handleCheckout}
           >
               <span className="relative z-10">{processing ? 'Processing...' : 'Checkout'}</span>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent z-0" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/5 to-transparent z-0" />
           </Button>
       </div>
   </div>
@@ -845,8 +855,8 @@ export default function PosIndex() {
  </div>
 
  <div className="flex justify-between">
- <span>Date: {lastSale ? format(new Date(lastSale.created_at), 'MMM dd, yyyy HH:mm') : ''}</span>
- <span className="font-bold uppercase">{lastSale?.type}</span>
+ <span>Date: {lastSale?.created_at ? format(new Date(String(lastSale.created_at)), 'MMM dd, yyyy HH:mm') : ''}</span>
+ <span className="font-bold uppercase">{String(lastSale?.type || '')}</span>
  </div>
 
  <div className="border-y py-3 space-y-2">
@@ -857,12 +867,12 @@ export default function PosIndex() {
  <span>Price</span>
  </div>
  </div>
- {lastSale?.items?.map((item: any) => (
- <div key={item.id} className="flex justify-between">
- <span className="truncate max-w-[150px]">{item.product?.name}</span>
+ {(lastSale?.items as Record<string, unknown>[] | undefined)?.map((item: Record<string, unknown>) => (
+ <div key={String(item.id)} className="flex justify-between">
+ <span className="truncate max-w-37.5">{(item.product as Record<string, unknown> | undefined)?.name as string}</span>
  <div className="flex gap-10">
- <span>{item.quantity}</span>
- <span>{formatCurrency(item.unit_price)}</span>
+ <span>{String(item.quantity)}</span>
+ <span>{formatCurrency(Number(item.unit_price))}</span>
  </div>
  </div>
  ))}

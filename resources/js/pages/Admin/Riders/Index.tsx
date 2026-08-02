@@ -1,26 +1,26 @@
-import { Head, useForm, router, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Head, useForm, router, Link, usePage } from '@inertiajs/react';
 import { 
-    Plus, Search, Edit2, Trash2, Phone, User, 
-    MoreHorizontal, Filter, ChevronLeft, ChevronRight,
-    Building2, Bike, X, Eye, EyeOff, Lock, Mail, CheckCircle2, Copy, AlertCircle
+    Plus, Search, User, 
+    MoreHorizontal, ChevronLeft, ChevronRight,
+    Building2, Bike, Eye, EyeOff, Lock, Mail, CheckCircle2, Copy, AlertCircle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { usePage } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { toast } from 'sonner';
+
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 
 interface Rider {
     id: number;
@@ -34,10 +34,27 @@ interface Rider {
     deliveries_count?: number;
 }
 
+interface RiderCreds {
+    name?: string;
+    email?: string;
+    password?: string;
+    temp_password?: string;
+    email_sent?: boolean;
+    auto_generated?: boolean;
+}
+
+interface PageProps {
+    flash?: {
+        new_rider?: RiderCreds;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
 interface Props {
     riders: {
         data: Rider[];
-        links: any[];
+        links: Array<{ url: string | null; label: string; active: boolean }>;
         current_page: number;
         last_page: number;
         total: number;
@@ -59,10 +76,10 @@ interface Props {
 }
 
 export default function RiderIndex({ riders, branches, filters, stats }: Props) {
-    const { props } = usePage<any>();
+    const { props } = usePage<PageProps>();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isCredsModalOpen, setIsCredsModalOpen] = useState(false);
-    const [newRiderCreds, setNewRiderCreds] = useState<any>(null);
+    const [newRiderCreds] = useState<RiderCreds | null>(() => props.flash?.new_rider || null);
+    const [isCredsModalOpen, setIsCredsModalOpen] = useState(() => Boolean(props.flash?.new_rider));
     const [showPassword, setShowPassword] = useState(false);
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [search, setSearch] = useState(filters.search || '');
@@ -77,13 +94,6 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
         password: '',
         is_active: true,
     });
-
-    useEffect(() => {
-        if (props.flash?.new_rider) {
-            setNewRiderCreds(props.flash.new_rider);
-            setIsCredsModalOpen(true);
-        }
-    }, [props.flash?.new_rider]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,7 +163,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
 
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
                 {/* ── Executive Header ── */}
-                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">
                     <div className="flex items-center gap-3">
                         <Bike className="text-primary size-6 animate-pulse" />
                         <div>
@@ -167,7 +177,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                     <div className="flex items-center gap-2 sm:gap-3">
                         <Button 
                             onClick={openCreateModal} 
-                            className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0"
+                            className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-xl font-black uppercase text-[10px] tracking-wider italic shrink-0"
                         >
                             <Plus className="size-4" /> <span>Add Rider</span>
                         </Button>
@@ -178,72 +188,72 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
                     {/* KPI Cards Grid */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                        <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                             <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Riders</p>
-                                <User className="size-4 text-[var(--ops-text-secondary)]" />
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Total Riders</p>
+                                <User className="size-4 text-(--ops-text-secondary)" />
                             </div>
                             <div>
                                 <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.total}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Active fleet size</p>
+                                <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Active fleet size</p>
                             </div>
                         </div>
 
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                        <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                             <div className="flex items-center justify-between mb-2">
                                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Available</p>
                                 <CheckCircle2 className="size-4 text-emerald-500" />
                             </div>
                             <div>
                                 <h3 className="text-2xl font-black text-emerald-500 tabular-nums leading-none">{stats.available}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Ready for assignment</p>
+                                <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Ready for assignment</p>
                             </div>
                         </div>
 
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                        <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                             <div className="flex items-center justify-between mb-2">
                                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500/70">On Delivery</p>
                                 <AlertCircle className="size-4 text-rose-500" />
                             </div>
                             <div>
                                 <h3 className="text-2xl font-black text-rose-500 tabular-nums leading-none">{stats.busy}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Currently occupied</p>
+                                <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Currently occupied</p>
                             </div>
                         </div>
 
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                        <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                             <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Offline</p>
-                                <EyeOff className="size-4 text-[var(--ops-text-secondary)]" />
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Offline</p>
+                                <EyeOff className="size-4 text-(--ops-text-secondary)" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-black text-[var(--ops-text-secondary)] tabular-nums leading-none">{stats.offline}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Off schedule</p>
+                                <h3 className="text-2xl font-black text-(--ops-text-secondary) tabular-nums leading-none">{stats.offline}</h3>
+                                <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Off schedule</p>
                             </div>
                         </div>
                     </div>
 
                     {/* STICKY TOOLBAR FILTERS */}
-                    <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+                    <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-(--ops-border-subtle)">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                             <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
                                 {/* Search box */}
                                 <form onSubmit={handleSearch} className="relative w-full sm:w-64">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-(--ops-text-muted)" />
                                     <Input
                                         placeholder="Search by name or phone..."
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
-                                        className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
+                                        className="pl-9 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
                                     />
                                 </form>
 
                                 {/* Status filter */}
                                 <Select value={filters.status || 'all'} onValueChange={v => handleFilter('status', v === 'all' ? '' : v)}>
-                                    <SelectTrigger className="w-full sm:w-44 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                                    <SelectTrigger className="w-full sm:w-44 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-[10px] font-black uppercase tracking-wider text-(--ops-text-secondary)">
                                         <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                                    <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) rounded-xl">
                                         <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Status</SelectItem>
                                         <SelectItem value="available" className="text-[10px] font-bold uppercase py-2 text-emerald-500">Available</SelectItem>
                                         <SelectItem value="busy" className="text-[10px] font-bold uppercase py-2 text-rose-500">On Delivery</SelectItem>
@@ -253,11 +263,11 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
 
                                 {/* Branch Filter */}
                                 <Select value={filters.branch_id || 'all'} onValueChange={v => handleFilter('branch_id', v === 'all' ? '' : v)}>
-                                    <SelectTrigger className="w-full sm:w-44 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                                    <SelectTrigger className="w-full sm:w-44 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-[10px] font-black uppercase tracking-wider text-(--ops-text-secondary)">
                                         <Building2 className="size-3.5 mr-2 text-primary" />
                                         <SelectValue placeholder="All Branches" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                                    <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) rounded-xl">
                                         <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>
                                         {branches.map(b => (
                                             <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
@@ -269,10 +279,10 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                     </div>
 
                     {/* RIDERS TABLE ZONE */}
-                    <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden">
+                    <div className="border border-(--ops-border) rounded-[14px] bg-(--ops-surface-sunken) shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
-                                <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                            <table className="w-full text-left border-collapse table-auto text-(--ops-text-secondary)">
+                                <thead className="bg-(--ops-thead-bg) border-b border-(--ops-border) text-[9px] font-black uppercase tracking-[0.15em] text-(--ops-text-secondary) select-none">
                                     <tr>
                                         <th className="px-6 py-3.5 font-black">Rider info</th>
                                         <th className="px-6 py-3.5 font-black">Branch</th>
@@ -282,40 +292,40 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                         <th className="px-6 py-3.5 font-black text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[var(--ops-border-subtle)] bg-[var(--ops-surface-raised)]">
+                                <tbody className="divide-y divide-(--ops-border-subtle) bg-(--ops-surface-raised)">
                                     {riders.data.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-12 text-center text-xs text-[var(--ops-text-muted)] italic">
+                                            <td colSpan={6} className="px-6 py-12 text-center text-xs text-(--ops-text-muted) italic">
                                                 No riders currently registered in the fleet.
                                             </td>
                                         </tr>
                                     ) : (
                                         riders.data.map(rider => (
-                                            <tr key={rider.id} className="cursor-pointer group select-none hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative border-b border-[var(--ops-border)]" onClick={() => openEditModal(rider)}>
+                                            <tr key={rider.id} className="cursor-pointer group select-none hover:bg-(--ops-surface-sunken)/50 transition-colors duration-150 relative border-b border-(--ops-border)" onClick={() => openEditModal(rider)}>
                                                 <td className="px-6 py-3.5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="size-10 rounded-lg bg-[var(--ops-surface-sunken)] border overflow-hidden shrink-0 shadow-inner flex items-center justify-center text-primary bg-primary/5">
+                                                        <div className="size-10 rounded-lg border overflow-hidden shrink-0 shadow-inner flex items-center justify-center text-primary bg-primary/5">
                                                             <Bike className="size-5" />
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className="font-bold text-[var(--ops-text-primary)] leading-tight">{rider.name}</span>
-                                                            <span className="text-[9px] text-[var(--ops-text-muted)] font-mono uppercase font-bold mt-0.5">{rider.email}</span>
+                                                            <span className="font-bold text-(--ops-text-primary) leading-tight">{rider.name}</span>
+                                                            <span className="text-[9px] text-(--ops-text-muted) font-mono uppercase font-bold mt-0.5">{rider.email}</span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6">
                                                     <div className="flex items-center gap-1.5 text-xs font-bold">
-                                                        <Building2 className="size-3.5 text-[var(--ops-text-muted)]" />
+                                                        <Building2 className="size-3.5 text-(--ops-text-muted)" />
                                                         <span>{rider.branch?.name}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6">
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs font-bold font-mono text-[var(--ops-text-primary)]">{rider.phone || 'No phone'}</span>
+                                                        <span className="text-xs font-bold font-mono text-(--ops-text-primary)">{rider.phone || 'No phone'}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 text-center">
-                                                    <span className="font-black text-lg italic tracking-tighter leading-none text-[var(--ops-text-primary)]">
+                                                    <span className="font-black text-lg italic tracking-tighter leading-none text-(--ops-text-primary)">
                                                         {rider.deliveries_count || 0}
                                                     </span>
                                                 </td>
@@ -327,17 +337,17 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                                 <td className="px-6 text-right" onClick={e => e.stopPropagation()}>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-[var(--ops-surface-sunken)]">
-                                                                <FiMoreHorizontal className="size-4 text-[var(--ops-text-muted)] animate-in fade-in" />
+                                                            <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-(--ops-surface-sunken)">
+                                                                <MoreHorizontal className="size-4 text-(--ops-text-muted) animate-in fade-in" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-40 bg-[var(--ops-surface-raised)] border-[var(--ops-border)] rounded-[12px] p-1.5 shadow-2xl text-[var(--ops-text-secondary)]">
-                                                            <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Options</DropdownMenuLabel>
-                                                            <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)]" onClick={() => openEditModal(rider)}>
+                                                        <DropdownMenuContent align="end" className="w-40 bg-(--ops-surface-raised) border-(--ops-border) rounded-xl p-1.5 shadow-2xl text-(--ops-text-secondary)">
+                                                            <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted) px-2.5 py-1.5">Options</DropdownMenuLabel>
+                                                            <DropdownMenuItem className="rounded-lg py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-surface-sunken)" onClick={() => openEditModal(rider)}>
                                                                 Edit Rider Info
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuSeparator className="bg-[var(--ops-border)] my-1" />
-                                                            <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-surface-sunken)] text-rose-500 hover:text-rose-600" onClick={() => handleDelete(rider)}>
+                                                            <DropdownMenuSeparator className="bg-(--ops-border) my-1" />
+                                                            <DropdownMenuItem className="rounded-lg py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-surface-sunken) text-rose-500 hover:text-rose-600" onClick={() => handleDelete(rider)}>
                                                                 Remove Rider
                                                             </DropdownMenuItem>
                                                         </DropdownMenuContent>
@@ -352,9 +362,9 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                     </div>
 
                     {/* PAGINATION BOTTOM BAR */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-2xl shadow-sm gap-4 shrink-0">
+                    <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-(--ops-surface-raised) border border-(--ops-border) rounded-2xl shadow-sm gap-4 shrink-0">
                         <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest">
+                            <span className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">
                                 Results {riders.from || 0} - {riders.to || 0} of {riders.total} riders
                             </span>
                         </div>
@@ -541,7 +551,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                     variant="ghost" 
                                     size="icon" 
                                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => navigator.clipboard.writeText(newRiderCreds?.email)}
+                                    onClick={() => navigator.clipboard.writeText(newRiderCreds?.email || '')}
                                 >
                                     <Copy className="size-4" />
                                 </Button>
@@ -557,7 +567,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                     variant="ghost" 
                                     size="icon" 
                                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => navigator.clipboard.writeText(newRiderCreds?.password)}
+                                    onClick={() => navigator.clipboard.writeText(newRiderCreds?.password || '')}
                                 >
                                     <Copy className="size-4" />
                                 </Button>

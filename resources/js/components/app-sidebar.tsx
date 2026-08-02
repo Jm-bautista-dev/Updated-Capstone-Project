@@ -1,25 +1,22 @@
+import { Link, usePage } from '@inertiajs/react';
 import {
-    BookOpen,
-    Folder,
-    LayoutGrid,
-    Box,
-    Users,
-    User as UserIcon,
-    ShoppingCart,
     Archive,
-    ClipboardList,
     BarChart2,
-    Database,
-    CarTaxiFront,
-    Truck,
-    Navigation,
     Bike,
-    TrendingUp,
-    Zap,
-    MapPin,
+    Box,
+    ClipboardList,
     Cpu,
+    Database,
+    LayoutGrid,
+    MapPin,
+    Navigation,
+    ShoppingCart,
+    TrendingUp,
+    Users,
+    Zap,
 } from 'lucide-react';
-import { NavFooter } from '@/components/nav-footer';
+import { useMemo } from 'react';
+
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -32,10 +29,6 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import type { NavItem, User } from '@/types';
-import AppLogo from './app-logo';
-import { usePage } from '@inertiajs/react';
-import { useMemo } from 'react';
-import { Link } from '@inertiajs/react';
 
 const mainNavItems: NavItem[] = [
     {
@@ -120,9 +113,6 @@ const mainNavItems: NavItem[] = [
         href: '/admin/sales-data',
         icon: Database,
     },
-];
-
-const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {

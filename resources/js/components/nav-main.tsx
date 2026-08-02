@@ -31,7 +31,7 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
                                 tooltip={{ children: item.title }}
                                 className={cn(
                                     "h-11 px-5 rounded-2xl relative group overflow-hidden transition-all duration-300",
-                                    "hover:bg-primary/[0.04] hover:translate-x-1",
+                                    "hover:bg-primary/4 hover:translate-x-1",
                                     active && "bg-accent/80 text-primary font-bold shadow-sm shadow-primary/5 hover:translate-x-0"
                                 )}
                             >

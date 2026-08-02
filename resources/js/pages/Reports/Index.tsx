@@ -1,34 +1,27 @@
 import { Head } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
-import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import {
   FiTrendingUp,
   FiDollarSign,
   FiShoppingBag,
   FiAlertTriangle,
-  FiCalendar,
   FiFilter,
   FiDownload,
-  FiPieChart,
   FiBarChart2,
   FiActivity,
   FiSearch,
-  FiArrowUpRight,
-  FiArrowDownRight,
   FiLayers,
-  FiMapPin,
   FiRefreshCw
 } from 'react-icons/fi';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -36,7 +29,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Reports', href: '/reports' },
@@ -71,15 +66,24 @@ const RECENT_HISTORY_MOCK = [
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 
+interface StatCardProps {
+  title: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  trend?: 'up' | 'down';
+  trendValue?: string;
+  colorClass?: string;
+}
+
 // --- Standardized KPI Card Component ---
-function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: any) {
+function StatCard({ title, value, icon: Icon, trend, trendValue }: StatCardProps) {
   const isUp = trend === 'up';
   
   return (
-    <Card className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+    <Card className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
       <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-[0.01] group-hover:opacity-[0.03] transition-opacity" />
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">{title}</p>
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">{title}</p>
         <div className="flex items-center gap-2">
           {trend && (
             <span className={cn(
@@ -91,12 +95,12 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: a
               {trendValue}
             </span>
           )}
-          <Icon className="size-4 text-[var(--ops-text-secondary)]" />
+          <Icon className="size-4 text-(--ops-text-secondary)" />
         </div>
       </div>
       <div>
         <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{value}</h3>
-        <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">System Telemetry Data</p>
+        <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">System Telemetry Data</p>
       </div>
     </Card>
   );
@@ -120,7 +124,7 @@ export default function Reports() {
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
         
         {/* ── Header Area ── */}
-        <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+        <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">
           <div className="flex items-center gap-3">
             <FiBarChart2 className="text-primary size-6 animate-pulse" />
             <div>
@@ -132,10 +136,10 @@ export default function Reports() {
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button variant="outline" size="sm" className="h-10 rounded-[12px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[10px] font-black uppercase tracking-wider hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-secondary)] hover:text-foreground">
+            <Button variant="outline" size="sm" className="h-10 rounded-xl bg-(--ops-surface-sunken) border-(--ops-border) text-[10px] font-black uppercase tracking-wider hover:bg-(--ops-chip-active-bg) text-(--ops-text-secondary) hover:text-foreground">
               <FiDownload className="size-4 mr-1.5" /> Export Data
             </Button>
-            <Button className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0">
+            <Button className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-xl font-black uppercase text-[10px] tracking-wider italic shrink-0">
               <FiRefreshCw className="size-4 mr-1.5" /> Sync Intel
             </Button>
           </div>
@@ -179,7 +183,7 @@ export default function Reports() {
           </div>
 
           {/* Sticky Tab Toolbar */}
-          <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+          <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-(--ops-border-subtle)">
             <div className="flex flex-wrap gap-2">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
@@ -192,10 +196,10 @@ export default function Reports() {
                       "h-8 px-4 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5 border",
                       isActive
                         ? "bg-primary border-primary text-foreground shadow-sm"
-                        : "bg-[var(--ops-thead-bg)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground hover:bg-[var(--ops-chip-active-bg)]"
+                        : "bg-(--ops-thead-bg) border-(--ops-border) text-(--ops-text-secondary) hover:text-foreground hover:bg-(--ops-chip-active-bg)"
                     )}
                   >
-                    <Icon className="size-3 text-[var(--ops-text-secondary)]" />
+                    <Icon className="size-3 text-(--ops-text-secondary)" />
                     <span>{tab.label}</span>
                   </button>
                 );
@@ -219,19 +223,19 @@ export default function Reports() {
                   <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                     
                     {/* Area Chart */}
-                    <Card className="xl:col-span-8 border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] overflow-hidden group shadow-sm flex flex-col">
+                    <Card className="xl:col-span-8 border border-(--ops-border) bg-(--ops-surface-raised) rounded-[14px] overflow-hidden group shadow-sm flex flex-col">
                       <CardHeader className="flex flex-row items-center justify-between p-6 pb-2">
                         <div>
                           <CardTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-2 text-foreground">
                             Growth Trajectory
                           </CardTitle>
-                          <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)] mt-1">Revenue Performance Vector</CardDescription>
+                          <CardDescription className="text-[9px] font-black uppercase tracking-wider text-(--ops-text-muted) mt-1">Revenue Performance Vector</CardDescription>
                         </div>
                         <Select defaultValue="7d">
-                          <SelectTrigger className="w-32 h-8.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[8px] text-[9px] font-black uppercase text-[var(--ops-text-secondary)]">
+                          <SelectTrigger className="w-32 h-8.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[8px] text-[9px] font-black uppercase text-(--ops-text-secondary)">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground">
+                          <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground">
                             <SelectItem value="24h" className="text-xs font-bold py-2">Last 24h</SelectItem>
                             <SelectItem value="7d" className="text-xs font-bold py-2">Standard 7D</SelectItem>
                             <SelectItem value="30d" className="text-xs font-bold py-2">Monthly 30D</SelectItem>
@@ -239,7 +243,7 @@ export default function Reports() {
                         </Select>
                       </CardHeader>
                       <CardContent className="p-0 pt-4">
-                        <div className="h-[320px] w-full px-6 pb-4">
+                        <div className="h-80 w-full px-6 pb-4">
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={SALES_MOCK} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                               <defs>
@@ -249,8 +253,8 @@ export default function Reports() {
                                 </linearGradient>
                               </defs>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
-                              <XAxis dataKey="date" stroke="currentColor" className="text-[var(--ops-text-muted)] font-bold" fontSize={8} axisLine={false} tickLine={false} />
-                              <YAxis stroke="currentColor" className="text-[var(--ops-text-muted)] font-bold font-mono" fontSize={8} axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v/1000}k`} />
+                              <XAxis dataKey="date" stroke="currentColor" className="text-(--ops-text-muted) font-bold" fontSize={8} axisLine={false} tickLine={false} />
+                              <YAxis stroke="currentColor" className="text-(--ops-text-muted) font-bold font-mono" fontSize={8} axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v/1000}k`} />
                               <Tooltip 
                                 contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', background: '#09090b', color: '#fff' }}
                               />
@@ -262,13 +266,13 @@ export default function Reports() {
                     </Card>
 
                     {/* Donut Chart */}
-                    <Card className="xl:col-span-4 border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] flex flex-col h-full shadow-sm">
+                    <Card className="xl:col-span-4 border border-(--ops-border) bg-(--ops-surface-raised) rounded-[14px] flex flex-col h-full shadow-sm">
                       <CardHeader className="p-6 pb-2">
                         <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground">Market Share</CardTitle>
-                        <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)] mt-1">Category Distribution</CardDescription>
+                        <CardDescription className="text-[9px] font-black uppercase tracking-wider text-(--ops-text-muted) mt-1">Category Distribution</CardDescription>
                       </CardHeader>
                       <CardContent className="flex-1 flex flex-col items-center justify-center pb-6 pt-0">
-                        <div className="h-[200px] w-full relative">
+                        <div className="h-50 w-full relative">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie data={CATEGORY_MOCK} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={8} dataKey="value" stroke="none">
@@ -280,7 +284,7 @@ export default function Reports() {
                             </PieChart>
                           </ResponsiveContainer>
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                            <p className="text-[8px] font-black text-[var(--ops-text-muted)] uppercase tracking-widest mb-0.5">Total</p>
+                            <p className="text-[8px] font-black text-(--ops-text-muted) uppercase tracking-widest mb-0.5">Total</p>
                             <p className="text-lg font-black italic text-foreground leading-none">100%</p>
                           </div>
                         </div>
@@ -289,7 +293,7 @@ export default function Reports() {
                             <div key={cat.name} className="flex items-center justify-between group cursor-default">
                               <div className="flex items-center gap-2">
                                 <div className="size-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] group-hover:text-foreground transition-colors">{cat.name}</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) group-hover:text-foreground transition-colors">{cat.name}</span>
                               </div>
                               <span className="text-[10px] font-bold text-foreground font-mono">{cat.value}%</span>
                             </div>
@@ -300,40 +304,40 @@ export default function Reports() {
                   </div>
 
                   {/* Terminal Stream Table */}
-                  <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] overflow-hidden shadow-sm">
-                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-[var(--ops-surface-sunken)]/30 border-b border-[var(--ops-border)] gap-4">
+                  <Card className="border border-(--ops-border) bg-(--ops-surface-raised) rounded-[14px] overflow-hidden shadow-sm">
+                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-(--ops-surface-sunken)/30 border-b border-(--ops-border) gap-4">
                       <div className="space-y-1">
                         <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground">Terminal Stream</CardTitle>
-                        <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)] mt-1">Real-time Sale Events</CardDescription>
+                        <CardDescription className="text-[9px] font-black uppercase tracking-wider text-(--ops-text-muted) mt-1">Real-time Sale Events</CardDescription>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="relative w-full sm:w-64">
-                          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
-                          <Input placeholder="Search records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-bold uppercase text-foreground placeholder-zinc-500" />
+                          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-(--ops-text-muted)" />
+                          <Input placeholder="Search records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-[10px] font-bold uppercase text-foreground placeholder-zinc-500" />
                         </div>
-                        <Button variant="outline" className="h-9.5 w-9.5 p-0 rounded-[10px] border-[var(--ops-border)] bg-[var(--ops-surface-sunken)] text-[var(--ops-text-secondary)] hover:text-foreground"><FiFilter className="size-4" /></Button>
+                        <Button variant="outline" className="h-9.5 w-9.5 p-0 rounded-[10px] border-(--ops-border) bg-(--ops-surface-sunken) text-(--ops-text-secondary) hover:text-foreground"><FiFilter className="size-4" /></Button>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
-                          <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border-subtle)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                        <table className="w-full text-left border-collapse table-auto text-(--ops-text-secondary)">
+                          <thead className="bg-(--ops-thead-bg) border-b border-(--ops-border-subtle) text-[9px] font-black uppercase tracking-[0.15em] text-(--ops-text-secondary) select-none">
                             <tr>
                               {['Timestamp', 'Item Specification', 'Qty', 'Scale', 'Vector (Value)', 'Status'].map((h) => (
                                 <th key={h} className="px-6 py-3.5">{h}</th>
                               ))}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                          <tbody className="divide-y divide-(--ops-border-subtle)">
                             {RECENT_HISTORY_MOCK.map((row) => (
-                              <tr key={row.id} className="hover:bg-[var(--ops-surface-sunken)]/30 transition-all duration-150 group">
-                                <td className="px-6 py-4 text-[10px] font-bold text-[var(--ops-text-muted)] font-mono">{row.timestamp}</td>
+                              <tr key={row.id} className="hover:bg-(--ops-surface-sunken)/30 transition-all duration-150 group">
+                                <td className="px-6 py-4 text-[10px] font-bold text-(--ops-text-muted) font-mono">{row.timestamp}</td>
                                 <td className="px-6 py-4">
                                   <span className="text-xs font-black uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">{row.item}</span>
                                 </td>
                                 <td className="px-6 py-4 text-xs font-bold text-zinc-350 font-mono">{row.qty}</td>
                                 <td className="px-6 py-4">
-                                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest rounded-lg bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[var(--ops-text-secondary)]">
+                                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest rounded-lg bg-(--ops-surface-sunken) border-(--ops-border) text-(--ops-text-secondary)">
                                     {row.unit}
                                   </Badge>
                                 </td>
@@ -348,7 +352,7 @@ export default function Reports() {
                                         ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
                                         : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'
                                     )} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">{row.status}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary)">{row.status}</span>
                                   </div>
                                 </td>
                               </tr>
@@ -360,12 +364,12 @@ export default function Reports() {
                   </Card>
                 </div>
               ) : (
-                <Card className="p-20 text-center border-dashed border border-[var(--ops-border)] bg-[var(--ops-surface-sunken)]/20 rounded-[14px]">
+                <Card className="p-20 text-center border-dashed border border-(--ops-border) bg-(--ops-surface-sunken)/20 rounded-[14px]">
                   <div className="flex flex-col items-center gap-4">
                     <FiRefreshCw className="size-10 text-primary animate-spin" />
                     <div>
-                      <p className="text-base font-black italic uppercase tracking-tighter text-[var(--ops-text-muted)]">Module Initializing</p>
-                      <p className="text-[10px] font-bold text-[var(--ops-text-faint)] uppercase mt-1">Deep analysis module is synchronizing with the telemetry network</p>
+                      <p className="text-base font-black italic uppercase tracking-tighter text-(--ops-text-muted)">Module Initializing</p>
+                      <p className="text-[10px] font-bold text-(--ops-text-faint) uppercase mt-1">Deep analysis module is synchronizing with the telemetry network</p>
                     </div>
                   </div>
                 </Card>

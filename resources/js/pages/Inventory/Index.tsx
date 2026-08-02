@@ -1,9 +1,8 @@
-import { Head, usePage, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
-import AppLayout from '@/layouts/app-layout';
+import { Head, usePage, useForm } from '@inertiajs/react';
+import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useMemo, useEffect } from 'react';
-import { ResultModal } from '@/components/result-modal';
-import type { BreadcrumbItem } from '@/types';
 import {
   FiPackage,
   FiAlertTriangle,
@@ -12,7 +11,6 @@ import {
   FiPlus,
   FiEdit2,
   FiTrash2,
-  FiChevronDown,
   FiChevronRight,
   FiChevronLeft,
   FiRefreshCw,
@@ -28,17 +26,12 @@ import {
   FiActivity
 } from 'react-icons/fi';
 import { toast } from 'sonner';
-import axios from 'axios';
-import { ReceiptScannerModal } from '@/components/receipt-scanner-modal';
-import { MobileFilter } from '@/components/shared/mobile-filter';
-import { StockInModal } from '@/components/stock-in-modal';
-import { WastageModal } from '@/components/wastage-modal';
 import { MassRestockModal } from '@/components/mass-restock-modal';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ReceiptScannerModal } from '@/components/receipt-scanner-modal';
+import { ResultModal } from '@/components/result-modal';
+import { StockInModal } from '@/components/stock-in-modal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -48,20 +41,6 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import {
-  TooltipProvider,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent
-} from "@/components/ui/tooltip";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -69,6 +48,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { WastageModal } from '@/components/wastage-modal';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Inventory', href: '/dashboard' },
@@ -95,10 +87,37 @@ type InventoryRow = {
 
 type Branch = { id: number; name: string };
 
+interface ServerStats {
+  total_items?: number;
+  low_stock_count?: number;
+  out_of_stock_count?: number;
+  total_valuation?: number;
+}
+
+type ActivityLog = {
+  id?: number | string;
+  change_qty?: number | string;
+  time_ago?: string;
+  reason?: string;
+  source?: string;
+  employee_name?: string;
+  remaining?: string;
+  created_at?: string;
+};
+
+interface InventoryPageProps {
+  inventory?: InventoryRow[];
+  branches?: Branch[];
+  currentBranchId?: number | string;
+  isAdmin?: boolean;
+  stats?: ServerStats;
+  [key: string]: unknown;
+}
+
 export default function InventoryIndex() {
-  const { inventory: rawInventory, branches, currentBranchId, isAdmin, stats: serverStats } = usePage().props as any;
-  const inventory: InventoryRow[] = rawInventory || [];
-  const branchList: Branch[] = branches || [];
+  const { inventory: rawInventory, branches, currentBranchId, isAdmin, stats: serverStats } = usePage().props as unknown as InventoryPageProps;
+  const inventory: InventoryRow[] = useMemo(() => rawInventory || [], [rawInventory]);
+  const branchList: Branch[] = useMemo(() => branches || [], [branches]);
 
   // Branch filter handler
   const handleBranchFilter = (value: string) => {
@@ -159,12 +178,12 @@ export default function InventoryIndex() {
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = useState('');
   const [bulkRestockQuantities, setBulkRestockQuantities] = useState<Record<number, { quantity: string, unit: string }> | undefined>(undefined);
-
+  
   // Dynamic logs state for Dynamic Timestamps & Detail Drawer History
-  const [recentLogs, setRecentLogs] = useState<any[]>([]);
-  const [lastUpdatedMap, setLastUpdatedMap] = useState<Record<string, any>>({});
+  const [, setRecentLogs] = useState<Record<string, unknown>[]>([]);
+  const [lastUpdatedMap, setLastUpdatedMap] = useState<Record<string, Record<string, unknown>>>({});
   const [updatedTodayCount, setUpdatedTodayCount] = useState(0);
-  const [drawerLogs, setDrawerLogs] = useState<any[]>([]);
+  const [drawerLogs, setDrawerLogs] = useState<ActivityLog[]>([]);
   const [loadingDrawerLogs, setLoadingDrawerLogs] = useState(false);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'history' | 'procurement'>('overview');
 
@@ -184,17 +203,17 @@ export default function InventoryIndex() {
         setRecentLogs(logs);
         
         // Build last updated lookup
-        const map: Record<string, any> = {};
+        const map: Record<string, Record<string, unknown>> = {};
         let todayCount = 0;
         const todayStr = new Date().toDateString();
         
-        logs.forEach((log: any) => {
+        logs.forEach((log: Record<string, unknown>) => {
           const key = `${log.ingredient_id}-${log.branch_id}`;
           if (!map[key]) {
             map[key] = log;
           }
           
-          const logDate = new Date(log.created_at);
+          const logDate = new Date(String(log.created_at));
           if (logDate.toDateString() === todayStr) {
             todayCount++;
           }
@@ -203,52 +222,43 @@ export default function InventoryIndex() {
         setLastUpdatedMap(map);
         setUpdatedTodayCount(todayCount);
       }
-    } catch (err) {
-      console.error("Failed to load activity logs on mount:", err);
+    } catch {
+      // Fallback silently if logs endpoint fails
     }
   };
 
   useEffect(() => {
     fetchActivityLogs();
-    const handleFocus = () => fetchActivityLogs();
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  // Fetch detailed logs when drawer opens
+  // Sync drawer logs when selecting an item
   useEffect(() => {
-    if (isDrawerOpen && selectedRow) {
-      const loadDrawerLogs = async () => {
-        setLoadingDrawerLogs(true);
-        try {
-          const response = await axios.get('/inventory/activity', {
-            params: {
-              ingredient_id: selectedRow.id,
-              branch_id: selectedRow.branch_id
-            },
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'X-Inertia': 'true',
-              'X-Inertia-Partial-Component': 'Inventory/Activity',
-              'X-Inertia-Partial-Data': 'logs'
-            }
-          });
-          if (response.data?.props?.logs?.data) {
-            setDrawerLogs(response.data.props.logs.data);
-          } else {
-            setDrawerLogs([]);
-          }
-        } catch (err) {
-          console.error("Failed to load drawer logs:", err);
-        } finally {
-          setLoadingDrawerLogs(false);
+    if (selectedRow) {
+      setLoadingDrawerLogs(true);
+      axios.get(`/inventory/activity?ingredient_id=${selectedRow.id}&branch_id=${selectedRow.branch_id}`, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Inertia': 'true',
+          'X-Inertia-Partial-Component': 'Inventory/Activity',
+          'X-Inertia-Partial-Data': 'logs'
         }
-      };
-      loadDrawerLogs();
-    } else {
-      setDrawerLogs([]);
+      })
+      .then(res => {
+        if (res.data?.props?.logs?.data) {
+          setDrawerLogs(res.data.props.logs.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDrawerLogs(false));
     }
-  }, [isDrawerOpen, selectedRow]);
+  }, [selectedRow]);
+
+  // Open Item Detail Drawer
+  const openDetailDrawer = (row: InventoryRow) => {
+    setSelectedRow(row);
+    setDrawerTab('overview');
+    setIsDrawerOpen(true);
+  };
 
   const openStockInModal = (row: InventoryRow) => {
     setSelectedRow(row);
@@ -265,13 +275,7 @@ export default function InventoryIndex() {
     setIsMassRestockModalOpen(true);
   };
 
-  const handleRowClick = (row: InventoryRow) => {
-    setSelectedRow(row);
-    setDrawerTab('overview');
-    setIsDrawerOpen(true);
-  };
-
-  const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
+  const { data, setData, processing, reset } = useForm({
     name: '',
     unit: 'g',
     stock: '0',
@@ -285,7 +289,7 @@ export default function InventoryIndex() {
 
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
 
-  const validateField = (name: string, value: any) => {
+  const validateField = (name: string, value: unknown) => {
     let error = '';
 
     switch (name) {
@@ -313,7 +317,7 @@ export default function InventoryIndex() {
         else if (Number(value) <= 0) error = 'Must be greater than 0';
         break;
       case 'branch_ids':
-        if (!isEditModalOpen && value.length === 0 && isAdmin) {
+        if (!isEditModalOpen && Array.isArray(value) && value.length === 0 && isAdmin) {
           error = 'Select at least one branch';
         }
         break;
@@ -392,7 +396,7 @@ export default function InventoryIndex() {
           matchesQuick = !!lastLog;
         } else if (quickFilter === 'restocked') {
           if (lastLog) {
-            const logDate = new Date(lastLog.created_at);
+            const logDate = new Date(String(lastLog.created_at));
             const isToday = logDate.toDateString() === new Date().toDateString();
             const isPositive = Number(lastLog.change_qty) > 0;
             matchesQuick = isToday && isPositive;
@@ -404,21 +408,21 @@ export default function InventoryIndex() {
         return matchesSearch && matchesUnit && matchesStatus && matchesQuick;
       })
       .sort((a, b) => {
-        let valA: any = a[sortBy as keyof InventoryRow];
-        let valB: any = b[sortBy as keyof InventoryRow];
+        let valA: unknown = a[sortBy as keyof InventoryRow];
+        let valB: unknown = b[sortBy as keyof InventoryRow];
 
         if (sortBy === 'last_updated') {
           const logA = lastUpdatedMap[`${a.id}-${a.branch_id}`];
           const logB = lastUpdatedMap[`${b.id}-${b.branch_id}`];
-          const timeA = logA ? new Date(logA.created_at).getTime() : 0;
-          const timeB = logB ? new Date(logB.created_at).getTime() : 0;
+          const timeA = logA ? new Date(String(logA.created_at)).getTime() : 0;
+          const timeB = logB ? new Date(String(logB.created_at)).getTime() : 0;
           return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
         }
 
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
-        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        if ((valA as string) < (valB as string)) return sortOrder === 'asc' ? -1 : 1;
+        if ((valA as string) > (valB as string)) return sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
   }, [inventory, search, filterUnit, filterStatus, quickFilter, sortBy, sortOrder, lastUpdatedMap]);
@@ -479,7 +483,7 @@ export default function InventoryIndex() {
     
     let hasError = false;
     fields.forEach(f => {
-      const err = validateField(f, (data as any)[f]);
+      const err = validateField(f, (data as Record<string, unknown>)[f]);
       if (err) hasError = true;
     });
 
@@ -524,7 +528,7 @@ export default function InventoryIndex() {
     
     let hasError = false;
     fields.forEach(f => {
-      const err = validateField(f, (data as any)[f]);
+      const err = validateField(f, (data as Record<string, unknown>)[f]);
       if (err) hasError = true;
     });
 
@@ -699,7 +703,7 @@ export default function InventoryIndex() {
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
 
           {/* ── Header Area ── */}
-          <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+          <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">
             <div className="flex items-center gap-3">
               <FiPackage className="text-primary size-6 animate-pulse" />
               <div>
@@ -715,7 +719,7 @@ export default function InventoryIndex() {
                 variant="outline"
                 size="sm"
                 type="button"
-                className="h-10 px-3.5 rounded-[12px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] hover:bg-[var(--ops-chip-active-bg)] text-muted-foreground hover:text-foreground transition-all shadow-sm shrink-0 gap-2 text-[10px] font-black uppercase tracking-wider"
+                className="h-10 px-3.5 rounded-xl bg-(--ops-surface-sunken) border-(--ops-border) hover:bg-(--ops-chip-active-bg) text-muted-foreground hover:text-foreground transition-all shadow-sm shrink-0 gap-2 text-[10px] font-black uppercase tracking-wider"
                 onClick={() => setIsReceiptScannerOpen(true)}
                 title="Scan Receipt"
               >
@@ -725,7 +729,7 @@ export default function InventoryIndex() {
               {isAdmin && (
                 <Button 
                   onClick={handleAdd} 
-                  className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-[12px] font-black uppercase text-[10px] tracking-wider italic shrink-0"
+                  className="h-10 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-xl font-black uppercase text-[10px] tracking-wider italic shrink-0"
                 >
                   <FiPlus className="size-4" /> <span>Add Ingredient</span>
                 </Button>
@@ -738,58 +742,58 @@ export default function InventoryIndex() {
             
             {/* KPI Cards Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+              <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Ingredients</p>
-                  <FiGrid className="size-4 text-[var(--ops-text-secondary)]" />
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Total Ingredients</p>
+                  <FiGrid className="size-4 text-(--ops-text-secondary)" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.total}</h3>
-                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Across all branches</p>
+                  <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Across all branches</p>
                 </div>
               </div>
               
-              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+              <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/70">Low Stock</p>
                   <FiAlertTriangle className="size-4 text-amber-500" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-amber-500 tabular-nums leading-none">{stats.low_stock}</h3>
-                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Needs Restocking</p>
+                  <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Needs Restocking</p>
                 </div>
               </div>
 
-              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+              <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500/70">Out of Stock</p>
                   <FiSlash className="size-4 text-rose-500" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-rose-500 tabular-nums leading-none">{stats.out_of_stock}</h3>
-                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Critical Alert</p>
+                  <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Critical Alert</p>
                 </div>
               </div>
 
-              <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+              <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Stock Updates</p>
                   <FiRefreshCw className="size-4 text-primary group-hover:rotate-180 transition-transform duration-500" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.updates}</h3>
-                  <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Updated Today</p>
+                  <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Updated Today</p>
                 </div>
               </div>
             </div>
 
             {/* Branch Header (Context Statistics) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] px-4 py-2.5 rounded-[12px] text-xs font-black uppercase tracking-wider text-muted-foreground">
-              <div className="flex items-center gap-2 text-[var(--ops-text-secondary)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-(--ops-surface-sunken)/20 border border-(--ops-border) px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center gap-2 text-(--ops-text-secondary)">
                 <FiMapPin className="text-primary size-4" />
                 <span>{activeBranchName}</span>
               </div>
-              <div className="flex items-center gap-4 text-[10px] font-bold text-[var(--ops-text-muted)]">
+              <div className="flex items-center gap-4 text-[10px] font-bold text-(--ops-text-muted)">
                 <span>{activeBranchStats.total} Ingredients</span>
                 {activeBranchStats.low > 0 && <span className="text-amber-500">{activeBranchStats.low} Low Stock</span>}
                 {activeBranchStats.out > 0 && <span className="text-rose-500">{activeBranchStats.out} Out of Stock</span>}
@@ -797,7 +801,7 @@ export default function InventoryIndex() {
             </div>
 
             {/* STICKY TOOLBAR FILTERS */}
-            <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+            <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-(--ops-border-subtle)">
               
               {/* Quick Chips Row */}
               <div className="flex flex-wrap gap-2">
@@ -805,7 +809,7 @@ export default function InventoryIndex() {
                   { id: 'all', label: 'All Ingredients' },
                   { id: 'low', label: 'Low Stock', icon: FiAlertTriangle, color: 'text-amber-500' },
                   { id: 'out', label: 'Out of Stock', icon: FiSlash, color: 'text-rose-500' },
-                  { id: 'updated', label: 'Recently Updated', icon: FiActivity, color: 'text-[var(--ops-text-secondary)]' },
+                  { id: 'updated', label: 'Recently Updated', icon: FiActivity, color: 'text-(--ops-text-secondary)' },
                   { id: 'restocked', label: 'Restocked Today', icon: FiTrendingUp, color: 'text-emerald-500' }
                 ].map(chip => {
                   const isActive = quickFilter === chip.id;
@@ -813,12 +817,12 @@ export default function InventoryIndex() {
                   return (
                     <button
                       key={chip.id}
-                      onClick={() => setQuickFilter(chip.id as any)}
+                      onClick={() => setQuickFilter(chip.id as 'all' | 'low' | 'out' | 'updated' | 'restocked')}
                       className={cn(
                         "h-8 px-3 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5 border",
                         isActive
                           ? "bg-primary border-primary text-foreground shadow-sm"
-                          : "bg-[var(--ops-thead-bg)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground hover:bg-[var(--ops-chip-active-bg)]"
+                          : "bg-(--ops-thead-bg) border-(--ops-border) text-(--ops-text-secondary) hover:text-foreground hover:bg-(--ops-chip-active-bg)"
                       )}
                     >
                       {Icon && <Icon className={cn("size-3", chip.color)} />}
@@ -834,12 +838,12 @@ export default function InventoryIndex() {
                   
                   {/* Search box */}
                   <div className="relative w-full sm:w-64">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-(--ops-text-muted)" />
                     <Input
                       placeholder="Search ingredient or SKU..."
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      className="pl-9 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
+                      className="pl-9 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] focus:ring-primary/45 text-[10px] font-bold uppercase tracking-tight text-foreground placeholder-zinc-500"
                     />
                   </div>
 
@@ -849,10 +853,10 @@ export default function InventoryIndex() {
                       value={currentBranchId ? String(currentBranchId) : 'all'}
                       onValueChange={handleBranchFilter}
                     >
-                      <SelectTrigger className="w-full sm:w-44 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                      <SelectTrigger className="w-full sm:w-44 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-[10px] font-black uppercase tracking-wider text-(--ops-text-secondary)">
                         <SelectValue placeholder="All Branches" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                      <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) rounded-xl">
                         <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>
                         {branchList.map(b => (
                           <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
@@ -863,10 +867,10 @@ export default function InventoryIndex() {
 
                   {/* Unit filter */}
                   <Select value={filterUnit} onValueChange={setFilterUnit}>
-                    <SelectTrigger className="w-full sm:w-32 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                    <SelectTrigger className="w-full sm:w-32 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-[10px] font-black uppercase tracking-wider text-(--ops-text-secondary)">
                       <SelectValue placeholder="All Units" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                    <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) rounded-xl">
                       <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Units</SelectItem>
                       <SelectItem value="g" className="text-[10px] font-bold uppercase py-2">g (Grams)</SelectItem>
                       <SelectItem value="ml" className="text-[10px] font-bold uppercase py-2">ml (Milliliters)</SelectItem>
@@ -878,10 +882,10 @@ export default function InventoryIndex() {
 
                   {/* Status filter */}
                   <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-full sm:w-36 h-9.5 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                    <SelectTrigger className="w-full sm:w-36 h-9.5 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-[10px] font-black uppercase tracking-wider text-(--ops-text-secondary)">
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px]">
+                    <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) rounded-xl">
                       <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Status</SelectItem>
                       <SelectItem value="optimal" className="text-[10px] font-bold uppercase py-2 text-emerald-500">Optimal</SelectItem>
                       <SelectItem value="low" className="text-[10px] font-bold uppercase py-2 text-amber-500">Low Stock</SelectItem>
@@ -893,12 +897,12 @@ export default function InventoryIndex() {
 
                 {/* Density Toggle Controls */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex items-center border border-[var(--ops-border)] rounded-[10px] p-0.5 bg-[var(--ops-surface-sunken)]">
+                  <div className="flex items-center border border-(--ops-border) rounded-[10px] p-0.5 bg-(--ops-surface-sunken)">
                     <button
                       onClick={() => setDensity('compact')}
                       className={cn(
                         "p-1.5 rounded-[8px] transition-all",
-                        density === 'compact' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                        density === 'compact' ? "bg-(--ops-chip-active-bg) text-foreground" : "text-(--ops-text-muted) hover:text-(--ops-text-secondary)"
                       )}
                       title="Compact Density"
                     >
@@ -908,7 +912,7 @@ export default function InventoryIndex() {
                       onClick={() => setDensity('comfortable')}
                       className={cn(
                         "p-1.5 rounded-[8px] transition-all",
-                        density === 'comfortable' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                        density === 'comfortable' ? "bg-(--ops-chip-active-bg) text-foreground" : "text-(--ops-text-muted) hover:text-(--ops-text-secondary)"
                       )}
                       title="Comfortable Density"
                     >
@@ -924,7 +928,7 @@ export default function InventoryIndex() {
                       const activeName = branchList.find(b => b.id === activeId)?.name || 'Victoria';
                       if (activeId) openMassRestockModal(activeId, activeName);
                     }}
-                    className="h-9.5 rounded-[10px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] hover:bg-[var(--ops-chip-active-bg)] text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5 shrink-0"
+                    className="h-9.5 rounded-[10px] bg-(--ops-surface-sunken) border-(--ops-border) hover:bg-(--ops-chip-active-bg) text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5 shrink-0"
                   >
                     <FiZap className="size-3.5" />
                     <span>Mass Restock</span>
@@ -934,16 +938,16 @@ export default function InventoryIndex() {
             </div>
 
             {/* INGREDIENT INVENTORY TABLE ZONE */}
-            <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden">
+            <div className="border border-(--ops-border) rounded-[14px] bg-(--ops-surface-sunken) shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
-                  <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                <table className="w-full text-left border-collapse table-auto text-(--ops-text-secondary)">
+                  <thead className="bg-(--ops-thead-bg) border-b border-(--ops-border) text-[9px] font-black uppercase tracking-[0.15em] text-(--ops-text-secondary) select-none">
                     <tr>
                       <th className="px-4 py-3.5 w-10">
                         {isAdmin && (
                           <input
                             type="checkbox"
-                            className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                            className="size-3.5 rounded border-(--ops-border) text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
                             checked={paginatedData.length > 0 && paginatedData.every(r => selectedIds.includes(r.id))}
                             onChange={(e) => toggleSelectAll(e.target.checked)}
                           />
@@ -995,17 +999,17 @@ export default function InventoryIndex() {
                     </tr>
                   </thead>
                   
-                  <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                  <tbody className="divide-y divide-(--ops-border-subtle)">
                     {paginatedData.length === 0 ? (
                       <tr>
                         <td colSpan={10} className="px-6 py-16 text-center">
                           <div className="flex flex-col items-center gap-3">
-                            <FiPackage className="size-10 text-[var(--ops-text-faint)] animate-bounce" />
-                            <p className="text-base font-bold italic uppercase tracking-tighter text-[var(--ops-text-muted)]">No ingredients found</p>
-                            <p className="text-[10px] text-[var(--ops-text-faint)] font-bold uppercase tracking-widest">Try adjusting filters or reset the view</p>
+                            <FiPackage className="size-10 text-(--ops-text-faint) animate-bounce" />
+                            <p className="text-base font-bold italic uppercase tracking-tighter text-(--ops-text-muted)">No ingredients found</p>
+                            <p className="text-[10px] text-(--ops-text-faint) font-bold uppercase tracking-widest">Try adjusting filters or reset the view</p>
                             <Button 
                               onClick={handleResetFilters}
-                              className="mt-2 h-8 px-4 rounded-[8px] bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[9px] font-black uppercase tracking-wider text-foreground hover:bg-[var(--ops-chip-active-bg)]"
+                              className="mt-2 h-8 px-4 rounded-[8px] bg-(--ops-surface-sunken) border border-(--ops-border) text-[9px] font-black uppercase tracking-wider text-foreground hover:bg-(--ops-chip-active-bg)"
                             >
                               Reset Filters
                             </Button>
@@ -1024,10 +1028,10 @@ export default function InventoryIndex() {
                         return (
                           <tr
                             key={key}
-                            onClick={() => handleRowClick(item)}
+                            onClick={() => openDetailDrawer(item)}
                             className={cn(
-                              "cursor-pointer group select-none hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative",
-                              isChecked && "bg-primary/[0.015]",
+                              "cursor-pointer group select-none hover:bg-(--ops-surface-sunken)/50 transition-colors duration-150 relative",
+                              isChecked && "bg-primary/1.5",
                               (item.is_low_stock || item.is_out_of_stock) && "hover:bg-rose-950/5"
                             )}
                           >
@@ -1039,7 +1043,7 @@ export default function InventoryIndex() {
                               {isAdmin && (
                                 <input
                                   type="checkbox"
-                                  className="size-3.5 rounded border-[var(--ops-border)] text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
+                                  className="size-3.5 rounded border-(--ops-border) text-primary bg-zinc-950 focus:ring-primary/20 cursor-pointer"
                                   checked={isChecked}
                                   onChange={() => toggleSelectRow(item.id)}
                                 />
@@ -1055,21 +1059,21 @@ export default function InventoryIndex() {
                                 )}>
                                   {item.name}
                                 </span>
-                                <span className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase tracking-widest sm:hidden">
+                                <span className="text-[8px] text-(--ops-text-faint) font-bold uppercase tracking-widest sm:hidden">
                                   ING-{item.id.toString().padStart(5, '0')}
                                 </span>
                               </div>
                             </td>
 
                             {/* SKU */}
-                            <td className="px-4 hidden sm:table-cell text-[var(--ops-text-muted)] font-bold font-mono text-[10px]">
+                            <td className="px-4 hidden sm:table-cell text-(--ops-text-muted) font-bold font-mono text-[10px]">
                               ING-{item.id.toString().padStart(5, '0')}
                             </td>
 
                             {/* Branch */}
                             <td className="px-4 hidden md:table-cell">
-                              <div className="flex items-center gap-1.5 text-[var(--ops-text-secondary)] text-xs font-bold uppercase tracking-tight">
-                                <FiMapPin className="size-3 text-[var(--ops-text-faint)]" />
+                              <div className="flex items-center gap-1.5 text-(--ops-text-secondary) text-xs font-bold uppercase tracking-tight">
+                                <FiMapPin className="size-3 text-(--ops-text-faint)" />
                                 <span>{item.branch_name || 'N/A'}</span>
                               </div>
                             </td>
@@ -1085,7 +1089,7 @@ export default function InventoryIndex() {
                                   )}>
                                     {Number(item.display_stock ?? item.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                                   </span>
-                                  <span className="text-[8px] font-black uppercase text-[var(--ops-text-faint)]">
+                                  <span className="text-[8px] font-black uppercase text-(--ops-text-faint)">
                                     {item.display_unit || item.unit}
                                   </span>
                                 </div>
@@ -1099,7 +1103,7 @@ export default function InventoryIndex() {
                                         "w-1 h-2 rounded-[0.5px]",
                                         i < activeSegments
                                           ? (item.is_out_of_stock ? "bg-rose-500" : item.is_low_stock ? "bg-amber-500" : "bg-emerald-500")
-                                          : "bg-[var(--ops-chip-active-bg)]"
+                                          : "bg-(--ops-chip-active-bg)"
                                       )}
                                     />
                                   ))}
@@ -1108,12 +1112,12 @@ export default function InventoryIndex() {
                             </td>
 
                             {/* Minimum stock */}
-                            <td className="px-4 text-right hidden sm:table-cell text-[var(--ops-text-muted)] font-bold font-mono text-[10px]">
+                            <td className="px-4 text-right hidden sm:table-cell text-(--ops-text-muted) font-bold font-mono text-[10px]">
                               {item.low_stock_level} {item.unit}
                             </td>
 
                             {/* Unit */}
-                            <td className="px-4 hidden md:table-cell text-center text-[var(--ops-text-muted)] font-black uppercase text-[10px] tracking-widest">
+                            <td className="px-4 hidden md:table-cell text-center text-(--ops-text-muted) font-black uppercase text-[10px] tracking-widest">
                               {item.unit}
                             </td>
 
@@ -1141,43 +1145,43 @@ export default function InventoryIndex() {
                             </td>
 
                             {/* Dynamic update timestamp */}
-                            <td className="px-4 hidden lg:table-cell text-[10px] font-bold text-[var(--ops-text-muted)]">
-                              {lastLog ? lastLog.time_ago : 'System Sync'}
+                            <td className="px-4 hidden lg:table-cell text-[10px] font-bold text-(--ops-text-muted)">
+                              {lastLog ? String(lastLog.time_ago) : 'System Sync'}
                             </td>
 
                             {/* Action overflow menu */}
                             <td className="px-4 text-right" onClick={e => e.stopPropagation()}>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <button className="p-1 rounded hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-muted)] hover:text-foreground transition-colors">
+                                  <button className="p-1 rounded hover:bg-(--ops-chip-active-bg) text-(--ops-text-muted) hover:text-foreground transition-colors">
                                     <span className="text-base font-bold">⋮</span>
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[12px] p-1.5 shadow-2xl text-[var(--ops-text-secondary)]">
-                                  <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Stock Controls</DropdownMenuLabel>
-                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => openStockInModal(item)}>
+                                <DropdownMenuContent align="end" className="w-48 bg-(--ops-surface-sunken) border-(--ops-border) rounded-xl p-1.5 shadow-2xl text-(--ops-text-secondary)">
+                                  <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted) px-2.5 py-1.5">Stock Controls</DropdownMenuLabel>
+                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-chip-active-bg) hover:text-foreground" onClick={() => openStockInModal(item)}>
                                     <FiZap className="size-3.5 text-emerald-500" />
                                     <span>Restock (Stock In)</span>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => openWastageModal(item)}>
+                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-chip-active-bg) hover:text-foreground" onClick={() => openWastageModal(item)}>
                                     <FiSlash className="size-3.5 text-rose-500" />
                                     <span>Report Wastage</span>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => handleRowClick(item)}>
+                                  <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-chip-active-bg) hover:text-foreground" onClick={() => openDetailDrawer(item)}>
                                     <FiFileText className="size-3.5 text-indigo-400" />
                                     <span>View Audit History</span>
                                   </DropdownMenuItem>
                                   
                                   {isAdmin && (
                                     <>
-                                      <DropdownMenuSeparator className="bg-[var(--ops-chip-active-bg)] my-1.5" />
-                                      <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] px-2.5 py-1.5">Administration</DropdownMenuLabel>
-                                      <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground" onClick={() => handleEdit(item)}>
+                                      <DropdownMenuSeparator className="bg-(--ops-chip-active-bg) my-1.5" />
+                                      <DropdownMenuLabel className="text-[8px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted) px-2.5 py-1.5">Administration</DropdownMenuLabel>
+                                      <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-chip-active-bg) hover:text-foreground" onClick={() => handleEdit(item)}>
                                         <FiEdit2 className="size-3.5 text-amber-500" />
                                         <span>Adjust Stock Limits</span>
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground text-rose-500 hover:text-rose-400" onClick={() => handleDelete(item)}>
-                                        <FiTrash2 className="size-3.5" />
+                                      <DropdownMenuItem className="rounded-[8px] py-1.5 px-2.5 text-xs font-bold gap-2 cursor-pointer hover:bg-(--ops-chip-active-bg) hover:text-rose-400" onClick={() => handleDelete(item)}>
+                                        <FiTrash2 className="size-3.5 text-rose-500" />
                                         <span>Delete from Branch</span>
                                       </DropdownMenuItem>
                                     </>
@@ -1195,15 +1199,15 @@ export default function InventoryIndex() {
             </div>
 
             {/* Pagination Controls */}
-            <div className="p-5 bg-[var(--ops-surface-sunken)]/30 border border-[var(--ops-border)] rounded-[14px] flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="p-5 bg-(--ops-surface-sunken)/30 border border-(--ops-border) rounded-[14px] flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Rows per page</span>
+                  <span className="text-[9px] font-black uppercase text-(--ops-text-muted) tracking-wider">Rows per page</span>
                   <Select value={String(itemsPerPage)} onValueChange={val => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
-                    <SelectTrigger className="w-[70px] h-8.5 rounded-[8px] border-[var(--ops-border)] bg-[var(--ops-surface-sunken)] font-bold text-xs ring-1 ring-zinc-800 text-foreground">
+                    <SelectTrigger className="w-17.5 h-8.5 rounded-[8px] border-(--ops-border) bg-(--ops-surface-sunken) font-bold text-xs ring-1 ring-zinc-800 text-foreground">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)]">
+                    <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border)">
                       {[10, 25, 50, 100].map(val => (
                         <SelectItem key={val} value={String(val)} className="text-xs font-bold">{val}</SelectItem>
                       ))}
@@ -1221,7 +1225,7 @@ export default function InventoryIndex() {
                   variant="ghost" 
                   disabled={currentPage === 1} 
                   onClick={() => setCurrentPage(p => p - 1)} 
-                  className="rounded-[8px] h-8 px-2 bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground"
+                  className="rounded-[8px] h-8 px-2 bg-(--ops-surface-sunken) border border-(--ops-border) text-(--ops-text-secondary) hover:text-foreground"
                 >
                   <FiChevronLeft className="size-4" />
                 </Button>
@@ -1243,7 +1247,7 @@ export default function InventoryIndex() {
                           'h-8 w-8 rounded-[8px] font-bold text-xs transition-all',
                           currentPage === pageNum 
                             ? 'bg-primary text-foreground scale-105 shadow-sm' 
-                            : 'hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-secondary)]'
+                            : 'hover:bg-(--ops-chip-active-bg) text-(--ops-text-secondary)'
                         )}
                       >
                         {pageNum}
@@ -1256,7 +1260,7 @@ export default function InventoryIndex() {
                   variant="ghost" 
                   disabled={currentPage === totalPages || totalPages === 0} 
                   onClick={() => setCurrentPage(p => p + 1)} 
-                  className="rounded-[8px] h-8 px-2 bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground"
+                  className="rounded-[8px] h-8 px-2 bg-(--ops-surface-sunken) border border-(--ops-border) text-(--ops-text-secondary) hover:text-foreground"
                 >
                   <FiChevronRight className="size-4" />
                 </Button>
@@ -1274,9 +1278,9 @@ export default function InventoryIndex() {
             animate={{ y: 0, opacity: 1, x: "-50%" }}
             exit={{ y: 80, opacity: 0, x: "-50%" }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-950/95 border border-[var(--ops-border)] shadow-2xl px-5 py-3 rounded-[14px] flex items-center gap-4 sm:gap-6 z-40 backdrop-blur-md"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-950/95 border border-(--ops-border) shadow-2xl px-5 py-3 rounded-[14px] flex items-center gap-4 sm:gap-6 z-40 backdrop-blur-md"
           >
-            <div className="flex items-center gap-2 pr-4 border-r border-[var(--ops-border)] text-xs text-[var(--ops-text-secondary)]">
+            <div className="flex items-center gap-2 pr-4 border-r border-(--ops-border) text-xs text-(--ops-text-secondary)">
               <div className="size-2 rounded-full bg-primary animate-pulse" />
               <span className="font-bold font-mono text-foreground">{selectedIds.length}</span>
               <span className="font-black uppercase tracking-wider text-[9px]">Selected</span>
@@ -1287,7 +1291,7 @@ export default function InventoryIndex() {
                 variant="outline"
                 size="sm"
                 onClick={handleBulkRestock}
-                className="h-8.5 px-3 rounded-[10px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-emerald-500 hover:bg-[var(--ops-chip-active-bg)] hover:text-emerald-400 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                className="h-8.5 px-3 rounded-[10px] bg-(--ops-surface-sunken) border-(--ops-border) text-emerald-500 hover:bg-(--ops-chip-active-bg) hover:text-emerald-400 text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
               >
                 <FiZap className="size-3.5" />
                 <span>Restock</span>
@@ -1296,7 +1300,7 @@ export default function InventoryIndex() {
                 variant="outline"
                 size="sm"
                 onClick={handleExportCSV}
-                className="h-8.5 px-3 rounded-[10px] bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:bg-[var(--ops-chip-active-bg)] hover:text-foreground text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                className="h-8.5 px-3 rounded-[10px] bg-(--ops-surface-sunken) border-(--ops-border) text-(--ops-text-secondary) hover:bg-(--ops-chip-active-bg) hover:text-foreground text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5"
               >
                 <FiDownload className="size-3.5" />
                 <span>Export</span>
@@ -1317,7 +1321,7 @@ export default function InventoryIndex() {
 
             <button
               onClick={() => setSelectedIds([])}
-              className="p-1 rounded hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-muted)] hover:text-foreground transition-colors"
+              className="p-1 rounded hover:bg-(--ops-chip-active-bg) text-(--ops-text-muted) hover:text-foreground transition-colors"
             >
               <FiX className="size-4" />
             </button>
@@ -1343,27 +1347,27 @@ export default function InventoryIndex() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md md:max-w-lg bg-zinc-950 border-l border-[var(--ops-border)] shadow-2xl z-50 flex flex-col font-sans"
+              className="fixed top-0 right-0 h-full w-full max-w-md md:max-w-lg bg-zinc-950 border-l border-(--ops-border) shadow-2xl z-50 flex flex-col font-sans"
             >
               {/* Drawer Header */}
-              <div className="p-6 border-b border-[var(--ops-border)] flex items-center justify-between flex-shrink-0 bg-[var(--ops-surface-sunken)]/20">
+              <div className="p-6 border-b border-(--ops-border) flex items-center justify-between shrink-0 bg-(--ops-surface-sunken)/20">
                 <div className="flex items-center gap-2">
                   <FiPackage className="text-primary size-5" />
                   <div>
                     <h2 className="text-sm font-black italic uppercase tracking-tighter text-foreground">Ingredient Details</h2>
-                    <p className="text-[9px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest">ING-{selectedRow.id.toString().padStart(5, '0')}</p>
+                    <p className="text-[9px] font-bold text-(--ops-text-muted) uppercase tracking-widest">ING-{selectedRow.id.toString().padStart(5, '0')}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
-                  className="p-1.5 rounded-[8px] bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground transition-colors"
+                  className="p-1.5 rounded-[8px] bg-(--ops-surface-sunken) border border-(--ops-border) text-(--ops-text-secondary) hover:text-foreground transition-colors"
                 >
                   <FiX className="size-4" />
                 </button>
               </div>
 
               {/* Drawer Body Tabs */}
-              <div className="px-6 pt-3 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border-subtle)] flex-shrink-0">
+              <div className="px-6 pt-3 bg-(--ops-surface-sunken) border-b border-(--ops-border-subtle) shrink-0">
                 <div className="flex gap-2">
                   {[
                     { id: 'overview', label: 'Overview' },
@@ -1372,12 +1376,12 @@ export default function InventoryIndex() {
                   ].map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setDrawerTab(tab.id as any)}
+                      onClick={() => setDrawerTab(tab.id as 'overview' | 'history' | 'procurement')}
                       className={cn(
                         "pb-2.5 text-[9px] font-black uppercase tracking-wider relative px-1",
                         drawerTab === tab.id 
                           ? "text-primary" 
-                          : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                          : "text-(--ops-text-muted) hover:text-(--ops-text-secondary)"
                       )}
                     >
                       <span>{tab.label}</span>
@@ -1396,13 +1400,13 @@ export default function InventoryIndex() {
                 {drawerTab === 'overview' && (
                   <div className="space-y-6">
                     {/* Visual Card */}
-                    <div className="bg-[var(--ops-surface-sunken)]/30 border border-[var(--ops-border)] rounded-[14px] p-6 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm text-center">
+                    <div className="bg-(--ops-surface-sunken)/30 border border-(--ops-border) rounded-[14px] p-6 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm text-center">
                       <div className="absolute top-0 right-0 size-24 bg-primary blur-3xl opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500" />
-                      <div className="size-16 rounded-[14px] bg-gradient-to-br from-zinc-800 to-zinc-900/80 border border-zinc-700/50 flex items-center justify-center text-xl font-black italic uppercase tracking-tighter text-primary mb-3.5 shadow-inner select-none">
+                      <div className="size-16 rounded-[14px] bg-linear-to-br from-zinc-800 to-zinc-900/80 border border-zinc-700/50 flex items-center justify-center text-xl font-black italic uppercase tracking-tighter text-primary mb-3.5 shadow-inner select-none">
                         {selectedRow.name.slice(0, 2)}
                       </div>
                       <h3 className="text-lg font-black uppercase italic tracking-tighter text-foreground">{selectedRow.name}</h3>
-                      <p className="text-[9px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest mt-1">Global ID: ING-{selectedRow.id.toString().padStart(5, '0')}</p>
+                      <p className="text-[9px] font-bold text-(--ops-text-muted) uppercase tracking-widest mt-1">Global ID: ING-{selectedRow.id.toString().padStart(5, '0')}</p>
 
                       <div className="mt-4 flex items-center gap-1.5">
                         {selectedRow.is_out_of_stock ? (
@@ -1417,24 +1421,24 @@ export default function InventoryIndex() {
 
                     {/* Stock matrix */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] p-4 rounded-[12px]">
-                        <p className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Current Stock</p>
+                      <div className="bg-(--ops-surface-sunken)/20 border border-(--ops-border) p-4 rounded-xl">
+                        <p className="text-[9px] font-black uppercase text-(--ops-text-muted) tracking-wider">Current Stock</p>
                         <p className="text-xl font-black italic tracking-tighter text-foreground mt-1 tabular-nums">
                           {Number(selectedRow.display_stock ?? selectedRow.stock).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                          <span className="text-[10px] font-normal uppercase text-[var(--ops-text-secondary)] ml-1 tracking-wider">{selectedRow.display_unit || selectedRow.unit}</span>
+                          <span className="text-[10px] font-normal uppercase text-(--ops-text-secondary) ml-1 tracking-wider">{selectedRow.display_unit || selectedRow.unit}</span>
                         </p>
                       </div>
-                      <div className="bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] p-4 rounded-[12px]">
-                        <p className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Minimum Level</p>
+                      <div className="bg-(--ops-surface-sunken)/20 border border-(--ops-border) p-4 rounded-xl">
+                        <p className="text-[9px] font-black uppercase text-(--ops-text-muted) tracking-wider">Minimum Level</p>
                         <p className="text-xl font-black italic tracking-tighter text-foreground mt-1 tabular-nums">
                           {selectedRow.low_stock_level}
-                          <span className="text-[10px] font-normal uppercase text-[var(--ops-text-secondary)] ml-1 tracking-wider">{selectedRow.unit}</span>
+                          <span className="text-[10px] font-normal uppercase text-(--ops-text-secondary) ml-1 tracking-wider">{selectedRow.unit}</span>
                         </p>
                       </div>
                     </div>
 
                     {/* Details Lists */}
-                    <div className="border border-[var(--ops-border)] rounded-[12px] bg-[var(--ops-surface-sunken)] divide-y divide-zinc-900">
+                    <div className="border border-(--ops-border) rounded-xl bg-(--ops-surface-sunken) divide-y divide-zinc-900">
                       {[
                         { label: 'Assigned Branch', value: selectedRow.branch_name || 'N/A' },
                         { label: 'Purchase Unit', value: selectedRow.unit },
@@ -1443,14 +1447,14 @@ export default function InventoryIndex() {
                         { label: 'Piece Weight', value: selectedRow.avg_weight_per_piece ? `${selectedRow.avg_weight_per_piece} g / piece` : 'N/A' }
                       ].map((info, idx) => (
                         <div key={idx} className="flex justify-between items-center px-4 py-3 text-xs">
-                          <span className="font-bold text-[var(--ops-text-muted)] uppercase tracking-wider text-[9px]">{info.label}</span>
+                          <span className="font-bold text-(--ops-text-muted) uppercase tracking-wider text-[9px]">{info.label}</span>
                           <span className="font-black text-foreground uppercase tracking-tight">{info.value}</span>
                         </div>
                       ))}
                     </div>
 
                     {/* Quick Operations Button Matrix */}
-                    <div className="space-y-2.5 pt-4 border-t border-[var(--ops-border-subtle)]">
+                    <div className="space-y-2.5 pt-4 border-t border-(--ops-border-subtle)">
                       <div className="grid grid-cols-2 gap-2.5">
                         <Button
                           onClick={() => openStockInModal(selectedRow)}
@@ -1472,16 +1476,16 @@ export default function InventoryIndex() {
                         <div className="grid grid-cols-2 gap-2.5">
                           <Button
                             onClick={() => handleEdit(selectedRow)}
-                            className="h-10 rounded-[10px] bg-[var(--ops-surface-sunken)] hover:bg-[var(--ops-chip-active-bg)] text-[var(--ops-text-secondary)] border border-[var(--ops-border)] font-black uppercase text-[10px] tracking-wider gap-2"
+                            className="h-10 rounded-[10px] bg-(--ops-surface-sunken) hover:bg-(--ops-chip-active-bg) text-(--ops-text-secondary) border border-(--ops-border) font-black uppercase text-[10px] tracking-wider gap-2"
                           >
                             <FiEdit2 className="size-3.5 text-amber-500" />
                             <span>Edit Thresholds</span>
                           </Button>
                           <Button
                             onClick={() => handleDelete(selectedRow)}
-                            className="h-10 rounded-[10px] bg-[var(--ops-surface-sunken)] hover:bg-rose-600 hover:text-foreground text-[var(--ops-text-secondary)] border border-[var(--ops-border)] hover:border-transparent font-black uppercase text-[10px] tracking-wider gap-2"
+                            className="h-10 rounded-[10px] bg-(--ops-surface-sunken) hover:bg-rose-600 hover:text-foreground text-(--ops-text-secondary) border border-(--ops-border) hover:border-transparent font-black uppercase text-[10px] tracking-wider gap-2"
                           >
-                            <FiTrash2 className="size-3.5 text-[var(--ops-text-muted)] hover:text-foreground" />
+                            <FiTrash2 className="size-3.5 text-(--ops-text-muted) hover:text-foreground" />
                             <span>Delete Item</span>
                           </Button>
                         </div>
@@ -1496,22 +1500,22 @@ export default function InventoryIndex() {
                     {loadingDrawerLogs ? (
                       <div className="space-y-3">
                         {Array.from({ length: 4 }).map((_, i) => (
-                          <div key={i} className="animate-pulse border border-[var(--ops-border)] rounded-[12px] p-4 flex flex-col gap-2 bg-[var(--ops-surface-sunken)]">
-                            <div className="h-4 w-28 bg-[var(--ops-chip-active-bg)] rounded" />
-                            <div className="h-3 w-16 bg-[var(--ops-chip-active-bg)] rounded" />
-                            <div className="h-3 w-20 bg-[var(--ops-chip-active-bg)] rounded" />
+                          <div key={i} className="animate-pulse border border-(--ops-border) rounded-xl p-4 flex flex-col gap-2 bg-(--ops-surface-sunken)">
+                            <div className="h-4 w-28 bg-(--ops-chip-active-bg) rounded" />
+                            <div className="h-3 w-16 bg-(--ops-chip-active-bg) rounded" />
+                            <div className="h-3 w-20 bg-(--ops-chip-active-bg) rounded" />
                           </div>
                         ))}
                       </div>
                     ) : drawerLogs.length === 0 ? (
-                      <div className="text-center py-12 border border-dashed border-[var(--ops-border)] rounded-[14px]">
-                        <FiFileText className="size-8 text-[var(--ops-text-faint)] mx-auto mb-2 animate-bounce" />
-                        <p className="text-xs font-bold text-[var(--ops-text-muted)] uppercase tracking-wider">No audit history found</p>
-                        <p className="text-[9px] text-[var(--ops-text-faint)] font-bold uppercase mt-1">Actions on this item will be logged here</p>
+                      <div className="text-center py-12 border border-dashed border-(--ops-border) rounded-[14px]">
+                        <FiFileText className="size-8 text-(--ops-text-faint) mx-auto mb-2 animate-bounce" />
+                        <p className="text-xs font-bold text-(--ops-text-muted) uppercase tracking-wider">No audit history found</p>
+                        <p className="text-[9px] text-(--ops-text-faint) font-bold uppercase mt-1">Actions on this item will be logged here</p>
                       </div>
                     ) : (
-                      <div className="relative border-l border-[var(--ops-border)] pl-4.5 space-y-5 py-2">
-                        {drawerLogs.map((log: any) => {
+                      <div className="relative border-l border-(--ops-border) pl-4.5 space-y-5 py-2">
+                        {drawerLogs.map((log: ActivityLog) => {
                           const isPositive = Number(log.change_qty) > 0;
                           const changeVal = Number(log.change_qty);
                           
@@ -1523,7 +1527,7 @@ export default function InventoryIndex() {
                                 isPositive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
                               )} />
                               
-                              <div className="bg-[var(--ops-surface-sunken)]/30 border border-[var(--ops-border)] p-3.5 rounded-[12px] space-y-1.5">
+                              <div className="bg-(--ops-surface-sunken)/30 border border-(--ops-border) p-3.5 rounded-xl space-y-1.5">
                                 <div className="flex items-center justify-between">
                                   <span className={cn(
                                     "font-black font-mono tracking-tight",
@@ -1531,7 +1535,7 @@ export default function InventoryIndex() {
                                   )}>
                                     {isPositive ? '+' : ''}{changeVal.toFixed(2)} {selectedRow.unit}
                                   </span>
-                                  <span className="text-[8px] text-[var(--ops-text-muted)] font-bold uppercase tracking-widest">
+                                  <span className="text-[8px] text-(--ops-text-muted) font-bold uppercase tracking-widest">
                                     {log.time_ago || 'recent'}
                                   </span>
                                 </div>
@@ -1540,7 +1544,7 @@ export default function InventoryIndex() {
                                   Reason: {log.source || log.reason || 'manual adjustment'}
                                 </p>
                                 
-                                <div className="flex items-center justify-between text-[8px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest pt-1 border-t border-[var(--ops-border-subtle)]/60">
+                                <div className="flex items-center justify-between text-[8px] font-bold text-(--ops-text-muted) uppercase tracking-widest pt-1 border-t border-(--ops-border-subtle)/60">
                                   <span>Handler: {log.employee_name || 'System'}</span>
                                   <span>Remaining: {log.remaining || `${selectedRow.stock} ${selectedRow.unit}`}</span>
                                 </div>
@@ -1556,17 +1560,17 @@ export default function InventoryIndex() {
                 {/* ── TAB 3: PROCUREMENT ── */}
                 {drawerTab === 'procurement' && (
                   <div className="space-y-6">
-                    <div className="bg-[var(--ops-surface-sunken)]/20 border border-[var(--ops-border)] p-4.5 rounded-[12px] space-y-2">
-                      <h4 className="text-[10px] font-black uppercase text-[var(--ops-text-secondary)] tracking-wider flex items-center gap-1.5">
+                    <div className="bg-(--ops-surface-sunken)/20 border border-(--ops-border) p-4.5 rounded-xl space-y-2">
+                      <h4 className="text-[10px] font-black uppercase text-(--ops-text-secondary) tracking-wider flex items-center gap-1.5">
                         <div className="size-1.5 rounded-full bg-emerald-500" />
                         Costing Summary
                       </h4>
-                      <p className="text-[10px] text-[var(--ops-text-muted)] leading-relaxed">
+                      <p className="text-[10px] text-(--ops-text-muted) leading-relaxed">
                         Total investment calculations based on procurement records. Values represent current inventory unit rates mapped across branches.
                       </p>
                     </div>
 
-                    <div className="border border-[var(--ops-border)] rounded-[12px] bg-[var(--ops-surface-sunken)] divide-y divide-zinc-900">
+                    <div className="border border-(--ops-border) rounded-xl bg-(--ops-surface-sunken) divide-y divide-zinc-900">
                       {[
                         { label: 'Current Base Price', value: `₱ ${selectedRow.cost_per_unit.toFixed(4)} / ${selectedRow.unit}` },
                         { label: 'Computed Volume Price', value: `₱ ${(selectedRow.display_price ?? selectedRow.cost_per_unit).toFixed(2)} / ${selectedRow.display_unit || selectedRow.unit}` },
@@ -1574,14 +1578,14 @@ export default function InventoryIndex() {
                         { label: 'Total Valuation', value: `₱ ${(selectedRow.stock * selectedRow.cost_per_unit).toFixed(2)}` }
                       ].map((item, idx) => (
                         <div key={idx} className="flex justify-between items-center px-4 py-3 text-xs">
-                          <span className="font-bold text-[var(--ops-text-muted)] uppercase tracking-wider text-[9px]">{item.label}</span>
+                          <span className="font-bold text-(--ops-text-muted) uppercase tracking-wider text-[9px]">{item.label}</span>
                           <span className="font-black text-foreground uppercase tracking-tight">{item.value}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="border border-[var(--ops-border)]/50 p-4 rounded-[12px] bg-[var(--ops-surface-sunken)]/5 text-[9px] text-[var(--ops-text-muted)] leading-relaxed font-bold uppercase tracking-wider">
-                      <p className="text-[var(--ops-text-secondary)] font-black mb-1">Procurement Rule Reminder:</p>
+                    <div className="border border-(--ops-border)/50 p-4 rounded-xl bg-(--ops-surface-sunken)/5 text-[9px] text-(--ops-text-muted) leading-relaxed font-bold uppercase tracking-wider">
+                      <p className="text-(--ops-text-secondary) font-black mb-1">Procurement Rule Reminder:</p>
                       Procurement cost updates reflect dynamically under "Procurement Costing" when a stock adjustment is submitted. Formula: Total Cost / Batch volume in base units.
                     </div>
                   </div>
@@ -1631,12 +1635,12 @@ export default function InventoryIndex() {
       <Dialog open={isAddModalOpen || isEditModalOpen} onOpenChange={open => {
         if (!open) { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); setLocalErrors({}); }
       }}>
-        <DialogContent className="sm:max-w-[500px] rounded-[16px] border border-[var(--ops-border)] bg-zinc-950 text-foreground shadow-2xl p-6">
+        <DialogContent className="sm:max-w-125 rounded-2xl border border-(--ops-border) bg-zinc-950 text-foreground shadow-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3 text-foreground">
               <FiPackage className="text-primary size-5" /> {isEditModalOpen ? 'Edit Limits' : 'Add Item'}
             </DialogTitle>
-            <DialogDescription className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] tracking-widest mt-1">
+            <DialogDescription className="text-[9px] font-black uppercase text-(--ops-text-muted) tracking-widest mt-1">
               {isEditModalOpen
                 ? 'Update the details for this inventory item.'
                 : 'Add a new inventory item that will be used across branches.'
@@ -1649,7 +1653,7 @@ export default function InventoryIndex() {
               
               {/* Name */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                   <div className="size-1 rounded-full bg-primary" /> Item Name
                 </label>
                 <Input
@@ -1663,7 +1667,7 @@ export default function InventoryIndex() {
                   onBlur={() => validateField('name', data.name)}
                   placeholder="e.g. Flour"
                   className={cn(
-                    "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold focus:ring-primary/45", 
+                    "h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground font-bold focus:ring-primary/45", 
                     localErrors.name ? "ring-destructive ring-1 border-transparent" : ""
                   )}
                 />
@@ -1674,7 +1678,7 @@ export default function InventoryIndex() {
 
               {/* Unit */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                   <div className="size-1 rounded-full bg-primary" /> Purchase Unit
                 </label>
                 <Select value={data.unit} onValueChange={val => {
@@ -1686,12 +1690,12 @@ export default function InventoryIndex() {
                   validateField('unit', val);
                 }}>
                   <SelectTrigger className={cn(
-                    "w-full h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold", 
+                    "w-full h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground font-bold", 
                     localErrors.unit ? "ring-destructive ring-1" : ""
                   )}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-foreground rounded-[12px]">
+                  <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) text-foreground rounded-xl">
                     <SelectItem value="g" className="text-xs font-bold py-2">g (Gram)</SelectItem>
                     <SelectItem value="ml" className="text-xs font-bold py-2">ml (Milliliter)</SelectItem>
                     <SelectItem value="pcs" className="text-xs font-bold py-2">pcs (Pieces)</SelectItem>
@@ -1707,7 +1711,7 @@ export default function InventoryIndex() {
               {/* Stock and Low Stock Mark */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                     <div className="size-1 rounded-full bg-primary" /> Current Stock
                   </label>
                   <Input
@@ -1720,7 +1724,7 @@ export default function InventoryIndex() {
                     }}
                     onBlur={() => validateField('stock', data.stock)}
                     className={cn(
-                      "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold font-mono",
+                      "h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground font-bold font-mono",
                       localErrors.stock ? "ring-destructive ring-1" : ""
                     )}
                   />
@@ -1730,7 +1734,7 @@ export default function InventoryIndex() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                     <div className="size-1 rounded-full bg-rose-500" /> Low Stock Mark
                   </label>
                   <Input
@@ -1744,7 +1748,7 @@ export default function InventoryIndex() {
                     onBlur={() => validateField('low_stock_level', data.low_stock_level)}
                     placeholder="e.g. 50"
                     className={cn(
-                      "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold font-mono",
+                      "h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground font-bold font-mono",
                       localErrors.low_stock_level ? "ring-destructive ring-1" : ""
                     )}
                   />
@@ -1755,18 +1759,18 @@ export default function InventoryIndex() {
               </div>
 
               {/* Procurement Pricing Costing */}
-              <div className="pt-3 border-t border-[var(--ops-border-subtle)] space-y-3">
+              <div className="pt-3 border-t border-(--ops-border-subtle) space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                     <div className="size-1.5 rounded-full bg-emerald-500" /> Procurement Costing
                   </label>
-                  <p className="text-[8px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest leading-normal pl-3">
+                  <p className="text-[8px] font-bold text-(--ops-text-muted) uppercase tracking-widest leading-normal pl-3">
                     Enter the total cost. Formula: Cost / Batch stock = Per unit rate.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">Total Purchase Cost</label>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary)">Total Purchase Cost</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-500 text-xs">₱</span>
                     <Input
@@ -1785,7 +1789,7 @@ export default function InventoryIndex() {
                       onBlur={() => validateField('cost_per_base_unit', data.cost_per_base_unit)}
                       placeholder="0.00"
                       className={cn(
-                        "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] pl-7 rounded-[10px] text-foreground font-bold font-mono",
+                        "h-10 bg-(--ops-surface-sunken) border-(--ops-border) pl-7 rounded-[10px] text-foreground font-bold font-mono",
                         localErrors.cost_per_base_unit ? "ring-destructive ring-1" : ""
                       )}
                     />
@@ -1804,8 +1808,8 @@ export default function InventoryIndex() {
 
               {/* Piece Weighing Settings */}
               {data.unit === 'pcs' && (
-                <div className="pt-3 border-t border-[var(--ops-border-subtle)] space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                <div className="pt-3 border-t border-(--ops-border-subtle) space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                     <div className="size-1 rounded-full bg-indigo-500" /> Avg Weight Per Piece (grams)
                   </label>
                   <Input
@@ -1819,7 +1823,7 @@ export default function InventoryIndex() {
                     onBlur={() => validateField('avg_weight_per_piece', data.avg_weight_per_piece)}
                     placeholder="e.g. 5"
                     className={cn(
-                      "h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold font-mono",
+                      "h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground font-bold font-mono",
                       localErrors.avg_weight_per_piece ? "ring-destructive ring-1" : ""
                     )}
                   />
@@ -1831,8 +1835,8 @@ export default function InventoryIndex() {
 
               {/* Branch Selection (add mode) */}
               {isAdmin && !isEditModalOpen && (
-                <div className="space-y-3 border-t border-[var(--ops-border-subtle)] pt-3">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)] flex items-center gap-1.5">
+                <div className="space-y-3 border-t border-(--ops-border-subtle) pt-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary) flex items-center gap-1.5">
                     <div className="size-1 rounded-full bg-primary" /> Store Selection
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -1852,7 +1856,7 @@ export default function InventoryIndex() {
                             'cursor-pointer px-3 py-1.5 rounded-[8px] border-2 text-[10px] font-black uppercase tracking-tight transition-all flex items-center gap-2 select-none',
                             isSelected
                               ? 'bg-primary/10 border-primary text-primary'
-                              : 'bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]'
+                              : 'bg-(--ops-surface-sunken) border-(--ops-border) text-(--ops-text-muted) hover:text-(--ops-text-secondary)'
                           )}
                         >
                           <div className={cn(
@@ -1872,13 +1876,13 @@ export default function InventoryIndex() {
 
               {/* Single Branch select (edit mode) */}
               {isAdmin && isEditModalOpen && (
-                <div className="space-y-1.5 border-t border-[var(--ops-border-subtle)] pt-3">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">Branch Assignment</label>
+                <div className="space-y-1.5 border-t border-(--ops-border-subtle) pt-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary)">Branch Assignment</label>
                   <Select value={data.branch_id} onValueChange={val => setData('branch_id', val)}>
-                    <SelectTrigger className="w-full h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-foreground font-bold">
+                    <SelectTrigger className="w-full h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-foreground font-bold">
                       <SelectValue placeholder="Select branch..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-foreground rounded-[12px]">
+                    <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) text-foreground rounded-xl">
                       {branchList.map(b => (
                         <SelectItem key={b.id} value={String(b.id)} className="text-xs font-bold py-2">{b.name}</SelectItem>
                       ))}
@@ -1889,11 +1893,11 @@ export default function InventoryIndex() {
 
             </div>
 
-            <DialogFooter className="pt-4 border-t border-[var(--ops-border-subtle)] gap-2">
+            <DialogFooter className="pt-4 border-t border-(--ops-border-subtle) gap-2">
               <Button 
                 type="button" 
                 variant="ghost" 
-                className="rounded-[10px] h-10 px-4 font-black uppercase text-[10px] tracking-wider text-[var(--ops-text-secondary)] hover:bg-[var(--ops-surface-sunken)]" 
+                className="rounded-[10px] h-10 px-4 font-black uppercase text-[10px] tracking-wider text-(--ops-text-secondary) hover:bg-(--ops-surface-sunken)" 
                 onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); reset(); }}
               >
                 Cancel
@@ -1913,7 +1917,7 @@ export default function InventoryIndex() {
 
       {/* Delete Item Confirmation Modal */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="max-w-md rounded-[20px] border border-[var(--ops-border)] bg-zinc-950 text-foreground shadow-2xl p-6">
+        <DialogContent className="max-w-md rounded-[20px] border border-(--ops-border) bg-zinc-950 text-foreground shadow-2xl p-6">
           <DialogHeader className="items-center text-center">
             <div className="size-16 rounded-[14px] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4">
               <FiTrash2 className="size-8" />
@@ -1921,13 +1925,13 @@ export default function InventoryIndex() {
             <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-rose-500">
               Delete Ingredient?
             </DialogTitle>
-            <DialogDescription className="pt-2 text-xs font-semibold text-[var(--ops-text-secondary)] leading-normal">
+            <DialogDescription className="pt-2 text-xs font-semibold text-(--ops-text-secondary) leading-normal">
               Confirm removal of <span className="font-black italic text-foreground uppercase tracking-tight">"{selectedRow?.name}"</span> from <span className="font-black text-rose-400">{selectedRow?.branch_name}</span>. 
               This will delete this branch stock record only. Other locations are unaffected.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-6 flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider text-[var(--ops-text-secondary)] hover:bg-[var(--ops-surface-sunken)]" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="ghost" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider text-(--ops-text-secondary) hover:bg-(--ops-surface-sunken)" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
             <Button variant="destructive" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider bg-rose-600 hover:bg-rose-500 text-foreground italic" onClick={submitDelete} disabled={processing}>Confirm Delete</Button>
           </DialogFooter>
         </DialogContent>
@@ -1935,7 +1939,7 @@ export default function InventoryIndex() {
 
       {/* Bulk Delete Dialog */}
       <Dialog open={isBulkDeleteModalOpen} onOpenChange={setIsBulkDeleteModalOpen}>
-        <DialogContent className="max-w-md rounded-[20px] border border-[var(--ops-border)] bg-zinc-950 text-foreground shadow-2xl p-6">
+        <DialogContent className="max-w-md rounded-[20px] border border-(--ops-border) bg-zinc-950 text-foreground shadow-2xl p-6">
           <DialogHeader className="items-center text-center">
             <div className="size-16 rounded-[14px] bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4">
               <FiTrash2 className="size-8" />
@@ -1943,26 +1947,26 @@ export default function InventoryIndex() {
             <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-rose-500">
               Bulk Delete
             </DialogTitle>
-            <DialogDescription className="pt-2 text-xs font-semibold text-[var(--ops-text-secondary)] leading-normal">
+            <DialogDescription className="pt-2 text-xs font-semibold text-(--ops-text-secondary) leading-normal">
               You are about to delete <span className="font-black text-rose-400">{selectedIds.length}</span> selected items.
               This will move them to the trash and hide them from active inventory.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-4 text-center">
-            <label className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-secondary)]">
+            <label className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-secondary)">
               Type <span className="text-rose-500 font-black italic">"DELETE"</span> to confirm action
             </label>
             <Input
               value={bulkDeleteConfirmation}
               onChange={e => setBulkDeleteConfirmation(e.target.value.toUpperCase())}
               placeholder="CONFIRMATION..."
-              className="h-10 bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] rounded-[10px] text-center font-black uppercase tracking-wider text-foreground"
+              className="h-10 bg-(--ops-surface-sunken) border-(--ops-border) rounded-[10px] text-center font-black uppercase tracking-wider text-foreground"
             />
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider text-[var(--ops-text-secondary)] hover:bg-[var(--ops-surface-sunken)]" onClick={() => setIsBulkDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="ghost" className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider text-(--ops-text-secondary) hover:bg-(--ops-surface-sunken)" onClick={() => setIsBulkDeleteModalOpen(false)}>Cancel</Button>
             <Button 
               variant="destructive" 
               className="flex-1 h-10 rounded-[10px] font-black uppercase text-[10px] tracking-wider bg-rose-600 hover:bg-rose-500 italic" 
@@ -1978,7 +1982,7 @@ export default function InventoryIndex() {
       <ReceiptScannerModal
         open={isReceiptScannerOpen}
         onOpenChange={setIsReceiptScannerOpen}
-        branchId={currentBranchId || branches?.[0]?.id || 1}
+        branchId={Number(currentBranchId) || branches?.[0]?.id || 1}
         inventory={inventory}
         onSuccess={() => {
           router.reload({ only: ['inventory'] });

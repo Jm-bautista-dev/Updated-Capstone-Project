@@ -1,17 +1,15 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import {
-    Plus, Edit2, Trash2, User, Mail, MapPin, Search, MoreVertical, Shield, Briefcase,
+import { 
+    Plus, Edit2, Trash2, User, Mail, Search, MoreVertical, Shield, Briefcase,
     Lock, CheckCircle2, Copy, AlertCircle, Eye, EyeOff
 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
+
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -20,24 +18,59 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 
-export default function EmployeeIndex({ employees, branches }: any) {
+interface Employee {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    branch_id?: number | string | null;
+    branch?: { id: number; name: string } | null;
+}
+
+interface EmployeeCreds {
+    name?: string;
+    email?: string;
+    password?: string;
+    temp_password?: string;
+    email_sent?: boolean;
+    auto_generated?: boolean;
+}
+
+interface PageProps {
+    flash?: {
+        new_employee?: EmployeeCreds;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
+interface Props {
+    employees: Employee[];
+    branches: Array<{ id: number; name: string }>;
+}
+
+export default function EmployeeIndex({ employees, branches }: Props) {
+    const { props } = usePage<PageProps>();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingEmployee, setEditingEmployee] = useState<any>(null);
+    const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     // Confirmation States
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-    const [isCredsModalOpen, setIsCredsModalOpen] = useState(false);
-    const [newEmployeeCreds, setNewEmployeeCreds] = useState<any>(null);
+    const [newEmployeeCreds] = useState<EmployeeCreds | null>(() => props.flash?.new_employee || null);
+    const [isCredsModalOpen, setIsCredsModalOpen] = useState(() => Boolean(props.flash?.new_employee));
     const [showPassword, setShowPassword] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
@@ -49,15 +82,6 @@ export default function EmployeeIndex({ employees, branches }: any) {
         branch_id: '' as string | number,
         auto_generate: true,
     });
-
-    const { props }: any = usePage();
-
-    useEffect(() => {
-        if (props.flash?.new_employee) {
-            setNewEmployeeCreds(props.flash.new_employee);
-            setIsCredsModalOpen(true);
-        }
-    }, [props.flash?.new_employee]);
 
     const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
     const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string } | null>(null);
@@ -74,33 +98,37 @@ export default function EmployeeIndex({ employees, branches }: any) {
         return { score: 3, label: 'Strong', color: 'text-emerald-500' };
     };
 
-    const validateField = (name: string, value: any) => {
+    const validateField = (name: string, value: unknown) => {
         let error = '';
 
         switch (name) {
-            case 'name':
+            case 'name': {
                 const trimmed = String(value || '').trim();
                 if (!trimmed) error = 'Full name is required';
                 else if (trimmed.length < 3) error = 'Must be at least 3 characters';
                 else if (trimmed.length > 80) error = 'Too long (max 80 characters)';
                 else if (!/[a-zA-Z]/.test(trimmed)) error = 'Invalid name format';
                 break;
-            case 'email':
+            }
+            case 'email': {
                 const email = String(value || '').trim();
                 if (!email) error = 'Email is required';
                 else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) error = 'Invalid email format';
                 break;
-            case 'password':
+            }
+            case 'password': {
+                const passStr = String(value || '');
                 if (!editingEmployee) {
                     if (data.auto_generate) break;
-                    if (!value) error = 'Password is required';
-                    else if (value.length < 8) error = 'Minimum 8 characters required';
-                    else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';
-                } else if (value && value.length > 0) {
-                    if (value.length < 8) error = 'Minimum 8 characters required';
-                    else if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) error = 'Must include letters and numbers';
+                    if (!passStr) error = 'Password is required';
+                    else if (passStr.length < 8) error = 'Minimum 8 characters required';
+                    else if (!/[a-zA-Z]/.test(passStr) || !/[0-9]/.test(passStr)) error = 'Must include letters and numbers';
+                } else if (passStr && passStr.length > 0) {
+                    if (passStr.length < 8) error = 'Minimum 8 characters required';
+                    else if (!/[a-zA-Z]/.test(passStr) || !/[0-9]/.test(passStr)) error = 'Must include letters and numbers';
                 }
                 break;
+            }
             case 'role':
                 if (!value) error = 'Please select a role';
                 break;
@@ -120,7 +148,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
     };
 
     const filteredEmployees = useMemo(() => {
-        return employees.filter((e: any) =>
+        return employees.filter((e: Employee) =>
             e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             e.email.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -134,7 +162,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
         setIsModalOpen(true);
     };
 
-    const openEditModal = (employee: any) => {
+    const openEditModal = (employee: Employee) => {
         setEditingEmployee(employee);
         setData({
             name: employee.name,
@@ -142,6 +170,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
             password: '',
             role: employee.role,
             branch_id: employee.branch_id ?? '',
+            auto_generate: false,
         });
         setIsModalOpen(true);
         setLocalErrors({});
@@ -187,7 +216,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
         const fields = ['name', 'email', 'password', 'role', 'branch_id'];
         let hasLocalError = false;
         fields.forEach(f => {
-            const err = validateField(f, (data as any)[f]);
+            const err = validateField(f, (data as Record<string, unknown>)[f]);
             if (err) hasLocalError = true;
         });
 
@@ -233,7 +262,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                 </div>
 
                 {/* Main Content Area */}
-                <Card className="border-none shadow-xl shadow-black/5 bg-card dark:bg-zinc-900/50 backdrop-blur-md overflow-hidden rounded-2xl ring-1 ring-black/[0.02] dark:ring-white/[0.05]">
+                <Card className="border-none shadow-xl shadow-black/5 bg-card dark:bg-zinc-900/50 backdrop-blur-md overflow-hidden rounded-2xl ring-1 ring-black/2 dark:ring-white/5">
                     <div className="p-6 border-b border-border/40 dark:border-zinc-800 bg-muted/20 dark:bg-zinc-800/30 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="relative w-full sm:w-96">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
@@ -256,7 +285,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Member Info</th>
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Access Level</th>
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-center">Branch Assignment</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right w-[100px]">Actions</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right w-25">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/40 dark:divide-zinc-800">
@@ -268,19 +297,19 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                                     <User className="size-8 opacity-20" />
                                                 </div>
                                                 <p className="font-bold text-lg italic tracking-tight uppercase">No employees found.</p>
-                                                <p className="text-xs uppercase font-medium max-w-[200px] mt-2 leading-relaxed opacity-60">Try adjusting your search filters or add a new team member.</p>
+                                                <p className="text-xs uppercase font-medium max-w-50 mt-2 leading-relaxed opacity-60">Try adjusting your search filters or add a new team member.</p>
                                             </div>
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredEmployees.map((employee: any) => (
-                                        <tr key={employee.id} className="hover:bg-primary/[0.02] dark:hover:bg-white/[0.02] transition-colors group">
+                                    filteredEmployees.map((employee: Employee) => (
+                                        <tr key={employee.id} className="hover:bg-primary/2 dark:hover:bg-white/2 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-4">
                                                     <div className="size-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary dark:text-primary-foreground font-black shadow-inner">
                                                         {employee.name.charAt(0)}
                                                     </div>
-                                                    <div className="flex flex-col max-w-[200px]">
+                                                    <div className="flex flex-col max-w-50">
                                                         <span className="font-bold text-sm text-foreground dark:text-white truncate">{employee.name}</span>
                                                         <span className="text-[11px] text-muted-foreground dark:text-zinc-500 font-medium truncate flex items-center gap-1">
                                                             <Mail className="size-2.5 opacity-60" /> {employee.email}
@@ -343,7 +372,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
             </div>
 
             <Dialog open={isModalOpen} onOpenChange={handleModalChange}>
-                <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-background dark:bg-zinc-900 ring-1 ring-black/[0.05] dark:ring-white/[0.05]">
+                <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-background dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/5">
                     <DialogHeader className="p-6 pb-0">
                         <div className="size-12 rounded-2xl bg-primary/10 dark:bg-zinc-800 flex items-center justify-center mb-4 text-primary dark:text-zinc-100 shadow-inner">
                             <User className="size-6" />
@@ -510,7 +539,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                         <SelectValue placeholder="Branch" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
-                                        {branches.map((b: any) => (
+                                        {branches.map((b: { id: number; name: string }) => (
                                             <SelectItem key={b.id} value={String(b.id)} className="font-bold text-xs italic uppercase dark:text-zinc-300">{b.name}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -524,7 +553,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                 Abort
                             </Button>
                             <Button
-                                className="h-12 rounded-xl flex-[2] font-black italic tracking-tight shadow-xl shadow-primary/20 active:scale-95 transition-all text-sm dark:bg-zinc-100 dark:text-zinc-900"
+                                className="h-12 rounded-xl flex-2 font-black italic tracking-tight shadow-xl shadow-primary/20 active:scale-95 transition-all text-sm dark:bg-zinc-100 dark:text-zinc-900"
                                 disabled={processing || !data.name || !data.email || (!editingEmployee && !data.auto_generate && !data.password) || !data.role || !data.branch_id}
                             >
                                 {processing ? 'Synthesizing...' : editingEmployee ? 'UPGRADE ACCESS' : 'AUTHORIZE INITIATION'}
@@ -590,7 +619,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                     size="icon"
                                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
                                     onClick={() => {
-                                        navigator.clipboard.writeText(newEmployeeCreds?.email);
+                                        navigator.clipboard.writeText(newEmployeeCreds?.email || '');
                                         toast.success("Email copied");
                                     }}
                                 >
@@ -609,7 +638,7 @@ export default function EmployeeIndex({ employees, branches }: any) {
                                     size="icon"
                                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
                                     onClick={() => {
-                                        navigator.clipboard.writeText(newEmployeeCreds?.password);
+                                        navigator.clipboard.writeText(newEmployeeCreds?.password || '');
                                         toast.success("Password copied");
                                     }}
                                 >

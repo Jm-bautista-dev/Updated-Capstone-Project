@@ -23,71 +23,9 @@ class AnalyticsController extends Controller
         $range     = (int) $request->input('range', 7);
         $startDate = Carbon::now()->subDays($range);
         $today     = Carbon::today();
+        $branches  = Branch::orderBy('name')->get();
 
-        $branches = Branch::orderBy('name')->get();
-
-        // 1. Compile recent activity timeline
-        $recentActivity = collect([]);
-        $recentSales = Sale::with('cashier')->latest()->limit(5)->get()->map(fn($s) => [
-            'user' => $s->cashier?->name ?? 'System',
-            'timestamp' => $s->created_at->diffForHumans(),
-            'action' => "Order #{$s->order_number} processed",
-            'status' => $s->status
-        ]);
-        
-        $recentBenchmarks = \App\Models\ForecastBenchmark::latest()->limit(3)->get()->map(fn($b) => [
-            'user' => 'Adaptive Engine',
-            'timestamp' => $b->created_at->diffForHumans(),
-            'action' => "Model benchmark completed for branch ID {$b->branch_id}",
-            'status' => 'success'
-        ]);
-        
-        $recentActivity = $recentActivity->concat($recentSales)->concat($recentBenchmarks)->sortByDesc('timestamp')->values()->take(6);
-
-        // 2. Fetch latest benchmarking insights
-        $latestBenchmark = \App\Models\ForecastBenchmark::latest()->first();
-        $forecastIntel = [
-            'recommended_model' => $latestBenchmark?->best_model ?? 'SES (Exponential)',
-            'confidence' => $latestBenchmark ? 'High (Completeness: ' . $latestBenchmark->completeness_pct . '%)' : 'High (89%)',
-            'accuracy_pct' => $latestBenchmark ? (100 - min(100, $latestBenchmark->mape_val ?? 11)) : 88.5,
-            'explanation' => "Computed using walk-forward training/validation splits. Selected model displays the lowest cumulative error variance.",
-        ];
-
-        // 3. Load live prescriptive tips using RestockService
-        $activeBranch = Branch::first();
-        $suggestions = [];
-        if ($activeBranch) {
-            $restockResult = (new RestockService())->generate($activeBranch->id);
-            $suggestions = array_slice($restockResult['suggestions'] ?? [], 0, 5);
-        }
-
-        // 4. Construct Alerts & Risks
-        $alerts = [];
-        $lowStockCount = IngredientStock::whereColumn('stock', '<=', 'low_stock_level')->count();
-        if ($lowStockCount > 0) {
-            $alerts[] = [
-                'severity' => 'critical',
-                'description' => "{$lowStockCount} inventory items have fallen below critical safety levels.",
-                'action' => "Review restocking recommendations immediately."
-            ];
-        }
-        $alerts[] = [
-            'severity' => 'info',
-            'description' => "System forecast accuracy indexes remain optimal at " . $forecastIntel['accuracy_pct'] . "%.",
-            'action' => "No corrective forecasting steps required."
-        ];
-
-        // 5. Build Sales Heatmap grouped by Day of Week & Hour
-        $heatmapData = Sale::where('status', 'completed')
-            ->where('created_at', '>=', $startDate)
-            ->selectRaw('DAYOFWEEK(created_at) as dow, HOUR(created_at) as hr, COUNT(*) as volume')
-            ->groupBy('dow', 'hr')
-            ->get()
-            ->map(fn($r) => [
-                'day' => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][$r->dow - 1],
-                'hour' => $r->hr,
-                'volume' => $r->volume
-            ]);
+        $forecastIntel = $this->buildForecastIntel();
 
         return Inertia::render('Admin/Dashboard', [
             'stats'                => $this->getGlobalStats($startDate),
@@ -96,13 +34,96 @@ class AnalyticsController extends Controller
             'salesPerProduct'      => $this->getTopProducts($startDate),
             'salesByPaymentMethod' => $this->getSalesByPayment($startDate),
             'range'                => $range,
-            'recentActivity'       => $recentActivity,
+            'recentActivity'       => $this->buildRecentActivity(),
             'forecastIntel'        => $forecastIntel,
-            'suggestions'          => $suggestions,
-            'alerts'               => $alerts,
-            'heatmapData'          => $heatmapData,
+            'suggestions'          => $this->buildSuggestions(),
+            'alerts'               => $this->buildAlerts($forecastIntel),
+            'heatmapData'          => $this->buildHeatmapData($startDate),
         ]);
     }
+
+    private function buildRecentActivity(): \Illuminate\Support\Collection
+    {
+        $recentSales = Sale::with('cashier')->latest()->limit(5)->get()->map(fn($s) => [
+            'user'      => $s->cashier?->name ?? 'System',
+            'timestamp' => $s->created_at->diffForHumans(),
+            'action'    => "Order #{$s->order_number} processed",
+            'status'    => $s->status,
+        ]);
+
+        $recentBenchmarks = \App\Models\ForecastBenchmark::latest()->limit(3)->get()->map(fn($b) => [
+            'user'      => 'Adaptive Engine',
+            'timestamp' => $b->created_at->diffForHumans(),
+            'action'    => "Model benchmark completed for branch ID {$b->branch_id}",
+            'status'    => 'success',
+        ]);
+
+        return collect([])->concat($recentSales)->concat($recentBenchmarks)->sortByDesc('timestamp')->values()->take(6);
+    }
+
+    private function buildForecastIntel(): array
+    {
+        $latestBenchmark = \App\Models\ForecastBenchmark::latest()->first();
+
+        return [
+            'recommended_model' => $latestBenchmark?->best_model ?? 'SES (Exponential)',
+            'confidence'        => $latestBenchmark ? 'High (Completeness: ' . $latestBenchmark->completeness_pct . '%)' : 'High (89%)',
+            'accuracy_pct'      => $latestBenchmark ? (100 - min(100, $latestBenchmark->mape_val ?? 11)) : 88.5,
+            'explanation'       => 'Computed using walk-forward training/validation splits. Selected model displays the lowest cumulative error variance.',
+        ];
+    }
+
+    private function buildSuggestions(): array
+    {
+        $activeBranch = Branch::first();
+        if (!$activeBranch) {
+            return [];
+        }
+
+        $cacheKey    = "dashboard_restock_suggestions_{$activeBranch->id}";
+        $restockResult = \Illuminate\Support\Facades\Cache::remember($cacheKey, 600, function () use ($activeBranch) {
+            return (new RestockService())->generate($activeBranch->id);
+        });
+
+        return array_slice($restockResult['suggestions'] ?? [], 0, 5);
+    }
+
+    private function buildAlerts(array $forecastIntel): array
+    {
+        $alerts        = [];
+        $lowStockCount = IngredientStock::whereColumn('stock', '<=', 'low_stock_level')->count();
+
+        if ($lowStockCount > 0) {
+            $alerts[] = [
+                'severity'    => 'critical',
+                'description' => "{$lowStockCount} inventory items have fallen below critical safety levels.",
+                'action'      => 'Review restocking recommendations immediately.',
+            ];
+        }
+
+        $alerts[] = [
+            'severity'    => 'info',
+            'description' => 'System forecast accuracy indexes remain optimal at ' . $forecastIntel['accuracy_pct'] . '%.',
+            'action'      => 'No corrective forecasting steps required.',
+        ];
+
+        return $alerts;
+    }
+
+    private function buildHeatmapData(Carbon $startDate): \Illuminate\Support\Collection
+    {
+        return Sale::where('status', 'completed')
+            ->where('created_at', '>=', $startDate)
+            ->selectRaw('DAYOFWEEK(created_at) as dow, HOUR(created_at) as hr, COUNT(*) as volume')
+            ->groupBy('dow', 'hr')
+            ->get()
+            ->map(fn($r) => [
+                'day'    => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][$r->dow - 1],
+                'hour'   => $r->hr,
+                'volume' => $r->volume,
+            ]);
+    }
+
 
     private function getGlobalStats($startDate)
     {

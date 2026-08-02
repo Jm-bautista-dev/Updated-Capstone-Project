@@ -1,7 +1,14 @@
+export interface OfflineOperationPayload {
+    force?: boolean;
+    quantity?: number;
+    items?: Array<{ id: number | string; quantity: number; [key: string]: unknown }>;
+    [key: string]: unknown;
+}
+
 export interface OfflineOperation {
     id: string;
     type: 'SALE' | 'INVENTORY_UPDATE' | 'RESTOCK';
-    payload: any;
+    payload: OfflineOperationPayload;
     synced: boolean;
     created_at: string;
 }

@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { SakuraLoader } from '@/components/sakura-loader';
+
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -27,7 +27,7 @@ export default function Login({
 
     return (
         <div className="min-h-screen w-full relative overflow-hidden bg-[#fffcfd] flex items-center justify-center p-6 font-['Outfit'] antialiased transition-colors duration-300">
-            <SakuraLoader />
+
             <Head title="Operations Gateway | Verify Identity" />
             
             {/* Canvas removed for performance */}

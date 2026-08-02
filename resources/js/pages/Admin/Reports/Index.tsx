@@ -1,36 +1,53 @@
-import { Head, router, usePage, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FiFilter, FiDownload, FiSearch, FiFileText, FiDatabase, FiTrendingUp, FiDollarSign, FiShoppingBag, FiActivity, FiRefreshCw, FiAlertTriangle, FiZap, FiCalendar, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
-import { useState, useMemo } from 'react';
-import { format, subDays, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, isBefore, parseISO } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Head, router, usePage } from '@inertiajs/react';
 import axios from 'axios';
+import { format, subDays, parseISO } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { FiDownload, FiSearch, FiFileText, FiDatabase, FiTrendingUp, FiDollarSign, FiShoppingBag, FiActivity, FiRefreshCw, FiAlertTriangle, FiZap, FiCalendar } from 'react-icons/fi';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
+
 export const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 };
+
+export interface ExportOptions {
+    format: 'pdf' | 'excel';
+    scope: 'view' | 'all';
+    orientation: 'portrait' | 'landscape';
+    paperSize: 'A4' | 'Letter' | 'Legal';
+    includedData: {
+        kpis: boolean;
+        table: boolean;
+        charts: boolean;
+    };
+}
+
+interface PresetOption {
+    label: string;
+    getValue: () => { from: string; to: string };
+}
 
 // ── DATE RANGE PICKER COMPONENT ──
 const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onUpdate: (from: string, to: string) => void }) => {
     const [open, setOpen] = useState(false);
 
-    const presets = [
+    const presets: PresetOption[] = [
         { label: 'Today', getValue: () => ({ from: format(new Date(), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
         { label: 'Yesterday', getValue: () => ({ from: format(subDays(new Date(), 1), 'yyyy-MM-dd'), to: format(subDays(new Date(), 1), 'yyyy-MM-dd') }) },
-        { label: 'Last 7 Days', getValue: () => ({ from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
-        { label: 'Last 30 Days', getValue: () => ({ from: format(subDays(new Date(), 30), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
-        { label: 'This Month', getValue: () => ({ from: format(startOfMonth(new Date()), 'yyyy-MM-dd'), to: format(endOfMonth(new Date()), 'yyyy-MM-dd') }) },
+        { label: 'Last 7 Days', getValue: () => ({ from: format(subDays(new Date(), 6), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
+        { label: 'Last 30 Days', getValue: () => ({ from: format(subDays(new Date(), 29), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
     ];
 
     const currentLabel = useMemo(() => {
@@ -42,7 +59,7 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
         return `${format(fromDate, 'MMM d')} – ${format(toDate, formatStr)}`;
     }, [from, to]);
 
-    const handlePreset = (preset: any) => {
+    const handlePreset = (preset: PresetOption) => {
         const { from, to } = preset.getValue();
         onUpdate(from, to);
         setOpen(false);
@@ -56,7 +73,7 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 px-4 rounded-xl font-bold text-[11px] justify-start gap-3 border-[var(--ops-border)] bg-[var(--ops-surface-raised)] hover:bg-[var(--ops-hover)] min-w-[240px] text-[var(--ops-text-secondary)] transition-all">
+                <Button variant="outline" className="h-10 px-4 rounded-xl font-bold text-[11px] justify-start gap-3 border-(--ops-border) bg-(--ops-surface-raised) hover:bg-(--ops-hover) min-w-60 text-(--ops-text-secondary) transition-all">
                     <FiCalendar className="size-4 text-primary" />
                     <span className="truncate">{currentLabel}</span>
                     <div className="ml-auto flex items-center gap-2">
@@ -66,17 +83,17 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
                     </div>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0 rounded-2xl border-[var(--ops-border)] bg-[var(--ops-surface-raised)] shadow-2xl overflow-hidden backdrop-blur-xl" align="end">
+            <PopoverContent className="w-[320px] p-0 rounded-2xl border-(--ops-border) bg-(--ops-surface-raised) shadow-2xl overflow-hidden backdrop-blur-xl" align="end">
                 <div className="flex flex-col">
-                    <div className="p-4 border-b border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/20">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)] mb-3">Predefined Periods</p>
+                    <div className="p-4 border-b border-(--ops-border-subtle) bg-(--ops-surface-sunken)/20">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted) mb-3">Predefined Periods</p>
                         <div className="grid grid-cols-2 gap-2">
                             {presets.map((preset) => (
                                 <Button
                                     key={preset.label}
                                     variant="ghost"
                                     onClick={() => handlePreset(preset)}
-                                    className="h-9 justify-start px-3 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-[var(--ops-hover)] text-[var(--ops-text-secondary)] transition-all"
+                                    className="h-9 justify-start px-3 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-(--ops-hover) text-(--ops-text-secondary) transition-all"
                                 >
                                     {preset.label}
                                 </Button>
@@ -85,31 +102,31 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
                     </div>
                     
                     <div className="p-5 space-y-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Custom Analytics Interval</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Custom Analytics Interval</p>
                         <div className="space-y-3">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] px-1">Start Point</label>
+                                <label className="text-[9px] font-black uppercase text-(--ops-text-muted) px-1">Start Point</label>
                                 <Input 
                                     type="date" 
                                     value={from} 
                                     onChange={(e) => onUpdate(e.target.value, to)} 
-                                    className="h-10 rounded-xl bg-[var(--ops-surface-sunken)]/40 border-none font-bold text-xs" 
+                                    className="h-10 rounded-xl bg-(--ops-surface-sunken)/40 border-none font-bold text-xs" 
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-black uppercase text-[var(--ops-text-muted)] px-1">End Point</label>
+                                <label className="text-[9px] font-black uppercase text-(--ops-text-muted) px-1">End Point</label>
                                 <Input 
                                     type="date" 
                                     value={to} 
                                     min={from}
                                     onChange={(e) => onUpdate(from, e.target.value)} 
-                                    className="h-10 rounded-xl bg-[var(--ops-surface-sunken)]/40 border-none font-bold text-xs" 
+                                    className="h-10 rounded-xl bg-(--ops-surface-sunken)/40 border-none font-bold text-xs" 
                                 />
                             </div>
                         </div>
                         
                         <div className="flex gap-2 pt-2">
-                            <Button variant="ghost" onClick={handleReset} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">
+                            <Button variant="ghost" onClick={handleReset} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-(--ops-text-muted)">
                                 Reset
                             </Button>
                             <Button onClick={() => setOpen(false)} className="flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">
@@ -123,13 +140,25 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string, to: string, onU
     );
 };
 
+interface CustomTooltipItem {
+    name: string;
+    value: number;
+    color: string;
+}
+
+interface CustomTooltipProps {
+    active?: boolean;
+    payload?: CustomTooltipItem[];
+    label?: string;
+}
+
 // ── CUSTOM RECHARTS TOOLTIP ──
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-background/90 backdrop-blur-md border border-[var(--ops-border)] shadow-xl rounded-xl p-3 ring-1 ring-black/5 text-[var(--ops-text-secondary)]">
-                <p className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] mb-2">{label}</p>
-                {payload.map((entry: any, index: number) => (
+            <div className="bg-background/90 backdrop-blur-md border border-(--ops-border) shadow-xl rounded-xl p-3 ring-1 ring-black/5 text-(--ops-text-secondary)">
+                <p className="text-[10px] font-black uppercase text-(--ops-text-muted) mb-2">{label}</p>
+                {payload.map((entry: CustomTooltipItem, index: number) => (
                     <div key={index} className="flex items-center justify-between gap-4 mt-1">
                         <div className="flex items-center gap-1.5">
                             <div className="size-2 rounded-full" style={{ backgroundColor: entry.color }} />
@@ -146,14 +175,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: React.ComponentType<{ className?: string }>;
+    trend?: 'up' | 'down';
+    trendValue?: string;
+    colorClass?: string;
+}
+
 // ── ADMIN UI STAT CARD ──
-function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: any) {
+function StatCard({ title, value, icon: Icon, trend, trendValue }: StatCardProps) {
     return (
-        <Card className="relative overflow-hidden group border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] shadow-lg ring-1 ring-primary/5 hover:ring-primary/40 transition-all duration-300">
+        <Card className="relative overflow-hidden group border border-(--ops-border) bg-(--ops-surface-raised) shadow-lg ring-1 ring-primary/5 hover:ring-primary/40 transition-all duration-300">
             <div className="absolute -top-4 -right-4 size-24 blur-3xl opacity-10" />
             <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <div className="p-2 rounded-xl bg-[var(--ops-surface-sunken)] transition-all duration-300 group-hover:scale-110">
+                    <div className="p-2 rounded-xl bg-(--ops-surface-sunken) transition-all duration-300 group-hover:scale-110">
                         <Icon className="size-5 text-primary" />
                     </div>
                     {trend && (
@@ -166,7 +204,7 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: a
                     )}
                 </div>
                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-widest">{title}</p>
+                    <p className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-widest">{title}</p>
                     <h3 className="text-2xl font-black tracking-tight text-foreground tabular-nums">{value}</h3>
                 </div>
             </CardContent>
@@ -174,7 +212,7 @@ function StatCard({ title, value, icon: Icon, trend, trendValue, colorClass }: a
     );
 }
 
-function getPeriodLabel(filters: any, type: 'Sales' | 'Orders') {
+function getPeriodLabel(filters: { date_from?: string; date_to?: string }, type: 'Sales' | 'Orders') {
     if (filters.date_from && filters.date_to) {
         if (filters.date_from === filters.date_to && filters.date_from === format(new Date(), 'yyyy-MM-dd')) {
             return `${type} Today`;
@@ -185,17 +223,15 @@ function getPeriodLabel(filters: any, type: 'Sales' | 'Orders') {
 }
 
 // ── DYNAMIC EXPORT MODAL ──
-function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean, onClose: () => void, onExport: (options: any) => void, activeTab: 'sales' | 'shifts' }) {
+function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean, onClose: () => void, onExport: (options: ExportOptions) => void, activeTab: 'sales' | 'shifts' }) {
     const [formatOption, setFormatOption] = useState<'pdf' | 'excel'>('pdf');
     const [scope, setScope] = useState<'view' | 'all'>('view');
     const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
     const [paperSize, setPaperSize] = useState<'A4' | 'Letter' | 'Legal'>('A4');
     const [includedData, setIncludedData] = useState({
-        summary: true,
+        kpis: true,
         table: true,
         charts: true,
-        filters: true,
-        kpis: true
     });
 
     const handleExport = () => {
@@ -211,12 +247,12 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[480px] rounded-2xl border border-[var(--ops-border)] shadow-2xl overflow-hidden bg-[var(--ops-surface-raised)] text-[var(--ops-text-secondary)]">
-                <DialogHeader className="p-6 bg-[var(--ops-surface-sunken)]/40 border-b border-[var(--ops-border-subtle)] pb-4">
+            <DialogContent className="sm:max-w-120 rounded-2xl border border-(--ops-border) shadow-2xl overflow-hidden bg-(--ops-surface-raised) text-(--ops-text-secondary)">
+                <DialogHeader className="p-6 bg-(--ops-surface-sunken)/40 border-b border-(--ops-border-subtle) pb-4">
                     <DialogTitle className="text-base font-black uppercase tracking-wider flex items-center gap-2 text-foreground">
                         <FiDownload className="text-primary size-5 animate-pulse" /> Export Configuration
                     </DialogTitle>
-                    <DialogDescription className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">
+                    <DialogDescription className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-wider">
                         Configure layout boundaries, formatting targets, and data scoping
                     </DialogDescription>
                 </DialogHeader>
@@ -224,7 +260,7 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
                 <div className="p-6 space-y-5">
                     {/* Format */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Target Format</label>
+                        <label className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-wider">Target Format</label>
                         <div className="grid grid-cols-2 gap-3">
                             <Button 
                                 type="button"
@@ -238,32 +274,32 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
                                 type="button"
                                 variant={formatOption === 'excel' ? 'default' : 'outline'}
                                 onClick={() => setFormatOption('excel')}
-                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                                className="h-11 rounded-xl text-xs font-bold gap-2 justify-center"
                             >
-                                <FiDatabase className="size-4 mr-2" /> Excel Workbook
+                                <FiDatabase className="size-4" /> Excel Sheet (.csv)
                             </Button>
                         </div>
                     </div>
 
-                    {/* Scope */}
+                    {/* Data Scope */}
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Data Boundaries</label>
+                        <label className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-wider">Data Scope</label>
                         <div className="grid grid-cols-2 gap-3">
                             <Button 
                                 type="button"
-                                variant={scope === 'view' ? 'default' : 'outline'}
+                                variant={scope === 'view' ? 'secondary' : 'ghost'}
                                 onClick={() => setScope('view')}
-                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                                className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider"
                             >
-                                Current Page View
+                                Current Page ({activeTab === 'sales' ? 'Sales' : 'Shifts'})
                             </Button>
                             <Button 
                                 type="button"
-                                variant={scope === 'all' ? 'default' : 'outline'}
+                                variant={scope === 'all' ? 'secondary' : 'ghost'}
                                 onClick={() => setScope('all')}
-                                className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                                className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider"
                             >
-                                All Filtered Records
+                                Full Dataset (Filtered)
                             </Button>
                         </div>
                     </div>
@@ -272,12 +308,12 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
                         <div className="grid grid-cols-2 gap-4">
                             {/* Orientation */}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Orientation</label>
-                                <Select value={orientation} onValueChange={(v: any) => setOrientation(v)}>
-                                    <SelectTrigger className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] text-foreground">
+                                <label className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-wider">Orientation</label>
+                                <Select value={orientation} onValueChange={(v: 'portrait' | 'landscape') => setOrientation(v)}>
+                                    <SelectTrigger className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-(--ops-surface-raised) border border-(--ops-border) text-foreground">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-[var(--ops-border)] shadow-2xl bg-[var(--ops-surface-raised)] text-foreground">
+                                    <SelectContent className="rounded-xl border-(--ops-border) shadow-2xl bg-(--ops-surface-raised) text-foreground">
                                         <SelectItem value="portrait">Portrait</SelectItem>
                                         <SelectItem value="landscape">Landscape</SelectItem>
                                     </SelectContent>
@@ -286,12 +322,12 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
 
                             {/* Paper Size */}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider">Paper Size</label>
-                                <Select value={paperSize} onValueChange={(v: any) => setPaperSize(v)}>
-                                    <SelectTrigger className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] text-foreground">
+                                <label className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-wider">Paper Size</label>
+                                <Select value={paperSize} onValueChange={(v: 'A4' | 'Letter' | 'Legal') => setPaperSize(v)}>
+                                    <SelectTrigger className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-(--ops-surface-raised) border border-(--ops-border) text-foreground">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-[var(--ops-border)] shadow-2xl bg-[var(--ops-surface-raised)] text-foreground">
+                                    <SelectContent className="rounded-xl border-(--ops-border) shadow-2xl bg-(--ops-surface-raised) text-foreground">
                                         <SelectItem value="A4">A4</SelectItem>
                                         <SelectItem value="Letter">Letter</SelectItem>
                                         <SelectItem value="Legal">Legal</SelectItem>
@@ -302,34 +338,34 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
                     )}
 
                     {/* Content inclusions */}
-                    <div className="space-y-2.5 pt-2 border-t border-[var(--ops-border-subtle)]">
-                        <label className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-wider block">Content Inclusions</label>
+                    <div className="space-y-2.5 pt-2 border-t border-(--ops-border-subtle)">
+                        <label className="text-[10px] font-black uppercase text-(--ops-text-muted) tracking-wider block">Content Inclusions</label>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-[var(--ops-text-secondary)] hover:text-foreground">
+                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-(--ops-text-secondary) hover:text-foreground">
                                 <input 
                                     type="checkbox" 
                                     checked={includedData.kpis} 
                                     onChange={() => setIncludedData(p => ({ ...p, kpis: !p.kpis }))}
-                                    className="size-4.5 rounded-[4px] accent-primary" 
+                                    className="size-4.5 rounded-lg accent-primary" 
                                 />
                                 KPI Summaries
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-[var(--ops-text-secondary)] hover:text-foreground">
+                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-(--ops-text-secondary) hover:text-foreground">
                                 <input 
                                     type="checkbox" 
                                     checked={includedData.table} 
                                     onChange={() => setIncludedData(p => ({ ...p, table: !p.table }))}
-                                    className="size-4.5 rounded-[4px] accent-primary" 
+                                    className="size-4.5 rounded-lg accent-primary" 
                                 />
                                 Data Grid
                             </label>
                             {formatOption === 'pdf' && activeTab === 'sales' && (
-                                <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-[var(--ops-text-secondary)] hover:text-foreground">
+                                <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-(--ops-text-secondary) hover:text-foreground">
                                     <input 
                                         type="checkbox" 
                                         checked={includedData.charts} 
                                         onChange={() => setIncludedData(p => ({ ...p, charts: !p.charts }))}
-                                        className="size-4.5 rounded-[4px] accent-primary" 
+                                        className="size-4.5 rounded-lg accent-primary" 
                                     />
                                     Include Charts
                                 </label>
@@ -338,12 +374,12 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
                     </div>
                 </div>
 
-                <DialogFooter className="p-6 bg-[var(--ops-surface-sunken)]/40 border-t border-[var(--ops-border-subtle)] flex justify-between gap-3">
+                <DialogFooter className="p-6 bg-(--ops-surface-sunken)/40 border-t border-(--ops-border-subtle) flex justify-between gap-3">
                     <Button 
                         type="button" 
                         variant="ghost" 
                         onClick={onClose}
-                        className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]"
+                        className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest text-(--ops-text-muted)"
                     >
                         Cancel
                     </Button>
@@ -360,8 +396,49 @@ function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean
     );
 }
 
+interface SaleItem {
+    id: number;
+    order_number: string;
+    created_at: string;
+    cashier?: { name: string };
+    status: string;
+    total: number;
+    profit: number;
+}
+
+interface ShiftItem {
+    id: number;
+    cashier?: { name: string };
+    opened_at?: string;
+    closed_at?: string;
+    opening_cash: number;
+    expected_cash: number;
+    actual_cash: number;
+}
+
+interface PaginatedData<T> {
+    data: T[];
+    from?: number;
+    to?: number;
+    total?: number;
+    links: Array<{ url?: string; label: string; active: boolean }>;
+}
+
+interface AdminReportsProps {
+    sales: PaginatedData<SaleItem>;
+    shifts: PaginatedData<ShiftItem>;
+    filters: { date_from?: string; date_to?: string };
+    trend_data?: Array<{ date: string; revenue: number; profit: number }>;
+    category_data?: Array<{ name: string; value: number }>;
+    total_revenue: number;
+    total_profit: number;
+    total_orders: number;
+    cancelled_count: number;
+    today_sales: number;
+}
+
 // ── ADMIN REPORTS DASHBOARD ──
-function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_data, top_product, peak_day, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: any) {
+function AdminReports({ sales, shifts, filters, trend_data, category_data, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: AdminReportsProps) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo,   setDateTo]   = useState(filters.date_to   || '');
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
@@ -375,7 +452,7 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
         }
     };
 
-    const triggerExport = async (options: any) => {
+    const triggerExport = async (options: ExportOptions) => {
         const kpis = [];
         if (options.includedData.kpis) {
             if (activeTab === 'sales') {
@@ -407,10 +484,10 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
             columns.push({ title: 'Difference', key: 'diff', align: 'text-right' });
         }
 
-        let rows: any[] = [];
+        let rows: Record<string, string>[] = [];
         if (options.scope === 'view') {
             if (activeTab === 'sales') {
-                rows = (sales.data || []).map((sale: any) => ({
+                rows = (sales.data || []).map((sale: SaleItem) => ({
                     order_number: sale.order_number,
                     date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
                     cashier: sale.cashier?.name ?? 'N/A',
@@ -419,7 +496,7 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                     profit: formatCurrency(sale.profit)
                 }));
             } else {
-                rows = (shifts.data || []).map((s: any) => ({
+                rows = (shifts.data || []).map((s: ShiftItem) => ({
                     cashier: s.cashier?.name ?? 'N/A',
                     opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
                     closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
@@ -449,13 +526,8 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                 kpis,
                 columns,
                 rows,
-                scope: options.scope,
-                orientation: options.orientation,
-                paperSize: options.paperSize,
-                includeCharts: options.includedData.charts,
                 chartImage,
-                activeTab,
-                filters: { date_from: dateFrom, date_to: dateTo }
+                options
             });
             
             if (res.data?.token) {
@@ -466,14 +538,14 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
         }
     };
 
-    const TREND_DATA: any[] = trend_data    || [];
-    const CAT_DATA:   any[] = category_data || [];
+    const TREND_DATA = trend_data    || [];
+    const CAT_DATA   = category_data || [];
     const hasChart = TREND_DATA.length > 0;
 
     return (
-        <div className="p-6 lg:p-8 space-y-10 bg-background min-h-[calc(100vh-64px)] text-[var(--ops-text-secondary)]">
+        <div className="p-6 lg:p-8 space-y-10 bg-background min-h-[calc(100vh-64px)] text-(--ops-text-secondary)">
             {/* 1. INSIGHT HEADER */}
-            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-[var(--ops-border)] pb-8">
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-(--ops-border) pb-8">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
@@ -481,7 +553,7 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                         </div>
                         <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Business Overview</h1>
                     </div>
-                    <p className="text-[var(--ops-text-muted)] font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
+                    <p className="text-(--ops-text-muted) font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
                             : 'Real-time performance summary'}
@@ -490,7 +562,7 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
 
                 <div className="flex flex-col items-center xl:items-end gap-3 w-full xl:w-auto">
                     <div className="flex flex-wrap items-center justify-center xl:justify-end gap-2">
-                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-[var(--ops-border)] bg-[var(--ops-surface-raised)] hover:bg-[var(--ops-hover)] text-[var(--ops-text-secondary)]">
+                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-(--ops-border) bg-(--ops-surface-raised) hover:bg-(--ops-hover) text-(--ops-text-secondary)">
                             <FiDownload className="size-3.5 mr-2 text-primary" /> Configure Export
                         </Button>
                         <div className="h-4 w-px bg-border/45 mx-1 hidden sm:block" />
@@ -500,7 +572,7 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex items-center gap-2 p-1 bg-[var(--ops-surface-sunken)] rounded-2xl border border-[var(--ops-border-subtle)] w-fit">
+            <div className="flex items-center gap-2 p-1 bg-(--ops-surface-sunken) rounded-2xl border border-(--ops-border-subtle) w-fit">
                 <Button 
                     variant={activeTab === 'sales' ? 'default' : 'ghost'} 
                     onClick={() => setActiveTab('sales')}
@@ -563,13 +635,13 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                 {/* 3. CHARTS GRID */}
                 {hasChart ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <Card className="lg:col-span-2 border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl shadow-lg">
-                            <CardHeader className="border-b border-[var(--ops-border-subtle)] pb-4">
+                        <Card className="lg:col-span-2 border border-(--ops-border) bg-(--ops-surface-raised) rounded-2xl shadow-lg">
+                            <CardHeader className="border-b border-(--ops-border-subtle) pb-4">
                                 <CardTitle className="text-base font-black uppercase text-foreground">Revenue & Profit Trajectory</CardTitle>
-                                <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)]">Walk-forward performance trajectory mapping</CardDescription>
+                                <CardDescription className="text-[9px] font-black uppercase tracking-wider text-(--ops-text-muted)">Walk-forward performance trajectory mapping</CardDescription>
                             </CardHeader>
                             <CardContent className="pt-6">
-                                <div className="h-[320px] w-full">
+                                <div className="h-80 w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={TREND_DATA} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                                             <defs>
@@ -579,8 +651,8 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                                                 </linearGradient>
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-800" />
-                                            <XAxis dataKey="date" fontSize={9} stroke="currentColor" className="text-[var(--ops-text-muted)] font-black" axisLine={false} tickLine={false} />
-                                            <YAxis fontSize={9} stroke="currentColor" className="text-[var(--ops-text-muted)] font-black font-mono" axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v}`} />
+                                            <XAxis dataKey="date" fontSize={9} stroke="currentColor" className="text-(--ops-text-muted) font-black" axisLine={false} tickLine={false} />
+                                            <YAxis fontSize={9} stroke="currentColor" className="text-(--ops-text-muted) font-black font-mono" axisLine={false} tickLine={false} tickFormatter={(v) => `₱${v}`} />
                                             <Tooltip content={<CustomTooltip />} />
                                             <Area type="monotone" dataKey="Revenue" stroke="#E1062C" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
                                             <Area type="monotone" dataKey="Profit" stroke="#10b981" strokeWidth={2} fill="none" />
@@ -590,13 +662,13 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                             </CardContent>
                         </Card>
 
-                        <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl shadow-lg">
-                            <CardHeader className="border-b border-[var(--ops-border-subtle)] pb-4">
+                        <Card className="border border-(--ops-border) bg-(--ops-surface-raised) rounded-2xl shadow-lg">
+                            <CardHeader className="border-b border-(--ops-border-subtle) pb-4">
                                 <CardTitle className="text-base font-black uppercase text-foreground">Category Proportions</CardTitle>
-                                <CardDescription className="text-[9px] font-black uppercase tracking-wider text-[var(--ops-text-muted)]">Sales volume distribution by item type</CardDescription>
+                                <CardDescription className="text-[9px] font-black uppercase tracking-wider text-(--ops-text-muted)">Sales volume distribution by item type</CardDescription>
                             </CardHeader>
                             <CardContent className="pt-6 flex flex-col items-center justify-center">
-                                <div className="h-[200px] w-full">
+                                <div className="h-50 w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value">
@@ -626,25 +698,25 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                     <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
                         <span className="size-2 rounded-full bg-primary" /> Transaction Registry
                     </h2>
-                    <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl overflow-hidden shadow-lg">
+                    <Card className="border border-(--ops-border) bg-(--ops-surface-raised) rounded-2xl overflow-hidden shadow-lg">
                         <CardContent className="p-0">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="border-b border-[var(--ops-border-subtle)] bg-[var(--ops-thead-bg)]">
-                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Order #</th>
-                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Date</th>
-                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Cashier</th>
-                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Status</th>
-                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Total Sales</th>
-                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Net Profit</th>
+                                        <tr className="border-b border-(--ops-border-subtle) bg-(--ops-thead-bg)">
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Order #</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Date</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Cashier</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Status</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Total Sales</th>
+                                            <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Net Profit</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-[var(--ops-border-subtle)]">
-                                        {sales.data.map((sale: any) => (
-                                            <tr key={sale.id} className="hover:bg-[var(--ops-surface-sunken)]/20 transition-colors">
+                                    <tbody className="divide-y divide-(--ops-border-subtle)">
+                                        {sales.data.map((sale: SaleItem) => (
+                                            <tr key={sale.id} className="hover:bg-(--ops-surface-sunken)/20 transition-colors">
                                                 <td className="p-4 font-bold text-sm text-foreground">{sale.order_number}</td>
-                                                <td className="p-4 text-xs text-[var(--ops-text-muted)]">
+                                                <td className="p-4 text-xs text-(--ops-text-muted)">
                                                     {format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}
                                                 </td>
                                                 <td className="p-4">
@@ -676,10 +748,10 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="p-4 border-t border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/30 flex justify-between items-center flex-wrap gap-3">
-                                <p className="text-[10px] font-bold text-[var(--ops-text-muted)]">Showing {sales.from} to {sales.to} of {sales.total} results</p>
+                            <div className="p-4 border-t border-(--ops-border-subtle) bg-(--ops-surface-sunken)/30 flex justify-between items-center flex-wrap gap-3">
+                                <p className="text-[10px] font-bold text-(--ops-text-muted)">Showing {sales.from} to {sales.to} of {sales.total} results</p>
                                 <div className="flex gap-1">
-                                    {sales.links.map((link: any, i: number) => (
+                                    {sales.links.map((link: { url?: string; label: string; active: boolean }, i: number) => (
                                         <Button
                                             key={i}
                                             variant={link.active ? 'default' : 'outline'}
@@ -687,7 +759,7 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
                                             disabled={!link.url}
                                             onClick={() => link.url && router.get(link.url)}
                                             dangerouslySetInnerHTML={{ __html: link.label }}
-                                            className="h-8 min-w-[32px] px-2 text-[10px]"
+                                            className="h-8 min-w-8 px-2 text-[10px]"
                                         />
                                     ))}
                                 </div>
@@ -711,35 +783,35 @@ function AdminReports({ sales, shifts, cashiers, filters, trend_data, category_d
 }
 
 // ── ADMIN SHIFTS GRID COMPONENT ──
-function ShiftHistory({ shifts }: any) {
+function ShiftHistory({ shifts }: { shifts: PaginatedData<ShiftItem> }) {
     return (
         <div className="space-y-4">
             <h2 className="text-lg font-black italic uppercase tracking-tighter text-foreground/80 flex items-center gap-2">
                 <span className="size-2 rounded-full bg-primary" /> Drawer Log History
             </h2>
-            <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl overflow-hidden shadow-lg">
+            <Card className="border border-(--ops-border) bg-(--ops-surface-raised) rounded-2xl overflow-hidden shadow-lg">
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr className="border-b border-[var(--ops-border-subtle)] bg-[var(--ops-thead-bg)]">
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Cashier</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Opened</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Closed</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Opening Cash</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Expected Cash</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Actual Cash</th>
-                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Difference</th>
+                                <tr className="border-b border-(--ops-border-subtle) bg-(--ops-thead-bg)">
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Cashier</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Opened</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Closed</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Opening Cash</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Expected Cash</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Actual Cash</th>
+                                    <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Difference</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[var(--ops-border-subtle)]">
-                                {shifts.data.map((s: any) => {
+                            <tbody className="divide-y divide-(--ops-border-subtle)">
+                                {shifts.data.map((s: ShiftItem) => {
                                     const diff = s.actual_cash - s.expected_cash;
                                     return (
-                                        <tr key={s.id} className="hover:bg-[var(--ops-surface-sunken)]/20 transition-colors">
+                                        <tr key={s.id} className="hover:bg-(--ops-surface-sunken)/20 transition-colors">
                                             <td className="p-4 font-bold text-foreground">{s.cashier?.name}</td>
-                                            <td className="p-4 text-[var(--ops-text-muted)]">{format(new Date(s.opened_at), 'MMM dd, HH:mm')}</td>
-                                            <td className="p-4 text-[var(--ops-text-muted)]">
+                                            <td className="p-4 text-(--ops-text-muted)">{s.opened_at ? format(new Date(s.opened_at), 'MMM dd, HH:mm') : 'N/A'}</td>
+                                            <td className="p-4 text-(--ops-text-muted)">
                                                 {s.closed_at ? format(new Date(s.closed_at), 'MMM dd, HH:mm') : <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[7px] font-black rounded-md">Active</Badge>}
                                             </td>
                                             <td className="p-4 text-right font-mono font-bold text-foreground">{formatCurrency(s.opening_cash)}</td>
@@ -755,10 +827,10 @@ function ShiftHistory({ shifts }: any) {
                         </table>
                     </div>
 
-                    <div className="p-4 border-t border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/30 flex justify-between items-center flex-wrap gap-3">
-                        <p className="text-[10px] font-bold text-[var(--ops-text-muted)]">Showing {shifts.from} to {shifts.to} of {shifts.total} results</p>
+                    <div className="p-4 border-t border-(--ops-border-subtle) bg-(--ops-surface-sunken)/30 flex justify-between items-center flex-wrap gap-3">
+                        <p className="text-[10px] font-bold text-(--ops-text-muted)">Showing {shifts.from} to {shifts.to} of {shifts.total} results</p>
                         <div className="flex gap-1">
-                            {shifts.links.map((link: any, i: number) => (
+                            {shifts.links.map((link: { url?: string; label: string; active: boolean }, i: number) => (
                                 <Button
                                     key={i}
                                     variant={link.active ? 'default' : 'outline'}
@@ -766,7 +838,7 @@ function ShiftHistory({ shifts }: any) {
                                     disabled={!link.url}
                                     onClick={() => link.url && router.get(link.url)}
                                     dangerouslySetInnerHTML={{ __html: link.label }}
-                                    className="h-8 min-w-[32px] px-2 text-[10px]"
+                                    className="h-8 min-w-8 px-2 text-[10px]"
                                 />
                             ))}
                         </div>
@@ -777,8 +849,18 @@ function ShiftHistory({ shifts }: any) {
     );
 }
 
+interface CashierReportsProps {
+    sales: PaginatedData<SaleItem>;
+    shifts: PaginatedData<ShiftItem>;
+    cashiers?: Array<{ id: number; name: string }>;
+    filters: { date_from?: string; date_to?: string; cashier_id?: string; status?: string };
+    today_sales: number;
+    total_revenue: number;
+    total_orders: number;
+}
+
 // ── ORIGINAL CASHIER REPORTS ──
-function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_revenue, total_orders }: any) {
+function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, total_revenue, total_orders }: CashierReportsProps) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [cashierId, setCashierId] = useState(filters.cashier_id || 'all');
@@ -794,7 +876,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
         router.get('/reports');
     };
 
-    const triggerExport = async (options: any) => {
+    const triggerExport = async (options: ExportOptions) => {
         const kpis = [
             { title: "Sales Today", value: formatCurrency(today_sales ?? 0) },
             { title: "Total Revenue", value: formatCurrency(total_revenue ?? 0) },
@@ -818,10 +900,10 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
             columns.push({ title: 'Difference', key: 'diff', align: 'text-right' });
         }
 
-        let rows: any[] = [];
+        let rows: Record<string, string>[] = [];
         if (options.scope === 'view') {
             if (activeTab === 'sales') {
-                rows = (sales.data || []).map((sale: any) => ({
+                rows = (sales.data || []).map((sale: SaleItem) => ({
                     order_number: sale.order_number,
                     date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
                     cashier: sale.cashier?.name ?? 'N/A',
@@ -829,7 +911,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                     total: formatCurrency(sale.total)
                 }));
             } else {
-                rows = (shifts.data || []).map((s: any) => ({
+                rows = (shifts.data || []).map((s: ShiftItem) => ({
                     cashier: s.cashier?.name ?? 'N/A',
                     opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
                     closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
@@ -868,9 +950,9 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
     };
 
     return (
-        <div className="p-6 lg:p-8 space-y-10 bg-background min-h-[calc(100vh-64px)] text-[var(--ops-text-secondary)]">
+        <div className="p-6 lg:p-8 space-y-10 bg-background min-h-[calc(100vh-64px)] text-(--ops-text-secondary)">
             {/* Header */}
-            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-[var(--ops-border)] pb-8">
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 border-b border-(--ops-border) pb-8">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
@@ -878,7 +960,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                         </div>
                         <h1 className="text-3xl font-black tracking-tighter italic uppercase text-foreground">Business Overview</h1>
                     </div>
-                    <p className="text-[var(--ops-text-muted)] font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
+                    <p className="text-(--ops-text-muted) font-bold uppercase text-[10px] tracking-[0.3em] mt-3">
                         {filters.date_from && filters.date_to
                             ? `${filters.date_from} → ${filters.date_to}`
                             : 'Personalized Sales Report'}
@@ -887,7 +969,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
 
                 <div className="flex flex-col items-center xl:items-end gap-3 w-full xl:w-auto">
                     <div className="flex flex-wrap items-center justify-center xl:justify-end gap-2">
-                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-[var(--ops-border)] bg-[var(--ops-surface-raised)] hover:bg-[var(--ops-hover)] text-[var(--ops-text-secondary)]">
+                        <Button variant="outline" onClick={() => setIsExportOpen(true)} className="h-10 rounded-xl font-black uppercase text-[10px] tracking-widest border-(--ops-border) bg-(--ops-surface-raised) hover:bg-(--ops-hover) text-(--ops-text-secondary)">
                             <FiDownload className="size-3.5 mr-2 text-primary" /> Configure Export
                         </Button>
                         <div className="h-4 w-px bg-border/45 mx-1 hidden sm:block" />
@@ -906,7 +988,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex items-center gap-2 p-1 bg-[var(--ops-surface-sunken)] rounded-2xl border border-[var(--ops-border-subtle)] w-fit">
+            <div className="flex items-center gap-2 p-1 bg-(--ops-surface-sunken) rounded-2xl border border-(--ops-border-subtle) w-fit">
                 <Button 
                     variant={activeTab === 'sales' ? 'default' : 'ghost'} 
                     onClick={() => setActiveTab('sales')}
@@ -946,18 +1028,18 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                     />
                 </div>
 
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-[var(--ops-surface-sunken)]/20 p-2 rounded-2xl ring-1 ring-[var(--ops-border)]">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-(--ops-surface-sunken)/20 p-2 rounded-2xl ring-1 ring-(--ops-border)">
                     <div className="flex flex-wrap items-center gap-2 flex-1 w-full lg:w-auto">
                         <Select value={cashierId} onValueChange={(v) => {
                             setCashierId(v);
                             router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: v === 'all' ? '' : v, status: status === 'all' ? '' : status }, { preserveState: true });
                         }}>
-                            <SelectTrigger className="h-11 w-full lg:w-[180px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
+                            <SelectTrigger className="h-11 w-full lg:w-45 rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
                                 <SelectValue placeholder="Cashier" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-none shadow-2xl">
                                 <SelectItem value="all">All Cashiers</SelectItem>
-                                {cashiers.map((c: any) => (
+                                {cashiers.map((c: { id: number; name: string }) => (
                                     <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -967,7 +1049,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                             setStatus(v);
                             router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : v }, { preserveState: true });
                         }}>
-                            <SelectTrigger className="h-11 w-full lg:w-[160px] rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
+                            <SelectTrigger className="h-11 w-full lg:w-40 rounded-xl bg-background border-none ring-1 ring-border/40 font-bold text-[10px] uppercase tracking-widest">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-none shadow-2xl">
@@ -979,35 +1061,35 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                             </SelectContent>
                         </Select>
 
-                        <Button variant="ghost" onClick={handleReset} className="h-11 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] hover:text-primary transition-all">
+                        <Button variant="ghost" onClick={handleReset} className="h-11 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest text-(--ops-text-muted) hover:text-primary transition-all">
                             <FiRefreshCw className="size-3.5 mr-2" /> Reset
                         </Button>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] bg-background/50 px-4 py-2.5 rounded-xl ring-1 ring-border/20">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-(--ops-text-muted) bg-background/50 px-4 py-2.5 rounded-xl ring-1 ring-border/20">
                         <FiSearch className="size-3 text-primary" />
                         <span>Analyzing <span className="text-foreground">{sales.total}</span> Orders</span>
                     </div>
                 </div>
 
-                <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-2xl overflow-hidden shadow-lg">
+                <Card className="border border-(--ops-border) bg-(--ops-surface-raised) rounded-2xl overflow-hidden shadow-lg">
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="border-b border-[var(--ops-border-subtle)] bg-[var(--ops-thead-bg)]">
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Order #</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Date</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Cashier</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Status</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right">Total Sales</th>
+                                    <tr className="border-b border-(--ops-border-subtle) bg-(--ops-thead-bg)">
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Order #</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Date</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Cashier</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Status</th>
+                                        <th className="p-4 text-xs font-black uppercase tracking-widest text-(--ops-text-muted) text-right">Total Sales</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[var(--ops-border-subtle)]">
-                                    {sales.data.map((sale: any) => (
-                                        <tr key={sale.id} className="hover:bg-[var(--ops-surface-sunken)]/20 transition-colors">
+                                <tbody className="divide-y divide-(--ops-border-subtle)">
+                                    {sales.data.map((sale: SaleItem) => (
+                                        <tr key={sale.id} className="hover:bg-(--ops-surface-sunken)/20 transition-colors">
                                             <td className="p-4 font-bold text-sm text-foreground">{sale.order_number}</td>
-                                            <td className="p-4 text-xs text-[var(--ops-text-muted)]">
+                                            <td className="p-4 text-xs text-(--ops-text-muted)">
                                                 {format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}
                                             </td>
                                             <td className="p-4">
@@ -1036,10 +1118,10 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                                 </tbody>
                             </table>
                         </div>
-                        <div className="p-4 border-t border-[var(--ops-border-subtle)] bg-[var(--ops-surface-sunken)]/30 flex justify-between items-center flex-wrap gap-3">
-                            <p className="text-[10px] font-bold text-[var(--ops-text-muted)]">Showing {sales.from} to {sales.to} of {sales.total} results</p>
+                        <div className="p-4 border-t border-(--ops-border-subtle) bg-(--ops-surface-sunken)/30 flex justify-between items-center flex-wrap gap-3">
+                            <p className="text-[10px] font-bold text-(--ops-text-muted)">Showing {sales.from} to {sales.to} of {sales.total} results</p>
                             <div className="flex gap-1">
-                                {sales.links.map((link: any, i: number) => (
+                                {sales.links.map((link: { url?: string; label: string; active: boolean }, i: number) => (
                                     <Button
                                         key={i}
                                         variant={link.active ? 'default' : 'outline'}
@@ -1047,7 +1129,7 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
                                         disabled={!link.url}
                                         onClick={() => link.url && router.get(link.url)}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className="h-8 min-w-[32px] px-2 text-[10px]"
+                                        className="h-8 min-w-8 px-2 text-[10px]"
                                     />
                                 ))}
                             </div>
@@ -1070,8 +1152,8 @@ function CashierReports({ sales, shifts, cashiers, filters, today_sales, total_r
 }
 
 // ── MAIN EXPORT COMPONENT ──
-export default function ReportsIndex(props: any) {
-    const { auth } = usePage().props as any;
+export default function ReportsIndex(props: AdminReportsProps & CashierReportsProps) {
+    const { auth } = usePage().props as unknown as { auth: { user: { role: string } } };
     const isAdmin = auth.user.role === 'admin';
 
     return (

@@ -1,6 +1,6 @@
+﻿import React, { useState, useMemo } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
-import React, { useState, useMemo } from 'react';
-import AppLayout from '@/layouts/app-layout';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiBox,
   FiShoppingCart,
@@ -25,15 +25,15 @@ import {
   FiMinimize2,
   FiMaximize2
 } from 'react-icons/fi';
-import { MassRestockModal } from '@/components/mass-restock-modal';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { MassRestockModal } from '@/components/mass-restock-modal';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ const urgencyConfig: Record<Urgency, { label: string; badgeCls: string; rowCls: 
 const trendIcon = (t: Trend) => {
   if (t === 'rising') return <FiTrendingUp className="size-3 text-emerald-500" />;
   if (t === 'declining') return <FiTrendingDown className="size-3 text-rose-500" />;
-  return <FiMinus className="size-3 text-[var(--ops-text-muted)]" />;
+  return <FiMinus className="size-3 text-(--ops-text-muted)" />;
 };
 
 const volatilityColor = (v: Volatility) => {
@@ -121,6 +121,22 @@ const volatilityColor = (v: Volatility) => {
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────
+interface RestockPageProps {
+  suggestions?: Suggestion[];
+  branches?: Array<{ id: number; name: string }>;
+  tomorrow_forecast?: number;
+  forecast_lower?: number;
+  forecast_upper?: number;
+  demand_ratio?: number;
+  forecast_insights?: string[];
+  forecast_confidence?: number;
+  filters?: { branch_id?: string; status?: string };
+  error?: string;
+  impact_suggestions?: ImpactSuggestion[];
+  inventory?: unknown;
+  [key: string]: unknown;
+}
+
 export default function RestockSuggestions() {
   const {
     suggestions,
@@ -135,7 +151,7 @@ export default function RestockSuggestions() {
     error,
     impact_suggestions,
     inventory,
-  } = usePage().props as any;
+  } = usePage<RestockPageProps>().props;
 
   const [branchId, setBranchId] = useState(String(filters?.branch_id || ''));
   const [isLoading, setIsLoading] = useState(false);
@@ -146,8 +162,8 @@ export default function RestockSuggestions() {
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [prefilledItems, setPrefilledItems] = useState<Record<number, { quantity: string, unit: string }> | undefined>(undefined);
 
-  const currentBranchName = useMemo(() => 
-    branches?.find((b: any) => String(b.id) === branchId)?.name || 'Victoria'
+  const currentBranchName = useMemo(() =>
+    branches?.find((b) => String(b.id) === branchId)?.name || 'Victoria'
   , [branches, branchId]);
 
   const openMassRestock = (impact?: ImpactSuggestion) => {
@@ -201,10 +217,10 @@ export default function RestockSuggestions() {
     <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Restock Suggestions', href: '#' }]}>
       <Head title="Prescriptive Restock" />
 
-      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans text-[var(--ops-text-secondary)]">
+      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans text-(--ops-text-secondary)">
 
         {/* ── Header Area ── */}
-        <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
+        <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">
           <div className="flex items-center gap-3">
             <FiBox className="text-primary size-6 animate-pulse" />
             <div>
@@ -226,7 +242,7 @@ export default function RestockSuggestions() {
 
           {/* Error alerts */}
           {error && (
-            <Alert variant="destructive" className="bg-rose-500/5 border-rose-500/15 rounded-[12px] text-rose-500">
+            <Alert variant="destructive" className="bg-rose-500/5 border-rose-500/15 rounded-xl text-rose-500">
               <FiAlertTriangle className="size-4 text-rose-500" />
               <AlertTitle className="font-black uppercase tracking-widest text-[9px] mb-1">Intelligence Gap</AlertTitle>
               <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
@@ -246,16 +262,16 @@ export default function RestockSuggestions() {
                 
                 {/* Demand Forecast Context Banner */}
                 <div className={cn(
-                  'flex flex-wrap items-start gap-4 p-4.5 rounded-[12px] border text-xs',
+                  'flex flex-wrap items-start gap-4 p-4.5 rounded-xl border text-xs',
                   demandAboveAvg
                     ? 'bg-amber-500/5 border-amber-500/15 text-amber-500'
                     : demandBelowAvg
                       ? 'bg-blue-500/5 border-blue-500/15 text-blue-400'
-                      : 'bg-[var(--ops-surface-raised)] border-[var(--ops-border)] text-[var(--ops-text-secondary)]'
+                      : 'bg-(--ops-surface-raised) border-(--ops-border) text-(--ops-text-secondary)'
                 )}>
                   <FiInfo className={cn('size-4.5 mt-0.5 shrink-0', demandAboveAvg ? 'text-amber-500' : demandBelowAvg ? 'text-blue-400' : 'text-primary')} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] mb-1">Demand Forecast Context</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-muted) mb-1">Demand Forecast Context</p>
                     <p className="font-bold leading-relaxed">
                       Tomorrow's predicted revenue is{' '}
                       <strong className="font-black text-foreground">{fmt(tomorrow_forecast)}</strong>
@@ -284,18 +300,18 @@ export default function RestockSuggestions() {
 
                 {/* KPI Summary Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-                  <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">To Restock</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">To Restock</p>
                       <Badge className="bg-amber-500/5 text-amber-500 border border-amber-500/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">Action Needed</Badge>
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.total} items</h3>
-                      <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Suggestions generated</p>
+                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Suggestions generated</p>
                     </div>
                   </div>
 
-                  <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500/70">Critical / OOS</p>
                       <Badge className="bg-rose-500/5 text-rose-500 border border-rose-500/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">
@@ -304,35 +320,35 @@ export default function RestockSuggestions() {
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-rose-500 tabular-nums leading-none">{stats.critical} items</h3>
-                      <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Requires attention</p>
+                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Requires attention</p>
                     </div>
                   </div>
 
-                  <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Est. Investment</p>
                       <Badge className="bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">Calculated Cost</Badge>
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{fmt(stats.totalCost)}</h3>
-                      <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Procurement valuation estimate</p>
+                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Procurement valuation estimate</p>
                     </div>
                   </div>
 
-                  <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Avg Confidence</p>
                       <Badge className="bg-primary/5 text-primary border border-primary/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">{stats.rising} Rising Trends</Badge>
                     </div>
                     <div>
                       <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{stats.avgConfidence}%</h3>
-                      <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Model reliability scale</p>
+                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Model reliability scale</p>
                     </div>
                   </div>
                 </div>
 
                 {/* STICKY TOOLBAR FILTERS */}
-                <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-[var(--ops-border-subtle)]">
+                <div className="sticky top-0 z-30 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md pb-4 pt-1 space-y-4 border-b border-(--ops-border-subtle)">
                   
                   {/* Quick Chips Row */}
                   <div className="flex flex-wrap gap-2">
@@ -347,7 +363,7 @@ export default function RestockSuggestions() {
                             "h-8 px-3 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all duration-200 flex items-center border",
                             isActive
                               ? "bg-primary border-primary text-foreground shadow-sm"
-                              : "bg-[var(--ops-thead-bg)] border-[var(--ops-border)] text-[var(--ops-text-secondary)] hover:text-foreground hover:bg-[var(--ops-chip-active-bg)]"
+                              : "bg-(--ops-thead-bg) border-(--ops-border) text-(--ops-text-secondary) hover:text-foreground hover:bg-(--ops-chip-active-bg)"
                           )}
                         >
                           <span>{f}</span>
@@ -362,13 +378,13 @@ export default function RestockSuggestions() {
                     <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
                       
                       {/* Branch select filter */}
-                      <div className="flex items-center bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] rounded-[10px] p-0.5">
-                        <FiFilter className="text-[var(--ops-text-muted)] ml-2.5 size-3.5" />
+                      <div className="flex items-center bg-(--ops-surface-sunken) border border-(--ops-border) rounded-[10px] p-0.5">
+                        <FiFilter className="text-(--ops-text-muted) ml-2.5 size-3.5" />
                         <Select value={branchId} onValueChange={v => { setBranchId(v); handleFilterChange('branch_id', v); }}>
-                          <SelectTrigger className="w-52 h-8.5 bg-transparent border-none shadow-none focus:ring-0 text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">
+                          <SelectTrigger className="w-52 h-8.5 bg-transparent border-none shadow-none focus:ring-0 text-[10px] font-black uppercase tracking-wider text-(--ops-text-secondary)">
                             <SelectValue placeholder="Select Branch" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[var(--ops-surface-sunken)] border-[var(--ops-border)] text-foreground rounded-[12px]">
+                          <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) text-foreground rounded-xl">
                             {branches?.map((b: any) => (
                               <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
                             ))}
@@ -378,12 +394,12 @@ export default function RestockSuggestions() {
                     </div>
 
                     {/* Density Control */}
-                    <div className="flex items-center border border-[var(--ops-border)] rounded-[10px] p-0.5 bg-[var(--ops-surface-sunken)] self-end">
+                    <div className="flex items-center border border-(--ops-border) rounded-[10px] p-0.5 bg-(--ops-surface-sunken) self-end">
                       <button
                         onClick={() => setDensity('compact')}
                         className={cn(
                           "p-1.5 rounded-[8px] transition-all",
-                          density === 'compact' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                          density === 'compact' ? "bg-(--ops-chip-active-bg) text-foreground" : "text-(--ops-text-muted) hover:text-(--ops-text-secondary)"
                         )}
                         title="Compact Density"
                       >
@@ -393,7 +409,7 @@ export default function RestockSuggestions() {
                         onClick={() => setDensity('comfortable')}
                         className={cn(
                           "p-1.5 rounded-[8px] transition-all",
-                          density === 'comfortable' ? "bg-[var(--ops-chip-active-bg)] text-foreground" : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-secondary)]"
+                          density === 'comfortable' ? "bg-(--ops-chip-active-bg) text-foreground" : "text-(--ops-text-muted) hover:text-(--ops-text-secondary)"
                         )}
                         title="Comfortable Density"
                       >
@@ -404,10 +420,10 @@ export default function RestockSuggestions() {
                 </div>
 
                 {/* ADAPTIVE SUGGESTIONS TABLE */}
-                <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden">
+                <div className="border border-(--ops-border) rounded-[14px] bg-(--ops-surface-sunken) shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
-                      <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
+                    <table className="w-full text-left border-collapse table-auto text-(--ops-text-secondary)">
+                      <thead className="bg-(--ops-thead-bg) border-b border-(--ops-border) text-[9px] font-black uppercase tracking-[0.15em] text-(--ops-text-secondary) select-none">
                         <tr>
                           <th className="px-5 py-3.5">Ingredient</th>
                           <th className="px-5 py-3.5">Stock / Coverage</th>
@@ -419,14 +435,14 @@ export default function RestockSuggestions() {
                           <th className="px-5 py-3.5 w-12"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[var(--ops-border-subtle)]">
+                      <tbody className="divide-y divide-(--ops-border-subtle)">
                         {filtered.length === 0 ? (
                           <tr>
                             <td colSpan={8} className="px-6 py-16 text-center">
                               <div className="flex flex-col items-center gap-3">
-                                <FiBox className="size-10 text-[var(--ops-text-faint)] animate-bounce" />
-                                <p className="text-base font-bold italic uppercase tracking-tighter text-[var(--ops-text-muted)]">No suggestions generated</p>
-                                <p className="text-[10px] text-[var(--ops-text-faint)] font-bold uppercase tracking-widest">Inventory levels are within optimal operating safety margins</p>
+                                <FiBox className="size-10 text-(--ops-text-faint) animate-bounce" />
+                                <p className="text-base font-bold italic uppercase tracking-tighter text-(--ops-text-muted)">No suggestions generated</p>
+                                <p className="text-[10px] text-(--ops-text-faint) font-bold uppercase tracking-widest">Inventory levels are within optimal operating safety margins</p>
                               </div>
                             </td>
                           </tr>
@@ -440,7 +456,7 @@ export default function RestockSuggestions() {
                               <tr
                                 key={key}
                                 className={cn(
-                                  "hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative",
+                                  "hover:bg-(--ops-surface-sunken)/50 transition-colors duration-150 relative",
                                   cfg.rowCls
                                 )}
                               >
@@ -451,7 +467,7 @@ export default function RestockSuggestions() {
                                 )}>
                                   <div className="flex items-center gap-3">
                                     <div className="relative">
-                                      <div className="size-8 rounded-lg bg-[var(--ops-surface-sunken)] flex items-center justify-center font-black text-xs text-[var(--ops-text-secondary)] shadow-inner">
+                                      <div className="size-8 rounded-lg bg-(--ops-surface-sunken) flex items-center justify-center font-black text-xs text-(--ops-text-secondary) shadow-inner">
                                         {s.name.charAt(0).toUpperCase()}
                                       </div>
                                       <div className={cn('absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-zinc-950', cfg.dotCls)} />
@@ -459,8 +475,8 @@ export default function RestockSuggestions() {
                                     <div>
                                       <p className="font-bold text-sm text-foreground leading-tight">{s.name}</p>
                                       <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[8px] font-bold text-[var(--ops-text-muted)] uppercase">{s.days_of_data}d data</span>
-                                        <span className="text-[8px] text-[var(--ops-text-faint)]">•</span>
+                                        <span className="text-[8px] font-bold text-(--ops-text-muted) uppercase">{s.days_of_data}d data</span>
+                                        <span className="text-[8px] text-(--ops-text-faint)">•</span>
                                         <span className={cn('text-[8px] font-black uppercase', volatilityColor(s.volatility))}>
                                           {s.volatility} volatility
                                         </span>
@@ -476,7 +492,7 @@ export default function RestockSuggestions() {
                                       <span className="font-mono font-bold text-xs text-foreground">
                                         {s.current_stock}
                                       </span>
-                                      <span className="text-[8px] text-[var(--ops-text-muted)] font-bold uppercase">{s.unit}</span>
+                                      <span className="text-[8px] text-(--ops-text-muted) font-bold uppercase">{s.unit}</span>
                                     </div>
                                     
                                     {/* Segmented stock level bar */}
@@ -488,13 +504,13 @@ export default function RestockSuggestions() {
                                             "w-1 h-1.5 rounded-[0.5px]",
                                             i < coverageRatio
                                               ? (s.status === 'Safe' ? "bg-emerald-500" : s.status === 'Warning' ? "bg-amber-500" : "bg-rose-500")
-                                              : "bg-[var(--ops-chip-active-bg)]"
+                                              : "bg-(--ops-chip-active-bg)"
                                           )}
                                         />
                                       ))}
                                     </div>
 
-                                    <p className="text-[8px] font-bold text-[var(--ops-text-muted)] uppercase tracking-tight">
+                                    <p className="text-[8px] font-bold text-(--ops-text-muted) uppercase tracking-tight">
                                       {s.days_of_stock < 1 ? '< 1 day left' : `~${s.days_of_stock}d coverage`}
                                     </p>
                                   </div>
@@ -502,10 +518,10 @@ export default function RestockSuggestions() {
 
                                 {/* Predicted Usage */}
                                 <td className="px-5 text-center">
-                                  <Badge variant="outline" className="font-black text-[9px] border-[var(--ops-border)] bg-[var(--ops-surface-sunken)] text-[var(--ops-text-secondary)] px-2 py-0.5 rounded-[6px]">
+                                  <Badge variant="outline" className="font-black text-[9px] border-(--ops-border) bg-(--ops-surface-sunken) text-(--ops-text-secondary) px-2 py-0.5 rounded-[6px]">
                                     {s.predicted_usage} {s.unit}
                                   </Badge>
-                                  <p className="text-[8px] text-[var(--ops-text-muted)] font-mono mt-1 font-bold">
+                                  <p className="text-[8px] text-(--ops-text-muted) font-mono mt-1 font-bold">
                                     {s.predicted_usage_lower} – {s.predicted_usage_upper}
                                   </p>
                                 </td>
@@ -515,9 +531,9 @@ export default function RestockSuggestions() {
                                   <div className="flex flex-col items-center gap-1">
                                     <div className="flex items-center gap-1.5">
                                       {trendIcon(s.trend)}
-                                      <span className="text-[8px] font-black text-[var(--ops-text-secondary)] uppercase tracking-tight italic">{s.trend}</span>
+                                      <span className="text-[8px] font-black text-(--ops-text-secondary) uppercase tracking-tight italic">{s.trend}</span>
                                     </div>
-                                    <Badge className="bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] text-[var(--ops-text-secondary)] font-black text-[8px] px-1.5 py-0 rounded-[4px] mt-0.5">
+                                    <Badge className="bg-(--ops-surface-sunken) border border-(--ops-border) text-(--ops-text-secondary) font-black text-[8px] px-1.5 py-0 rounded-lg mt-0.5">
                                       +{s.safety_buffer_pct}% Buffer
                                     </Badge>
                                   </div>
@@ -552,7 +568,7 @@ export default function RestockSuggestions() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7.5 px-2 bg-[var(--ops-surface-sunken)] border-[var(--ops-border-subtle)] hover:bg-[var(--ops-chip-active-bg)] text-[8px] font-black uppercase tracking-wider text-primary rounded-[8px]"
+                                    className="h-7.5 px-2 bg-(--ops-surface-sunken) border-(--ops-border-subtle) hover:bg-(--ops-chip-active-bg) text-[8px] font-black uppercase tracking-wider text-primary rounded-[8px]"
                                     onClick={() => {
                                       setPrefilledItems({
                                         [s.ingredient_id]: {
@@ -582,7 +598,7 @@ export default function RestockSuggestions() {
                     <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-foreground">
                       <FiZap className="text-amber-500 animate-pulse" /> Impact Priority
                     </h2>
-                    <p className="text-[9px] font-bold text-[var(--ops-text-muted)] uppercase tracking-tight mt-1 italic">High-impact restocking decisions to maximize menu item availability</p>
+                    <p className="text-[9px] font-bold text-(--ops-text-muted) uppercase tracking-tight mt-1 italic">High-impact restocking decisions to maximize menu item availability</p>
                   </div>
 
                   <div className="flex flex-col md:flex-row gap-4">
@@ -590,40 +606,40 @@ export default function RestockSuggestions() {
                       <div
                         key={impact.ingredient_id}
                         className={cn(
-                          "flex-1 p-5 rounded-[14px] border bg-[var(--ops-surface-raised)] relative overflow-hidden transition-all shadow-sm group",
+                          "flex-1 p-5 rounded-[14px] border bg-(--ops-surface-raised) relative overflow-hidden transition-all shadow-sm group",
                           impact.status === 'critical' ? "border-rose-500/20 bg-rose-950/5" : 
-                          impact.status === 'low' ? "border-amber-500/20 bg-amber-950/5" : "border-[var(--ops-border)]"
+                          impact.status === 'low' ? "border-amber-500/20 bg-amber-950/5" : "border-(--ops-border)"
                         )}
                       >
                         {/* Corner Status badge */}
                         <div className={cn(
                           "absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-wider shadow-sm",
                           impact.status === 'critical' ? "bg-rose-500 text-foreground" : 
-                          impact.status === 'low' ? "bg-amber-500 text-foreground" : "bg-[var(--ops-surface-sunken)] text-[var(--ops-text-secondary)]"
+                          impact.status === 'low' ? "bg-amber-500 text-foreground" : "bg-(--ops-surface-sunken) text-(--ops-text-secondary)"
                         )}>
                           {impact.status}
                         </div>
 
                         <div className="flex items-start gap-3.5 mb-5">
-                          <div className="size-10 rounded-xl bg-[var(--ops-surface-sunken)] flex items-center justify-center text-sm font-black italic text-[var(--ops-text-muted)] group-hover:text-primary transition-all duration-300 shadow-inner">
+                          <div className="size-10 rounded-xl bg-(--ops-surface-sunken) flex items-center justify-center text-sm font-black italic text-(--ops-text-muted) group-hover:text-primary transition-all duration-300 shadow-inner">
                             {impact.ingredient_name.charAt(0)}
                           </div>
                           <div>
                             <h3 className="font-black text-sm uppercase italic tracking-tighter text-foreground">{impact.ingredient_name}</h3>
-                            <Badge variant="outline" className="text-[8px] font-black px-1.5 py-0 rounded-md border-[var(--ops-border)] text-[var(--ops-text-secondary)] mt-1">
+                            <Badge variant="outline" className="text-[8px] font-black px-1.5 py-0 rounded-md border-(--ops-border) text-(--ops-text-secondary) mt-1">
                               {impact.current_stock} {impact.unit} in stock
                             </Badge>
                           </div>
                         </div>
 
                         <div className="space-y-2 mb-5">
-                          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--ops-thead-bg)] border border-[var(--ops-border-subtle)]">
-                            <span className="text-[9px] font-black uppercase tracking-tight text-[var(--ops-text-muted)]">Blocking Menu Items</span>
+                          <div className="flex items-center justify-between p-2.5 rounded-lg bg-(--ops-thead-bg) border border-(--ops-border-subtle)">
+                            <span className="text-[9px] font-black uppercase tracking-tight text-(--ops-text-muted)">Blocking Menu Items</span>
                             <span className="text-xs font-black text-rose-500 font-mono">{impact.blocking_products_count} Products</span>
                           </div>
 
-                          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--ops-thead-bg)] border border-[var(--ops-border-subtle)]">
-                            <span className="text-[9px] font-black uppercase tracking-tight text-[var(--ops-text-muted)]">Servings to Unlock</span>
+                          <div className="flex items-center justify-between p-2.5 rounded-lg bg-(--ops-thead-bg) border border-(--ops-border-subtle)">
+                            <span className="text-[9px] font-black uppercase tracking-tight text-(--ops-text-muted)">Servings to Unlock</span>
                             <span className="text-xs font-black text-emerald-500 font-mono">+{impact.max_servings_unlockable} servings</span>
                           </div>
                         </div>
@@ -640,9 +656,9 @@ export default function RestockSuggestions() {
                     ))}
                     
                     {(impact_suggestions || []).length === 0 && (
-                      <div className="w-full p-10 text-center bg-[var(--ops-surface-sunken)] rounded-[14px] border border-dashed border-[var(--ops-border)] opacity-60">
+                      <div className="w-full p-10 text-center bg-(--ops-surface-sunken) rounded-[14px] border border-dashed border-(--ops-border) opacity-60">
                         <FiCheckCircle className="size-8 text-emerald-500/40 mx-auto mb-2" />
-                        <p className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] italic">Menu item availability is currently optimal.</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-(--ops-text-muted) italic">Menu item availability is currently optimal.</p>
                       </div>
                     )}
                   </div>
@@ -652,12 +668,12 @@ export default function RestockSuggestions() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                   {/* Demand Intelligence Card */}
-                  <Card className="border border-[var(--ops-border)] bg-[var(--ops-surface-raised)] rounded-[14px] shadow-sm">
-                    <CardHeader className="border-b border-[var(--ops-border)] px-6 py-4">
+                  <Card className="border border-(--ops-border) bg-(--ops-surface-raised) rounded-[14px] shadow-sm">
+                    <CardHeader className="border-b border-(--ops-border) px-6 py-4">
                       <CardTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-2 text-foreground">
                         <FiZap className="text-primary" /> Demand Intelligence
                       </CardTitle>
-                      <CardDescription className="text-[9px] font-bold uppercase tracking-wider text-[var(--ops-text-muted)] mt-1 italic">
+                      <CardDescription className="text-[9px] font-bold uppercase tracking-wider text-(--ops-text-muted) mt-1 italic">
                         Driving factors for this restock plan
                       </CardDescription>
                     </CardHeader>
@@ -668,43 +684,43 @@ export default function RestockSuggestions() {
                           initial={{ opacity: 0, x: -6 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: i * 0.05 }}
-                          className="flex items-start gap-3 p-3.5 rounded-lg bg-[var(--ops-surface-sunken)]/50 border border-[var(--ops-border-subtle)] hover:bg-[var(--ops-surface-sunken)] transition-colors"
+                          className="flex items-start gap-3 p-3.5 rounded-lg bg-(--ops-surface-sunken)/50 border border-(--ops-border-subtle) hover:bg-(--ops-surface-sunken) transition-colors"
                         >
                           <div className="size-1.5 rounded-full bg-primary/60 mt-1.5 shrink-0" />
-                          <p className="text-[10px] font-bold text-[var(--ops-text-secondary)] leading-relaxed italic">{insight}</p>
+                          <p className="text-[10px] font-bold text-(--ops-text-secondary) leading-relaxed italic">{insight}</p>
                         </motion.div>
                       ))}
                       {(!forecast_insights || forecast_insights.length === 0) && (
-                        <p className="text-xs text-[var(--ops-text-muted)] italic">No insights available. Record more sales data.</p>
+                        <p className="text-xs text-(--ops-text-muted) italic">No insights available. Record more sales data.</p>
                       )}
                     </CardContent>
                   </Card>
 
                   {/* Model Explanation Card */}
-                  <Card className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] shadow-sm">
-                    <CardHeader className="border-b border-[var(--ops-border)] px-6 py-4">
+                  <Card className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] shadow-sm">
+                    <CardHeader className="border-b border-(--ops-border) px-6 py-4">
                       <CardTitle className="text-sm font-black uppercase tracking-wider flex items-center gap-2 text-foreground">
                         <FiBarChart2 className="text-emerald-500" /> System Mechanics
                       </CardTitle>
-                      <CardDescription className="text-[9px] font-bold uppercase tracking-wider text-[var(--ops-text-muted)] mt-1 italic">
+                      <CardDescription className="text-[9px] font-bold uppercase tracking-wider text-(--ops-text-muted) mt-1 italic">
                         Calculation vectors explanation
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-6 space-y-3.5 text-[10px] text-[var(--ops-text-secondary)] font-bold uppercase tracking-wide leading-relaxed">
+                    <CardContent className="p-6 space-y-3.5 text-[10px] text-(--ops-text-secondary) font-bold uppercase tracking-wide leading-relaxed">
                       <div className="flex items-start gap-2.5">
-                        <span className="size-5 rounded-md bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] flex items-center justify-center text-[9px] text-primary shrink-0">1</span>
+                        <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">1</span>
                         <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders × recipes.</p>
                       </div>
                       <div className="flex items-start gap-2.5">
-                        <span className="size-5 rounded-md bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] flex items-center justify-center text-[9px] text-primary shrink-0">2</span>
+                        <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">2</span>
                         <p><strong>Trend Vector</strong>: computed 7-day velocity check to categorize slope trends.</p>
                       </div>
                       <div className="flex items-start gap-2.5">
-                        <span className="size-5 rounded-md bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] flex items-center justify-center text-[9px] text-primary shrink-0">3</span>
+                        <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">3</span>
                         <p><strong>Safety Buffers</strong>: weights applied dynamically based on volatility scale.</p>
                       </div>
                       <div className="flex items-start gap-2.5">
-                        <span className="size-5 rounded-md bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] flex items-center justify-center text-[9px] text-primary shrink-0">4</span>
+                        <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">4</span>
                         <p><strong>Forecasting Scale</strong>: alignment coefficients mapped to tomorrow's expected sales.</p>
                       </div>
                     </CardContent>

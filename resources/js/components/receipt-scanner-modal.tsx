@@ -1,18 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { toast } from 'sonner';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     FiUploadCloud,
     FiCamera,
@@ -21,19 +8,37 @@ import {
     FiRefreshCw,
     FiAlertTriangle,
     FiTrash2,
-    FiTrendingUp,
     FiList,
-    FiSettings,
     FiZap
 } from 'react-icons/fi';
+import { toast } from 'sonner';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+
+interface InventoryItem {
+    id: number;
+    name: string;
+    unit?: string;
+    [key: string]: unknown;
+}
 
 interface ReceiptScannerModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     branchId: number;
-    inventory: any[]; // global ingredients to match against
+    inventory: InventoryItem[];
     onSuccess?: () => void;
 }
 
@@ -54,9 +59,8 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
     const [mode, setMode] = useState<Mode>('upload');
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [isAutoMode, setIsAutoMode] = useState(false); // default is review mode
+    const [isAutoMode, setIsAutoMode] = useState(false);
 
-    // OCR Processing stages
     const [processingStage, setProcessingStage] = useState<'uploading' | 'ocr' | 'matching'>('uploading');
     const [receiptId, setReceiptId] = useState<number | null>(null);
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
@@ -66,7 +70,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
 
-    // Helper: fully reset all scan-related state to ensure fresh results
     const resetScanState = () => {
         setScannedItems([]);
         setReceiptId(null);
@@ -75,7 +78,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
         setProcessingStage('uploading');
     };
 
-    // Deduplicate ingredients by global ID to prevent duplicate select options when showing all branches
     const uniqueIngredients = useMemo(() => {
         const seen = new Set();
         return (inventory || []).filter(ing => {
@@ -85,29 +87,28 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
         });
     }, [inventory]);
 
-    // Reset everything when modal opens/closes
     useEffect(() => {
         if (open) {
             setMode('upload');
             setFile(null);
-            // Revoke any previous blob URL to prevent memory leak
-            if (previewUrl) {
-                URL.revokeObjectURL(previewUrl);
-            }
             setPreviewUrl(null);
             resetScanState();
-            // Reset file inputs so the same file can be re-selected
             if (fileInputRef.current) fileInputRef.current.value = '';
             if (cameraInputRef.current) cameraInputRef.current.value = '';
         }
     }, [open]);
 
-    // Handle File Drop / Select — always clear previous scan data
+    useEffect(() => {
+        return () => {
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
+
     const handleFileChange = (selectedFile: File) => {
         if (!selectedFile) return;
-        // Clear all previous scan results so stale data never persists
         resetScanState();
-        // Revoke old blob URL before creating a new one
         if (previewUrl) {
             URL.revokeObjectURL(previewUrl);
         }
@@ -115,14 +116,12 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
         setPreviewUrl(URL.createObjectURL(selectedFile));
     };
 
-    // Upload & Process OCR Flow — clear ALL previous state before each call
     const handleUploadAndProcess = async () => {
         if (!file) {
             toast.error('Please select or capture a receipt first.');
             return;
         }
 
-        // CRITICAL: Force-clear previous scan state so we never show stale data
         resetScanState();
         setMode('processing');
         setProcessingStage('uploading');
@@ -132,7 +131,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
         formData.append('branch_id', String(branchId));
 
         try {
-            // Stage 1: Upload File
             const uploadRes = await axios.post('/api/receipts/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
@@ -144,7 +142,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
             const uploadedReceiptId = uploadRes.data.receipt_id;
             setReceiptId(uploadedReceiptId);
 
-            // Stage 2: Trigger OCR and Parsing
             setProcessingStage('ocr');
             const processRes = await axios.post('/api/receipts/process', {
                 receipt_id: uploadedReceiptId
@@ -154,31 +151,24 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                 throw new Error(processRes.data.message || 'OCR extraction failed');
             }
 
-            // Stage 3: Fuzzy Matching (calculated by server, but stage shown on frontend)
             setProcessingStage('matching');
-            await new Promise((resolve) => setTimeout(resolve, 800)); // short delay for visual smooth transitions
+            await new Promise((resolve) => setTimeout(resolve, 800));
 
             const items: ScannedItem[] = processRes.data.items || [];
             setScannedItems(items);
             setLowConfidenceWarning(processRes.data.low_confidence || false);
 
-            // AUTO MODE BEHAVIOR:
-            // If Auto Mode is checked AND there are no low confidence items, we can auto-submit.
-            // But per instructions: "Auto Mode: Automatically process OCR -> stock-in after confirmation"
-            // So we still show the confirmation screen, but the review is bypassed or pre-approved.
             setMode('review');
             toast.success('Receipt processed successfully!');
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
             setMode('upload');
-            const msg = err.response?.data?.message || err.message || 'OCR processing failed.';
+            const msg = axios.isAxiosError(err) ? (err.response?.data?.message || err.message) : (err instanceof Error ? err.message : 'OCR processing failed.');
             toast.error(msg);
         }
     };
 
-    // Confirm and execute stock-in
     const handleConfirmStockIn = async () => {
-        // Validate matching ingredients
         const invalidItem = scannedItems.find(item => !item.suggested_match_id);
         if (invalidItem) {
             toast.error(`Please match "${invalidItem.item_name}" to a valid database product.`);
@@ -195,7 +185,7 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                 type: 'ingredient',
                 quantity: item.detected_qty,
                 unit: item.detected_unit,
-                purchase_price: 0 // receipt price can be logged if needed
+                purchase_price: 0
             }))
         };
 
@@ -208,15 +198,15 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
             } else {
                 toast.error(res.data.message || 'Stock-in failed');
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
-            toast.error(err.response?.data?.message || 'Inventory stock-in failed.');
+            const msg = axios.isAxiosError(err) ? (err.response?.data?.message || err.message) : 'Inventory stock-in failed.';
+            toast.error(msg);
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Row updates (item name match, quantity, unit)
     const handleUpdateRowMatch = (idx: number, ingredientId: number) => {
         const selectedIng = inventory.find(ing => ing.id === ingredientId);
         const newItems = [...scannedItems];
@@ -224,7 +214,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
         newItems[idx].suggested_match_name = selectedIng ? selectedIng.name : 'Unknown';
         newItems[idx].needs_review = false;
 
-        // Recalculate if there are remaining low confidence items
         const hasLowConf = newItems.some(i => i.needs_review || !i.suggested_match_id);
         setLowConfidenceWarning(hasLowConf);
         setScannedItems(newItems);
@@ -252,8 +241,7 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[700px] max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-3xl border-none shadow-2xl z-[100]">
-                {/* Header */}
+            <DialogContent className="sm:max-w-175 max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-3xl border-none shadow-2xl z-100">
                 <DialogHeader className="bg-primary/5 p-6 border-b shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -266,7 +254,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                             </div>
                         </div>
 
-                        {/* Mode selectors */}
                         <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
                             <Button
                                 type="button"
@@ -296,21 +283,18 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                     </div>
                 </DialogHeader>
 
-                {/* Upload Mode */}
                 {mode === 'upload' && (
                     <div className="p-6 space-y-6 flex-1 overflow-y-auto">
                         <div className="grid grid-cols-2 gap-4">
-                            {/* Drag & Drop Upload Card */}
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/[0.02] transition-all rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer min-h-[200px]"
+                                className="border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/2 transition-all rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer min-h-50"
                             >
                                 <input
                                     type="file"
                                     ref={fileInputRef}
                                     onChange={(e) => {
                                         if (e.target.files?.[0]) handleFileChange(e.target.files[0]);
-                                        // Reset so re-selecting the same file fires onChange again
                                         e.target.value = '';
                                     }}
                                     accept="image/*,application/pdf"
@@ -323,17 +307,15 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                                 <span className="text-[10px] text-muted-foreground mt-1">Supports PNG, JPG, PDF (Max 10MB)</span>
                             </div>
 
-                            {/* Camera Capture Card */}
                             <div
                                 onClick={() => cameraInputRef.current?.click()}
-                                className="border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/[0.02] transition-all rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer min-h-[200px]"
+                                className="border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/2 transition-all rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer min-h-50"
                             >
                                 <input
                                     type="file"
                                     ref={cameraInputRef}
                                     onChange={(e) => {
                                         if (e.target.files?.[0]) handleFileChange(e.target.files[0]);
-                                        // Reset so re-capturing fires onChange again
                                         e.target.value = '';
                                     }}
                                     accept="image/*"
@@ -348,7 +330,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                             </div>
                         </div>
 
-                        {/* File Preview */}
                         {file && (
                             <div className="p-4 bg-muted/40 rounded-2xl border flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -358,7 +339,7 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                                         <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><FiFileText className="size-6" /></div>
                                     )}
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold truncate max-w-[250px]">{file.name}</span>
+                                        <span className="text-xs font-bold truncate max-w-62.5">{file.name}</span>
                                         <span className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
                                     </div>
                                 </div>
@@ -371,7 +352,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                     </div>
                 )}
 
-                {/* Processing Mode */}
                 {mode === 'processing' && (
                     <div className="p-10 flex flex-col items-center justify-center text-center space-y-6 flex-1">
                         <div className="relative size-16">
@@ -383,7 +363,7 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                                 {processingStage === 'ocr' && 'Extracting text using OCR...'}
                                 {processingStage === 'matching' && 'Matching items to inventory...'}
                             </p>
-                            <p className="text-xs text-muted-foreground max-w-[300px]">
+                            <p className="text-xs text-muted-foreground max-w-75">
                                 {processingStage === 'uploading' && 'Sending the receipt securely to the server.'}
                                 {processingStage === 'ocr' && 'Converting image pixels to readable text blocks.'}
                                 {processingStage === 'matching' && 'Aligning ingredients with Capstone records.'}
@@ -392,11 +372,9 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                     </div>
                 )}
 
-                {/* Review Mode */}
                 {mode === 'review' && (
                     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                         <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-                            {/* Low Confidence Banner */}
                             {lowConfidenceWarning && (
                                 <Alert variant="destructive" className="bg-amber-500/5 border-amber-500/20 text-amber-600 rounded-2xl">
                                     <FiAlertTriangle className="size-4 text-amber-500" />
@@ -427,7 +405,7 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                                         <tbody className="divide-y divide-border/60">
                                             {scannedItems.map((item, idx) => (
                                                 <tr key={idx} className="hover:bg-muted/10 text-xs">
-                                                    <td className="p-3 pl-4 font-bold text-muted-foreground max-w-[150px] truncate" title={item.item_name}>
+                                                    <td className="p-3 pl-4 font-bold text-muted-foreground max-w-37.5 truncate" title={item.item_name}>
                                                         {item.item_name}
                                                     </td>
                                                     <td className="p-3">
@@ -436,11 +414,11 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                                                             onChange={(e) => handleUpdateRowMatch(idx, Number(e.target.value))}
                                                             className={cn(
                                                                 "h-9 px-2 bg-muted/40 border-none ring-1 ring-border/50 text-xs font-bold uppercase rounded-lg w-full transition-all focus:ring-primary/50",
-                                                                !item.suggested_match_id ? "ring-rose-500/50 bg-rose-500/[0.03] text-rose-600" : "text-foreground"
+                                                                !item.suggested_match_id ? "ring-rose-500/50 bg-rose-500/3 text-rose-600" : "text-foreground"
                                                             )}
                                                         >
                                                             <option value="" disabled className="text-muted-foreground">-- Select Match --</option>
-                                                            {uniqueIngredients.map((ing: any) => (
+                                                            {uniqueIngredients.map((ing) => (
                                                                 <option key={ing.id} value={ing.id}>{ing.name}</option>
                                                             ))}
                                                         </select>
@@ -472,9 +450,9 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                                                             variant="outline"
                                                             className={cn(
                                                                 "text-[9px] font-black uppercase py-0.5",
-                                                                item.confidence >= 80 ? "border-emerald-500/20 text-emerald-600 bg-emerald-500/[0.02]" :
-                                                                item.confidence >= 50 ? "border-amber-500/20 text-amber-600 bg-amber-500/[0.02]" :
-                                                                "border-rose-500/20 text-rose-600 bg-rose-500/[0.02]"
+                                                                item.confidence >= 80 ? "border-emerald-500/20 text-emerald-600 bg-emerald-500/2" :
+                                                                item.confidence >= 50 ? "border-amber-500/20 text-amber-600 bg-amber-500/2" :
+                                                                "border-rose-500/20 text-rose-600 bg-rose-500/2"
                                                             )}
                                                         >
                                                             {item.confidence}%
@@ -498,18 +476,15 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                             )}
                         </div>
 
-                        {/* Footer Review Mode */}
                         <DialogFooter className="p-6 bg-muted/20 border-t shrink-0">
                             <div className="flex gap-3 justify-end w-full">
                                 <Button
                                     variant="outline"
                                     onClick={() => {
-                                        // Fully clear previous scan data before re-upload
                                         resetScanState();
                                         setFile(null);
                                         if (previewUrl) URL.revokeObjectURL(previewUrl);
                                         setPreviewUrl(null);
-                                        // Reset file inputs so the same file can be re-selected
                                         if (fileInputRef.current) fileInputRef.current.value = '';
                                         if (cameraInputRef.current) cameraInputRef.current.value = '';
                                         setMode('upload');
@@ -531,7 +506,6 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                     </div>
                 )}
 
-                {/* Success Mode */}
                 {mode === 'success' && (
                     <div className="p-10 flex flex-col items-center justify-center text-center space-y-6 flex-1">
                         <div className="size-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
@@ -539,7 +513,7 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
                         </div>
                         <div className="space-y-2">
                             <p className="text-base font-bold uppercase tracking-tight">Stock-in Completed!</p>
-                            <p className="text-xs text-muted-foreground max-w-[280px]">
+                            <p className="text-xs text-muted-foreground max-w-70">
                                 The scanned items have been matched and restocked in the branch inventory.
                             </p>
                         </div>

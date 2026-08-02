@@ -137,7 +137,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/Admin/DeliveryController.php:172
  * @route '/deliveries/{delivery}/status'
  */
-export const updateStatus = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+export const updateStatus = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: updateStatus.url(args, options),
     method: 'put',
 })
@@ -152,7 +152,7 @@ updateStatus.definition = {
  * @see app/Http/Controllers/Admin/DeliveryController.php:172
  * @route '/deliveries/{delivery}/status'
  */
-updateStatus.url = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+updateStatus.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { delivery: args }
     }
@@ -185,7 +185,7 @@ updateStatus.url = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:172
  * @route '/deliveries/{delivery}/status'
  */
-updateStatus.put = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+updateStatus.put = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: updateStatus.url(args, options),
     method: 'put',
 })
@@ -195,7 +195,7 @@ updateStatus.put = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:172
  * @route '/deliveries/{delivery}/status'
  */
-    const updateStatusForm = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const updateStatusForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: updateStatus.url(args, {
                     [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                         _method: 'PUT',
@@ -210,7 +210,7 @@ updateStatus.put = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:172
  * @route '/deliveries/{delivery}/status'
  */
-        updateStatusForm.put = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        updateStatusForm.put = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: updateStatus.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'PUT',
@@ -226,7 +226,7 @@ updateStatus.put = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:185
  * @route '/deliveries/{delivery}/cancel'
  */
-export const cancel = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const cancel = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: cancel.url(args, options),
     method: 'post',
 })
@@ -241,7 +241,7 @@ cancel.definition = {
  * @see app/Http/Controllers/Admin/DeliveryController.php:185
  * @route '/deliveries/{delivery}/cancel'
  */
-cancel.url = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+cancel.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { delivery: args }
     }
@@ -274,7 +274,7 @@ cancel.url = (args: { delivery: string | number | { id: string | number } } | [d
  * @see app/Http/Controllers/Admin/DeliveryController.php:185
  * @route '/deliveries/{delivery}/cancel'
  */
-cancel.post = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+cancel.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: cancel.url(args, options),
     method: 'post',
 })
@@ -284,7 +284,7 @@ cancel.post = (args: { delivery: string | number | { id: string | number } } | [
  * @see app/Http/Controllers/Admin/DeliveryController.php:185
  * @route '/deliveries/{delivery}/cancel'
  */
-    const cancelForm = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const cancelForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: cancel.url(args, options),
         method: 'post',
     })
@@ -294,7 +294,7 @@ cancel.post = (args: { delivery: string | number | { id: string | number } } | [
  * @see app/Http/Controllers/Admin/DeliveryController.php:185
  * @route '/deliveries/{delivery}/cancel'
  */
-        cancelForm.post = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        cancelForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: cancel.url(args, options),
             method: 'post',
         })
@@ -305,7 +305,7 @@ cancel.post = (args: { delivery: string | number | { id: string | number } } | [
  * @see app/Http/Controllers/Admin/DeliveryController.php:123
  * @route '/deliveries/{delivery}/assign-rider'
  */
-export const assignRider = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const assignRider = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: assignRider.url(args, options),
     method: 'post',
 })
@@ -320,7 +320,7 @@ assignRider.definition = {
  * @see app/Http/Controllers/Admin/DeliveryController.php:123
  * @route '/deliveries/{delivery}/assign-rider'
  */
-assignRider.url = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+assignRider.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { delivery: args }
     }
@@ -353,7 +353,7 @@ assignRider.url = (args: { delivery: string | number | { id: string | number } }
  * @see app/Http/Controllers/Admin/DeliveryController.php:123
  * @route '/deliveries/{delivery}/assign-rider'
  */
-assignRider.post = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+assignRider.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: assignRider.url(args, options),
     method: 'post',
 })
@@ -363,7 +363,7 @@ assignRider.post = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:123
  * @route '/deliveries/{delivery}/assign-rider'
  */
-    const assignRiderForm = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const assignRiderForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: assignRider.url(args, options),
         method: 'post',
     })
@@ -373,7 +373,7 @@ assignRider.post = (args: { delivery: string | number | { id: string | number } 
  * @see app/Http/Controllers/Admin/DeliveryController.php:123
  * @route '/deliveries/{delivery}/assign-rider'
  */
-        assignRiderForm.post = (args: { delivery: string | number | { id: string | number } } | [delivery: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        assignRiderForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: assignRider.url(args, options),
             method: 'post',
         })

@@ -1,32 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useState, useEffect } from 'react';
+import { FiAlertTriangle, FiTrash2, FiRefreshCw, FiEdit2 } from 'react-icons/fi';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogDescription,
-    DialogFooter
+    DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
 import { getOfflineQueue, addToOfflineQueue, removeFromOfflineQueue } from '@/lib/offline-db';
-import { FiAlertTriangle, FiTrash2, FiRefreshCw, FiEdit2 } from 'react-icons/fi';
-import axios from 'axios';
+
+interface SyncConflict {
+    client_op_id: string;
+    type: string;
+    message: string;
+    payload?: {
+        quantity?: number;
+        items?: Array<{ id: number | string; quantity: number }>;
+        [key: string]: unknown;
+    };
+}
 
 export function ConflictResolutionModal() {
     const [open, setOpen] = useState(false);
-    const [conflicts, setConflicts] = useState<any[]>([]);
+    const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const [editQty, setEditQty] = useState('');
     const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
-        const handleSyncConflicts = (e: any) => {
-            const list = e.detail?.conflicts || [];
+        const handleSyncConflicts = (e: Event) => {
+            const customEvent = e as CustomEvent<{ conflicts?: SyncConflict[] }>;
+            const list = customEvent.detail?.conflicts || [];
             if (list.length > 0) {
                 setConflicts(list);
                 setActiveIndex(0);
+                setIsEditing(false);
                 setOpen(true);
             }
         };
@@ -37,27 +51,26 @@ export function ConflictResolutionModal() {
 
     const activeConflict = conflicts[activeIndex];
 
-    useEffect(() => {
+    const startEditing = () => {
         if (activeConflict) {
-            setIsEditing(false);
             if (activeConflict.type === 'SALE' && activeConflict.payload?.items?.[0]) {
                 setEditQty(String(activeConflict.payload.items[0].quantity));
-            } else if (activeConflict.type === 'INVENTORY_UPDATE' && activeConflict.payload) {
+            } else if ((activeConflict.type === 'INVENTORY_UPDATE' || activeConflict.type === 'RESTOCK') && activeConflict.payload?.quantity !== undefined) {
                 setEditQty(String(activeConflict.payload.quantity));
-            } else if (activeConflict.type === 'RESTOCK' && activeConflict.payload) {
-                setEditQty(String(activeConflict.payload.quantity));
+            } else {
+                setEditQty('');
             }
         }
-    }, [activeConflict, activeIndex]);
+        setIsEditing(true);
+    };
 
     const handleKeepServer = async () => {
         if (!activeConflict) return;
         try {
-            // Remove from offline queue
             await removeFromOfflineQueue(activeConflict.client_op_id);
             toast.success('Local transaction discarded. Server state preserved.');
             nextOrClose();
-        } catch (err) {
+        } catch {
             toast.error('Failed to resolve conflict.');
         }
     };
@@ -66,13 +79,10 @@ export function ConflictResolutionModal() {
         if (!activeConflict) return;
         try {
             toast.loading('Applying local overrides...');
-            // For override, we tell the sync API to force it
-            // We append a "force" flag to the payload, save it back, and trigger a sync retry
             const queue = await getOfflineQueue();
             const matchingOp = queue.find(op => op.id === activeConflict.client_op_id);
             if (matchingOp) {
                 matchingOp.payload.force = true;
-                // Save it back as unsynced
                 await removeFromOfflineQueue(activeConflict.client_op_id);
                 await addToOfflineQueue({
                     id: matchingOp.id,
@@ -80,7 +90,6 @@ export function ConflictResolutionModal() {
                     payload: matchingOp.payload
                 });
                 
-                // Retry sync for this item immediately
                 const response = await axios.post('/api/sync', { operations: [matchingOp] });
                 const { synced } = response.data;
                 
@@ -94,7 +103,7 @@ export function ConflictResolutionModal() {
                 }
             }
             nextOrClose();
-        } catch (err) {
+        } catch {
             toast.dismiss();
             toast.error('Override attempt failed.');
         }
@@ -112,7 +121,6 @@ export function ConflictResolutionModal() {
             const queue = await getOfflineQueue();
             const matchingOp = queue.find(op => op.id === activeConflict.client_op_id);
             if (matchingOp) {
-                // Modify quantity inside payload
                 if (matchingOp.type === 'SALE' && matchingOp.payload.items?.[0]) {
                     matchingOp.payload.items[0].quantity = qty;
                 } else if (matchingOp.type === 'INVENTORY_UPDATE' && matchingOp.payload) {
@@ -121,7 +129,6 @@ export function ConflictResolutionModal() {
                     matchingOp.payload.quantity = qty;
                 }
 
-                // Remove previous conflict and save edited back to IndexedDB
                 await removeFromOfflineQueue(matchingOp.id);
                 await addToOfflineQueue({
                     id: matchingOp.id,
@@ -132,12 +139,13 @@ export function ConflictResolutionModal() {
                 toast.success('Transaction updated. Auto-sync will retry shortly.');
             }
             nextOrClose();
-        } catch (err) {
+        } catch {
             toast.error('Merge failed.');
         }
     };
 
     const nextOrClose = () => {
+        setIsEditing(false);
         if (activeIndex < conflicts.length - 1) {
             setActiveIndex(prev => prev + 1);
         } else {
@@ -150,7 +158,7 @@ export function ConflictResolutionModal() {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[480px] overflow-hidden rounded-[1.5rem] p-0 z-[120]">
+            <DialogContent className="sm:max-w-120 overflow-hidden rounded-3xl p-0 z-120">
                 <DialogHeader className="bg-amber-500/10 p-6 pb-4 border-b border-amber-500/20">
                     <DialogTitle className="text-xl font-bold uppercase tracking-tight flex items-center gap-2 text-amber-600">
                         <FiAlertTriangle className="size-5" />
@@ -205,7 +213,7 @@ export function ConflictResolutionModal() {
 
                 <DialogFooter className="bg-muted/30 p-6 border-t flex flex-col sm:flex-row gap-2">
                     {!isEditing && (
-                        <Button variant="outline" onClick={() => setIsEditing(true)} className="rounded-xl h-11 font-bold gap-2">
+                        <Button variant="outline" onClick={startEditing} className="rounded-xl h-11 font-bold gap-2">
                             <FiEdit2 className="size-4" />
                             Merge / Edit
                         </Button>

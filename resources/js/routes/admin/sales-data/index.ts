@@ -193,7 +193,7 @@ importMethod.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
  * @route '/admin/sales-data/restore/{backup}'
  */
-export const restore = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const restore = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: restore.url(args, options),
     method: 'post',
 })
@@ -208,7 +208,7 @@ restore.definition = {
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
  * @route '/admin/sales-data/restore/{backup}'
  */
-restore.url = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+restore.url = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { backup: args }
     }
@@ -241,7 +241,7 @@ restore.url = (args: { backup: string | number | { id: string | number } } | [ba
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
  * @route '/admin/sales-data/restore/{backup}'
  */
-restore.post = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+restore.post = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: restore.url(args, options),
     method: 'post',
 })
@@ -251,7 +251,7 @@ restore.post = (args: { backup: string | number | { id: string | number } } | [b
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
  * @route '/admin/sales-data/restore/{backup}'
  */
-    const restoreForm = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const restoreForm = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: restore.url(args, options),
         method: 'post',
     })
@@ -261,7 +261,7 @@ restore.post = (args: { backup: string | number | { id: string | number } } | [b
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
  * @route '/admin/sales-data/restore/{backup}'
  */
-        restoreForm.post = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        restoreForm.post = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: restore.url(args, options),
             method: 'post',
         })

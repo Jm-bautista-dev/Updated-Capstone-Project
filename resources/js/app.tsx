@@ -3,6 +3,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../css/app.css';
+import { SakuraLoader } from './components/sakura-loader';
 import { initializeTheme } from './hooks/use-appearance';
 import './echo';
 
@@ -10,16 +11,23 @@ const appName = import.meta.env.VITE_APP_NAME || 'Maki Desu';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    resolve: (name) =>
-        resolvePageComponent(
-            `./pages/${name}.tsx`,
-            import.meta.glob('./pages/**/*.tsx'),
-        ),
+    resolve: (name) => {
+        const pages = import.meta.glob('./pages/**/*.tsx');
+        const key = `./pages/${name}.tsx`;
+        if (pages[key]) {
+            return resolvePageComponent(key, pages);
+        }
+        const matchedKey = Object.keys(pages).find(
+            (k) => k.toLowerCase() === key.toLowerCase()
+        );
+        return resolvePageComponent(matchedKey || key, pages);
+    },
     setup({ el, App, props }) {
         const root = createRoot(el);
 
         root.render(
             <StrictMode>
+                <SakuraLoader />
                 <App {...props} />
             </StrictMode>,
         );

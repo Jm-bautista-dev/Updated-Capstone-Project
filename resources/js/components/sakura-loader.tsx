@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
+import React, { useEffect, useState } from 'react';
 
 export const SakuraLoader = () => {
     const [isVisible, setIsVisible] = useState(false);
@@ -32,7 +32,7 @@ export const SakuraLoader = () => {
 
     return (
         <div 
-            className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm transition-opacity duration-500 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+            className={`fixed inset-0 z-9999 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm transition-opacity duration-500 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`}
         >
             <div className="relative size-48">
                 {/* Swirling Petals Container */}

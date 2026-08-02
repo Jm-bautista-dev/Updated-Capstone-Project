@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
  * @route '/admin/sales-data/backup/{backup}'
  */
-export const destroy = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -19,7 +19,7 @@ destroy.definition = {
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
  * @route '/admin/sales-data/backup/{backup}'
  */
-destroy.url = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { backup: args }
     }
@@ -52,7 +52,7 @@ destroy.url = (args: { backup: string | number | { id: string | number } } | [ba
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
  * @route '/admin/sales-data/backup/{backup}'
  */
-destroy.delete = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -62,7 +62,7 @@ destroy.delete = (args: { backup: string | number | { id: string | number } } | 
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
  * @route '/admin/sales-data/backup/{backup}'
  */
-    const destroyForm = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+    const destroyForm = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
         action: destroy.url(args, {
                     [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                         _method: 'DELETE',
@@ -77,7 +77,7 @@ destroy.delete = (args: { backup: string | number | { id: string | number } } | 
  * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
  * @route '/admin/sales-data/backup/{backup}'
  */
-        destroyForm.delete = (args: { backup: string | number | { id: string | number } } | [backup: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        destroyForm.delete = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
             action: destroy.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'DELETE',
