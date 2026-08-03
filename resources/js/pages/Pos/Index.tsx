@@ -50,11 +50,14 @@ interface ActiveShift {
   id: number;
   opening_balance: number;
   opened_at: string;
+  expected_balance?: number;
+  total_cash_sales?: number;
 }
 
 interface BranchInfo {
   id: number;
   name: string;
+  address?: string;
   base_delivery_fee?: string | number;
   per_km_fee?: string | number;
 }
@@ -75,7 +78,7 @@ export default function PosIndex() {
  useEffect(() => {
  // Refresh on window focus (Ensures data is fresh when switching back to this tab)
  const handleFocus = () => {
- router.reload({ only: ['products', 'categories'], preserveScroll: true, preserveState: true });
+ router.reload({ only: ['products', 'categories'] });
  };
 
  window.addEventListener('focus', handleFocus);
@@ -179,14 +182,17 @@ export default function PosIndex() {
  external_notes: '',
  });
  const [proofFile, setProofFile] = useState<File | null>(null);
- const [deliveryRecommendation, setDeliveryRecommendation] = useState<any>(null);
+ const [deliveryRecommendation, setDeliveryRecommendation] = useState<string | null>(null);
  const [recommendationLoading, setRecommendationLoading] = useState<boolean>(false);
+ // Suppress unused-variable lint — these are set by the delivery useEffect below
+ void deliveryRecommendation;
+ void recommendationLoading;
 
  const deliveryFee = useMemo(() => {
  if (orderType !== 'delivery') return 0;
  const distance = parseFloat(String(deliveryInfo.distance_km)) || 0;
- const base = parseFloat(branch?.base_delivery_fee) || 49;
- const perKm = parseFloat(branch?.per_km_fee) || 15;
+ const base = parseFloat(String(branch?.base_delivery_fee ?? 49)) || 49;
+ const perKm = parseFloat(String(branch?.per_km_fee ?? 15)) || 15;
  const freeKm = 2.0;
 
  if (distance === 0) return 0;
@@ -476,7 +482,7 @@ export default function PosIndex() {
    <div className="flex items-center gap-2 mr-4 bg-muted/50 p-1.5 rounded-2xl border border-border/50">
      <div className="px-3 py-1 flex flex-col items-end">
        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80">Shift Cash</span>
-       <span className="text-sm font-black text-primary">{formatCurrency(activeShift.expected_balance)}</span>
+       <span className="text-sm font-black text-primary">{formatCurrency(activeShift.expected_balance || 0)}</span>
      </div>
      <Button 
        variant="outline" 
@@ -846,14 +852,14 @@ export default function PosIndex() {
  <FiCheckCircle className="size-8 text-green-500" />
  </motion.div>
  <DialogTitle className="text-2xl font-black">Order Saved!</DialogTitle>
- <DialogDescription>Receipt for #{lastSale?.order_number} is ready</DialogDescription>
+ <DialogDescription>Receipt for #{String(lastSale?.order_number || '')} is ready</DialogDescription>
  </div>
 
  {/* Receipt Preview Area */}
  <div className="bg-white text-black p-6 rounded-xl border-t-4 border-primary shadow-sm space-y-4 font-mono text-xs">
  <div className="text-center border-b pb-4 space-y-1">
  <h3 className="font-bold text-lg uppercase tracking-tight">{branch?.name || 'Maki Desu'}</h3>
- <p className="text-muted-foreground text-[10px]">{branch?.address || 'Restaurant POS System'}</p>
+ <p className="text-muted-foreground text-[10px]">{(branch?.address as string | undefined) || 'Restaurant POS System'}</p>
  </div>
 
  <div className="flex justify-between">
@@ -883,21 +889,21 @@ export default function PosIndex() {
  <div className="space-y-1 text-sm border-b pb-4">
  <div className="flex justify-between font-black">
  <span>TOTAL</span>
- <span>{formatCurrency(lastSale?.total || 0)}</span>
+ <span>{formatCurrency(Number(lastSale?.total) || 0)}</span>
  </div>
  <div className="flex justify-between text-xs pt-2">
- <span className="capitalize">{lastSale?.payment_method} Received</span>
- <span>{formatCurrency(lastSale?.paid_amount || 0)}</span>
+ <span className="capitalize">{String(lastSale?.payment_method || '')} Received</span>
+ <span>{formatCurrency(Number(lastSale?.paid_amount) || 0)}</span>
  </div>
  <div className="flex justify-between text-xs font-bold">
  <span>CHANGE</span>
- <span>{formatCurrency(lastSale?.change_amount || 0)}</span>
+ <span>{formatCurrency(Number(lastSale?.change_amount) || 0)}</span>
  </div>
  </div>
 
  <div className="text-center pt-2 italic text-[10px] space-y-1">
  <p>Thank you for dining with us!</p>
- <p>Cashier: {lastSale?.cashier?.name || 'Staff'}</p>
+ <p>Cashier: {String((lastSale?.cashier as Record<string, unknown> | undefined)?.name || 'Staff')}</p>
  </div>
  </div>
 
