@@ -56,7 +56,7 @@ sendOtp.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     sendOtp.form = sendOtpForm
 /**
 * @see \App\Http\Controllers\Api\VerificationController::verifyOtp
- * @see app/Http/Controllers/Api/VerificationController.php:56
+ * @see app/Http/Controllers/Api/VerificationController.php:80
  * @route '/api/v1/verify-otp'
  */
 export const verifyOtp = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ verifyOtp.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\VerificationController::verifyOtp
- * @see app/Http/Controllers/Api/VerificationController.php:56
+ * @see app/Http/Controllers/Api/VerificationController.php:80
  * @route '/api/v1/verify-otp'
  */
 verifyOtp.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ verifyOtp.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\VerificationController::verifyOtp
- * @see app/Http/Controllers/Api/VerificationController.php:56
+ * @see app/Http/Controllers/Api/VerificationController.php:80
  * @route '/api/v1/verify-otp'
  */
 verifyOtp.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ verifyOtp.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\VerificationController::verifyOtp
- * @see app/Http/Controllers/Api/VerificationController.php:56
+ * @see app/Http/Controllers/Api/VerificationController.php:80
  * @route '/api/v1/verify-otp'
  */
     const verifyOtpForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -100,7 +100,7 @@ verifyOtp.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\VerificationController::verifyOtp
- * @see app/Http/Controllers/Api/VerificationController.php:56
+ * @see app/Http/Controllers/Api/VerificationController.php:80
  * @route '/api/v1/verify-otp'
  */
         verifyOtpForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

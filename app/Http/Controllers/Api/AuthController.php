@@ -9,12 +9,12 @@ use App\Models\EmailVerification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     /**
-     * Register a new mobile user.
+     * Register a new customer user.
      * POST /api/v1/register
      */
     public function register(Request $request): JsonResponse
@@ -23,19 +23,26 @@ class AuthController extends Controller
             'first_name'    => 'required|string|max:255',
             'last_name'     => 'required|string|max:255',
             'mobile_number' => 'required|string|max:20',
-            'email'         => 'required|email|unique:users,email',
+            'email'         => 'required|email|unique:users,email|max:255',
             'password'      => 'required|string|min:6',
         ]);
 
-        // Verify OTP
-        $verified = EmailVerification::where('email', $validated['email'])
+        $email = strtolower(trim($validated['email']));
+
+        // Verify OTP was completed for this exact email
+        $verified = EmailVerification::where('email', $email)
             ->where('is_verified', true)
             ->first();
 
         if (!$verified) {
+            Log::warning('[AUTH SYSTEM] Registration rejected - Unverified Email', [
+                'email' => $email,
+                'ip'    => $request->ip(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Email not verified. Please verify your OTP first.'
+                'message' => 'Email not verified. Please verify your OTP code first.'
             ], 403);
         }
 
@@ -44,9 +51,18 @@ class AuthController extends Controller
             'last_name'     => $validated['last_name'],
             'name'          => $validated['first_name'] . ' ' . $validated['last_name'],
             'mobile_number' => $validated['mobile_number'],
-            'email'         => $validated['email'],
+            'email'         => $email,
             'password'      => Hash::make($validated['password']),
             'role'          => User::ROLE_CUSTOMER,
+        ]);
+
+        // Clean up consumed email verification record
+        $verified->delete();
+
+        Log::info('[AUTH SYSTEM] Customer Registered Successfully', [
+            'user_id' => $user->id,
+            'email'   => $email,
+            'ip'      => $request->ip(),
         ]);
 
         $token = $user->createToken('mobile-app')->plainTextToken;
@@ -62,8 +78,6 @@ class AuthController extends Controller
     /**
      * Login an existing user (Mobile).
      * POST /api/v1/login
-     * 
-     * Handles both standard users and riders via the unified users table.
      */
     public function login(Request $request): JsonResponse
     {
@@ -72,41 +86,49 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        /** @var User $user */
-        $user = User::where('email', $request->email)->first();
+        $email = strtolower(trim($request->email));
 
-        // If not found in users, check riders table (fallback for backward compatibility if data exists)
+        /** @var User $user */
+        $user = User::where('email', $email)->first();
+
+        // Fallback for riders table compatibility
         if (!$user) {
             /** @var Rider $user */
-            $user = Rider::where('email', $request->email)->first();
+            $user = Rider::where('email', $email)->first();
         }
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            Log::warning('[AUTH SYSTEM] Failed Login Attempt', [
+                'email' => $email,
+                'ip'    => $request->ip(),
+            ]);
+
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Invalid credentials.',
             ], 401);
         }
 
-        // Check if account is active
         if (isset($user->is_active) && !$user->is_active) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Your account has been deactivated.',
             ], 403);
         }
 
-        // ONE TOKEN SYSTEM: Optional: Clear existing tokens for single session
-        // $user->tokens()->delete();
-
         $token = $user->createToken('mobile-token')->plainTextToken;
 
-        // Auto-set status for Riders on Login
         if ($user instanceof Rider || (isset($user->role) && $user->role === 'rider')) {
             if ($user instanceof Rider) {
                 $user->update(['status' => 'available', 'last_active_at' => now()]);
             }
         }
+
+        Log::info('[AUTH SYSTEM] Login Successful', [
+            'user_id' => $user->id,
+            'email'   => $email,
+            'role'    => $user->role ?? 'user',
+        ]);
 
         return response()->json([
             'status'               => 'success',
@@ -148,17 +170,14 @@ class AuthController extends Controller
     }
 
     /**
-     * Refresh the current token (revoke old and issue new).
+     * Refresh the current token.
      * POST /api/v1/token/refresh
      */
     public function refreshToken(Request $request): JsonResponse
     {
         $user = $request->user();
         
-        // Revoke the current token
         $user->currentAccessToken()->delete();
-
-        // Create a new one
         $token = $user->createToken('mobile-app')->plainTextToken;
 
         return response()->json([
@@ -169,34 +188,38 @@ class AuthController extends Controller
     }
 
     /**
-     * Reset user password.
+     * Reset user password via verified OTP.
      * POST /api/v1/reset-password
      */
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email'    => 'required|email|exists:users,email',
             'password' => 'required|string|min:6|confirmed',
         ]);
 
-        $verified = EmailVerification::where('email', $request->email)
+        $email = strtolower(trim($request->email));
+
+        $verified = EmailVerification::where('email', $email)
             ->where('is_verified', true)
             ->first();
 
         if (!$verified) {
             return response()->json([
                 'success' => false,
-                'message' => 'OTP not verified. Please verify your email first.'
+                'message' => 'OTP not verified. Please verify your email code first.'
             ], 403);
         }
 
-        User::where('email', $request->email)
+        User::where('email', $email)
             ->update([
                 'password' => Hash::make($request->password)
             ]);
 
         // Consume verification
         $verified->delete();
+
+        Log::info('[AUTH SYSTEM] Password Reset Successful', ['email' => $email]);
 
         return response()->json([
             'success' => true,
