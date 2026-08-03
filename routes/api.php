@@ -15,11 +15,15 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Api\DeliveryFeeController;
+use App\Http\Controllers\Api\TopPickController;
 
-// ─── External Operations API (Mobile App Entry) ──────────────────
+// Direct Top-Picks API endpoint
+Route::get('top-picks', [TopPickController::class, 'index']);
+
+// External Operations API (Mobile App Entry)
 Route::prefix('v1')->group(function () {
 
-    // ─── Public Routes (no auth required) ──────────────────
+    // Public Routes (no auth required)
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
     Route::post('rider/login', [AuthController::class, 'login']);
@@ -27,8 +31,9 @@ Route::prefix('v1')->group(function () {
     Route::post('verify-otp', [VerificationController::class, 'verifyOtp']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
-    // Public Data
-    Route::get('branches', [BranchController::class, 'apiIndex']);
+    // Public Data & Top Picks
+    Route::get('top-picks',      [TopPickController::class, 'index']);
+    Route::get('branches',       [BranchController::class, 'apiIndex']);
     Route::get('products',       [ProductController::class, 'index']);
     Route::get('categories',     [CategoryController::class, 'index']);
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
@@ -37,7 +42,7 @@ Route::prefix('v1')->group(function () {
     // Delivery
     Route::post('delivery/check-fee', [DeliveryFeeController::class, 'checkFee']);
 
-    // ─── Protected Routes (Multi-Auth Support) ──────────────────
+    // Protected Routes (Multi-Auth Support)
     Route::middleware('auth:sanctum')->group(function () {
         
         // Profile
@@ -45,7 +50,7 @@ Route::prefix('v1')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
-        // ─── Rider Module ──────────────────────────────────────────────
+        // Rider Module
         Route::prefix('rider')->group(function () {
             // First-login password change
             Route::post('change-password', [RiderController::class, 'changePassword']);
@@ -63,9 +68,7 @@ Route::prefix('v1')->group(function () {
             Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Active (assigned/picking/transit)
             Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done (paginated)
 
-            // ── STRICT WORKFLOW ENDPOINTS ──────────────────────────────
-            // Each endpoint handles exactly ONE state transition.
-            // This prevents race conditions and status skipping.
+            // STRICT WORKFLOW ENDPOINTS
             Route::post('orders/{id}/accept',  [RiderController::class, 'acceptOrder']);  // assigned_to_rider
             Route::post('orders/{id}/pickup',  [RiderController::class, 'pickupOrder']);  // picked_up
             Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']); // in_transit
@@ -89,7 +92,7 @@ Route::prefix('v1')->group(function () {
     });
 });
 
-// ─── Staff & Admin Offline & Barcode Sync Module ──────────────────
+// Staff & Admin Offline & Barcode Sync Module
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('transactions/sale', [App\Http\Controllers\Api\SyncApiController::class, 'storeSale']);
     Route::post('inventory/update', [App\Http\Controllers\Api\SyncApiController::class, 'updateInventory']);

@@ -165,6 +165,7 @@ class SaleService
 
             // 7. 🔥 BROADCAST: Sale registered in real-time
             broadcast(new SaleCreated($sale))->toOthers();
+            \App\Services\TopPickService::clearCache();
 
             // 7. ── DELIVERY (if applicable) ─────────────────────────────────────
             if (($data['type'] ?? 'dine-in') === 'delivery' && !empty($data['delivery_info'])) {

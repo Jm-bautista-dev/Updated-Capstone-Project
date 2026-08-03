@@ -1,3 +1,4 @@
+import TopPickController from './TopPickController'
 import AuthController from './AuthController'
 import VerificationController from './VerificationController'
 import ProductController from './ProductController'
@@ -11,7 +12,8 @@ import CartController from './CartController'
 import SyncApiController from './SyncApiController'
 import ReceiptController from './ReceiptController'
 const Api = {
-    AuthController: Object.assign(AuthController, AuthController),
+    TopPickController: Object.assign(TopPickController, TopPickController),
+AuthController: Object.assign(AuthController, AuthController),
 VerificationController: Object.assign(VerificationController, VerificationController),
 ProductController: Object.assign(ProductController, ProductController),
 CategoryController: Object.assign(CategoryController, CategoryController),
