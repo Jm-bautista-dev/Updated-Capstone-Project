@@ -330,7 +330,7 @@ export default function ProductsIndex() {
 
             <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-muted/20">
                 {/* Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b flex-shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b shrink-0">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Products</h1>
                         <p className="text-sm text-muted-foreground">Manage your product inventory and pricing.</p>
@@ -386,7 +386,7 @@ export default function ProductsIndex() {
                 {/* Content Area */}
                 <div className="flex-1 overflow-hidden p-4 sm:p-6 flex flex-col gap-6">
                     {/* Summary Row */}
-                    <div className="grid gap-4 md:grid-cols-3 flex-shrink-0">
+                    <div className="grid gap-4 md:grid-cols-3 shrink-0">
                         <Card className="bg-primary/5 border-primary/20 shadow-sm group">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Products</CardTitle>
@@ -422,7 +422,7 @@ export default function ProductsIndex() {
                     </div>
 
                     {/* Table Card */}
-                    <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 flex-shrink min-h-0">
+                    <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 shrink min-h-0">
                         <div className="flex-1 overflow-auto">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
@@ -544,10 +544,10 @@ export default function ProductsIndex() {
                                         setItemsPerPage(Number(val));
                                         setCurrentPage(1);
                                     }}>
-                                        <SelectTrigger className="w-[70px] h-8 rounded-lg border-none bg-background shadow-sm font-bold text-xs ring-1 ring-muted">
+                                        <SelectTrigger className="w-17.5 h-8 rounded-lg border-none bg-background shadow-sm font-bold text-xs ring-1 ring-muted">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-lg border-none shadow-2xl min-w-[70px]">
+                                        <SelectContent className="rounded-lg border-none shadow-2xl min-w-17.5">
                                             {[5, 10, 25, 50, 100].map(val => (
                                                 <SelectItem key={val} value={String(val)} className="text-xs">{val}</SelectItem>
                                             ))}
@@ -628,7 +628,7 @@ export default function ProductsIndex() {
 
             {/* Modals */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-125">
                     <DialogHeader>
                         <DialogTitle>Add New Product</DialogTitle>
                         <DialogDescription>
@@ -785,7 +785,7 @@ export default function ProductsIndex() {
                                     </Button>
                                 </div>
 
-                                <div className="space-y-3 max-h-[350px] overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
+                                <div className="space-y-3 max-h-87.5 overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
                                     {data.recipe.length === 0 && (
                                         <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
                                             <FiSlash className="size-8 text-destructive/30 mb-2" />
@@ -874,7 +874,7 @@ export default function ProductsIndex() {
 
             {/* Edit Product Modal (Synced for scalability) */}
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-[500px] rounded-[2rem]">
+                <DialogContent className="sm:max-w-125 rounded-4xl">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-black italic tracking-tighter">REVISE PRODUCT.</DialogTitle>
                         <DialogDescription className="font-medium">Modify existing product specifications and ingredients.</DialogDescription>
@@ -1000,7 +1000,7 @@ export default function ProductsIndex() {
                                     </Button>
                                 </div>
 
-                                <div className="space-y-3 max-h-[350px] overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
+                                <div className="space-y-3 max-h-87.5 overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
                                     {data.recipe.length === 0 && (
                                         <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
                                             <FiSlash className="size-8 text-destructive/30 mb-2" />

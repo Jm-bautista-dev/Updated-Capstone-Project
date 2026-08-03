@@ -489,7 +489,7 @@ export default function SalesDataManagementIndex() {
                           <FiFileText className="size-5 text-primary" />
                           <div>
                             <p className="font-bold text-foreground uppercase">{file?.name}</p>
-                            <p className="text-[9px] text-(--ops-text-muted) font-mono mt-0.5">{((file?.size || 0) / 1024).toFixed(1)} KB · CSV / Excel format</p>
+                            <p className="text-[9px] text-(--ops-text-muted) font-mono mt-0.5">{((file?.size || 0) / 1024).toFixed(1)} KB ï¿½ CSV / Excel format</p>
                           </div>
                         </div>
                         <Badge className="bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 font-black text-[8px] uppercase px-2 py-0.5 rounded-[6px]">Uploaded</Badge>
@@ -548,7 +548,7 @@ export default function SalesDataManagementIndex() {
                               <div key={idx} className="pt-1.5 flex flex-col gap-0.5">
                                 <span className="font-bold text-rose-500">Row {err.row}:</span>
                                 {err.errors.map((e: string, eIdx: number) => (
-                                  <span key={eIdx} className="pl-3">• {e}</span>
+                                  <span key={eIdx} className="pl-3">ï¿½ {e}</span>
                                 ))}
                               </div>
                             ))}
@@ -714,7 +714,7 @@ export default function SalesDataManagementIndex() {
                     <div>
                       <p className="font-bold text-foreground uppercase">{file?.name}</p>
                       <p className="text-[9px] text-(--ops-text-muted) uppercase font-bold mt-1">
-                        Mode: <span className="text-primary italic font-black">{importMode.replace('_', ' ')}</span> · Valid rows: {validationReport?.validRowsCount} / {validationReport?.totalRows}
+                        Mode: <span className="text-primary italic font-black">{importMode.replace('_', ' ')}</span> ï¿½ Valid rows: {validationReport?.validRowsCount} / {validationReport?.totalRows}
                       </p>
                     </div>
                     
@@ -890,7 +890,7 @@ export default function SalesDataManagementIndex() {
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-foreground truncate uppercase font-mono">{bk.backup_name}</p>
                         <p className="text-[9px] text-(--ops-text-muted) mt-1 uppercase font-bold">
-                          {format(new Date(bk.created_at), 'MMM dd, HH:mm')} · {bk.records_count.toLocaleString()} Records
+                          {format(new Date(bk.created_at), 'MMM dd, HH:mm')} ï¿½ {bk.records_count.toLocaleString()} Records
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -948,7 +948,7 @@ export default function SalesDataManagementIndex() {
                       importsHistory.map((hItem: ImportHistoryItem) => (
                         <tr key={hItem.id} className="hover:bg-(--ops-surface-sunken)/20 transition-colors">
                           <td className="px-5 py-3">
-                            <span className="font-bold text-foreground text-xs block truncate max-w-[200px]">{hItem.file_name}</span>
+                            <span className="font-bold text-foreground text-xs block truncate max-w-50">{hItem.file_name}</span>
                             <span className="text-[8px] text-(--ops-text-muted) font-bold uppercase mt-0.5">{format(new Date(hItem.created_at), 'yyyy-MM-dd HH:mm')}</span>
                           </td>
                           <td className="px-5 py-3 font-semibold text-(--ops-text-secondary)">{hItem.user?.name || 'System'}</td>
@@ -958,7 +958,7 @@ export default function SalesDataManagementIndex() {
                             </Badge>
                           </td>
                           <td className="px-5 py-3 text-right font-mono text-[9px] text-(--ops-text-secondary) leading-normal">
-                            <span className="text-emerald-500">+{hItem.records_imported}</span> · <span className="text-amber-500">*{hItem.records_updated}</span> · <span className="text-(--ops-text-muted)">#{hItem.records_skipped}</span>
+                            <span className="text-emerald-500">+{hItem.records_imported}</span> ï¿½ <span className="text-amber-500">*{hItem.records_updated}</span> ï¿½ <span className="text-(--ops-text-muted)">#{hItem.records_skipped}</span>
                           </td>
                           <td className="px-5 py-3 text-center">
                             <Badge className={cn(
