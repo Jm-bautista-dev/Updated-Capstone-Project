@@ -32,9 +32,14 @@ class RoleMiddleware
         }
 
         if (!$user || !in_array($userRole, $roles)) {
-            // If it's an Inertia request, redirect or abort, otherwise return JSON
+            // If it's an Inertia request, redirect to their role's home page
             if ($request->header('X-Inertia')) {
-                abort(403, 'Unauthorized: Access restricted.');
+                $target = match($userRole) {
+                    'admin' => '/dashboard',
+                    'cashier' => '/pos',
+                    default => '/menu',
+                };
+                return redirect($target);
             }
             return response()->json([
                 'status' => 'error',

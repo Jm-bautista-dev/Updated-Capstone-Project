@@ -17,16 +17,22 @@ class LoginResponse implements LoginResponseContract
                 : redirect('/change-password');
         }
 
-        // Cashiers always go to POS — never use session's url.intended
+        // Redirect based on role
+        if ($user->role === 'admin') {
+            return $request->wantsJson()
+                ? response()->json(['two_factor' => false])
+                : redirect()->intended('/dashboard');
+        }
+
         if ($user->role === 'cashier') {
             return $request->wantsJson()
                 ? response()->json(['two_factor' => false])
-                : redirect('/pos');
+                : redirect()->intended('/pos');
         }
 
-        // Admins go to url.intended if set, otherwise dashboard
+        // Customers or other roles go to menu / home page
         return $request->wantsJson()
             ? response()->json(['two_factor' => false])
-            : redirect()->intended('/dashboard');
+            : redirect()->intended('/menu');
     }
 }
