@@ -179,6 +179,8 @@ export default function PosIndex() {
  external_notes: '',
  });
  const [proofFile, setProofFile] = useState<File | null>(null);
+ const [deliveryRecommendation, setDeliveryRecommendation] = useState<any>(null);
+ const [recommendationLoading, setRecommendationLoading] = useState<boolean>(false);
 
  const deliveryFee = useMemo(() => {
  if (orderType !== 'delivery') return 0;
