@@ -1,15 +1,19 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { 
-    Plus, Edit2, Trash2, User, Mail, Search, MoreVertical, Shield, Briefcase,
+    User, Mail, 
     Lock, CheckCircle2, Copy, AlertCircle, Eye, EyeOff
 } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 
+import { EmployeeDrawer } from '@/components/employees/EmployeeDrawer';
+import { EmployeeFilterToolbar } from '@/components/employees/EmployeeFilterToolbar';
+import { EmployeeGrid } from '@/components/employees/EmployeeGrid';
+import { EmployeesHero } from '@/components/employees/EmployeesHero';
+import { EmployeeTable, type Employee } from '@/components/employees/EmployeeTable';
+import { type ViewMode } from '@/components/products/ViewSwitcher';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -18,25 +22,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-
-interface Employee {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    branch_id?: number | string | null;
-    branch?: { id: number; name: string } | null;
-}
 
 interface EmployeeCreds {
     name?: string;
@@ -62,9 +51,16 @@ interface Props {
 
 export default function EmployeeIndex({ employees, branches }: Props) {
     const { props } = usePage<PageProps>();
+    const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterRole, setFilterRole] = useState('');
+    const [filterBranchId, setFilterBranchId] = useState('');
+
+    // Detail drawer state
+    const [selectedEmployeeForDrawer, setSelectedEmployeeForDrawer] = useState<Employee | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     // Confirmation States
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -148,11 +144,15 @@ export default function EmployeeIndex({ employees, branches }: Props) {
     };
 
     const filteredEmployees = useMemo(() => {
-        return employees.filter((e: Employee) =>
-            e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            e.email.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [employees, searchTerm]);
+        return employees.filter((e: Employee) => {
+            const matchesSearch =
+                e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                e.email.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesRole = !filterRole || filterRole === 'all' || e.role?.toLowerCase() === filterRole.toLowerCase();
+            const matchesBranch = !filterBranchId || filterBranchId === 'all' || String(e.branch_id) === String(filterBranchId);
+            return matchesSearch && matchesRole && matchesBranch;
+        });
+    }, [employees, searchTerm, filterRole, filterBranchId]);
 
     const openCreateModal = () => {
         setEditingEmployee(null);
@@ -175,6 +175,11 @@ export default function EmployeeIndex({ employees, branches }: Props) {
         setIsModalOpen(true);
         setLocalErrors({});
         setPasswordStrength(null);
+    };
+
+    const openEmployeeDrawer = (employee: Employee) => {
+        setSelectedEmployeeForDrawer(employee);
+        setIsDrawerOpen(true);
     };
 
     const handleModalChange = (open: boolean) => {
@@ -243,156 +248,79 @@ export default function EmployeeIndex({ employees, branches }: Props) {
         }
     };
 
-
-
     return (
         <AppLayout breadcrumbs={[{ title: 'Employees', href: '/employees' }]}>
             <Head title="Employee Management" />
 
-            <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-                {/* Header Section */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-background dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-border/40 dark:border-zinc-800">
-                    <div>
-                        <h1 className="text-2xl font-black italic tracking-tighter text-foreground dark:text-white">EMPLOYEE MGMT.</h1>
-                        <p className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-widest mt-1">Configure staff access and branch assignments</p>
-                    </div>
-                    <Button onClick={openCreateModal} className="rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 gap-2 active:scale-95 transition-all">
-                        <Plus className="size-4" /> Add New Member
-                    </Button>
-                </div>
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-['Outfit'] transition-colors duration-300">
+                {/* Hero Header & Summary Cards */}
+                <EmployeesHero employees={employees} onOpenAddModal={openCreateModal} />
 
-                {/* Main Content Area */}
-                <Card className="border-none shadow-xl shadow-black/5 bg-card dark:bg-zinc-900/50 backdrop-blur-md overflow-hidden rounded-2xl ring-1 ring-black/2 dark:ring-white/5">
-                    <div className="p-6 border-b border-border/40 dark:border-zinc-800 bg-muted/20 dark:bg-zinc-800/30 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="relative w-full sm:w-96">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-zinc-500 size-4" />
-                            <Input
-                                placeholder="Search by name or email..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 h-11 bg-background dark:bg-zinc-900 rounded-xl border-border/60 dark:border-zinc-800 focus:ring-primary/20"
-                            />
-                        </div>
-                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground dark:text-zinc-400 bg-background dark:bg-zinc-800 px-4 py-2 rounded-lg border border-border/40 dark:border-zinc-700 shadow-sm">
-                            <span className="text-primary dark:text-white">{filteredEmployees.length}</span> Members found
-                        </div>
-                    </div>
+                {/* Filter Toolbar */}
+                <EmployeeFilterToolbar
+                    search={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    filterRole={filterRole}
+                    onRoleChange={setFilterRole}
+                    filterBranchId={filterBranchId}
+                    onBranchChange={setFilterBranchId}
+                    branches={branches}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                />
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-muted/30 dark:bg-zinc-800/50">
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Member Info</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">Access Level</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-center">Branch Assignment</th>
-                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 text-right w-25">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/40 dark:divide-zinc-800">
-                                {filteredEmployees.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={4} className="px-6 py-20 text-center">
-                                            <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                                <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                                                    <User className="size-8 opacity-20" />
-                                                </div>
-                                                <p className="font-bold text-lg italic tracking-tight uppercase">No employees found.</p>
-                                                <p className="text-xs uppercase font-medium max-w-50 mt-2 leading-relaxed opacity-60">Try adjusting your search filters or add a new team member.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredEmployees.map((employee: Employee) => (
-                                        <tr key={employee.id} className="hover:bg-primary/2 dark:hover:bg-white/2 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="size-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary dark:text-primary-foreground font-black shadow-inner">
-                                                        {employee.name.charAt(0)}
-                                                    </div>
-                                                    <div className="flex flex-col max-w-50">
-                                                        <span className="font-bold text-sm text-foreground dark:text-white truncate">{employee.name}</span>
-                                                        <span className="text-[11px] text-muted-foreground dark:text-zinc-500 font-medium truncate flex items-center gap-1">
-                                                            <Mail className="size-2.5 opacity-60" /> {employee.email}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <Badge
-                                                    variant={employee.role === 'admin' ? 'default' : 'secondary'}
-                                                    className={cn(
-                                                        "rounded-lg px-2.5 py-1 text-[10px] items-center gap-1 font-black italic uppercase tracking-tighter",
-                                                        employee.role === 'admin' ? "bg-primary dark:bg-zinc-100 dark:text-zinc-900 shadow-sm" : "bg-muted dark:bg-zinc-800 text-muted-foreground dark:text-zinc-400 border-border dark:border-zinc-700"
-                                                    )}
-                                                >
-                                                    {employee.role === 'admin' ? <Shield className="size-2.5" /> : <User className="size-2.5" />}
-                                                    {employee.role}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {employee.branch ? (
-                                                    <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-muted/30 dark:bg-zinc-800/40 border border-border/40 dark:border-zinc-700 rounded-full w-fit mx-auto">
-                                                        <Briefcase className="size-3 text-primary dark:text-zinc-100 opacity-60" />
-                                                        <span className="text-[11px] font-bold text-foreground dark:text-zinc-200 italic">{employee.branch.name}</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-center italic text-muted-foreground dark:text-zinc-500 text-[10px] font-bold uppercase tracking-widest bg-destructive/5 dark:bg-destructive/10 py-1 rounded-full w-fit mx-auto px-4 border border-destructive/10 dark:border-destructive/20">Unassigned</div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted dark:hover:bg-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <MoreVertical className="size-4 text-muted-foreground dark:text-zinc-500" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-40 rounded-xl p-1 shadow-xl border-border/40 dark:border-zinc-800 dark:bg-zinc-900">
-                                                        <DropdownMenuItem
-                                                            onClick={() => openEditModal(employee)}
-                                                            className="rounded-lg gap-2 font-bold text-xs py-2.5 cursor-pointer"
-                                                        >
-                                                            <Edit2 className="size-3.5 text-primary" /> Edit Account
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleDelete(employee.id)}
-                                                            className="rounded-lg gap-2 font-bold text-xs py-2.5 text-destructive focus:text-destructive cursor-pointer"
-                                                        >
-                                                            <Trash2 className="size-3.5" /> Delete Member
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
+                {/* Employee Display (Table or Grid View) */}
+                {viewMode === 'table' ? (
+                    <EmployeeTable
+                        employees={filteredEmployees}
+                        onEdit={openEditModal}
+                        onDelete={handleDelete}
+                        onSelectEmployee={openEmployeeDrawer}
+                    />
+                ) : (
+                    <EmployeeGrid
+                        employees={filteredEmployees}
+                        onEdit={openEditModal}
+                        onDelete={handleDelete}
+                        onSelectEmployee={openEmployeeDrawer}
+                    />
+                )}
             </div>
 
+            {/* Employee Details Drawer */}
+            <EmployeeDrawer
+                employee={selectedEmployeeForDrawer}
+                open={isDrawerOpen}
+                onOpenChange={setIsDrawerOpen}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+            />
+
+            {/* Create/Edit Modal */}
             <Dialog open={isModalOpen} onOpenChange={handleModalChange}>
-                <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-background dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/5">
-                    <DialogHeader className="p-6 pb-0">
-                        <div className="size-12 rounded-2xl bg-primary/10 dark:bg-zinc-800 flex items-center justify-center mb-4 text-primary dark:text-zinc-100 shadow-inner">
-                            <User className="size-6" />
-                        </div>
-                        <DialogTitle className="text-2xl font-black italic tracking-tighter text-foreground dark:text-white">
-                            {editingEmployee ? 'REVISE MEMBER.' : 'ENLIST NEW MEMBER.'}
+                <DialogContent className="max-w-xl rounded-4xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#E2E8F0] font-['Outfit']">
+                    <DialogHeader className="p-8 bg-linear-to-r from-[#E75480] via-[#F472B6] to-[#E75480] dark:from-[#E1062C] dark:via-[#FF4F81] dark:to-[#E1062C] text-white">
+                        <DialogTitle className="text-2xl font-black">
+                            {editingEmployee ? 'Update Member Access' : 'Authorize New Member'}
                         </DialogTitle>
-                        <DialogDescription className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase opacity-70">
-                            {editingEmployee ? 'Modify existing credentials and permissions.' : 'Grant administrative or cashier access to the system.'}
+                        <DialogDescription className="text-white/80 text-xs font-medium mt-1">
+                            {editingEmployee
+                                ? 'Modify credentials, authorization roles, and branch deployment.'
+                                : 'Grant administrative or frontline cashier access to the system.'}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Full Identity <span className="text-destructive">*</span></label>
+                    <form onSubmit={handleSubmit} className="p-8 space-y-5">
+                        {/* Full Name */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                Full Name <span className="text-rose-500">*</span>
+                            </label>
                             <Input
                                 placeholder="e.g. Victor Amante"
                                 className={cn(
-                                    "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 ring-offset-background placeholder:text-muted-foreground/50 font-bold dark:text-white",
-                                    localErrors.name ? "ring-2 ring-destructive" : (errors.name && "ring-2 ring-destructive")
+                                    "h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]",
+                                    (localErrors.name || errors.name) && "border-rose-500 ring-2 ring-rose-500/20"
                                 )}
                                 value={data.name}
                                 onChange={(e) => {
@@ -404,17 +332,20 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                                 maxLength={50}
                                 autoFocus
                             />
-                            {localErrors.name && <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.name}</p>}
+                            {localErrors.name && <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.name}</p>}
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Digital Mail <span className="text-destructive">*</span></label>
+                        {/* Email Address */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                Email Address <span className="text-rose-500">*</span>
+                            </label>
                             <Input
                                 type="email"
                                 placeholder="victor@pos.system"
                                 className={cn(
-                                    "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 lowercase dark:text-white",
-                                    localErrors.email ? "ring-2 ring-destructive" : (errors.email && "ring-2 ring-destructive")
+                                    "h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]",
+                                    (localErrors.email || errors.email) && "border-rose-500 ring-2 ring-rose-500/20"
                                 )}
                                 value={data.email}
                                 onChange={(e) => {
@@ -424,48 +355,58 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                                 onBlur={() => validateField('email', data.email)}
                                 maxLength={100}
                             />
-                            {localErrors.email ? (
-                                <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.email}</p>
-                            ) : (
-                                errors.email && <p className="text-[11px] text-destructive font-bold ml-1">{errors.email}</p>
+                            {(localErrors.email || errors.email) && (
+                                <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.email || errors.email}</p>
                             )}
                         </div>
 
-                        <div className="space-y-4">
+                        {/* Password Section */}
+                        <div className="space-y-3">
                             {!editingEmployee && (
-                                <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 group cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all" onClick={() => setData('auto_generate', !data.auto_generate)}>
-                                    <div className={cn(
-                                        "size-5 rounded-md border-2 flex items-center justify-center transition-all",
-                                        data.auto_generate ? "bg-primary border-primary" : "border-muted-foreground/30"
-                                    )}>
-                                        {data.auto_generate && <CheckCircle2 className="size-3 text-white" strokeWidth={4} />}
+                                <div
+                                    className="flex items-center gap-3 p-4 rounded-2xl bg-[#FFF5F7] dark:bg-[#181820]/70 border border-[#F8C8DC]/60 dark:border-white/10 group cursor-pointer hover:border-[#E75480]/40 transition-all"
+                                    onClick={() => setData('auto_generate', !data.auto_generate)}
+                                >
+                                    <div
+                                        className={cn(
+                                            "size-5 rounded-lg border-2 flex items-center justify-center transition-all",
+                                            data.auto_generate
+                                                ? "bg-[#E75480] dark:bg-[#E1062C] border-transparent"
+                                                : "border-[#9E8B8E] dark:border-white/30"
+                                        )}
+                                    >
+                                        {data.auto_generate && <CheckCircle2 className="size-3.5 text-white" strokeWidth={3} />}
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-xs font-black uppercase tracking-widest text-foreground dark:text-white">Auto-generate password</p>
-                                        <p className="text-[10px] text-muted-foreground font-medium">System will create a secure key and email it.</p>
+                                        <p className="text-xs font-bold uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            Auto-generate secure key
+                                        </p>
+                                        <p className="text-[11px] text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                                            System will create a high-entropy key and email it to member.
+                                        </p>
                                     </div>
                                 </div>
                             )}
 
                             {(!data.auto_generate || editingEmployee) && (
-                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="space-y-1.5">
                                     <div className="flex justify-between items-center ml-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500">
-                                            Secure Key {!editingEmployee && <span className="text-destructive">*</span>}
+                                        <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                            Password {!editingEmployee && <span className="text-rose-500">*</span>}
                                         </label>
                                         {passwordStrength && (
-                                            <span className={cn("text-[9px] font-black uppercase tracking-widest italic animate-in slide-in-from-right-2", passwordStrength.color)}>
+                                            <span className={cn("text-[10px] font-bold uppercase tracking-wider", passwordStrength.color)}>
                                                 [{passwordStrength.label}]
                                             </span>
                                         )}
                                     </div>
-                                    <div className="relative group">
+                                    <div className="relative">
                                         <Input
                                             type={showPassword ? 'text' : 'password'}
                                             placeholder="••••••••••••"
                                             className={cn(
-                                                "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 placeholder:text-muted-foreground/50 dark:text-white",
-                                                localErrors.password ? "ring-2 ring-destructive" : (errors.password && "ring-2 ring-destructive")
+                                                "h-12 rounded-2xl pr-10 bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]",
+                                                (localErrors.password || errors.password) && "border-rose-500 ring-2 ring-rose-500/20"
                                             )}
                                             value={data.password}
                                             onChange={(e) => {
@@ -480,27 +421,28 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1.5"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E8B8E] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC] cursor-pointer"
                                         >
                                             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                                         </button>
                                     </div>
-                                    {localErrors.password ? (
-                                        <p className="text-[11px] text-destructive font-bold ml-1">{localErrors.password}</p>
+                                    {(localErrors.password || errors.password) ? (
+                                        <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.password || errors.password}</p>
                                     ) : (
-                                        errors.password ? (
-                                            <p className="text-[11px] text-destructive font-bold ml-1">{errors.password}</p>
-                                        ) : (
-                                            <p className="text-[10px] text-muted-foreground italic ml-1 opacity-60">Minimum 8 characters with letters and numbers.</p>
-                                        )
+                                        <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B] font-medium ml-1">
+                                            Minimum 8 characters with letters and numbers.
+                                        </p>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 pt-1">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Authority <span className="text-destructive">*</span></label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                            {/* Role Selection */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    Authority Role <span className="text-rose-500">*</span>
+                                </label>
                                 <Select
                                     value={data.role}
                                     onValueChange={(val) => {
@@ -509,21 +451,30 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                                     }}
                                 >
                                     <SelectTrigger className={cn(
-                                        "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 font-bold uppercase text-xs tracking-tighter italic dark:text-white",
-                                        localErrors.role ? "ring-2 ring-destructive" : (errors.role && "ring-2 ring-destructive")
+                                        "h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]",
+                                        (localErrors.role || errors.role) && "border-rose-500 ring-2 ring-rose-500/20"
                                     )}>
                                         <SelectValue placeholder="Access Level" />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-xl shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
-                                        <SelectItem value="admin" className="font-bold text-xs italic uppercase dark:text-zinc-300">Admin Access</SelectItem>
-                                        <SelectItem value="cashier" className="font-bold text-xs italic uppercase dark:text-zinc-300">Frontline Cashier</SelectItem>
+                                    <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                        <SelectItem value="admin" className="rounded-xl py-2 font-bold cursor-pointer text-[#E75480] dark:text-[#FF4F81]">
+                                            Admin Access
+                                        </SelectItem>
+                                        <SelectItem value="cashier" className="rounded-xl py-2 font-bold cursor-pointer text-blue-600 dark:text-blue-400">
+                                            Frontline Cashier
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {localErrors.role && <p className="text-[9px] text-destructive font-bold ml-1 mt-1 font-mono uppercase">{localErrors.role}</p>}
+                                {(localErrors.role || errors.role) && (
+                                    <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.role || errors.role}</p>
+                                )}
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 ml-1">Work HQ <span className="text-destructive">*</span></label>
+                            {/* Branch Selection */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    Work HQ <span className="text-rose-500">*</span>
+                                </label>
                                 <Select
                                     value={data.branch_id ? String(data.branch_id) : ''}
                                     onValueChange={(val) => {
@@ -533,30 +484,39 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                                     }}
                                 >
                                     <SelectTrigger className={cn(
-                                        "h-12 rounded-xl bg-muted/30 dark:bg-zinc-800/50 border-none transition-all focus:bg-background dark:focus:bg-zinc-800 font-bold uppercase text-xs tracking-tighter italic dark:text-white",
-                                        localErrors.branch_id ? "ring-2 ring-destructive" : (errors.branch_id && "ring-2 ring-destructive")
+                                        "h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]",
+                                        (localErrors.branch_id || errors.branch_id) && "border-rose-500 ring-2 ring-rose-500/20"
                                     )}>
-                                        <SelectValue placeholder="Branch" />
+                                        <SelectValue placeholder="Select Branch" />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-xl shadow-xl dark:bg-zinc-900 dark:border-zinc-800">
+                                    <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
                                         {branches.map((b: { id: number; name: string }) => (
-                                            <SelectItem key={b.id} value={String(b.id)} className="font-bold text-xs italic uppercase dark:text-zinc-300">{b.name}</SelectItem>
+                                            <SelectItem key={b.id} value={String(b.id)} className="rounded-xl py-2 font-bold cursor-pointer">
+                                                {b.name}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {localErrors.branch_id && <p className="text-[9px] text-destructive font-bold ml-1 mt-1 font-mono uppercase">{localErrors.branch_id}</p>}
+                                {(localErrors.branch_id || errors.branch_id) && (
+                                    <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.branch_id || errors.branch_id}</p>
+                                )}
                             </div>
                         </div>
 
-                        <DialogFooter className="bg-muted/30 dark:bg-zinc-800/50 p-6 -mx-6 mt-6 border-t border-border/20 dark:border-zinc-800 flex gap-2">
-                            <Button type="button" variant="ghost" className="h-12 rounded-xl flex-1 font-bold text-muted-foreground dark:text-zinc-400 active:bg-muted dark:active:bg-zinc-800" onClick={() => handleModalChange(false)}>
-                                Abort
+                        <DialogFooter className="p-6 bg-[#FFF9FA]/60 dark:bg-[#181820]/60 -mx-8 -mb-8 mt-6 border-t border-[#F8C8DC]/60 dark:border-white/10 gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="h-12 rounded-2xl px-8 font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]"
+                                onClick={() => handleModalChange(false)}
+                            >
+                                Cancel
                             </Button>
                             <Button
-                                className="h-12 rounded-xl flex-2 font-black italic tracking-tight shadow-xl shadow-primary/20 active:scale-95 transition-all text-sm dark:bg-zinc-100 dark:text-zinc-900"
+                                className="h-12 rounded-2xl px-10 font-bold bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white shadow-lg shadow-[#E75480]/20 cursor-pointer"
                                 disabled={processing || !data.name || !data.email || (!editingEmployee && !data.auto_generate && !data.password) || !data.role || !data.branch_id}
                             >
-                                {processing ? 'Synthesizing...' : editingEmployee ? 'UPGRADE ACCESS' : 'AUTHORIZE INITIATION'}
+                                {processing ? 'Saving...' : editingEmployee ? 'Update Access' : 'Authorize Member'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -565,13 +525,13 @@ export default function EmployeeIndex({ employees, branches }: Props) {
 
             {/* Credentials Display Modal */}
             <Dialog open={isCredsModalOpen} onOpenChange={setIsCredsModalOpen}>
-                <DialogContent className="max-w-md rounded-3xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-zinc-900">
-                    <div className="p-8 bg-slate-900 text-white text-center space-y-2">
-                        <div className="size-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle2 className="size-10 text-emerald-400" />
+                <DialogContent className="max-w-md rounded-4xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#E2E8F0] font-['Outfit']">
+                    <div className="p-8 bg-emerald-600 text-white text-center space-y-2">
+                        <div className="size-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+                            <CheckCircle2 className="size-10 text-white" />
                         </div>
-                        <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase">ACCESS AUTHORIZED</DialogTitle>
-                        <p className="text-slate-400 text-sm font-medium">
+                        <DialogTitle className="text-2xl font-black">Access Authorized!</DialogTitle>
+                        <p className="text-emerald-50 text-xs font-medium">
                             {newEmployeeCreds?.email_sent
                                 ? `Credentials sent to ${newEmployeeCreds?.email}`
                                 : 'Credentials generated successfully.'}
@@ -580,85 +540,87 @@ export default function EmployeeIndex({ employees, branches }: Props) {
 
                     <div className="p-8 space-y-5">
                         {newEmployeeCreds?.email_sent ? (
-                            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
+                            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
                                 <div className="size-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
                                     <Mail className="size-4 text-white" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-sm">Email Sent</p>
-                                    <p className="opacity-75">Credentials delivered to {newEmployeeCreds?.email}</p>
+                                    <p className="font-bold text-sm">Email Delivered</p>
+                                    <p className="opacity-80">Credentials sent to {newEmployeeCreds?.email}</p>
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
+                            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
                                 <div className="size-8 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
                                     <AlertCircle className="size-4 text-white" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-sm">Email Failed</p>
-                                    <p className="opacity-75">Please share these credentials manually.</p>
+                                    <p className="font-bold text-sm">Manual Share Required</p>
+                                    <p className="opacity-80">Please share these credentials manually with the member.</p>
                                 </div>
                             </div>
                         )}
 
                         <div className="space-y-3">
-                            <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                            <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/60 dark:border-white/10 space-y-1 relative group">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] flex items-center gap-1.5">
                                     <User className="size-3" /> Identity
                                 </label>
-                                <p className="font-bold text-base dark:text-white">{newEmployeeCreds?.name}</p>
+                                <p className="font-bold text-base text-[#3D2C2E] dark:text-[#F8FAFC]">{newEmployeeCreds?.name}</p>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                                    <Mail className="size-3" /> Email / Login
+                            <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/60 dark:border-white/10 space-y-1 relative group">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] flex items-center gap-1.5">
+                                    <Mail className="size-3" /> Email / Login Username
                                 </label>
-                                <p className="font-bold text-base dark:text-white select-all">{newEmployeeCreds?.email}</p>
+                                <p className="font-bold text-base select-all text-[#3D2C2E] dark:text-[#F8FAFC]">{newEmployeeCreds?.email}</p>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl cursor-pointer hover:bg-white/80 dark:hover:bg-white/10"
                                     onClick={() => {
                                         navigator.clipboard.writeText(newEmployeeCreds?.email || '');
-                                        toast.success("Email copied");
+                                        toast.success("Email copied to clipboard");
                                     }}
                                 >
-                                    <Copy className="size-4" />
+                                    <Copy className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
                                 </Button>
                             </div>
 
-                            <div className="p-4 rounded-2xl bg-muted/30 border border-border/40 space-y-1 relative group">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                            <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/60 dark:border-white/10 space-y-1 relative group">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] flex items-center gap-1.5">
                                     <Lock className="size-3" />
-                                    {newEmployeeCreds?.auto_generated ? 'Generated Password' : 'Admin Password'}
+                                    {newEmployeeCreds?.auto_generated ? 'Auto-Generated Password' : 'Admin Password'}
                                 </label>
-                                <p className="font-mono font-black text-xl tracking-wider text-primary select-all">{newEmployeeCreds?.password}</p>
+                                <p className="font-mono font-bold text-xl tracking-wider text-[#E75480] dark:text-[#FF4F81] select-all">
+                                    {newEmployeeCreds?.password}
+                                </p>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl cursor-pointer hover:bg-white/80 dark:hover:bg-white/10"
                                     onClick={() => {
                                         navigator.clipboard.writeText(newEmployeeCreds?.password || '');
-                                        toast.success("Password copied");
+                                        toast.success("Password copied to clipboard");
                                     }}
                                 >
-                                    <Copy className="size-4" />
+                                    <Copy className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
                                 </Button>
                             </div>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 text-rose-800 dark:text-rose-300 text-[10px] font-bold uppercase tracking-widest flex gap-3 italic">
-                            <div className="size-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0 mt-0.5 text-white font-black not-italic">!</div>
-                            <p className="leading-relaxed">
-                                MANDATORY ACTION: The employee will be required to change this password immediately upon their first login for security purposes.
+                        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 text-rose-800 dark:text-rose-300 text-xs flex gap-3">
+                            <div className="size-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0 mt-0.5 text-white font-bold text-[10px]">!</div>
+                            <p className="font-medium leading-relaxed">
+                                The employee will be required to change this password immediately upon their first login for security purposes.
                             </p>
                         </div>
 
                         <Button
-                            className="w-full h-12 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-900/10 dark:bg-zinc-100 dark:text-zinc-900"
+                            className="w-full h-12 rounded-2xl font-bold text-base bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 cursor-pointer"
                             onClick={() => setIsCredsModalOpen(false)}
                         >
-                            I HAVE SECURED THESE DETAILS
+                            Got it, I've saved it
                         </Button>
                     </div>
                 </DialogContent>
@@ -670,8 +632,8 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                 onOpenChange={setShowDeleteConfirm}
                 onConfirm={confirmDelete}
                 variant="destructive"
-                title="Delete Employee?"
-                description="This will permanently remove the employee account and access permissions."
+                title="Delete Employee Member?"
+                description="This will permanently remove the employee account and all system access permissions. This action cannot be undone."
                 confirmText="Delete Now"
             />
 
@@ -679,8 +641,8 @@ export default function EmployeeIndex({ employees, branches }: Props) {
                 open={showDiscardConfirm}
                 onOpenChange={setShowDiscardConfirm}
                 onConfirm={confirmDiscard}
-                title="Unsaved Changes"
-                description="You have pending modifications. Discarding will lose all unsaved progress."
+                title="Discard Unsaved Changes?"
+                description="You have pending modifications. Discarding will lose all unsaved form inputs."
                 confirmText="Discard Changes"
                 cancelText="Keep Editing"
             />

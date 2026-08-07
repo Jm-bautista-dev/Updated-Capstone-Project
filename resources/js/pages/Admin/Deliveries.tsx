@@ -1,16 +1,21 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Layers, Loader2, Navigation } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import DeliveryCard from '@/components/delivery/DeliveryCard';
 import DeliveryDetailSheet from '@/components/delivery/DeliveryDetailSheet';
 import DeliveryEmptyState from '@/components/delivery/DeliveryEmptyState';
 import DeliveryFilters from '@/components/delivery/DeliveryFilters';
+import { DeliveryHero } from '@/components/delivery/DeliveryHero';
+import { DeliveryMapPlaceholder } from '@/components/delivery/DeliveryMapPlaceholder';
+import { DeliveryQuickActions } from '@/components/delivery/DeliveryQuickActions';
 import DeliveryStats from '@/components/delivery/DeliveryStats';
 import DeliveryStatusGroup from '@/components/delivery/DeliveryStatusGroup';
 import DeliveryTable from '@/components/delivery/DeliveryTable';
+import { DeliveryTimelineSection } from '@/components/delivery/DeliveryTimelineSection';
 import PreparingConfirmationModal from '@/components/delivery/PreparingConfirmationModal';
 import RiderAssignmentModal from '@/components/delivery/RiderAssignmentModal';
+import { RiderFleetSection } from '@/components/delivery/RiderFleetSection';
 import type {
     Branch, Delivery, DeliveryFilters as FilterType,
     DeliveryPagination, DeliveryStatsData, Rider, ViewMode
@@ -18,7 +23,6 @@ import type {
 import { Button } from '@/components/ui/button';
 import echo from '@/echo';
 import AppLayout from '@/layouts/app-layout';
-import { cn } from '@/lib/utils';
 
 interface Props {
     deliveries: DeliveryPagination;
@@ -29,7 +33,6 @@ interface Props {
 }
 
 export default function DeliveryIndex({ deliveries, availableRiders, branches, filters, stats }: Props) {
-    // ... existing state ...
     const [assigningDelivery, setAssigningDelivery] = useState<Delivery | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
 
@@ -39,7 +42,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
 
     const executeAssignment = useCallback((riderId: number) => {
         if (!assigningDelivery) return;
-        
+
         setIsAssigning(true);
         router.post(`/deliveries/${assigningDelivery.id}/assign-rider`, { rider_id: riderId }, {
             preserveState: true,
@@ -49,6 +52,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
             onFinish: () => setIsAssigning(false),
         });
     }, [assigningDelivery]);
+
     // View mode (persisted in localStorage)
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (typeof window !== 'undefined') {
@@ -88,9 +92,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         if (!echo) return;
 
         const channel = echo.channel('deliveries');
-        
+
         channel.listen('.order-status-updated', () => {
-            // Only reload the relevant parts without full page refresh
             router.reload({
                 only: ['deliveries', 'stats'],
                 preserveScroll: true,
@@ -128,7 +131,6 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
             preserveState: true,
             onSuccess: () => {
                 setConfirmingDeliveryId(null);
-                // Close sheet if the updated delivery is currently selected
                 if (selectedDelivery?.id === id) {
                     setSelectedDelivery(null);
                 }
@@ -138,11 +140,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
     }, [selectedDelivery]);
 
     const handleUpdateStatus = useCallback((id: number) => {
-        // Find the delivery to check its current status
         const delivery = accumulatedDeliveries.find(d => d.id === id);
-        
-        // If the delivery is pending, the next status is 'preparing'
-        // We show a confirmation modal before deducting inventory
+
         if (delivery && delivery.status === 'pending') {
             setConfirmingDeliveryId(id);
             return;
@@ -208,77 +207,22 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         <AppLayout breadcrumbs={[{ title: 'Delivery Dashboard', href: '/deliveries' }]}>
             <Head title="Delivery Management" />
 
-            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-['Outfit'] transition-colors duration-300">
+                {/* 1. HERO BANNER */}
+                <DeliveryHero
+                    currentStatusFilter={filters.status || 'all'}
+                    onStatusFilterChange={(status) => handleFilterChange({ status })}
+                    groupByStatus={groupByStatus}
+                    onToggleGroupByStatus={() => setGroupByStatus(v => !v)}
+                />
 
-                {/* ── HERO BANNER ── */}
-                <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 lg:p-10 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300">
-                    <div className="absolute -top-24 -right-24 size-96 rounded-full bg-linear-to-br from-[#E75480]/20 to-transparent dark:from-[#E1062C]/20 blur-3xl pointer-events-none" />
-                    <div className="absolute -bottom-24 -left-24 size-96 rounded-full bg-linear-to-tr from-[#F8C8DC]/30 to-transparent dark:from-[#FF4F81]/10 blur-3xl pointer-events-none" />
-
-                    <div className="relative z-10 space-y-6">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2.5">
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs">
-                                        <Navigation className="size-3.5" />
-                                        Delivery Operations Center
-                                    </span>
-                                    <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
-                                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest font-mono">Live Tracking</span>
-                                </div>
-                                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
-                                    Delivery Management
-                                </h1>
-                                <p className="text-xs sm:text-sm font-medium text-[#7D6B6E] dark:text-[#94A3B8] max-w-xl">
-                                    Track deliveries, assign riders, and manage logistics operations in real time.
-                                </p>
-                            </div>
-
-                            {/* Status Tab Pills + Group Toggle */}
-                            <div className="flex items-center gap-3 flex-wrap self-start lg:self-center">
-                                <div className="flex items-center bg-white/60 dark:bg-[#1C1C28]/60 rounded-2xl p-1 border border-[#F8C8DC]/40 dark:border-white/10 backdrop-blur-xl">
-                                    {[
-                                        { id: 'all', label: 'All' },
-                                        { id: 'pending', label: 'Pending' },
-                                        { id: 'preparing', label: 'Preparing' },
-                                        { id: 'in_transit', label: 'In Transit' },
-                                        { id: 'delivered', label: 'Delivered' },
-                                    ].map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => handleFilterChange({ status: tab.id })}
-                                            className={cn(
-                                                "px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer",
-                                                (filters.status || 'all') === tab.id 
-                                                    ? "bg-white dark:bg-[#121218] shadow-sm text-[#E75480] dark:text-[#FF4F81] ring-1 ring-[#F8C8DC]/60 dark:ring-white/10" 
-                                                    : (tab.id === 'pending' && filters.status === 'waiting_for_kitchen')
-                                                        ? "bg-white dark:bg-[#121218] shadow-sm text-[#E75480] dark:text-[#FF4F81] ring-1 ring-[#F8C8DC]/60 dark:ring-white/10"
-                                                        : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
-                                            )}
-                                        >
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <Button
-                                    variant={groupByStatus ? 'secondary' : 'outline'}
-                                    size="sm"
-                                    className="h-9 rounded-xl gap-2 text-[10px] font-black uppercase tracking-widest border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer"
-                                    onClick={() => setGroupByStatus(v => !v)}
-                                >
-                                    <Layers className="size-3.5" />
-                                    {groupByStatus ? 'Grouped' : 'Flat'} View
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── STATS STRIP ── */}
+                {/* 2. DELIVERY KPIS */}
                 <DeliveryStats stats={stats} />
 
-                {/* ── FILTERS ── */}
+                {/* 3. QUICK ACTIONS */}
+                <DeliveryQuickActions />
+
+                {/* 4. SEARCH & FILTERS TOOLBAR */}
                 <DeliveryFilters
                     filters={filters}
                     branches={branches}
@@ -287,7 +231,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                     onViewModeChange={handleViewModeChange}
                 />
 
-                {/* ── CONTENT AREA ── */}
+                {/* 5. DELIVERY LIST (Grouped / Table / Cards) */}
                 <div className="space-y-6 w-full">
                     {accumulatedDeliveries.length === 0 ? (
                         <DeliveryEmptyState
@@ -329,55 +273,65 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                         </div>
                     )}
 
-                    {/* Load More / Pagination */}
+                    {/* Pagination Bar */}
                     {accumulatedDeliveries.length > 0 && (
-                        <div className="flex flex-col items-center gap-4 pt-4">
-                            {/* Load More Button */}
-                            {hasMore && (
-                                <Button
-                                    variant="outline"
-                                    className="h-11 px-8 rounded-2xl gap-2 font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-[#1C1C28] cursor-pointer"
-                                    onClick={handleLoadMore}
-                                    disabled={isLoadingMore}
-                                >
-                                    {isLoadingMore ? (
-                                        <>
-                                            <Loader2 className="size-4 animate-spin" />
-                                            Loading...
-                                        </>
-                                    ) : (
-                                        <>Load More Deliveries</>
-                                    )}
-                                </Button>
-                            )}
+                        <div className="flex flex-col sm:flex-row items-center justify-between p-4 sm:p-6 bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 rounded-3xl shadow-xs backdrop-blur-2xl gap-4">
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                <span>Showing</span>
+                                <span className="font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    {accumulatedDeliveries.length}
+                                </span>
+                                <span>of</span>
+                                <span className="font-mono text-[#E75480] dark:text-[#FF4F81]">{deliveries.total}</span>
+                                <span>deliveries</span>
+                            </div>
 
-                            {/* Pagination Info */}
-                            <div className="flex items-center gap-4">
-                                <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium uppercase tracking-widest">
-                                    Showing <span className="text-[#3D2C2E] dark:text-[#F8FAFC] font-bold">{accumulatedDeliveries.length}</span> of {deliveries.total} deliveries
-                                    {deliveries.last_page > 1 && (
-                                        <> • Page <span className="text-[#3D2C2E] dark:text-[#F8FAFC] font-bold">{currentPage}</span> of {deliveries.last_page}</>
-                                    )}
-                                </p>
+                            <div className="flex items-center gap-3">
+                                {hasMore && (
+                                    <Button
+                                        variant="outline"
+                                        className="h-10 px-6 rounded-2xl gap-2 font-bold text-xs uppercase tracking-wider border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-[#1C1C28] cursor-pointer"
+                                        onClick={handleLoadMore}
+                                        disabled={isLoadingMore}
+                                    >
+                                        {isLoadingMore ? (
+                                            <>
+                                                <Loader2 className="size-4 animate-spin" />
+                                                Loading...
+                                            </>
+                                        ) : (
+                                            <>Load More</>
+                                        )}
+                                    </Button>
+                                )}
 
-                                {/* Traditional pagination arrows */}
                                 {deliveries.last_page > 1 && (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-2">
                                         <Link
                                             href={deliveries.links[0]?.url || '#'}
-                                            className={!deliveries.links[0]?.url ? 'pointer-events-none opacity-40' : ''}
+                                            disabled={!deliveries.links[0]?.url}
                                             preserveState
                                         >
-                                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="rounded-2xl size-10 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10 cursor-pointer"
+                                                disabled={!deliveries.links[0]?.url}
+                                            >
                                                 <ChevronLeft className="size-4" />
                                             </Button>
                                         </Link>
                                         <Link
                                             href={deliveries.links[deliveries.links.length - 1]?.url || '#'}
-                                            className={!deliveries.links[deliveries.links.length - 1]?.url ? 'pointer-events-none opacity-40' : ''}
+                                            disabled={!deliveries.links[deliveries.links.length - 1]?.url}
                                             preserveState
                                         >
-                                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="rounded-2xl size-10 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10 cursor-pointer"
+                                                disabled={!deliveries.links[deliveries.links.length - 1]?.url}
+                                            >
                                                 <ChevronRight className="size-4" />
                                             </Button>
                                         </Link>
@@ -387,6 +341,18 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                         </div>
                     )}
                 </div>
+
+                {/* 6. DELIVERY MAP PLACEHOLDER */}
+                <DeliveryMapPlaceholder activeDeliveriesCount={stats.active} />
+
+                {/* 7. ASSIGNED RIDERS SECTION */}
+                <RiderFleetSection riders={availableRiders} />
+
+                {/* 8. RECENT DELIVERY ACTIVITY TIMELINE */}
+                <DeliveryTimelineSection
+                    deliveries={accumulatedDeliveries}
+                    onSelectDelivery={handleSelectDelivery}
+                />
             </div>
 
             {/* Detail Sheet */}
@@ -397,7 +363,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                 onUpdateStatus={handleUpdateStatus}
                 onAssignRider={handleAssignRider}
             />
-            {/* Confirmation Modal for Starting Preparation */}
+
+            {/* Modals */}
             <PreparingConfirmationModal
                 open={!!confirmingDeliveryId}
                 onClose={() => setConfirmingDeliveryId(null)}

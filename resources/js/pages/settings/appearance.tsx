@@ -1,35 +1,27 @@
 import { Head } from '@inertiajs/react';
-import AppearanceTabs from '@/components/appearance-tabs';
-import Heading from '@/components/heading';
-import AppLayout from '@/layouts/app-layout';
-import SettingsLayout from '@/layouts/settings/layout';
-import { edit as editAppearance } from '@/routes/appearance';
-import type { BreadcrumbItem } from '@/types';
+import React from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Appearance settings',
-        href: editAppearance().url,
-    },
-];
+import AppearanceTabs from '@/components/appearance-tabs';
+import SettingsLayout from '@/layouts/settings/layout';
 
 export default function Appearance() {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Appearance settings" />
+        <SettingsLayout>
+            <Head title="Appearance Settings" />
 
-            <h1 className="sr-only">Appearance Settings</h1>
-
-            <SettingsLayout>
-                <div className="space-y-6">
-                    <Heading
-                        variant="small"
-                        title="Appearance settings"
-                        description="Update your account's appearance settings"
-                    />
-                    <AppearanceTabs />
+            <div className="space-y-8 font-['Outfit']">
+                {/* Header */}
+                <div className="space-y-1 border-b border-[#F8C8DC]/40 dark:border-white/10 pb-6">
+                    <h2 className="text-xl font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                        Visual Theme & Appearance
+                    </h2>
+                    <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                        Customize your interface color palette between Light Mode, Dark Mode, or System sync.
+                    </p>
                 </div>
-            </SettingsLayout>
-        </AppLayout>
+
+                <AppearanceTabs />
+            </div>
+        </SettingsLayout>
     );
 }

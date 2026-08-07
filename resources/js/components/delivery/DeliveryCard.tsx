@@ -100,7 +100,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                     {/* Items Summary */}
                     {((delivery.sale?.items || delivery.order?.items) || []).length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item: any) => (
+                            {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item) => (
                                 <Badge key={item.id} variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8] border border-[#F8C8DC]/40 dark:border-white/10">
                                     {item.quantity}× {item.product?.name || 'Product'}
                                 </Badge>
