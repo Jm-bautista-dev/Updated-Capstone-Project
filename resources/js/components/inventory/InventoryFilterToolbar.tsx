@@ -224,7 +224,7 @@ export function InventoryFilterToolbar({
                         type="button"
                         variant="outline"
                         onClick={onOpenMassRestockModal}
-                        className="h-11 px-4 border-[#F8C8DC]/60 dark:border-white/10 text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer shadow-2xs"
+                        className="h-11 px-4 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer shadow-2xs"
                     >
                         <RefreshCw className="size-4" />
                         <span className="hidden xl:inline">Mass Restock</span>
@@ -235,7 +235,7 @@ export function InventoryFilterToolbar({
                         type="button"
                         variant="outline"
                         onClick={onOpenReceiptScanner}
-                        className="h-11 px-4 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:text-[#E75480] dark:hover:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer shadow-2xs"
+                        className="h-11 px-4 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:text-[#E75480] dark:hover:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer shadow-2xs"
                     >
                         <FileText className="size-4 text-purple-600 dark:text-purple-400" />
                         <span className="hidden xl:inline">Scan Receipt</span>
