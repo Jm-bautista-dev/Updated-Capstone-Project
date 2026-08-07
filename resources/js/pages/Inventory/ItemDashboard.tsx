@@ -1,8 +1,6 @@
 import { Head, usePage, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState } from 'react';
-import { ResultModal } from '@/components/result-modal';
-import { BreadcrumbItem } from '@/types';
 import { 
   FiPackage, 
   FiActivity, 
@@ -13,11 +11,11 @@ import {
   FiBox,
   FiRefreshCw
 } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ResultModal } from '@/components/result-modal';
+import { MobileFilter } from '@/components/shared/mobile-filter';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +24,10 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
+import type { BreadcrumbItem } from '@/types';
 import {
   Select,
   SelectContent,
@@ -33,9 +35,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 
-import { MobileFilter } from '@/components/shared/mobile-filter';
 
 const breadcrumbs: BreadcrumbItem[] = [
   { title: 'Inventory Dashboard', href: '/inventory-items' },

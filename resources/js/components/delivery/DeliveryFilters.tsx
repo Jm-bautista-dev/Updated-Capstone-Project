@@ -1,13 +1,14 @@
-import React, { useState, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import debounce from 'lodash/debounce';
+import { Building2, LayoutGrid, List, Search, X } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Building2, LayoutGrid, List, X } from 'lucide-react';
-import debounce from 'lodash/debounce';
-import type { DeliveryFilters as FilterType, Branch, ViewMode } from './types';
+
+import type { Branch, DeliveryFilters as FilterType, ViewMode } from './types';
 
 interface DeliveryFiltersProps {
     filters: FilterType;
@@ -26,8 +27,8 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
 }: DeliveryFiltersProps) {
     const [searchValue, setSearchValue] = useState(filters.search || '');
 
-    const debouncedSearch = useCallback(
-        debounce((value: string) => onFilterChange({ search: value }), 300),
+    const debouncedSearch = useMemo(
+        () => debounce((value: string) => onFilterChange({ search: value }), 300),
         [onFilterChange]
     );
 
@@ -49,15 +50,15 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
     }, [onFilterChange]);
 
     return (
-        <Card className="border-none shadow-md rounded-2xl">
-            <CardContent className="p-4 flex flex-col lg:flex-row gap-4 items-center">
+        <div className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 backdrop-blur-2xl shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] p-4 font-['Outfit']">
+            <div className="flex flex-col lg:flex-row gap-4 items-center">
                 {/* Search */}
                 <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--ops-text-muted)]" />
+                    <Search className="absolute left-3.5 top-3 size-4 text-[#7D6B6E] dark:text-[#94A3B8]" />
                     <Input
                         id="delivery-search"
                         placeholder="Search by Order #, Customer, or Address..."
-                        className="pl-10 h-11 rounded-xl border-none bg-[var(--ops-surface-sunken)]/20 focus-visible:bg-[var(--ops-page-bg)] transition-all"
+                        className="pl-10 h-10 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC] focus-visible:ring-[#E75480]/30"
                         value={searchValue}
                         onChange={handleSearchChange}
                     />
@@ -66,10 +67,10 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                 {/* Filter Controls */}
                 <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
                     <Select value={filters.type || 'all'} onValueChange={(v: string) => onFilterChange({ type: v })}>
-                        <SelectTrigger className="h-10 w-[140px] rounded-xl bg-[var(--ops-surface-sunken)]/20 border-none text-xs font-bold shrink-0">
+                        <SelectTrigger className="h-10 w-[140px] rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold shrink-0 text-[#3D2C2E] dark:text-[#F8FAFC]">
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820]">
                             <SelectItem value="all">All Types</SelectItem>
                             <SelectItem value="internal">Internal</SelectItem>
                             <SelectItem value="external">External</SelectItem>
@@ -77,11 +78,11 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     </Select>
 
                     <Select value={filters.branch_id || 'all'} onValueChange={(v: string) => onFilterChange({ branch_id: v })}>
-                        <SelectTrigger className="h-10 w-[160px] rounded-xl bg-[var(--ops-surface-sunken)]/20 border-none text-xs font-bold shrink-0">
-                            <Building2 className="size-3 mr-1" />
+                        <SelectTrigger className="h-10 w-[160px] rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold shrink-0 text-[#3D2C2E] dark:text-[#F8FAFC]">
+                            <Building2 className="size-3 mr-1 text-[#E75480] dark:text-[#FF4F81]" />
                             <SelectValue placeholder="Branch" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820]">
                             <SelectItem value="all">All Branches</SelectItem>
                             {branches.map(b => (
                                 <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
@@ -96,7 +97,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-10 w-10 rounded-xl shrink-0 text-[var(--ops-text-muted)] hover:text-destructive"
+                                    className="h-10 w-10 rounded-xl shrink-0 text-[#7D6B6E] dark:text-[#94A3B8] hover:text-rose-500"
                                     onClick={clearFilters}
                                 >
                                     <X className="size-4" />
@@ -107,7 +108,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     )}
 
                     {/* Separator */}
-                    <div className="w-px h-8 bg-border shrink-0 hidden lg:block" />
+                    <div className="w-px h-8 bg-[#F8C8DC]/40 dark:bg-white/10 shrink-0 hidden lg:block" />
 
                     {/* View Toggle */}
                     <ToggleGroup
@@ -119,7 +120,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     >
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <ToggleGroupItem value="card" aria-label="Card view" className="h-10 w-10 rounded-xl">
+                                <ToggleGroupItem value="card" aria-label="Card view" className="h-10 w-10 rounded-xl border-[#F8C8DC]/60 dark:border-white/10">
                                     <LayoutGrid className="size-4" />
                                 </ToggleGroupItem>
                             </TooltipTrigger>
@@ -127,7 +128,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                         </Tooltip>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <ToggleGroupItem value="table" aria-label="Table view" className="h-10 w-10 rounded-xl">
+                                <ToggleGroupItem value="table" aria-label="Table view" className="h-10 w-10 rounded-xl border-[#F8C8DC]/60 dark:border-white/10">
                                     <List className="size-4" />
                                 </ToggleGroupItem>
                             </TooltipTrigger>
@@ -135,8 +136,8 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                         </Tooltip>
                     </ToggleGroup>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 });
 

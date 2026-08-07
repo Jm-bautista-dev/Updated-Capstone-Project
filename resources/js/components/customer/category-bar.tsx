@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import React, { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface Category {

@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Badge } from '@/components/ui/badge';
 import { ChevronDown } from 'lucide-react';
-import type { Delivery, ViewMode } from './types';
-import { STATUS_GROUPS } from './types';
+import React, { useMemo } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import DeliveryCard from './DeliveryCard';
 import DeliveryTable from './DeliveryTable';
+import { STATUS_GROUPS } from './types';
+import type { Delivery, ViewMode } from './types';
 
 interface DeliveryStatusGroupProps {
     deliveries: Delivery[];
@@ -18,7 +20,6 @@ interface DeliveryStatusGroupProps {
 }
 
 const StatusGroupSection = React.memo(function StatusGroupSection({
-    groupKey,
     label,
     color,
     bg,
@@ -32,7 +33,6 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
     onUpdateStatus,
     onAssignRider,
 }: {
-    groupKey: string;
     label: string;
     color: string;
     bg: string;
@@ -52,12 +52,12 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
         <Collapsible open={isOpen} onOpenChange={onToggle}>
             <CollapsibleTrigger asChild>
                 <button
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${bg} ${border} border hover:opacity-90 transition-all duration-200 group/trigger`}
+                    className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl ${bg} ${border} border hover:opacity-90 transition-all duration-200 group/trigger font-['Outfit'] backdrop-blur-xl`}
                 >
                     <div className="flex items-center gap-3">
                         <div className={`size-2.5 rounded-full ${color.replace('text-', 'bg-')} ${ring} ring-4`} />
                         <span className={`text-sm font-black ${color}`}>{label}</span>
-                        <Badge variant="secondary" className="rounded-full text-[10px] font-bold px-2 py-0">
+                        <Badge variant="secondary" className="rounded-full text-[10px] font-bold px-2 py-0 bg-white/80 dark:bg-[#1C1C28] border border-[#F8C8DC]/40 dark:border-white/10">
                             {deliveries.length}
                         </Badge>
                     </div>
@@ -126,7 +126,6 @@ const DeliveryStatusGroup = React.memo(function DeliveryStatusGroup({
                 return (
                     <StatusGroupSection
                         key={group.key}
-                        groupKey={group.key}
                         label={group.label}
                         color={group.color}
                         bg={group.bg}

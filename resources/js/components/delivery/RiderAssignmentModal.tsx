@@ -1,17 +1,18 @@
+import { AlertTriangle, Truck } from 'lucide-react';
 import React, { useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
-    DialogTitle,
     DialogDescription,
     DialogFooter,
+    DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { User, Truck, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Rider, Delivery } from './types';
+
+import type { Delivery, Rider } from './types';
 
 interface Props {
     open: boolean;
@@ -32,22 +33,22 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
     };
 
     const riderStatusConfig = {
-        available: { color: 'bg-emerald-500/10 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-        busy: { color: 'bg-amber-500/10 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
-        offline: { color: 'bg-slate-500/10 text-slate-700 border-slate-200', dot: 'bg-slate-500' },
+        available: { color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50', dot: 'bg-emerald-500' },
+        busy: { color: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/50', dot: 'bg-amber-500' },
+        offline: { color: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-900/50', dot: 'bg-slate-500' },
     };
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-                <div className="bg-primary p-6 text-primary-foreground">
+            <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl font-['Outfit']">
+                <div className="bg-linear-to-r from-[#E75480] to-[#FF4F81] p-6 text-white">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="size-10 rounded-2xl bg-[var(--ops-surface-raised)]/20 backdrop-blur-sm flex items-center justify-center">
+                        <div className="size-10 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                             <Truck className="size-5" />
                         </div>
-                        <DialogTitle className="text-xl font-black">Assign Rider</DialogTitle>
+                        <DialogTitle className="text-xl font-black text-white">Assign Rider</DialogTitle>
                     </div>
-                    <DialogDescription className="text-primary-foreground/80 font-medium">
+                    <DialogDescription className="text-white/80 font-medium">
                         Select a rider to handle delivery for order {delivery?.sale?.order_number || `#${delivery?.id}`}.
                     </DialogDescription>
                 </div>
@@ -57,7 +58,7 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                         {riders.length === 0 ? (
                             <div className="text-center py-10">
                                 <AlertTriangle className="size-10 text-amber-500 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm font-bold text-[var(--ops-text-muted)]">No active riders found.</p>
+                                <p className="text-sm font-bold text-[#7D6B6E] dark:text-[#94A3B8]">No active riders found.</p>
                             </div>
                         ) : (
                             riders.map((rider) => (
@@ -67,33 +68,33 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                                     className={cn(
                                         "w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left",
                                         selectedId === rider.id
-                                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                            : "border-[var(--ops-border-subtle)] hover:border-[var(--ops-border)] hover:bg-[var(--ops-surface-sunken)]/60"
+                                            ? "border-[#E75480] dark:border-[#FF4F81] bg-[#FFF5F7] dark:bg-[#1C1C28] ring-1 ring-[#E75480]/20"
+                                            : "border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#F8C8DC] dark:hover:border-white/20 hover:bg-[#FFF5F7]/50 dark:hover:bg-[#1C1C28]/50"
                                     )}
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={cn(
                                             "size-12 rounded-xl flex items-center justify-center font-black text-lg",
-                                            selectedId === rider.id ? "bg-primary text-white" : "bg-[var(--ops-surface-sunken)] text-[var(--ops-text-muted)]"
+                                            selectedId === rider.id ? "bg-[#E75480] text-white" : "bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8]"
                                         )}>
                                             {rider.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <p className="font-black text-[var(--ops-text-primary)]">{rider.name}</p>
+                                            <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{rider.name}</p>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0 px-2 h-4", riderStatusConfig[rider.status].color)}>
                                                     <span className={cn("size-1.5 rounded-full mr-1", riderStatusConfig[rider.status].dot)} />
                                                     {rider.status}
                                                 </Badge>
-                                                <span className="text-[10px] font-bold text-[var(--ops-text-muted)]">• {rider.branch_name}</span>
+                                                <span className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">• {rider.branch_name}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] tracking-widest">Active Tasks</p>
+                                        <p className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] tracking-widest">Active Tasks</p>
                                         <p className={cn(
-                                            "text-lg font-black tabular-nums",
-                                            rider.active_deliveries > 0 ? "text-amber-600" : "text-emerald-600"
+                                            "text-lg font-black font-mono tabular-nums",
+                                            rider.active_deliveries > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                                         )}>
                                             {rider.active_deliveries}
                                         </p>
@@ -104,12 +105,12 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                     </div>
                 </div>
 
-                <DialogFooter className="p-6 bg-[var(--ops-surface-sunken)]/60 border-t flex flex-col sm:flex-row gap-3">
-                    <Button variant="ghost" className="rounded-xl font-bold order-2 sm:order-1" onClick={onClose}>
+                <DialogFooter className="p-6 bg-[#FFF5F7]/50 dark:bg-[#181824]/50 border-t border-[#F8C8DC]/40 dark:border-white/10 flex flex-col sm:flex-row gap-3">
+                    <Button variant="ghost" className="rounded-xl font-bold order-2 sm:order-1 text-[#7D6B6E] dark:text-[#94A3B8]" onClick={onClose}>
                         Cancel
                     </Button>
                     <Button
-                        className="rounded-xl font-black px-8 order-1 sm:order-2"
+                        className="rounded-xl font-black px-8 order-1 sm:order-2 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white"
                         disabled={!selectedId || processing}
                         onClick={handleAssign}
                     >

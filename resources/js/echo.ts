@@ -19,7 +19,7 @@ const reverbKey = import.meta.env.VITE_REVERB_APP_KEY;
 const isValidKey = (k: string | undefined): k is string =>
     !!k && !k.startsWith('${');
 
-let echo: Echo<'pusher'> | null = null;
+let echo: Echo<'pusher' | 'reverb'> | null = null;
 
 try {
     if (isValidKey(pusherKey)) {

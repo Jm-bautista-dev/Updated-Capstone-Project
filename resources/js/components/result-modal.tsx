@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -7,7 +8,6 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type ModalType = 'success' | 'error' | 'warning';

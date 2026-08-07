@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CategoryBar } from '@/components/customer/category-bar';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from 'react';
 import { FiShoppingBag, FiArrowRight, FiInfo } from 'react-icons/fi';
+import { CategoryBar } from '@/components/customer/category-bar';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface Product {
     id: number;

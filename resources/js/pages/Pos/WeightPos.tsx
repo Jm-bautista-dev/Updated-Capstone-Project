@@ -1,7 +1,6 @@
 import { Head, usePage, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useMemo } from 'react';
-import { BreadcrumbItem } from '@/types';
 import { 
  FiShoppingCart, 
  FiArrowDown, 
@@ -11,12 +10,13 @@ import {
  FiCheckCircle,
  FiAlertCircle
 } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
  { title: 'POS - Weight Sales', href: '/pos/weight' },

@@ -1,24 +1,24 @@
 import { Head, useForm, Link, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import debounce from 'lodash/debounce';
 import {
     Plus, Search, Edit2, Trash2, Eye, Mail, Phone, MapPin, User, Package,
     MoreHorizontal, Filter, ChevronLeft, ChevronRight, AlertTriangle,
     ArrowUpDown, Building2, ShieldAlert, X
 } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import debounce from 'lodash/debounce';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
 
 /* ─── Types ──────────────────────────────────────────────────── */
 

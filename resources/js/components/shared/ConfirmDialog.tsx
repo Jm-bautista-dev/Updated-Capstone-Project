@@ -1,4 +1,6 @@
 import React from 'react';
+import { FiAlertTriangle } from 'react-icons/fi';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -7,9 +9,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { FiAlertTriangle } from 'react-icons/fi';
 
 interface ConfirmDialogProps {
     open: boolean;

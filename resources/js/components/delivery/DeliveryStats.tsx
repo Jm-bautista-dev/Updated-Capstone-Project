@@ -1,5 +1,6 @@
+import { AlertCircle, CheckCircle2, Navigation, Timer } from 'lucide-react';
 import React from 'react';
-import { Timer, Navigation, CheckCircle2, AlertCircle } from 'lucide-react';
+
 import type { DeliveryStatsData } from './types';
 
 interface StatCardProps {
@@ -12,16 +13,16 @@ interface StatCardProps {
 
 const StatCard = React.memo(function StatCard({ label, value, icon, colorClass, description }: StatCardProps) {
     return (
-        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
-            <div className="flex items-center justify-between mb-2">
+        <div className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-5 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 space-y-3 font-['Outfit']">
+            <div className="flex items-center justify-between">
                 <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${colorClass}`}>{label}</p>
-                <div className={`${colorClass} opacity-80 group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`size-9 rounded-xl bg-[#FFF5F7] dark:bg-[#1C1C28] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center shadow-2xs ${colorClass} group-hover:scale-110 transition-transform duration-300`}>
                     {icon}
                 </div>
             </div>
             <div>
-                <h3 className={`text-2xl font-black tabular-nums leading-none ${colorClass}`}>{value}</h3>
-                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">{description}</p>
+                <h3 className={`text-2xl font-black font-mono tabular-nums leading-none ${colorClass}`}>{value}</h3>
+                <p className="text-[8px] text-[#7D6B6E] dark:text-[#94A3B8] font-bold uppercase mt-1.5 tracking-widest">{description}</p>
             </div>
         </div>
     );

@@ -1,10 +1,12 @@
-import React from 'react';
+import { router } from '@inertiajs/react';
 import { 
     XCircle, 
     AlertTriangle, 
     ChevronRight, 
     ArrowRight 
 } from 'lucide-react';
+import React from 'react';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -12,9 +14,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { router } from '@inertiajs/react';
 
 interface ValidationErrorModalProps {
     open: boolean;

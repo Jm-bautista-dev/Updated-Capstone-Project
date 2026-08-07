@@ -1,15 +1,15 @@
+import { usePage } from '@inertiajs/react';
+import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useEffect } from 'react';
 import { FiBell } from 'react-icons/fi';
+import { NotificationDropdown } from '@/components/notification-dropdown';
 import { Badge } from '@/components/ui/badge';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { NotificationDropdown } from '@/components/notification-dropdown';
-import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import { usePage } from '@inertiajs/react';
 
 export function NotificationBell() {
     const { auth } = usePage().props as any;

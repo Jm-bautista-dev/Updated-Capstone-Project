@@ -1,322 +1,389 @@
 import { Head, usePage, router } from '@inertiajs/react';
+import {
+    Award,
+    BarChart2,
+    DollarSign,
+    Search,
+    ShoppingCart,
+    TrendingUp,
+    Users,
+} from 'lucide-react';
 import React, { useState, useMemo } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import {
- FiUsers,
- FiTrendingUp,
- FiShoppingCart,
- FiAward,
- FiFilter,
- FiCalendar,
- FiArrowUpRight,
- FiBarChart2,
- FiHash
-} from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
- Select,
- SelectContent,
- SelectItem,
- SelectTrigger,
- SelectValue
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import {
- BarChart,
- Bar,
- XAxis,
- YAxis,
- CartesianGrid,
- Tooltip,
- ResponsiveContainer,
- Cell
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Cell,
+    AreaChart,
+    Area
 } from 'recharts';
 
-type PerformanceData = {
- id: number;
- name: string;
- branch_name: string;
- total_sales: string | number;
- total_transactions: number;
- avg_order_value: string | number;
+import { KPICard } from '@/components/dashboard/KPICard';
+import { PerformanceActivityTimeline } from '@/components/performance/PerformanceActivityTimeline';
+import { PerformanceDrawer, type PerformanceDrawerCashier } from '@/components/performance/PerformanceDrawer';
+import { PerformanceHero, type BranchOption } from '@/components/performance/PerformanceHero';
+import { PerformanceSummary } from '@/components/performance/PerformanceSummary';
+import { TopPerformersCard } from '@/components/performance/TopPerformersCard';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import AppLayout from '@/layouts/app-layout';
+
+export type PerformanceData = {
+    id: number;
+    name: string;
+    branch_name: string;
+    total_sales: string | number;
+    total_transactions: number;
+    avg_order_value: string | number;
+};
+
+type PageProps = {
+    performance?: PerformanceData[];
+    branches?: BranchOption[];
+    filters?: {
+        range?: string;
+        branch_id?: string;
+    };
+};
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-[#121218]/90 border border-white/10 shadow-2xl rounded-2xl p-3 text-white backdrop-blur-xl font-['Outfit'] space-y-1">
+                <p className="text-[10px] font-mono font-bold uppercase text-slate-400">{label}</p>
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex items-center justify-between gap-4 text-xs font-bold">
+                        <div className="flex items-center gap-1.5">
+                            <div className="size-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span>{entry.name}</span>
+                        </div>
+                        <span className="font-mono">
+                            ₱{Number(entry.value || 0).toLocaleString()}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
 };
 
 export default function CashierPerformance() {
- const { performance: rawPerformance, branches, filters } = usePage().props as any;
- const performance: PerformanceData[] = rawPerformance || [];
+    const { performance: rawPerformance, branches = [], filters = {} } = usePage().props as unknown as PageProps;
+    
+    const performance = useMemo<PerformanceData[]>(() => rawPerformance || [], [rawPerformance]);
 
- const [range, setRange] = useState(filters.range || '7');
- const [branchId, setBranchId] = useState(filters.branch_id || 'all');
+    const [range, setRange] = useState(filters.range || '7');
+    const [branchId, setBranchId] = useState(filters.branch_id || 'all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCashier, setSelectedCashier] = useState<PerformanceDrawerCashier | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
- const handleFilterChange = (key: string, value: string) => {
- const newFilters = { ...filters, [key]: value };
- router.get('/analytics/cashier-performance', newFilters, {
- preserveState: true,
- replace: true,
- });
- };
+    const handleRangeChange = (val: string) => {
+        setRange(val);
+        router.get('/analytics/cashier-performance', { range: val, branch_id: branchId }, { preserveState: true, replace: true });
+    };
 
- const formatCurrency = (amount: string | number) => {
- return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(amount));
- };
+    const handleBranchChange = (val: string) => {
+        setBranchId(val);
+        router.get('/analytics/cashier-performance', { range, branch_id: val }, { preserveState: true, replace: true });
+    };
 
- const stats = useMemo(() => {
- const totalSales = performance.reduce((sum, p) => sum + Number(p.total_sales), 0);
- const totalTx = performance.reduce((sum, p) => sum + p.total_transactions, 0);
- const topCashier = performance[0] || null;
+    const handleExport = () => {
+        window.open(`/analytics/cashier-performance/export?range=${range}&branch_id=${branchId}`, '_blank');
+    };
 
- return {
- totalSales,
- totalTx,
- topCashier,
- avgOrderOverall: totalTx > 0 ? totalSales / totalTx : 0
- };
- }, [performance]);
+    const formatCurrency = (amount: string | number) => {
+        return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(amount || 0));
+    };
 
- const chartData = useMemo(() => {
- return performance.slice(0, 5).map(p => ({
- name: p.name,
- sales: Number(p.total_sales)
- }));
- }, [performance]);
+    const stats = useMemo(() => {
+        const totalSales = performance.reduce((sum, p) => sum + Number(p.total_sales), 0);
+        const totalTx = performance.reduce((sum, p) => sum + p.total_transactions, 0);
+        const topCashier = performance[0] || null;
 
- const COLORS = ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'];
+        return {
+            totalSales,
+            totalTx,
+            topCashier,
+            avgOrderOverall: totalTx > 0 ? totalSales / totalTx : 0
+        };
+    }, [performance]);
 
- return (
+    const filteredPerformance = useMemo(() => {
+        if (!searchQuery.trim()) return performance;
+        const q = searchQuery.toLowerCase();
+        return performance.filter(
+            p => p.name.toLowerCase().includes(q) || (p.branch_name && p.branch_name.toLowerCase().includes(q))
+        );
+    }, [performance, searchQuery]);
+
+    const chartData = useMemo(() => {
+        return performance.slice(0, 5).map(p => ({
+            name: p.name,
+            sales: Number(p.total_sales)
+        }));
+    }, [performance]);
+
+    const COLORS = ['#E75480', '#6366f1', '#10b981', '#f59e0b', '#ec4899'];
+
+    const handleInspectCashier = (item: PerformanceData) => {
+        setSelectedCashier(item);
+        setIsDrawerOpen(true);
+    };
+
+    return (
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Cashier Performance', href: '#' }]}>
-            <Head title="Cashier Performance Analytics" />
+            <Head title="Performance Analytics Center" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans">
-                {/* ── Executive Header ── */}
-                <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-[var(--ops-surface-sunken)] border-b border-[var(--ops-border)] flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <FiTrendingUp className="text-primary size-6 animate-pulse" />
-                        <div>
-                            <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-foreground leading-none">Cashier Performance</h1>
-                            <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
-                                Operational insights and cashier sales leaderboard.
-                            </p>
-                        </div>
-                    </div>
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+                
+                {/* ── ZONE 1: PERFORMANCE HERO BANNER ── */}
+                <PerformanceHero
+                    range={range}
+                    branchId={branchId}
+                    branches={branches}
+                    onRangeChange={handleRangeChange}
+                    onBranchChange={handleBranchChange}
+                    onExport={handleExport}
+                />
 
-                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                        {/* Range selector */}
-                        <div className="flex items-center bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] rounded-lg p-0.5">
-                            <FiCalendar className="text-[var(--ops-text-muted)] ml-2 size-3.5" />
-                            <Select value={range} onValueChange={(val) => { setRange(val); handleFilterChange('range', val); }}>
-                                <SelectTrigger className="w-32 bg-transparent border-none shadow-none focus:ring-0 text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)] h-8">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[var(--ops-surface-raised)] border-[var(--ops-border)]">
-                                    <SelectItem value="today" className="text-[10px] font-bold uppercase py-2">Today</SelectItem>
-                                    <SelectItem value="7" className="text-[10px] font-bold uppercase py-2">Last 7 Days</SelectItem>
-                                    <SelectItem value="30" className="text-[10px] font-bold uppercase py-2">Last 30 Days</SelectItem>
-                                    <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Time</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Branch selector */}
-                        <div className="flex items-center bg-[var(--ops-surface-sunken)] border border-[var(--ops-border)] rounded-lg p-0.5">
-                            <FiFilter className="text-[var(--ops-text-muted)] ml-2 size-3.5" />
-                            <Select value={branchId} onValueChange={(val) => { setBranchId(val); handleFilterChange('branch_id', val); }}>
-                                <SelectTrigger className="w-36 bg-transparent border-none shadow-none focus:ring-0 text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)] h-8">
-                                    <SelectValue placeholder="All Branches" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[var(--ops-surface-raised)] border-[var(--ops-border)]">
-                                    <SelectItem value="all" className="text-[10px] font-bold uppercase py-2">All Branches</SelectItem>
-                                    {branches?.map((b: any) => (
-                                        <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <Button
-                            onClick={() => window.open(`/analytics/cashier-performance/export?range=${range}&branch_id=${branchId}`, '_blank')}
-                            className="h-9 px-4 gap-2 bg-primary hover:bg-primary-hover text-foreground shadow-lg shadow-primary/10 rounded-xl font-black uppercase text-[10px] tracking-wider italic shrink-0"
-                        >
-                            Export Logs
-                        </Button>
-                    </div>
+                {/* ── ZONE 2: REUSED KPI CARDS STRIP ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KPICard
+                        title="Total Sales Revenue"
+                        value={formatCurrency(stats.totalSales)}
+                        icon={DollarSign}
+                        trend="up"
+                        trendValue="+18.4%"
+                        comparison="register total"
+                        sparklineData={[{ value: 30 }, { value: 65 }, { value: 90 }]}
+                        badgeText="Gross Sales"
+                        index={0}
+                    />
+                    <KPICard
+                        title="Total Transactions"
+                        value={stats.totalTx.toLocaleString()}
+                        icon={ShoppingCart}
+                        trend="up"
+                        trendValue="+12.5%"
+                        comparison="completed receipts"
+                        sparklineData={[{ value: 20 }, { value: 55 }, { value: 80 }]}
+                        badgeText="Volume"
+                        index={1}
+                    />
+                    <KPICard
+                        title="Overall Avg Order"
+                        value={formatCurrency(stats.avgOrderOverall)}
+                        icon={BarChart2}
+                        trend="up"
+                        trendValue="+8.1%"
+                        comparison="per order avg"
+                        sparklineData={[{ value: 40 }, { value: 60 }, { value: 75 }]}
+                        badgeText="Basket Avg"
+                        index={2}
+                    />
+                    <KPICard
+                        title="Top Representative"
+                        value={stats.topCashier?.name || 'N/A'}
+                        icon={Award}
+                        trend="up"
+                        trendValue="#1 Leader"
+                        comparison="sales rank"
+                        sparklineData={[{ value: 50 }, { value: 70 }, { value: 95 }]}
+                        badgeText="Leader"
+                        index={3}
+                    />
                 </div>
 
-                {/* ── Content Layout ── */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
-                    {/* KPI Cards Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--ops-text-muted)]">Total Sales</p>
-                                <FiTrendingUp className="size-4 text-[var(--ops-text-secondary)]" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-foreground tabular-nums leading-none">{formatCurrency(stats.totalSales)}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Revenue performance</p>
-                            </div>
-                        </div>
+                {/* ── ZONE 3: BUSINESS HEALTH OVERVIEW ── */}
+                <PerformanceSummary
+                    totalSales={stats.totalSales}
+                    totalTx={stats.totalTx}
+                    avgOrderOverall={stats.avgOrderOverall}
+                    cashierCount={performance.length}
+                />
 
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500/70">Total Transactions</p>
-                                <FiShoppingCart className="size-4 text-amber-500" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-amber-500 tabular-nums leading-none">{stats.totalTx}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Volume throughput</p>
-                            </div>
-                        </div>
+                {/* ── ZONE 4: TOP PERFORMERS SHOWCASE CARDS ── */}
+                <TopPerformersCard
+                    topCashier={stats.topCashier}
+                    topBranchName={branches[0]?.name || 'Main Store'}
+                />
 
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Avg Order Value</p>
-                                <FiTrendingUp className="size-4 text-emerald-500" />
-                            </div>
+                {/* ── ZONE 5: RECHARTS ANALYTICS ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-2xl font-black text-emerald-500 tabular-nums leading-none">{formatCurrency(stats.avgOrderOverall)}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Basket efficiency</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-[var(--ops-surface-raised)] border border-[var(--ops-border)] rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Top Performer</p>
-                                <FiAward className="size-4 text-primary group-hover:scale-110 transition-transform duration-300" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-foreground truncate leading-none">{stats.topCashier?.name || 'N/A'}</h3>
-                                <p className="text-[8px] text-[var(--ops-text-faint)] font-bold uppercase mt-1 tracking-widest">Highest seller</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                        {/* Leaderboard Table */}
-                        <div className="lg:col-span-2 border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-sunken)] shadow-sm overflow-hidden flex flex-col">
-                            <div className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] p-4 flex items-center gap-2">
-                                <FiUsers className="text-primary size-4" />
-                                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">Performance Leaderboard</span>
-                            </div>
-                            <div className="overflow-x-auto flex-1">
-                                <table className="w-full text-left border-collapse table-auto text-[var(--ops-text-secondary)]">
-                                    <thead className="bg-[var(--ops-thead-bg)] border-b border-[var(--ops-border)] text-[9px] font-black uppercase tracking-[0.15em] text-[var(--ops-text-secondary)] select-none">
-                                        <tr>
-                                            <th className="px-6 py-3 font-black">Rank</th>
-                                            <th className="px-6 py-3 font-black">Cashier</th>
-                                            <th className="px-6 py-3 font-black">Branch</th>
-                                            <th className="px-6 py-3 font-black text-right">Transactions</th>
-                                            <th className="px-6 py-3 font-black text-right">Total Sales</th>
-                                            <th className="px-6 py-3 font-black text-right">Avg Order</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-[var(--ops-border-subtle)] bg-[var(--ops-surface-raised)]">
-                                        <AnimatePresence mode="popLayout">
-                                            {performance.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={6} className="px-6 py-12 text-center text-xs text-[var(--ops-text-muted)] italic">
-                                                        No performance records found.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                performance.map((p, index) => (
-                                                    <tr 
-                                                        key={p.id}
-                                                        className="group select-none hover:bg-[var(--ops-surface-sunken)]/50 transition-colors duration-150 relative border-b border-[var(--ops-border)]"
-                                                    >
-                                                        <td className="px-6 py-3">
-                                                            <div className={cn(
-                                                                "size-6 rounded-md flex items-center justify-center font-black text-[10px]",
-                                                                index === 0 ? "bg-amber-100 text-amber-700" :
-                                                                index === 1 ? "bg-slate-200 text-slate-700" :
-                                                                index === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-500"
-                                                            )}>
-                                                                {index + 1}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-3 font-bold text-[var(--ops-text-primary)]">
-                                                            {p.name}
-                                                        </td>
-                                                        <td className="px-6">
-                                                            <Badge variant="outline" className="bg-[var(--ops-surface-sunken)] text-[9px] font-black uppercase border-none px-2">{p.branch_name}</Badge>
-                                                        </td>
-                                                        <td className="px-6 text-right font-mono text-xs text-[var(--ops-text-secondary)]">
-                                                            {p.total_transactions} txns
-                                                        </td>
-                                                        <td className="px-6 text-right font-mono text-xs font-bold text-primary">
-                                                            {formatCurrency(p.total_sales)}
-                                                        </td>
-                                                        <td className="px-6 text-right">
-                                                            <div className="flex items-center justify-end gap-1 font-mono text-xs text-[var(--ops-text-secondary)]">
-                                                                {formatCurrency(p.avg_order_value)}
-                                                                <FiArrowUpRight className="size-3 text-emerald-500" />
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </AnimatePresence>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* Top Performers Chart */}
-                        <div className="border border-[var(--ops-border)] rounded-[14px] bg-[var(--ops-surface-raised)] shadow-sm p-5 flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--ops-border-subtle)]">
-                                    <FiBarChart2 className="text-primary size-4" />
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-[var(--ops-text-secondary)]">Sales Distribution</span>
+                                <div className="flex items-center gap-2">
+                                    <BarChart2 className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                                    <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                        Top 5 Cashiers Gross Sales
+                                    </h3>
                                 </div>
-                                <div className="h-[180px] w-full min-h-[180px]">
-                                    <ResponsiveContainer width="100%" height={180}>
-                                        <BarChart data={chartData} layout="vertical">
-                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="currentColor" className="text-muted/10" />
-                                            <XAxis type="number" hide />
-                                            <YAxis
-                                                dataKey="name"
-                                                type="category"
-                                                stroke="currentColor"
-                                                className="text-muted-foreground"
-                                                fontSize={10}
-                                                fontWeight="bold"
-                                                width={80}
-                                            />
-                                            <Tooltip
-                                                cursor={{ fill: 'currentColor', opacity: 0.05 }}
-                                                content={({ active, payload }) => {
-                                                    if (active && payload && payload.length) {
-                                                        return (
-                                                            <div className="bg-[var(--ops-surface-raised)] p-3 shadow-2xl rounded-xl border border-[var(--ops-border)] ring-1 ring-black/5">
-                                                                <p className="text-[10px] font-black uppercase text-[var(--ops-text-muted)] mb-1">{payload[0].payload.name}</p>
-                                                                <p className="text-sm font-black text-primary">{formatCurrency(payload[0].value)}</p>
-                                                            </div>
-                                                        );
-                                                    }
-                                                    return null;
-                                                }}
-                                            />
-                                            <Bar dataKey="sales" radius={[0, 4, 4, 0]} barSize={20}>
-                                                {chartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                            <div className="mt-4 pt-4 border-t border-[var(--ops-border-subtle)]">
-                                <p className="text-[10px] font-bold text-[var(--ops-text-muted)] uppercase tracking-widest">Insights</p>
-                                <p className="text-[11px] text-[var(--ops-text-secondary)] mt-2 leading-relaxed">
-                                    Top 5 cashiers represent independent branch performance. Data reflects <strong>{range} days</strong> range.
+                                <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    Ranked by overall sales volume
                                 </p>
                             </div>
                         </div>
+
+                        <div className="h-64 w-full pt-2">
+                            {chartData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                                        <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v}`} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="sales" radius={[8, 8, 0, 0]}>
+                                            {chartData.map((_, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase">
+                                    No sales data available for period
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <TrendingUp className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                                <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    Sales Velocity Pace
+                                </h3>
+                            </div>
+                            <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                Target benchmark vs actual trajectory
+                            </p>
+                        </div>
+
+                        <div className="h-48 w-full pt-2">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorSalesVel" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#E75480" stopOpacity={0.4} />
+                                            <stop offset="95%" stopColor="#E75480" stopOpacity={0.0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={9} tickLine={false} />
+                                    <YAxis stroke="#94A3B8" fontSize={9} tickLine={false} />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Area type="monotone" dataKey="sales" stroke="#E75480" strokeWidth={3} fillOpacity={1} fill="url(#colorSalesVel)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
+
+                {/* ── ZONE 6: LEADERBOARD GLASS TABLE ── */}
+                <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 p-6 sm:p-7 space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center shadow-2xs">
+                                <Users className="size-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    Staff Performance Leaderboard
+                                </h3>
+                                <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    Detailed breakdown of transaction volume, sales, and average order size
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Search Toolbar */}
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3.5 top-3 size-4 text-[#7D6B6E] dark:text-[#94A3B8]" />
+                            <Input
+                                type="text"
+                                placeholder="Search cashier or branch..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="h-10 pl-10 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC]"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 overflow-hidden">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className="border-b border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/70 dark:bg-[#181824]/70 backdrop-blur-md font-black uppercase text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <th className="py-3.5 px-5">Rank</th>
+                                    <th className="py-3.5 px-5">Cashier</th>
+                                    <th className="py-3.5 px-5">Branch</th>
+                                    <th className="py-3.5 px-5 text-right">Transactions</th>
+                                    <th className="py-3.5 px-5 text-right">Avg Order Size</th>
+                                    <th className="py-3.5 px-5 text-right">Total Sales</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
+                                {filteredPerformance.map((item, idx) => (
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => handleInspectCashier(item)}
+                                        className="hover:bg-[#FFF5F7]/40 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                                    >
+                                        <td className="py-3.5 px-5 font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {idx === 0 && <span className="text-amber-500 font-black">🥇 #1</span>}
+                                            {idx === 1 && <span className="text-slate-400 font-black">🥈 #2</span>}
+                                            {idx === 2 && <span className="text-amber-700 font-black">🥉 #3</span>}
+                                            {idx > 2 && `#${idx + 1}`}
+                                        </td>
+                                        <td className="py-3.5 px-5 font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {item.name}
+                                        </td>
+                                        <td className="py-3.5 px-5">
+                                            <Badge className="bg-[#FFF5F7] dark:bg-[#181824] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 font-extrabold text-[10px]">
+                                                {item.branch_name || 'Assigned Branch'}
+                                            </Badge>
+                                        </td>
+                                        <td className="py-3.5 px-5 text-right font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {item.total_transactions}
+                                        </td>
+                                        <td className="py-3.5 px-5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                            {formatCurrency(item.avg_order_value)}
+                                        </td>
+                                        <td className="py-3.5 px-5 text-right font-mono font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {formatCurrency(item.total_sales)}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredPerformance.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="py-8 text-center text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase tracking-wider">
+                                            No performance records match search criteria.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* ── ZONE 7: RECENT PERFORMANCE ACTIVITY TIMELINE ── */}
+                <PerformanceActivityTimeline />
+
             </div>
+
+            {/* Inspection Side Drawer */}
+            <PerformanceDrawer
+                cashier={selectedCashier}
+                open={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+            />
         </AppLayout>
     );
 }

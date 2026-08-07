@@ -1,9 +1,9 @@
-import React from 'react';
 import { Link } from '@inertiajs/react';
-import { FiShoppingBag, FiPackage, FiSettings, FiCheckCircle, FiAlertTriangle, FiAlertOctagon } from 'react-icons/fi';
-import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import React from 'react';
+import { FiShoppingBag, FiPackage, FiSettings, FiCheckCircle, FiAlertTriangle, FiAlertOctagon } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface Notification {
     id: number;

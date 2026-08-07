@@ -1,12 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     ArrowLeft, Mail, Phone, MapPin, User, Package, AlertTriangle, Calendar,
     Truck, ExternalLink, DollarSign, Info, ShieldCheck, Clock
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
 
 /* ─── Types ──────────────────────────────────────────────────── */
 

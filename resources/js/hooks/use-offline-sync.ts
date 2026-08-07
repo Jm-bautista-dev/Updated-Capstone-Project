@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useState, useEffect, useCallback } from 'react';
 import { getOfflineQueue, removeFromOfflineQueue } from '@/lib/offline-db';
 
 export type ConnectionStatus = 'online' | 'offline' | 'syncing';

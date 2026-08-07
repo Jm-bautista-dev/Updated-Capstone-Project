@@ -1,5 +1,8 @@
-import React, { useEffect } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
+import React, { useEffect } from 'react';
+import { FiAlertTriangle, FiTrash2, FiInfo } from 'react-icons/fi';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -8,7 +11,6 @@ import {
     DialogDescription,
     DialogFooter
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -18,8 +20,6 @@ import {
     SelectValue
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { FiAlertTriangle, FiTrash2, FiInfo } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 
 interface WastageModalProps {

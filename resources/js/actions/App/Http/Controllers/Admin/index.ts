@@ -1,10 +1,10 @@
 import AnalyticsController from './AnalyticsController'
-import SupplierController from './SupplierController'
-import RiderController from './RiderController'
-import EmployeeController from './EmployeeController'
-import SalesDataManagementController from './SalesDataManagementController'
-import ReportController from './ReportController'
 import DeliveryController from './DeliveryController'
+import EmployeeController from './EmployeeController'
+import ReportController from './ReportController'
+import RiderController from './RiderController'
+import SalesDataManagementController from './SalesDataManagementController'
+import SupplierController from './SupplierController'
 const Admin = {
     AnalyticsController: Object.assign(AnalyticsController, AnalyticsController),
 SupplierController: Object.assign(SupplierController, SupplierController),

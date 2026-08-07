@@ -1,3 +1,4 @@
+import type { RequestPayload } from '@inertiajs/core';
 import { Head, usePage, router, Link } from '@inertiajs/react';
 import { format, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -169,7 +170,7 @@ export default function SalesForecast() {
       horizon_days: forecast.length,
       dataset_range: benchmark.dataset_range || 'Current Period',
       forecast_data: forecast
-    } as unknown as Record<string, unknown>, {
+    } as RequestPayload, {
       onFinish: () => setIsSaving(false),
       onSuccess: () => alert('Forecast version snapshot saved successfully.')
     });
@@ -312,16 +313,16 @@ export default function SalesForecast() {
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Growth Slope</p>
                       <span className={cn(
                         "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-[6px] border bg-transparent",
-                        trend?.slope >= 0 
+                        (trend?.slope ?? 0) >= 0 
                           ? "text-emerald-500 border-emerald-500/10" 
                           : "text-rose-500 border-rose-500/10"
                       )}>
-                        {trend?.percentage > 0 ? '+' : ''}{trend?.percentage}% Overall
+                        {(trend?.percentage ?? 0) > 0 ? '+' : ''}{trend?.percentage}% Overall
                       </span>
                     </div>
                     <div>
-                      <h3 className={cn('text-2xl font-black tabular-nums leading-none', trend?.slope >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                        {trend?.slope >= 0 ? '+' : ''}{formatCurrency(trend?.slope)}
+                      <h3 className={cn('text-2xl font-black tabular-nums leading-none', (trend?.slope ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                        {(trend?.slope ?? 0) >= 0 ? '+' : ''}{formatCurrency(trend?.slope)}
                         <span className="text-[10px] font-bold text-(--ops-text-faint) ml-1">/ day</span>
                       </h3>
                       <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest font-mono">Telemetry prediction rate</p>

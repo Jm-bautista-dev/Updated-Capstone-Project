@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { Head, usePage, router } from '@inertiajs/react';
 import type { Page } from '@inertiajs/core';
+import { Head, usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import { format } from 'date-fns';
+import React, { useState, useRef } from 'react';
 import {
   FiDatabase,
   FiUploadCloud,
@@ -220,7 +220,7 @@ export default function SalesDataManagementIndex() {
       dateRangeEnd,
       confirmText: confirmDeleteText
     }, {
-      onSuccess: (page: Page<PageProps>) => {
+      onSuccess: (page: Page) => {
         setIsImporting(false);
 
         // Grab import result details from response (passed back on completion)

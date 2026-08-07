@@ -1,19 +1,17 @@
 import axios from 'axios';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     FiUploadCloud,
     FiCamera,
     FiFileText,
     FiCheck,
     FiRefreshCw,
-    FiAlertTriangle,
     FiTrash2,
     FiList,
     FiZap
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +29,6 @@ interface InventoryItem {
     id: number;
     name: string;
     unit?: string;
-    [key: string]: unknown;
 }
 
 interface ReceiptScannerModalProps {
@@ -59,467 +56,420 @@ export function ReceiptScannerModal({ open, onOpenChange, branchId, inventory, o
     const [mode, setMode] = useState<Mode>('upload');
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [isAutoMode, setIsAutoMode] = useState(false);
 
     const [processingStage, setProcessingStage] = useState<'uploading' | 'ocr' | 'matching'>('uploading');
     const [receiptId, setReceiptId] = useState<number | null>(null);
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
-    const [lowConfidenceWarning, setLowConfidenceWarning] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
+    const [selectedMatches, setSelectedMatches] = useState<Record<number, number | null>>({});
+    const [editedQty, setEditedQty] = useState<Record<number, number>>({});
+    const [editedUnits, setEditedUnits] = useState<Record<number, string>>({});
+    const [supplierName, setSupplierName] = useState<string>('');
+    const [receiptDate, setReceiptDate] = useState<string>('');
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Drag-and-drop & Camera File Inputs
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
 
-    const resetScanState = () => {
-        setScannedItems([]);
-        setReceiptId(null);
-        setLowConfidenceWarning(false);
-        setSubmitting(false);
-        setProcessingStage('uploading');
-    };
-
-    const uniqueIngredients = useMemo(() => {
-        const seen = new Set();
-        return (inventory || []).filter(ing => {
-            if (!ing || seen.has(ing.id)) return false;
-            seen.add(ing.id);
-            return true;
-        });
-    }, [inventory]);
-
+    // Reset state when modal closes
     useEffect(() => {
-        if (open) {
+        if (!open) {
             setMode('upload');
             setFile(null);
-            setPreviewUrl(null);
-            resetScanState();
-            if (fileInputRef.current) fileInputRef.current.value = '';
-            if (cameraInputRef.current) cameraInputRef.current.value = '';
+            setPreviewUrl((prevUrl) => {
+                if (prevUrl) URL.revokeObjectURL(prevUrl);
+                return null;
+            });
+            setScannedItems([]);
+            setSelectedMatches({});
+            setEditedQty({});
+            setEditedUnits({});
+            setSupplierName('');
+            setReceiptDate('');
+            setIsSubmitting(false);
         }
     }, [open]);
 
-    useEffect(() => {
-        return () => {
-            if (previewUrl) {
-                URL.revokeObjectURL(previewUrl);
-            }
-        };
-    }, [previewUrl]);
-
-    const handleFileChange = (selectedFile: File) => {
-        if (!selectedFile) return;
-        resetScanState();
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
+    const handleFileSelect = (selectedFile: File) => {
+        if (!selectedFile.type.startsWith('image/')) {
+            toast.error('Please upload an image file (JPEG, PNG, WebP).');
+            return;
+        }
+        if (selectedFile.size > 10 * 1024 * 1024) {
+            toast.error('File size exceeds 10MB limit.');
+            return;
         }
         setFile(selectedFile);
-        setPreviewUrl(URL.createObjectURL(selectedFile));
+        setPreviewUrl((prevUrl) => {
+            if (prevUrl) URL.revokeObjectURL(prevUrl);
+            return URL.createObjectURL(selectedFile);
+        });
     };
 
-    const handleUploadAndProcess = async () => {
+    const handleStartScan = async (autoApply: boolean = false) => {
         if (!file) {
-            toast.error('Please select or capture a receipt first.');
+            toast.error('Please select or capture a receipt image first.');
             return;
         }
 
-        resetScanState();
         setMode('processing');
         setProcessingStage('uploading');
 
         const formData = new FormData();
-        formData.append('file', file);
-        formData.append('branch_id', String(branchId));
+        formData.append('receipt_image', file);
 
         try {
-            const uploadRes = await axios.post('/api/receipts/upload', formData, {
+            // Stage 1: Uploading & OCR
+            setProcessingStage('ocr');
+            const res = await axios.post('/inventory/scan-receipt', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            if (!uploadRes.data.success) {
-                throw new Error(uploadRes.data.message || 'Upload failed');
+            if (!res.data.success) {
+                toast.error(res.data.message || 'Failed to process receipt.');
+                setMode('upload');
+                return;
             }
 
-            const uploadedReceiptId = uploadRes.data.receipt_id;
-            setReceiptId(uploadedReceiptId);
+            // Stage 2: Fuzzy Matching
+            setProcessingStage('matching');
+            const items: ScannedItem[] = res.data.items || [];
+            setReceiptId(res.data.receipt_id || null);
+            setSupplierName(res.data.supplier_name || '');
+            setReceiptDate(res.data.receipt_date || '');
 
-            setProcessingStage('ocr');
-            const processRes = await axios.post('/api/receipts/process', {
-                receipt_id: uploadedReceiptId
+            const initialMatches: Record<number, number | null> = {};
+            const initialQty: Record<number, number> = {};
+            const initialUnits: Record<number, string> = {};
+
+            items.forEach((item, index) => {
+                initialMatches[index] = item.suggested_match_id;
+                initialQty[index] = item.detected_qty;
+                initialUnits[index] = item.detected_unit;
             });
 
-            if (!processRes.data.success) {
-                throw new Error(processRes.data.message || 'OCR extraction failed');
-            }
-
-            setProcessingStage('matching');
-            await new Promise((resolve) => setTimeout(resolve, 800));
-
-            const items: ScannedItem[] = processRes.data.items || [];
             setScannedItems(items);
-            setLowConfidenceWarning(processRes.data.low_confidence || false);
+            setSelectedMatches(initialMatches);
+            setEditedQty(initialQty);
+            setEditedUnits(initialUnits);
 
-            setMode('review');
-            toast.success('Receipt processed successfully!');
-        } catch (err) {
-            console.error(err);
+            // Auto-Apply Flow vs Manual Review
+            if (autoApply) {
+                // Instantly apply high-confidence matches (> 70%)
+                const autoPayload = items
+                    .map((item, index) => ({
+                        ingredient_id: initialMatches[index],
+                        quantity: initialQty[index],
+                        unit: initialUnits[index],
+                        confidence: item.confidence
+                    }))
+                    .filter(row => row.ingredient_id && row.quantity > 0 && row.confidence >= 70);
+
+                if (autoPayload.length === 0) {
+                    toast.info('No high-confidence matches found for auto-apply. Please review items manually.');
+                    setMode('review');
+                    return;
+                }
+
+                await submitStockAdjustments(autoPayload, res.data.receipt_id);
+            } else {
+                setMode('review');
+            }
+        } catch (err: unknown) {
+            console.error('Scan receipt error:', err);
+            const errResponse = (err as { response?: { data?: { message?: string } } })?.response;
+            toast.error(errResponse?.data?.message || 'Server error while scanning receipt.');
             setMode('upload');
-            const msg = axios.isAxiosError(err) ? (err.response?.data?.message || err.message) : (err instanceof Error ? err.message : 'OCR processing failed.');
-            toast.error(msg);
         }
     };
 
-    const handleConfirmStockIn = async () => {
-        const invalidItem = scannedItems.find(item => !item.suggested_match_id);
-        if (invalidItem) {
-            toast.error(`Please match "${invalidItem.item_name}" to a valid database product.`);
-            return;
-        }
-
-        setSubmitting(true);
-
-        const stockInPayload = {
-            branch_id: branchId,
-            receipt_id: receiptId,
-            items: scannedItems.map(item => ({
-                id: item.suggested_match_id,
-                type: 'ingredient',
-                quantity: item.detected_qty,
-                unit: item.detected_unit,
-                purchase_price: 0
-            }))
-        };
-
+    const submitStockAdjustments = async (
+        itemsToSubmit: Array<{ ingredient_id: number | null; quantity: number; unit: string }>,
+        recId: number | null
+    ) => {
+        setIsSubmitting(true);
         try {
-            const res = await axios.post('/api/inventory/stock-in', stockInPayload);
+            const validRows = itemsToSubmit.filter(r => r.ingredient_id && r.quantity > 0);
+
+            if (validRows.length === 0) {
+                toast.error('No valid matched items to restock.');
+                setIsSubmitting(false);
+                return;
+            }
+
+            const res = await axios.post('/inventory/apply-receipt-restock', {
+                branch_id: branchId,
+                receipt_id: recId,
+                items: validRows
+            });
+
             if (res.data.success) {
                 setMode('success');
-                toast.success('Inventory restocked successfully!');
+                toast.success(res.data.message || 'Receipt restock applied successfully!');
                 if (onSuccess) onSuccess();
             } else {
-                toast.error(res.data.message || 'Stock-in failed');
+                toast.error(res.data.message || 'Failed to apply restock.');
             }
-        } catch (err) {
-            console.error(err);
-            const msg = axios.isAxiosError(err) ? (err.response?.data?.message || err.message) : 'Inventory stock-in failed.';
-            toast.error(msg);
+        } catch (err: unknown) {
+            console.error('Apply receipt restock error:', err);
+            const errResponse = (err as { response?: { data?: { message?: string } } })?.response;
+            toast.error(errResponse?.data?.message || 'Error applying restock.');
         } finally {
-            setSubmitting(false);
+            setIsSubmitting(false);
         }
     };
 
-    const handleUpdateRowMatch = (idx: number, ingredientId: number) => {
-        const selectedIng = inventory.find(ing => ing.id === ingredientId);
-        const newItems = [...scannedItems];
-        newItems[idx].suggested_match_id = ingredientId;
-        newItems[idx].suggested_match_name = selectedIng ? selectedIng.name : 'Unknown';
-        newItems[idx].needs_review = false;
-
-        const hasLowConf = newItems.some(i => i.needs_review || !i.suggested_match_id);
-        setLowConfidenceWarning(hasLowConf);
-        setScannedItems(newItems);
+    const handleManualConfirm = () => {
+        const payload = scannedItems.map((item, index) => ({
+            ingredient_id: selectedMatches[index] || null,
+            quantity: Number(editedQty[index] || 0),
+            unit: editedUnits[index] || 'g'
+        }));
+        submitStockAdjustments(payload, receiptId);
     };
 
-    const handleUpdateRowQty = (idx: number, qty: string) => {
-        const val = parseFloat(qty) || 0;
-        const newItems = [...scannedItems];
-        newItems[idx].detected_qty = val;
-        setScannedItems(newItems);
-    };
-
-    const handleUpdateRowUnit = (idx: number, unit: string) => {
-        const newItems = [...scannedItems];
-        newItems[idx].detected_unit = unit;
-        setScannedItems(newItems);
-    };
-
-    const handleRemoveRow = (idx: number) => {
-        const newItems = scannedItems.filter((_, i) => i !== idx);
-        setScannedItems(newItems);
-        const hasLowConf = newItems.some(i => i.needs_review || !i.suggested_match_id);
-        setLowConfidenceWarning(hasLowConf);
+    const handleRemoveItem = (indexToRemove: number) => {
+        setScannedItems(prev => prev.filter((_, idx) => idx !== indexToRemove));
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-175 max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-3xl border-none shadow-2xl z-100">
-                <DialogHeader className="bg-primary/5 p-6 border-b shrink-0">
+            <DialogContent className="sm:max-w-2xl bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] rounded-3xl p-6 shadow-2xl font-['Outfit'] transition-all">
+                <DialogHeader className="border-b border-[#F8C8DC]/40 dark:border-white/10 pb-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                            <div className="p-2.5 rounded-2xl bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
                                 <FiFileText className="size-5" />
                             </div>
                             <div>
-                                <DialogTitle className="text-xl font-bold tracking-tight uppercase">Receipt Scanner</DialogTitle>
-                                <DialogDescription className="text-xs font-medium">Automatic OCR-based Inventory Stock-In</DialogDescription>
+                                <DialogTitle className="text-xl font-bold">AI Receipt Restock Scanner</DialogTitle>
+                                <DialogDescription className="text-xs text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    Upload delivery receipts or supplier invoices for automated stock-in.
+                                </DialogDescription>
                             </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsAutoMode(false)}
-                                className={cn(
-                                    "h-8 rounded-lg px-3 text-[9px] font-black uppercase tracking-tighter transition-all",
-                                    !isAutoMode ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                <FiList className="size-3 mr-1" /> Review Mode
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsAutoMode(true)}
-                                className={cn(
-                                    "h-8 rounded-lg px-3 text-[9px] font-black uppercase tracking-tighter transition-all",
-                                    isAutoMode ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" : "text-muted-foreground hover:text-amber-500"
-                                )}
-                            >
-                                <FiZap className="size-3 mr-1" /> Auto Mode
-                            </Button>
                         </div>
                     </div>
                 </DialogHeader>
 
+                {/* MODE 1: UPLOAD & CAPTURE */}
                 {mode === 'upload' && (
-                    <div className="p-6 space-y-6 flex-1 overflow-y-auto">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/2 transition-all rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer min-h-50"
-                            >
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={(e) => {
-                                        if (e.target.files?.[0]) handleFileChange(e.target.files[0]);
-                                        e.target.value = '';
-                                    }}
-                                    accept="image/*,application/pdf"
-                                    className="hidden"
-                                />
-                                <div className="size-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                                    <FiUploadCloud className="size-6 text-muted-foreground" />
-                                </div>
-                                <span className="text-sm font-bold">Upload Receipt File</span>
-                                <span className="text-[10px] text-muted-foreground mt-1">Supports PNG, JPG, PDF (Max 10MB)</span>
-                            </div>
+                    <div className="space-y-5 pt-2">
+                        {/* Drag and Drop Zone */}
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-[#F8C8DC] dark:border-white/20 hover:border-[#E75480] dark:hover:border-[#FF4F81] rounded-3xl p-8 text-center cursor-pointer transition-all bg-[#FFF5F7]/50 dark:bg-[#181820]/50 hover:bg-[#FFF5F7] dark:hover:bg-[#181820] flex flex-col items-center justify-center gap-3 group"
+                        >
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                            />
+                            <input
+                                type="file"
+                                ref={cameraInputRef}
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                            />
 
-                            <div
-                                onClick={() => cameraInputRef.current?.click()}
-                                className="border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/2 transition-all rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer min-h-50"
-                            >
-                                <input
-                                    type="file"
-                                    ref={cameraInputRef}
-                                    onChange={(e) => {
-                                        if (e.target.files?.[0]) handleFileChange(e.target.files[0]);
-                                        e.target.value = '';
-                                    }}
-                                    accept="image/*"
-                                    capture="environment"
-                                    className="hidden"
-                                />
-                                <div className="size-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                                    <FiCamera className="size-6 text-muted-foreground" />
-                                </div>
-                                <span className="text-sm font-bold">Snap Camera Photo</span>
-                                <span className="text-[10px] text-muted-foreground mt-1">Capture live photo from device camera</span>
-                            </div>
-                        </div>
-
-                        {file && (
-                            <div className="p-4 bg-muted/40 rounded-2xl border flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    {previewUrl && file.type.startsWith('image/') ? (
-                                        <img src={previewUrl} className="size-12 rounded-xl object-cover border" alt="Preview" />
-                                    ) : (
-                                        <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><FiFileText className="size-6" /></div>
-                                    )}
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-bold truncate max-w-62.5">{file.name}</span>
-                                        <span className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                            {previewUrl ? (
+                                <div className="relative w-full max-h-56 rounded-2xl overflow-hidden border border-[#F8C8DC] dark:border-white/10">
+                                    <img src={previewUrl} alt="Receipt Preview" className="w-full h-full object-contain max-h-56 mx-auto" />
+                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-2">
+                                        <FiRefreshCw className="size-4" /> Change Image
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="sm" onClick={() => { setFile(null); setPreviewUrl(null); }} className="rounded-xl font-bold text-xs">Remove</Button>
-                                    <Button onClick={handleUploadAndProcess} className="rounded-xl font-bold text-xs">Process Receipt</Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {mode === 'processing' && (
-                    <div className="p-10 flex flex-col items-center justify-center text-center space-y-6 flex-1">
-                        <div className="relative size-16">
-                            <span className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                        </div>
-                        <div className="space-y-2">
-                            <p className="text-base font-bold uppercase tracking-tight">
-                                {processingStage === 'uploading' && 'Uploading Receipt...'}
-                                {processingStage === 'ocr' && 'Extracting text using OCR...'}
-                                {processingStage === 'matching' && 'Matching items to inventory...'}
-                            </p>
-                            <p className="text-xs text-muted-foreground max-w-75">
-                                {processingStage === 'uploading' && 'Sending the receipt securely to the server.'}
-                                {processingStage === 'ocr' && 'Converting image pixels to readable text blocks.'}
-                                {processingStage === 'matching' && 'Aligning ingredients with Capstone records.'}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {mode === 'review' && (
-                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-                            {lowConfidenceWarning && (
-                                <Alert variant="destructive" className="bg-amber-500/5 border-amber-500/20 text-amber-600 rounded-2xl">
-                                    <FiAlertTriangle className="size-4 text-amber-500" />
-                                    <AlertDescription className="text-[10px] font-black uppercase tracking-tight ml-2">
-                                        Low confidence detection. Manual review & alignment recommended.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                            {scannedItems.length === 0 ? (
-                                <div className="py-20 text-center">
-                                    <p className="text-sm font-bold text-muted-foreground">No readable items could be parsed from the receipt.</p>
-                                    <Button variant="outline" onClick={() => setMode('upload')} className="rounded-xl mt-4 text-xs font-bold">Go Back</Button>
-                                </div>
                             ) : (
-                                <div className="border rounded-2xl overflow-hidden shadow-inner bg-card">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-muted/30 border-b text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                                                <th className="p-3 pl-4">Detected Name</th>
-                                                <th className="p-3">Suggested Match</th>
-                                                <th className="p-3 text-right">Qty</th>
-                                                <th className="p-3 text-center">Unit</th>
-                                                <th className="p-3 text-center">Confidence</th>
-                                                <th className="p-3 text-center pr-4"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border/60">
-                                            {scannedItems.map((item, idx) => (
-                                                <tr key={idx} className="hover:bg-muted/10 text-xs">
-                                                    <td className="p-3 pl-4 font-bold text-muted-foreground max-w-37.5 truncate" title={item.item_name}>
-                                                        {item.item_name}
-                                                    </td>
-                                                    <td className="p-3">
-                                                        <select
-                                                            value={item.suggested_match_id || ''}
-                                                            onChange={(e) => handleUpdateRowMatch(idx, Number(e.target.value))}
-                                                            className={cn(
-                                                                "h-9 px-2 bg-muted/40 border-none ring-1 ring-border/50 text-xs font-bold uppercase rounded-lg w-full transition-all focus:ring-primary/50",
-                                                                !item.suggested_match_id ? "ring-rose-500/50 bg-rose-500/3 text-rose-600" : "text-foreground"
-                                                            )}
-                                                        >
-                                                            <option value="" disabled className="text-muted-foreground">-- Select Match --</option>
-                                                            {uniqueIngredients.map((ing) => (
-                                                                <option key={ing.id} value={ing.id}>{ing.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
-                                                    <td className="p-3 text-right w-20">
-                                                        <Input
-                                                            type="number"
-                                                            step="any"
-                                                            value={item.detected_qty}
-                                                            onChange={(e) => handleUpdateRowQty(idx, e.target.value)}
-                                                            className="h-9 w-16 text-right font-black italic rounded-lg text-xs"
-                                                        />
-                                                    </td>
-                                                    <td className="p-3 text-center w-24">
-                                                        <select
-                                                            value={item.detected_unit}
-                                                            onChange={(e) => handleUpdateRowUnit(idx, e.target.value)}
-                                                            className="h-9 px-2 bg-muted/45 border-none ring-1 ring-border/50 text-xs font-bold rounded-lg w-full focus:ring-primary/50"
-                                                        >
-                                                            <option value="g">g</option>
-                                                            <option value="kg">kg</option>
-                                                            <option value="ml">ml</option>
-                                                            <option value="L">L</option>
-                                                            <option value="pcs">pcs</option>
-                                                        </select>
-                                                    </td>
-                                                    <td className="p-3 text-center">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={cn(
-                                                                "text-[9px] font-black uppercase py-0.5",
-                                                                item.confidence >= 80 ? "border-emerald-500/20 text-emerald-600 bg-emerald-500/2" :
-                                                                item.confidence >= 50 ? "border-amber-500/20 text-amber-600 bg-amber-500/2" :
-                                                                "border-rose-500/20 text-rose-600 bg-rose-500/2"
-                                                            )}
-                                                        >
-                                                            {item.confidence}%
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="p-3 text-center pr-4">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleRemoveRow(idx)}
-                                                            className="size-8 rounded-lg text-rose-500 hover:bg-rose-500/10"
-                                                        >
-                                                            <FiTrash2 className="size-3.5" />
-                                                        </Button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <>
+                                    <div className="size-14 rounded-2xl bg-white dark:bg-[#20202C] shadow-md border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center text-[#E75480] dark:text-[#FF4F81] group-hover:scale-110 transition-transform">
+                                        <FiUploadCloud className="size-7" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">Click to upload or drag & drop receipt</p>
+                                        <p className="text-xs text-[#9E8B8E] dark:text-[#64748B] mt-0.5">Supports PNG, JPG, WebP up to 10MB</p>
+                                    </div>
+                                </>
                             )}
                         </div>
 
-                        <DialogFooter className="p-6 bg-muted/20 border-t shrink-0">
-                            <div className="flex gap-3 justify-end w-full">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        resetScanState();
-                                        setFile(null);
-                                        if (previewUrl) URL.revokeObjectURL(previewUrl);
-                                        setPreviewUrl(null);
-                                        if (fileInputRef.current) fileInputRef.current.value = '';
-                                        if (cameraInputRef.current) cameraInputRef.current.value = '';
-                                        setMode('upload');
-                                    }}
-                                    className="rounded-xl font-bold text-xs"
-                                >
-                                    Cancel and Reupload
-                                </Button>
-                                <Button
-                                    onClick={handleConfirmStockIn}
-                                    disabled={submitting || scannedItems.length === 0}
-                                    className="rounded-xl font-bold text-xs gap-2"
-                                >
-                                    {submitting && <FiRefreshCw className="size-3.5 animate-spin" />}
-                                    Confirm Stock-In
-                                </Button>
-                            </div>
+                        {/* Quick Actions */}
+                        <div className="flex items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => cameraInputRef.current?.click()}
+                                className="flex-1 h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 text-xs font-bold gap-2 text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/5"
+                            >
+                                <FiCamera className="size-4 text-[#E75480] dark:text-[#FF4F81]" /> Take Camera Snap
+                            </Button>
+                        </div>
+
+                        <DialogFooter className="pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10 gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                                className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]"
+                            >
+                                Cancel
+                            </Button>
+                            
+                            <Button
+                                type="button"
+                                disabled={!file}
+                                onClick={() => handleStartScan(false)}
+                                className="rounded-xl h-11 px-5 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white text-xs font-bold gap-2 cursor-pointer shadow-xs"
+                            >
+                                <FiList className="size-4" /> Scan & Review
+                            </Button>
+
+                            <Button
+                                type="button"
+                                disabled={!file}
+                                onClick={() => handleStartScan(true)}
+                                className="rounded-xl h-11 px-5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold gap-2 cursor-pointer shadow-xs"
+                            >
+                                <FiZap className="size-4" /> Auto Scan & Restock
+                            </Button>
                         </DialogFooter>
                     </div>
                 )}
 
-                {mode === 'success' && (
-                    <div className="p-10 flex flex-col items-center justify-center text-center space-y-6 flex-1">
-                        <div className="size-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-                            <FiCheck className="size-8" />
+                {/* MODE 2: PROCESSING OCR */}
+                {mode === 'processing' && (
+                    <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="relative">
+                            <div className="size-16 rounded-full border-4 border-[#F8C8DC] dark:border-white/10 border-t-[#E75480] dark:border-t-[#FF4F81] animate-spin" />
+                            <FiFileText className="size-6 text-[#E75480] dark:text-[#FF4F81] absolute inset-0 m-auto animate-pulse" />
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-base font-bold uppercase tracking-tight">Stock-in Completed!</p>
-                            <p className="text-xs text-muted-foreground max-w-70">
-                                The scanned items have been matched and restocked in the branch inventory.
-                            </p>
+                        <div className="space-y-1">
+                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                {processingStage === 'uploading' && 'Uploading Receipt Image...'}
+                                {processingStage === 'ocr' && 'Extracting Receipt Text via Tesseract OCR...'}
+                                {processingStage === 'matching' && 'Matching Items with Inventory Database...'}
+                            </h3>
+                            <p className="text-xs text-[#9E8B8E] dark:text-[#64748B]">Please hold on while AI parses line items and quantities.</p>
                         </div>
-                        <Button onClick={() => onOpenChange(false)} className="rounded-xl px-6 font-bold text-xs">Close</Button>
                     </div>
                 )}
+
+                {/* MODE 3: REVIEW DETECTED ITEMS */}
+                {mode === 'review' && (
+                    <div className="space-y-4 pt-2">
+                        {/* Receipt Meta Summary */}
+                        <div className="p-3 rounded-2xl bg-[#FFF5F7] dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-between text-xs font-medium">
+                            <div>
+                                <span className="text-[#9E8B8E] dark:text-[#64748B]">Detected Supplier: </span>
+                                <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{supplierName || 'Unknown Vendor'}</strong>
+                            </div>
+                            <div>
+                                <span className="text-[#9E8B8E] dark:text-[#64748B]">Date: </span>
+                                <strong className="text-[#3D2C2E] dark:text-[#F8FAFC] font-mono">{receiptDate || 'Today'}</strong>
+                            </div>
+                        </div>
+
+                        {/* Items Table */}
+                        <div className="max-h-72 overflow-y-auto rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
+                            {scannedItems.map((item, idx) => {
+                                const confidencePct = Math.round(item.confidence || 0);
+
+                                return (
+                                    <div key={idx} className="p-3 bg-white dark:bg-[#181820] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                        <div className="flex-1 space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{item.item_name}</span>
+                                                <Badge
+                                                    className={cn(
+                                                        'text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border-0',
+                                                        confidencePct >= 80 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' :
+                                                        confidencePct >= 60 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' :
+                                                        'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+                                                    )}
+                                                >
+                                                    {confidencePct}% match
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[11px] font-mono text-[#9E8B8E] dark:text-[#64748B] truncate">OCR Raw: "{item.raw_line}"</p>
+                                        </div>
+
+                                        {/* Match Dropdown */}
+                                        <div className="w-48 shrink-0">
+                                            <select
+                                                value={selectedMatches[idx] ?? ''}
+                                                onChange={(e) => setSelectedMatches(prev => ({ ...prev, [idx]: e.target.value ? Number(e.target.value) : null }))}
+                                                className="w-full h-9 px-2 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC] appearance-none"
+                                            >
+                                                <option value="">-- Ignore Item --</option>
+                                                {inventory.map(inv => (
+                                                    <option key={inv.id} value={inv.id}>{inv.name} ({inv.unit})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Qty & Unit Input */}
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <Input
+                                                type="number"
+                                                step="0.0001"
+                                                value={editedQty[idx] ?? item.detected_qty}
+                                                onChange={(e) => setEditedQty(prev => ({ ...prev, [idx]: Number(e.target.value) }))}
+                                                className="w-20 h-9 rounded-xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] font-mono text-xs font-bold"
+                                            />
+                                            <span className="font-mono text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] w-8">{editedUnits[idx] || item.detected_unit}</span>
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                onClick={() => handleRemoveItem(idx)}
+                                                className="size-8 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                            >
+                                                <FiTrash2 className="size-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <DialogFooter className="pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                            <Button type="button" variant="outline" onClick={() => setMode('upload')} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10">
+                                Back to Upload
+                            </Button>
+                            <Button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={handleManualConfirm}
+                                className="rounded-xl h-11 px-5 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white text-xs font-bold cursor-pointer"
+                            >
+                                {isSubmitting ? 'Applying Restock...' : 'Confirm Restock'}
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                )}
+
+                {/* MODE 4: SUCCESS */}
+                {mode === 'success' && (
+                    <div className="py-8 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="size-16 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-lg">
+                            <FiCheck className="size-8" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">Receipt Restock Applied!</h3>
+                            <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8]">Matched inventory stock quantities have been updated in the database.</p>
+                        </div>
+                        <Button
+                            type="button"
+                            onClick={() => onOpenChange(false)}
+                            className="rounded-xl h-11 px-6 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white text-xs font-bold cursor-pointer"
+                        >
+                            Close Window
+                        </Button>
+                    </div>
+                )}
+
             </DialogContent>
         </Dialog>
     );

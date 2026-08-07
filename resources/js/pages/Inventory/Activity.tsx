@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
+import { format } from 'date-fns';
+import React, { useState } from 'react';
 import { 
     FiFilter, 
     FiCalendar, 
@@ -12,10 +12,10 @@ import {
     FiActivity
 } from 'react-icons/fi';
 import { MobileFilter } from '@/components/shared/mobile-filter';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
     Select,
     SelectContent,
@@ -23,8 +23,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
 
 interface Log {
     id: number;

@@ -3,8 +3,8 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { FlashMessages } from '@/components/flash-messages';
-import type { AppLayoutProps } from '@/types';
 import { useRealTime } from '@/hooks/use-real-time';
+import type { AppLayoutProps } from '@/types';
 
 export default function AppSidebarLayout({
     children,

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
 export function FlashMessages() {
     const { flash } = usePage().props as any;

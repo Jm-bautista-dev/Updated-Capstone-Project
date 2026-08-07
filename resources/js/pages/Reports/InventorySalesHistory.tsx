@@ -1,79 +1,120 @@
 import { Head, usePage } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
+import { Clock, FileText, ArrowLeft } from 'lucide-react';
 import React from 'react';
-import { BreadcrumbItem } from '@/types';
-import { FiClock, FiFileText } from 'react-icons/fi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const breadcrumbs: BreadcrumbItem[] = [
-  { title: 'Inventory Sales History', href: '/inventory-sales-history' },
-];
+import { Badge } from '@/components/ui/badge';
+import AppLayout from '@/layouts/app-layout';
+
+interface HistoryItem {
+    id: number;
+    created_at: string;
+    item_name: string;
+    quantity_sold: number;
+    unit_sold: string;
+    sale_price?: number | string;
+}
+
+interface InventorySalesHistoryProps {
+    history?: HistoryItem[];
+    [key: string]: unknown;
+}
 
 export default function InventorySalesHistory() {
-  const { history } = usePage().props as any;
+    const rawProps = usePage().props;
+    const pageProps = rawProps as unknown as InventorySalesHistoryProps;
+    const historyList: HistoryItem[] = pageProps.history || [];
 
-  return (
-    <AppLayout breadcrumbs={breadcrumbs}>
-      <Head title="Sales History - Weight & Volume" />
-      
-      <div className="p-8 space-y-8 bg-background dark:bg-zinc-950 min-h-screen">
-        <div className="flex items-center gap-4">
-           <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-              <FiClock className="size-6" />
-           </div>
-           <div>
-              <h1 className="text-3xl font-black tracking-tight">Sales History</h1>
-              <p className="text-sm font-medium text-muted-foreground italic">Comprehensive logs of weight and volume based deductions.</p>
-           </div>
-        </div>
+    const formatCurrency = (amt: number) =>
+        new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amt);
 
-        <Card className="border-none shadow-2xl ring-1 ring-black/5 dark:ring-white/5 overflow-hidden rounded-3xl bg-card dark:bg-zinc-900/50">
-          <CardHeader className="bg-background dark:bg-zinc-900 border-b dark:border-zinc-800 px-8 py-6">
-            <CardTitle className="text-lg font-black flex items-center gap-2 text-foreground dark:text-white">
-              <FiFileText className="text-primary dark:text-primary-foreground" /> Recent Deductions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/50 dark:bg-zinc-800/50 text-[10px] font-black uppercase tracking-widest text-muted-foreground dark:text-zinc-500 border-b border-muted dark:border-zinc-800 transition-colors">
-                    <th className="px-8 py-4 text-left">Timestamp</th>
-                    <th className="px-8 py-4 text-left">Item Name</th>
-                    <th className="px-8 py-4 text-left">Quantity Sold</th>
-                    <th className="px-8 py-4 text-left">Unit</th>
-                    <th className="px-8 py-4 text-right">Value (PHP)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-muted/50">
-                  {history.map((sale: any) => (
-                    <tr key={sale.id} className="hover:bg-muted/30 dark:hover:bg-zinc-800/30 transition-colors group border-b dark:border-zinc-800 last:border-0 text-foreground dark:text-zinc-300">
-                      <td className="px-8 py-4 font-medium text-muted-foreground dark:text-zinc-500">{sale.created_at}</td>
-                      <td className="px-8 py-4 font-black tracking-tight text-slate-900 dark:text-zinc-200 group-hover:text-primary dark:group-hover:text-primary-foreground transition-colors">{sale.item_name}</td>
-                      <td className="px-8 py-4 font-black text-slate-800 dark:text-zinc-300">{sale.quantity_sold.toLocaleString()}</td>
-                      <td className="px-8 py-4">
-                        <span className="bg-primary/5 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary/10 uppercase">
-                          {sale.unit_sold}
-                        </span>
-                      </td>
-                      <td className="px-8 py-4 text-right font-black text-emerald-600">
-                        {sale.sale_price ? `₱${Number(sale.sale_price).toFixed(2)}` : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                  {history.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-20 text-center font-bold text-muted-foreground opacity-30 italic">
-                         No sales records found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+    return (
+        <AppLayout breadcrumbs={[{ title: 'Reports', href: '/reports' }, { title: 'Sales History', href: '/inventory-sales-history' }]}>
+            <Head title="Inventory Sales History" />
+
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+                
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="size-12 rounded-3xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/50 dark:from-[#181824] dark:to-[#222232] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center text-[#E75480] dark:text-[#FF4F81] shadow-2xs">
+                            <Clock className="size-6 animate-pulse" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                                Weight & Volume Sales History
+                            </h1>
+                            <p className="text-xs sm:text-sm font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                Historical audit logs of ingredient deductions triggered by sales
+                            </p>
+                        </div>
+                    </div>
+
+                    <a
+                        href="/reports"
+                        className="h-10 px-4 rounded-2xl bg-white dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] text-xs font-bold flex items-center gap-2 cursor-pointer transition-all self-start sm:self-auto shadow-2xs"
+                    >
+                        <ArrowLeft className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                        <span>Back to Reports Center</span>
+                    </a>
+                </div>
+
+                {/* Glass History Table */}
+                <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl overflow-hidden transition-colors duration-300">
+                    <div className="p-5 border-b border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/70 dark:bg-[#181824]/70 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <FileText className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                            <h3 className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                Deduction Logs ({historyList.length})
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className="border-b border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/40 dark:bg-[#181824]/40 font-black uppercase text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <th className="py-4 px-6">Timestamp</th>
+                                    <th className="py-4 px-6">Ingredient / Item</th>
+                                    <th className="py-4 px-6">Quantity Deducted</th>
+                                    <th className="py-4 px-6">Measurement Unit</th>
+                                    <th className="py-4 px-6 text-right">Value (PHP)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
+                                {historyList.map((sale) => (
+                                    <tr key={sale.id} className="hover:bg-[#FFF5F7]/50 dark:hover:bg-white/5 transition-colors">
+                                        <td className="py-4 px-6 font-mono text-[11px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
+                                            {sale.created_at}
+                                        </td>
+                                        <td className="py-4 px-6 font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {sale.item_name}
+                                        </td>
+                                        <td className="py-4 px-6 font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {sale.quantity_sold.toLocaleString()}
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <Badge className="bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 font-bold uppercase text-[10px]">
+                                                {sale.unit_sold}
+                                            </Badge>
+                                        </td>
+                                        <td className="py-4 px-6 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                            {sale.sale_price ? formatCurrency(Number(sale.sale_price)) : '—'}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {historyList.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="py-16 text-center font-bold text-[#7D6B6E] dark:text-[#94A3B8] italic">
+                                            No sales deduction records logged.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </AppLayout>
-  );
+        </AppLayout>
+    );
 }

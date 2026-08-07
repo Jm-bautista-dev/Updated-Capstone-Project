@@ -1,10 +1,10 @@
 import { useForm } from '@inertiajs/react';
 import { MapPin, Save, Building2, Navigation, CheckCircle2, X } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
 import React, { useState, useEffect } from 'react';
+import AppLayout from '@/layouts/app-layout';
 
 // Fix for TypeScript error: Cannot find name 'route'
-declare var route: any;
+declare let route: any;
 
 interface Branch {
     id: number;

@@ -1,15 +1,17 @@
-import React, { useRef, useCallback } from 'react';
+import {
+    ArrowUpDown,
+    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, Truck,
+} from 'lucide-react';
+import React, { useCallback, useRef } from 'react';
 import { List } from 'react-window';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-    Eye, ChevronRight, Bike, Truck, ArrowUpDown,
-    ChevronUp, ChevronDown, Package
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 import type { Delivery } from './types';
-import { formatCurrency, formatTime, formatDate } from './types';
+import { formatCurrency, formatTime } from './types';
 
 interface DeliveryTableProps {
     deliveries: Delivery[];
@@ -47,7 +49,7 @@ const TableRow = React.memo(function TableRow({
 } & RowProps) {
     const delivery = deliveries[index];
     const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
-    const typeColor = delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600';
+    const typeColor = delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-emerald-600 dark:text-emerald-400';
 
     const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
 
@@ -55,52 +57,54 @@ const TableRow = React.memo(function TableRow({
         <div
             style={style}
             className={cn(
-                "flex items-center gap-2 px-5 border-b border-[var(--ops-border)] border-[var(--ops-border)] hover:bg-[var(--ops-surface-sunken)]/60 cursor-pointer group transition-colors duration-150",
+                "flex items-center gap-2 px-5 border-b border-[#F8C8DC]/30 dark:border-white/5 hover:bg-[#FFF5F7]/60 dark:hover:bg-[#1C1C28]/60 cursor-pointer group transition-colors duration-150 font-['Outfit']",
                 isUnassignedInternal && "bg-amber-500/5 hover:bg-amber-500/10"
             )}
             onClick={() => onSelect(delivery)}
             role="row"
         >
-            {/* ... status, order, items columns ... */}
+            {/* Status */}
             <div className="w-[110px] shrink-0">
                 <Badge className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${delivery.status_color}`}>
                     {delivery.status_label}
                 </Badge>
             </div>
 
+            {/* Order # */}
             <div className="w-[120px] shrink-0">
-                <p className="font-bold text-xs truncate">
+                <p className="font-bold text-xs truncate text-[#3D2C2E] dark:text-[#F8FAFC]">
                     {delivery.sale?.order_number || (delivery.order && `MOB-${delivery.order.id.toString().padStart(4, '0')}`) || 'N/A'}
                 </p>
             </div>
 
+            {/* Items count */}
             <div className="w-[60px] shrink-0 flex items-center justify-center">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 text-[var(--ops-text-muted)]/60 hover:text-primary transition-colors cursor-help">
+                        <div className="flex items-center gap-1.5 text-[#7D6B6E]/60 dark:text-[#94A3B8]/60 hover:text-[#E75480] dark:hover:text-[#FF4F81] transition-colors cursor-help">
                             <Package className="size-3.5" />
                             <span className="text-[10px] font-black">
                                 {((delivery.sale?.items || delivery.order?.items) || []).length}
                             </span>
                         </div>
                     </TooltipTrigger>
-                    <TooltipContent className="p-0 overflow-hidden rounded-xl border-none shadow-2xl bg-popover" side="right">
+                    <TooltipContent className="p-0 overflow-hidden rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xl bg-white dark:bg-[#121218]" side="right">
                         <div className="p-3 min-w-[180px] space-y-2">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] border-b border-[var(--ops-border)] border-[var(--ops-border)] pb-2">Order Contents</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8] border-b border-[#F8C8DC]/30 dark:border-white/5 pb-2">Order Contents</p>
                             <div className="space-y-1.5">
                                 {((delivery.sale?.items || delivery.order?.items) || []).map((item: any) => (
                                     <div key={item.id} className="flex justify-between items-center gap-3 text-[11px]">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <div className="size-6 rounded bg-[var(--ops-surface-sunken)]/200 flex items-center justify-center shrink-0 border overflow-hidden">
+                                            <div className="size-6 rounded bg-[#FFF5F7] dark:bg-[#1C1C28] flex items-center justify-center shrink-0 border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
                                                 {item.product?.image_url ? (
                                                     <img src={item.product.image_url} alt="" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    <Package className="size-2.5 text-[var(--ops-text-muted)]/40" />
+                                                    <Package className="size-2.5 text-[#7D6B6E]/40 dark:text-[#94A3B8]/40" />
                                                 )}
                                             </div>
-                                            <span className="font-semibold truncate max-w-[110px]">{item.product?.name || 'Product'}</span>
+                                            <span className="font-semibold truncate max-w-[110px] text-[#3D2C2E] dark:text-[#F8FAFC]">{item.product?.name || 'Product'}</span>
                                         </div>
-                                        <span className="font-black text-primary shrink-0">×{item.quantity}</span>
+                                        <span className="font-black text-[#E75480] dark:text-[#FF4F81] shrink-0">×{item.quantity}</span>
                                     </div>
                                 ))}
                             </div>
@@ -111,7 +115,7 @@ const TableRow = React.memo(function TableRow({
 
             {/* Customer */}
             <div className="flex-1 min-w-[140px]">
-                <p className="font-semibold text-xs truncate">{delivery.customer_name}</p>
+                <p className="font-semibold text-xs truncate text-[#3D2C2E] dark:text-[#F8FAFC]">{delivery.customer_name}</p>
             </div>
 
             {/* Type & Rider */}
@@ -131,21 +135,21 @@ const TableRow = React.memo(function TableRow({
 
             {/* Branch */}
             <div className="w-[100px] shrink-0 hidden xl:block">
-                <p className="text-xs text-[var(--ops-text-muted)] truncate">
+                <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                     {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Main Branch'}
                 </p>
             </div>
 
             {/* Amount */}
             <div className="w-[90px] shrink-0 text-right">
-                <p className="font-black text-xs tabular-nums text-primary">
+                <p className="font-black text-xs font-mono tabular-nums text-[#E75480] dark:text-[#FF4F81]">
                     {formatCurrency(delivery.sale?.total || delivery.order?.total_amount || 0)}
                 </p>
             </div>
 
             {/* Date */}
             <div className="w-[80px] shrink-0 hidden lg:block">
-                <p className="text-[10px] text-[var(--ops-text-muted)]">{formatTime(delivery.created_at)}</p>
+                <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">{formatTime(delivery.created_at)}</p>
             </div>
 
             {/* Actions */}
@@ -157,7 +161,7 @@ const TableRow = React.memo(function TableRow({
                                 size="icon"
                                 variant={isUnassignedInternal ? "default" : "ghost"}
                                 className={cn(
-                                    "h-7 w-7 rounded-lg",
+                                    "h-7 w-7 rounded-lg cursor-pointer",
                                     isUnassignedInternal && "bg-amber-500 hover:bg-amber-600 text-white animate-bounce-subtle"
                                 )}
                                 onClick={(e) => {
@@ -177,7 +181,7 @@ const TableRow = React.memo(function TableRow({
                         <TooltipTrigger asChild>
                             <Button
                                 size="icon"
-                                className="h-7 w-7 rounded-lg"
+                                className="h-7 w-7 rounded-lg bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white cursor-pointer"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onUpdateStatus(delivery.id);
@@ -193,7 +197,7 @@ const TableRow = React.memo(function TableRow({
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 rounded-lg"
+                    className="h-7 w-7 rounded-lg cursor-pointer"
                     onClick={(e) => {
                         e.stopPropagation();
                         onSelect(delivery);
@@ -225,7 +229,7 @@ function SortableHeader({
     const isActive = currentSort === sortKey;
     return (
         <button
-            className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] hover:text-[var(--ops-text-primary)] transition-colors ${className || ''}`}
+            className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC] transition-colors cursor-pointer ${className || ''}`}
             onClick={() => onSort(sortKey)}
         >
             {label}
@@ -288,10 +292,10 @@ const DeliveryTable = React.memo(function DeliveryTable({
     const listHeight = Math.min(containerHeight, sortedDeliveries.length * ROW_HEIGHT);
 
     return (
-        <div className="rounded-2xl border overflow-hidden bg-[var(--ops-page-bg)] shadow-sm">
+        <div className="rounded-4xl border border-white/90 dark:border-white/10 overflow-hidden bg-white/80 dark:bg-[#121218]/80 backdrop-blur-2xl shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
             {/* Table Header */}
             <div
-                className="flex items-center gap-2 px-5 bg-[var(--ops-surface-sunken)]/60 border-b border-[var(--ops-border)] select-none"
+                className="flex items-center gap-2 px-5 bg-[#FFF5F7]/70 dark:bg-[#181824]/70 border-b border-[#F8C8DC]/60 dark:border-white/10 select-none"
                 style={{ height: HEADER_HEIGHT }}
                 role="row"
             >
@@ -302,16 +306,16 @@ const DeliveryTable = React.memo(function DeliveryTable({
                     <SortableHeader label="Order #" sortKey="order" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-[60px] shrink-0 flex justify-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Items</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8]">Items</span>
                 </div>
                 <div className="flex-1 min-w-[140px]">
                     <SortableHeader label="Customer" sortKey="customer" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-[100px] shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Type</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8]">Type</span>
                 </div>
                 <div className="w-[120px] shrink-0 hidden xl:block">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)]">Branch</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8]">Branch</span>
                 </div>
                 <div className="w-[100px] shrink-0 text-right">
                     <SortableHeader label="Amount" sortKey="amount" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="justify-end" />
@@ -320,7 +324,7 @@ const DeliveryTable = React.memo(function DeliveryTable({
                     <SortableHeader label="Date" sortKey="date" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-[100px] shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--ops-text-muted)] text-right block">Actions</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8] text-right block">Actions</span>
                 </div>
             </div>
 

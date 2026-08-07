@@ -1,0 +1,139 @@
+import { motion } from 'framer-motion';
+import { BarChart3, DollarSign, TrendingUp, Layers, ShoppingBag } from 'lucide-react';
+import React from 'react';
+
+export function ReportsHero() {
+    const formatCurrency = (amt: number) =>
+        new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amt);
+
+    return (
+        <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 lg:p-10 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300 font-['Outfit']">
+            
+            {/* Background Ambient Glow */}
+            <div className="absolute -top-24 -right-24 size-96 rounded-full bg-linear-to-br from-[#E75480]/20 to-transparent dark:from-[#E1062C]/20 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 size-96 rounded-full bg-linear-to-tr from-[#F8C8DC]/30 to-transparent dark:from-[#FF4F81]/10 blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 space-y-6">
+                
+                {/* Header Title & Telemetry Badge */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2.5">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs">
+                                <BarChart3 className="size-3.5" />
+                                Business Intelligence Center
+                            </span>
+                            <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest font-mono">Live Telemetry</span>
+                        </div>
+                        <h1 className="text-3xl sm:text-4xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                            Executive Reports & Intelligence
+                        </h1>
+                        <p className="text-xs sm:text-sm font-medium text-[#7D6B6E] dark:text-[#94A3B8] max-w-xl">
+                            Real-time revenue trajectories, inventory asset valuation, store performance telemetry, and automated AI demand forecasts.
+                        </p>
+                    </div>
+                </div>
+
+                {/* KPI Cards Grid (Matches SalesHero EXACTLY) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                    
+                    {/* Gross Revenue Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.05 }}
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-[#E75480]/40 transition-all duration-300"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Gross Revenue</span>
+                            <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                                <DollarSign className="size-5" />
+                            </div>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                                {formatCurrency(421380)}
+                            </h2>
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                                <TrendingUp className="size-3.5" />
+                                <span>+18.4% vs last month</span>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Sales Growth Pace Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.1 }}
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-emerald-400/40 transition-all duration-300"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Growth Pace</span>
+                            <div className="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                                <TrendingUp className="size-5" />
+                            </div>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                                +24.8%
+                            </h2>
+                            <div className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-bold font-mono">
+                                Above forecast baseline
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Inventory Valuation Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.15 }}
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-amber-400/40 transition-all duration-300"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Stock Valuation</span>
+                            <div className="size-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                                <Layers className="size-5" />
+                            </div>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                                {formatCurrency(312450)}
+                            </h2>
+                            <div className="text-xs text-amber-600 dark:text-amber-400 font-bold font-mono">
+                                Active ingredient balance
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Average Order Value Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.2 }}
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-purple-400/40 transition-all duration-300"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Avg Order Value</span>
+                            <div className="size-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900/50 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                                <ShoppingBag className="size-5" />
+                            </div>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                                {formatCurrency(284.3)}
+                            </h2>
+                            <div className="text-xs text-purple-600 dark:text-purple-400 font-bold font-mono">
+                                Per completed receipt
+                            </div>
+                        </div>
+                    </motion.div>
+
+                </div>
+
+            </div>
+        </div>
+    );
+}

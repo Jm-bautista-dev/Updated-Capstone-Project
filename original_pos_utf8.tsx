@@ -1,15 +1,14 @@
-﻿import { Head, usePage } from '@inertiajs/react';
-import { router } from '@inertiajs/core';
-import { useState, useMemo, useEffect } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { ResultModal } from '@/components/result-modal';
-import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+﻿import { router } from '@inertiajs/core';
+import { Head, usePage } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useMemo, useEffect } from 'react';
+import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage } from 'react-icons/fi';
+import { FiCheckCircle, FiPrinter, FiPlusCircle } from 'react-icons/fi';
+import { ResultModal } from '@/components/result-modal';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -18,8 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FiCheckCircle, FiPrinter, FiPlusCircle } from 'react-icons/fi';
-import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 
 type Category = {
   id: number;

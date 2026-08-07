@@ -1,5 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from '@inertiajs/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FiRefreshCw, FiAlertTriangle, FiCheck, FiInfo, FiCheckCircle, FiPackage, FiSlash } from 'react-icons/fi';
+import { ResultModal } from '@/components/result-modal';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -8,14 +14,8 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FiRefreshCw, FiAlertTriangle, FiCheck, FiInfo, FiCheckCircle, FiPackage, FiSlash } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ResultModal } from '@/components/result-modal';
 
 interface InventoryRow {
   id: number;

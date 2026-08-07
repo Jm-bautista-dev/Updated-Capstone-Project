@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
-import inventory from '@/routes/inventory';
+import React, { useState, useMemo, useEffect } from 'react';
+import { FiPackage, FiTruck, FiArrowRight } from 'react-icons/fi';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -9,7 +11,6 @@ import {
     DialogDescription,
     DialogFooter
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -18,9 +19,8 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { FiPackage, FiTruck, FiArrowRight } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
+import inventory from '@/routes/inventory';
 
 interface StockInModalProps {
     open: boolean;

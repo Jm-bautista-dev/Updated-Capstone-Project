@@ -1,8 +1,8 @@
-import { Head, usePage, useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/core';
+import { Head, usePage, useForm } from '@inertiajs/react';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useMemo, useEffect } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { ResultModal } from '@/components/result-modal';
 import {
     FiEdit2,
     FiTrash2,
@@ -21,15 +21,12 @@ import {
     FiCheck,
     FiChevronDown
 } from 'react-icons/fi';
+import { ResultModal } from '@/components/result-modal';
 import { MobileFilter } from '@/components/shared/mobile-filter';
 import { StockInModal } from '@/components/stock-in-modal';
-import { ValidationErrorModal } from '@/components/validation-error-modal';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -38,6 +35,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -45,17 +48,14 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { Textarea } from '@/components/ui/textarea';
+import { ValidationErrorModal } from '@/components/validation-error-modal';
+import AppLayout from '@/layouts/app-layout';
 import { 
     normalizeUnit, 
     convertToBaseQuantityWithIngredient 
 } from '@/lib/unit-converter';
+import { cn } from '@/lib/utils';
 
 type Category = {
     id: number;
@@ -334,7 +334,7 @@ export default function ProductsIndex() {
     const getAvailableUnits = (ing?: any) => {
         if (!ing || !ing.unit) return [];
         const base = ing.unit.toLowerCase();
-        let options = [base];
+        const options = [base];
         if (base === 'g' || base === 'grams') options.push('kg');
         if (base === 'ml') options.push('l', 'liters');
         

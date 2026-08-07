@@ -1,10 +1,8 @@
-import React, { useState, useMemo } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo } from 'react';
 import {
   FiBox,
-  FiShoppingCart,
-  FiAlertCircle,
   FiTrendingUp,
   FiTrendingDown,
   FiFilter,
@@ -15,21 +13,16 @@ import {
   FiAlertTriangle,
   FiShield,
   FiMinus,
-  FiActivity,
   FiZap,
   FiShoppingBag,
-  FiTruck,
-  FiUnlock,
-  FiChevronRight,
-  FiChevronLeft,
   FiMinimize2,
   FiMaximize2
 } from 'react-icons/fi';
+import { MassRestockModal } from '@/components/mass-restock-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { MassRestockModal } from '@/components/mass-restock-modal';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -133,7 +126,7 @@ interface RestockPageProps {
   filters?: { branch_id?: string; status?: string };
   error?: string;
   impact_suggestions?: ImpactSuggestion[];
-  inventory?: unknown;
+  inventory?: unknown[];
   [key: string]: unknown;
 }
 
@@ -231,7 +224,7 @@ export default function RestockSuggestions() {
                 )}
               </h1>
               <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
-                Adaptive demand · Trend-aware · Volatility-weighted safety buffers
+                Adaptive demand ï¿½ Trend-aware ï¿½ Volatility-weighted safety buffers
               </p>
             </div>
           </div>
@@ -275,11 +268,11 @@ export default function RestockSuggestions() {
                     <p className="font-bold leading-relaxed">
                       Tomorrow's predicted revenue is{' '}
                       <strong className="font-black text-foreground">{fmt(tomorrow_forecast)}</strong>
-                      {' '}(range: {fmt(forecast_lower)} – {fmt(forecast_upper)}).{' '}
+                      {' '}(range: {fmt(forecast_lower)} ï¿½ {fmt(forecast_upper)}).{' '}
                       {demandAboveAvg
-                        ? `Demand is ${Math.round((demand_ratio - 1) * 100)}% above average — buffers have been increased automatically.`
+                        ? `Demand is ${Math.round(((demand_ratio ?? 1) - 1) * 100)}% above average ï¿½ buffers have been increased automatically.`
                         : demandBelowAvg
-                          ? `Demand is ${Math.round((1 - demand_ratio) * 100)}% below average — conservative restocking applied.`
+                          ? `Demand is ${Math.round((1 - (demand_ratio ?? 1)) * 100)}% below average ï¿½ conservative restocking applied.`
                           : 'Demand is in line with the historical average.'}
                     </p>
                   </div>
@@ -300,7 +293,7 @@ export default function RestockSuggestions() {
 
                 {/* KPI Summary Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">To Restock</p>
                       <Badge className="bg-amber-500/5 text-amber-500 border border-amber-500/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">Action Needed</Badge>
@@ -311,7 +304,7 @@ export default function RestockSuggestions() {
                     </div>
                   </div>
 
-                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-500/70">Critical / OOS</p>
                       <Badge className="bg-rose-500/5 text-rose-500 border border-rose-500/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">
@@ -324,7 +317,7 @@ export default function RestockSuggestions() {
                     </div>
                   </div>
 
-                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Est. Investment</p>
                       <Badge className="bg-emerald-500/5 text-emerald-500 border border-emerald-500/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">Calculated Cost</Badge>
@@ -335,7 +328,7 @@ export default function RestockSuggestions() {
                     </div>
                   </div>
 
-                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-[100px]">
+                  <div className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/70">Avg Confidence</p>
                       <Badge className="bg-primary/5 text-primary border border-primary/10 font-black text-[8px] uppercase px-1.5 py-0 rounded-[6px]">{stats.rising} Rising Trends</Badge>
@@ -358,7 +351,7 @@ export default function RestockSuggestions() {
                       return (
                         <button
                           key={f}
-                          onClick={() => setFilter(f as any)}
+                          onClick={() => setFilter(f)}
                           className={cn(
                             "h-8 px-3 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all duration-200 flex items-center border",
                             isActive
@@ -385,7 +378,7 @@ export default function RestockSuggestions() {
                             <SelectValue placeholder="Select Branch" />
                           </SelectTrigger>
                           <SelectContent className="bg-(--ops-surface-sunken) border-(--ops-border) text-foreground rounded-xl">
-                            {branches?.map((b: any) => (
+                            {branches?.map((b: { id: number; name: string }) => (
                               <SelectItem key={b.id} value={String(b.id)} className="text-[10px] font-bold uppercase py-2">{b.name}</SelectItem>
                             ))}
                           </SelectContent>
@@ -447,7 +440,7 @@ export default function RestockSuggestions() {
                             </td>
                           </tr>
                         ) : (
-                          filtered.map((s, idx) => {
+                          filtered.map((s) => {
                             const cfg = urgencyConfig[s.status];
                             const key = s.ingredient_id;
                             const coverageRatio = s.required_with_buffer > 0 ? Math.min(10, Math.ceil((s.current_stock / s.required_with_buffer) * 10)) : 10;
@@ -476,7 +469,7 @@ export default function RestockSuggestions() {
                                       <p className="font-bold text-sm text-foreground leading-tight">{s.name}</p>
                                       <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[8px] font-bold text-(--ops-text-muted) uppercase">{s.days_of_data}d data</span>
-                                        <span className="text-[8px] text-(--ops-text-faint)">•</span>
+                                        <span className="text-[8px] text-(--ops-text-faint)">ï¿½</span>
                                         <span className={cn('text-[8px] font-black uppercase', volatilityColor(s.volatility))}>
                                           {s.volatility} volatility
                                         </span>
@@ -522,7 +515,7 @@ export default function RestockSuggestions() {
                                     {s.predicted_usage} {s.unit}
                                   </Badge>
                                   <p className="text-[8px] text-(--ops-text-muted) font-mono mt-1 font-bold">
-                                    {s.predicted_usage_lower} – {s.predicted_usage_upper}
+                                    {s.predicted_usage_lower} ï¿½ {s.predicted_usage_upper}
                                   </p>
                                 </td>
 
@@ -709,7 +702,7 @@ export default function RestockSuggestions() {
                     <CardContent className="p-6 space-y-3.5 text-[10px] text-(--ops-text-secondary) font-bold uppercase tracking-wide leading-relaxed">
                       <div className="flex items-start gap-2.5">
                         <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">1</span>
-                        <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders × recipes.</p>
+                        <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders ï¿½ recipes.</p>
                       </div>
                       <div className="flex items-start gap-2.5">
                         <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">2</span>
@@ -738,7 +731,7 @@ export default function RestockSuggestions() {
         onOpenChange={setRestockModalOpen}
         branchName={currentBranchName}
         branchId={Number(branchId)}
-        inventory={inventory || []}
+        inventory={(inventory as unknown as React.ComponentProps<typeof MassRestockModal>['inventory']) || []}
         initialQuantities={prefilledItems}
       />
     </AppLayout>

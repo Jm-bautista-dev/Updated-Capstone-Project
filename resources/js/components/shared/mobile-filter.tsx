@@ -1,4 +1,7 @@
 import React from 'react';
+import { FiFilter, FiX } from 'react-icons/fi';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
     Sheet, 
     SheetContent, 
@@ -8,9 +11,6 @@ import {
     SheetFooter,
     SheetTrigger
 } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { FiFilter, FiX } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 
 interface MobileFilterProps {

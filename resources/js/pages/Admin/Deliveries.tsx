@@ -1,27 +1,24 @@
 import { Head, Link, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Navigation, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import echo from '@/echo';
-import { cn } from '@/lib/utils';
+import { ChevronLeft, ChevronRight, Layers, Loader2, Navigation } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
-// Delivery components
-import DeliveryStats from '@/components/delivery/DeliveryStats';
-import DeliveryFilters from '@/components/delivery/DeliveryFilters';
-import DeliveryTable from '@/components/delivery/DeliveryTable';
 import DeliveryCard from '@/components/delivery/DeliveryCard';
-import DeliveryStatusGroup from '@/components/delivery/DeliveryStatusGroup';
 import DeliveryDetailSheet from '@/components/delivery/DeliveryDetailSheet';
 import DeliveryEmptyState from '@/components/delivery/DeliveryEmptyState';
-import DeliverySkeletonLoader from '@/components/delivery/DeliverySkeletonLoader';
+import DeliveryFilters from '@/components/delivery/DeliveryFilters';
+import DeliveryStats from '@/components/delivery/DeliveryStats';
+import DeliveryStatusGroup from '@/components/delivery/DeliveryStatusGroup';
+import DeliveryTable from '@/components/delivery/DeliveryTable';
 import PreparingConfirmationModal from '@/components/delivery/PreparingConfirmationModal';
-
 import RiderAssignmentModal from '@/components/delivery/RiderAssignmentModal';
 import type {
-    Delivery, DeliveryPagination, DeliveryFilters as FilterType,
-    DeliveryStatsData, Branch, ViewMode, Rider
+    Branch, Delivery, DeliveryFilters as FilterType,
+    DeliveryPagination, DeliveryStatsData, Rider, ViewMode
 } from '@/components/delivery/types';
+import { Button } from '@/components/ui/button';
+import echo from '@/echo';
+import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 
 interface Props {
     deliveries: DeliveryPagination;
@@ -75,15 +72,16 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
     // Accumulated deliveries for "Load More"
     const [accumulatedDeliveries, setAccumulatedDeliveries] = useState<Delivery[]>(deliveries.data);
     const [currentPage, setCurrentPage] = useState(deliveries.current_page);
+    const [prevDeliveries, setPrevDeliveries] = useState(deliveries);
 
-    // Update state when Inertia sends new data (e.g. after a status update or filter change)
-    useEffect(() => {
-        // Only reset accumulated if we're on page 1 (meaning it's likely a fresh search or refresh)
+    // Sync state during render when Inertia sends new data (e.g. after a status update or filter change)
+    if (prevDeliveries !== deliveries) {
+        setPrevDeliveries(deliveries);
         if (deliveries.current_page === 1) {
             setAccumulatedDeliveries(deliveries.data);
             setCurrentPage(1);
         }
-    }, [deliveries.data, deliveries.current_page]);
+    }
 
     // Real-time updates via Pusher
     useEffect(() => {
@@ -91,13 +89,13 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
 
         const channel = echo.channel('deliveries');
         
-        channel.listen('.order-status-updated', (e: any) => {
+        channel.listen('.order-status-updated', () => {
             // Only reload the relevant parts without full page refresh
             router.reload({
                 only: ['deliveries', 'stats'],
                 preserveScroll: true,
                 preserveState: true,
-            } as any);
+            } as Parameters<typeof router.reload>[0]);
         });
 
         return () => {
@@ -124,20 +122,6 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
     const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<number | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const handleUpdateStatus = useCallback((id: number) => {
-        // Find the delivery to check its current status
-        const delivery = accumulatedDeliveries.find(d => d.id === id);
-        
-        // If the delivery is pending, the next status is 'preparing'
-        // We show a confirmation modal before deducting inventory
-        if (delivery && delivery.status === 'pending') {
-            setConfirmingDeliveryId(id);
-            return;
-        }
-
-        executeStatusUpdate(id);
-    }, [accumulatedDeliveries]);
-
     const executeStatusUpdate = useCallback((id: number) => {
         setIsUpdating(true);
         router.put(`/deliveries/${id}/status`, {}, {
@@ -152,6 +136,20 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
             onFinish: () => setIsUpdating(false),
         });
     }, [selectedDelivery]);
+
+    const handleUpdateStatus = useCallback((id: number) => {
+        // Find the delivery to check its current status
+        const delivery = accumulatedDeliveries.find(d => d.id === id);
+        
+        // If the delivery is pending, the next status is 'preparing'
+        // We show a confirmation modal before deducting inventory
+        if (delivery && delivery.status === 'pending') {
+            setConfirmingDeliveryId(id);
+            return;
+        }
+
+        executeStatusUpdate(id);
+    }, [accumulatedDeliveries, executeStatusUpdate]);
 
     const handleSelectDelivery = useCallback((delivery: Delivery) => {
         setSelectedDelivery(delivery);
@@ -186,8 +184,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                 preserveState: true,
                 preserveScroll: true,
                 only: ['deliveries'],
-                onSuccess: (page: any) => {
-                    const newDeliveries = page.props.deliveries.data;
+                onSuccess: (page) => {
+                    const newDeliveries = (page as unknown as Record<string, Record<string, { data: Delivery[] }>>).props.deliveries.data;
                     setAccumulatedDeliveries(prev => [...prev, ...newDeliveries]);
                     setCurrentPage(nextPage);
                     setIsLoadingMore(false);
@@ -210,21 +208,38 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         <AppLayout breadcrumbs={[{ title: 'Delivery Dashboard', href: '/deliveries' }]}>
             <Head title="Delivery Management" />
 
-            <div className="flex flex-col h-full">
-                {/* Sticky Header: title + stats + filters */}
-                <div className="sticky top-0 z-20 bg-[var(--ops-page-bg)]/80 backdrop-blur-xl border-b border-[var(--ops-border)] border-[var(--ops-border-subtle)]">
-                    <div className="p-4 sm:p-6 lg:p-8 space-y-6 ">
-                        {/* Title row */}
-                        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                            <div className="flex flex-col gap-1">
-                                <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 text-[var(--ops-text-primary)]">
-                                    <Navigation className="size-7 text-primary" />
-                                    Delivery Dashboard
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+
+                {/* ── HERO BANNER ── */}
+                <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 lg:p-10 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300">
+                    <div className="absolute -top-24 -right-24 size-96 rounded-full bg-linear-to-br from-[#E75480]/20 to-transparent dark:from-[#E1062C]/20 blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-24 -left-24 size-96 rounded-full bg-linear-to-tr from-[#F8C8DC]/30 to-transparent dark:from-[#FF4F81]/10 blur-3xl pointer-events-none" />
+
+                    <div className="relative z-10 space-y-6">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs">
+                                        <Navigation className="size-3.5" />
+                                        Delivery Operations Center
+                                    </span>
+                                    <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest font-mono">Live Tracking</span>
+                                </div>
+                                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                                    Delivery Management
                                 </h1>
-                                <div className="flex items-center bg-[var(--ops-surface-sunken)]/200 rounded-xl p-1 w-fit mt-2">
+                                <p className="text-xs sm:text-sm font-medium text-[#7D6B6E] dark:text-[#94A3B8] max-w-xl">
+                                    Track deliveries, assign riders, and manage logistics operations in real time.
+                                </p>
+                            </div>
+
+                            {/* Status Tab Pills + Group Toggle */}
+                            <div className="flex items-center gap-3 flex-wrap self-start lg:self-center">
+                                <div className="flex items-center bg-white/60 dark:bg-[#1C1C28]/60 rounded-2xl p-1 border border-[#F8C8DC]/40 dark:border-white/10 backdrop-blur-xl">
                                     {[
                                         { id: 'all', label: 'All' },
-                                        { id: 'pending', label: 'Pending / New' },
+                                        { id: 'pending', label: 'Pending' },
                                         { id: 'preparing', label: 'Preparing' },
                                         { id: 'in_transit', label: 'In Transit' },
                                         { id: 'delivered', label: 'Delivered' },
@@ -233,26 +248,23 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                             key={tab.id}
                                             onClick={() => handleFilterChange({ status: tab.id })}
                                             className={cn(
-                                                "px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                                "px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer",
                                                 (filters.status || 'all') === tab.id 
-                                                    ? "bg-[var(--ops-page-bg)] shadow-sm text-primary ring-1 ring-black/5" 
+                                                    ? "bg-white dark:bg-[#121218] shadow-sm text-[#E75480] dark:text-[#FF4F81] ring-1 ring-[#F8C8DC]/60 dark:ring-white/10" 
                                                     : (tab.id === 'pending' && filters.status === 'waiting_for_kitchen')
-                                                        ? "bg-[var(--ops-page-bg)] shadow-sm text-primary ring-1 ring-black/5"
-                                                        : "text-[var(--ops-text-muted)] hover:text-[var(--ops-text-primary)]"
+                                                        ? "bg-white dark:bg-[#121218] shadow-sm text-[#E75480] dark:text-[#FF4F81] ring-1 ring-[#F8C8DC]/60 dark:ring-white/10"
+                                                        : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
                                             )}
                                         >
                                             {tab.label}
                                         </button>
                                     ))}
                                 </div>
-                            </div>
 
-                            <div className="flex items-center gap-3 shrink-0 self-start lg:self-auto">
-                                {/* Group toggle */}
                                 <Button
                                     variant={groupByStatus ? 'secondary' : 'outline'}
                                     size="sm"
-                                    className="h-9 rounded-xl gap-2 text-[10px] font-black uppercase tracking-widest"
+                                    className="h-9 rounded-xl gap-2 text-[10px] font-black uppercase tracking-widest border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer"
                                     onClick={() => setGroupByStatus(v => !v)}
                                 >
                                     <Layers className="size-3.5" />
@@ -260,23 +272,23 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                 </Button>
                             </div>
                         </div>
-
-                        {/* Stats */}
-                        <DeliveryStats stats={stats} />
-
-                        {/* Filters */}
-                        <DeliveryFilters
-                            filters={filters}
-                            branches={branches}
-                            viewMode={viewMode}
-                            onFilterChange={handleFilterChange}
-                            onViewModeChange={handleViewModeChange}
-                        />
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 w-full">
+                {/* ── STATS STRIP ── */}
+                <DeliveryStats stats={stats} />
+
+                {/* ── FILTERS ── */}
+                <DeliveryFilters
+                    filters={filters}
+                    branches={branches}
+                    viewMode={viewMode}
+                    onFilterChange={handleFilterChange}
+                    onViewModeChange={handleViewModeChange}
+                />
+
+                {/* ── CONTENT AREA ── */}
+                <div className="space-y-6 w-full">
                     {accumulatedDeliveries.length === 0 ? (
                         <DeliveryEmptyState
                             hasFilters={hasFilters}
@@ -324,7 +336,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                             {hasMore && (
                                 <Button
                                     variant="outline"
-                                    className="h-11 px-8 rounded-2xl gap-2 font-bold"
+                                    className="h-11 px-8 rounded-2xl gap-2 font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-[#1C1C28] cursor-pointer"
                                     onClick={handleLoadMore}
                                     disabled={isLoadingMore}
                                 >
@@ -341,10 +353,10 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
 
                             {/* Pagination Info */}
                             <div className="flex items-center gap-4">
-                                <p className="text-xs text-[var(--ops-text-muted)] font-medium uppercase tracking-widest">
-                                    Showing <span className="text-[var(--ops-text-primary)] font-bold">{accumulatedDeliveries.length}</span> of {deliveries.total} deliveries
+                                <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium uppercase tracking-widest">
+                                    Showing <span className="text-[#3D2C2E] dark:text-[#F8FAFC] font-bold">{accumulatedDeliveries.length}</span> of {deliveries.total} deliveries
                                     {deliveries.last_page > 1 && (
-                                        <> • Page <span className="text-[var(--ops-text-primary)] font-bold">{currentPage}</span> of {deliveries.last_page}</>
+                                        <> • Page <span className="text-[#3D2C2E] dark:text-[#F8FAFC] font-bold">{currentPage}</span> of {deliveries.last_page}</>
                                     )}
                                 </p>
 
@@ -356,7 +368,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                             className={!deliveries.links[0]?.url ? 'pointer-events-none opacity-40' : ''}
                                             preserveState
                                         >
-                                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9">
+                                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer">
                                                 <ChevronLeft className="size-4" />
                                             </Button>
                                         </Link>
@@ -365,7 +377,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                             className={!deliveries.links[deliveries.links.length - 1]?.url ? 'pointer-events-none opacity-40' : ''}
                                             preserveState
                                         >
-                                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9">
+                                            <Button variant="outline" size="icon" className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer">
                                                 <ChevronRight className="size-4" />
                                             </Button>
                                         </Link>

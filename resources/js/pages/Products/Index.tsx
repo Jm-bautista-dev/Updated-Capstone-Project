@@ -1,27 +1,24 @@
+import { router, type RequestPayload } from '@inertiajs/core';
 import { Head, usePage, useForm } from '@inertiajs/react';
-import { router } from '@inertiajs/core';
-import React, { useState, useMemo, useEffect } from 'react';
-import AppLayout from '@/layouts/app-layout';
-import { ResultModal } from '@/components/result-modal';
-import {
-    FiEdit2,
-    FiTrash2,
-    FiPlus,
-    FiSearch,
-    FiPackage,
-    FiAlertTriangle,
-    FiSlash,
-    FiFilter,
-    FiChevronLeft,
-    FiChevronRight,
-    FiRefreshCw
-} from 'react-icons/fi';
-import { StockInModal } from '@/components/stock-in-modal';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import {
+    Plus,
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
+    X
+} from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+
+import { FilterToolbar } from '@/components/products/FilterToolbar';
+import { ProductDrawer } from '@/components/products/ProductDrawer';
+import { ProductGrid } from '@/components/products/ProductGrid';
+import { ProductsHero } from '@/components/products/ProductsHero';
+import { ProductTable } from '@/components/products/ProductTable';
+import type { ViewMode } from '@/components/products/ViewSwitcher';
+import { ResultModal } from '@/components/result-modal';
+import { StockInModal } from '@/components/stock-in-modal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
     Dialog,
     DialogContent,
@@ -30,6 +27,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -37,8 +35,8 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
 
 type Category = {
     id: number;
@@ -50,12 +48,6 @@ type Ingredient = {
     name: string;
     unit: string;
     stock: number;
-};
-
-type RecipeItem = {
-    ingredient_id: string;
-    ingredient?: Ingredient;
-    quantity_required: string;
 };
 
 const PRODUCT_UNITS = [
@@ -96,11 +88,74 @@ type Summary = {
     out_of_stock: number;
 };
 
+interface Branch {
+    id: number;
+    name: string;
+}
+
 export default function ProductsIndex() {
-    const { products: rawProducts, categories, summary, filters, branches, currentBranchId, isAdmin } = usePage().props as any;
-    const products: Product[] = rawProducts || [];
+    const rawProps = usePage().props;
+    const pageProps = rawProps as unknown as {
+        products?: Product[];
+        categories: Category[];
+        summary: Summary;
+        filters: { search?: string; filter_category?: string };
+        branches: Branch[];
+        currentBranchId?: number | string;
+        isAdmin: boolean;
+        ingredients: Ingredient[];
+    };
+
+    const {
+        categories = [],
+        summary = { total_products: 0, low_stock: 0, out_of_stock: 0 },
+        filters = {},
+        branches = [],
+        currentBranchId,
+        isAdmin = false,
+        ingredients = [],
+    } = pageProps;
+
+    const rawProducts = pageProps.products;
+
+    const products: Product[] = useMemo(() => {
+        return rawProducts || [];
+    }, [rawProducts]);
+
     const [search, setSearch] = useState(filters.search || '');
     const [filterCategory, setFilterCategory] = useState(filters.filter_category || '');
+    const [filterStockStatus, setFilterStockStatus] = useState('');
+
+    const handleSearchChange = (val: string) => {
+        setSearch(val);
+        setCurrentPage(1);
+    };
+
+    const handleCategoryChange = (val: string) => {
+        setFilterCategory(val);
+        setCurrentPage(1);
+    };
+
+    const handleStockStatusChange = (val: string) => {
+        setFilterStockStatus(val);
+        setCurrentPage(1);
+    };
+
+    // View Mode Switcher with localStorage persistence
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('products_view_mode');
+            if (saved === 'grid' || saved === 'table') return saved;
+        }
+        return 'table';
+    });
+
+    const handleViewModeChange = (mode: ViewMode) => {
+        setViewMode(mode);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('products_view_mode', mode);
+        }
+    };
 
     // Branch filter handler
     const handleBranchFilter = (value: string) => {
@@ -114,7 +169,7 @@ export default function ProductsIndex() {
         });
     };
 
-    // --- Sync Logic ---
+    // Realtime Sync Logic
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
 
     useEffect(() => {
@@ -140,17 +195,20 @@ export default function ProductsIndex() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
+    // Modal & Drawer States
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
     const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-    const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
+    const { data, setData, delete: destroy, processing, errors, reset } = useForm({
         name: '',
         sku: '',
         category_id: '',
@@ -163,37 +221,25 @@ export default function ProductsIndex() {
         stock: '0',
     });
 
-    // Reset pagination on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [search, filterCategory]);
-
-    // Derived Paginated Data
+    // Filtered Products Calculation
     const filteredData = useMemo(() => {
         return products.filter(product => {
             const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
                 (product.sku && product.sku.toLowerCase().includes(search.toLowerCase()));
             const matchesCategory = !filterCategory || product.category_id.toString() === filterCategory;
-            return matchesSearch && matchesCategory;
+            const matchesStatus = !filterStockStatus || product.status === filterStockStatus;
+            return matchesSearch && matchesCategory && matchesStatus;
         });
-    }, [products, search, filterCategory]);
+    }, [products, search, filterCategory, filterStockStatus]);
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const paginatedData = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
+        const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
+        const start = (validPage - 1) * itemsPerPage;
         return filteredData.slice(start, start + itemsPerPage);
-    }, [filteredData, currentPage, itemsPerPage]);
+    }, [filteredData, currentPage, itemsPerPage, totalPages]);
 
-    // Handle Server-Side Search (Optional, we are doing client-side filtering now for speed)
-    /*
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            router.get('/products', { search, filter_category: filterCategory }, { preserveState: true, replace: true });
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [search, filterCategory]);
-    */
-
+    // Modal Handlers
     const openAddModal = () => {
         reset();
         setImageFile(null);
@@ -210,11 +256,13 @@ export default function ProductsIndex() {
             cost_price: product.cost_price.toString(),
             selling_price: product.selling_price.toString(),
             branch_id: product.branch_id?.toString() || '',
-            branch_ids: product.branches.map(b => b.id.toString()),
-            recipe: product.ingredients.map(ing => ({
+            branch_ids: product.branches ? product.branches.map(b => b.id.toString()) : [],
+            recipe: product.ingredients ? product.ingredients.map(ing => ({
                 ingredient_id: ing.id.toString(),
-                quantity_required: ing.pivot.quantity_required.toString()
-            })),
+                quantity_required: ing.pivot?.quantity_required ? ing.pivot.quantity_required.toString() : '1'
+            })) : [],
+            unit: product.unit || 'pcs',
+            stock: product.stock.toString(),
         });
         setImageFile(null);
         setImagePreview(product.image_url || null);
@@ -231,12 +279,17 @@ export default function ProductsIndex() {
         setIsDeleteModalOpen(true);
     };
 
+    const openDrawer = (product: Product) => {
+        setSelectedProduct(product);
+        setIsDrawerOpen(true);
+    };
+
     const handleAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         router.post('/products', {
             ...data,
             image: imageFile,
-        } as any, {
+        } as RequestPayload, {
             forceFormData: true,
             onSuccess: () => {
                 setSearch('');
@@ -258,7 +311,7 @@ export default function ProductsIndex() {
                 _method: 'PUT',
                 ...data,
                 image: imageFile,
-            } as any, {
+            } as RequestPayload, {
                 forceFormData: true,
                 onSuccess: () => {
                     setIsEditModalOpen(false);
@@ -282,19 +335,6 @@ export default function ProductsIndex() {
                 },
             });
         }
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'In Stock': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
-            case 'Low Stock': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-            case 'Out of Stock': return 'bg-destructive/10 text-destructive border-destructive/20';
-            default: return '';
-        }
-    };
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
     };
 
     const addRecipeItem = () => {
@@ -326,248 +366,112 @@ export default function ProductsIndex() {
 
     return (
         <AppLayout breadcrumbs={[{ title: 'Products', href: '/products' }]}>
-            <Head title="Products" />
+            <Head title="Products Management" />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-muted/20">
-                {/* Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-background border-b shrink-0">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Products</h1>
-                        <p className="text-sm text-muted-foreground">Manage your product inventory and pricing.</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        {isAdmin && (
-                            <Select
-                                value={currentBranchId ? String(currentBranchId) : 'all'}
-                                onValueChange={handleBranchFilter}
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+                
+                {/* ── ZONE 1: HERO & STATISTICS ── */}
+                <ProductsHero
+                    summary={summary}
+                    products={products}
+                />
+
+                {/* ── ZONE 2: SEARCH & FILTER TOOLBAR ── */}
+                <FilterToolbar
+                    search={search}
+                    onSearchChange={handleSearchChange}
+                    filterCategory={filterCategory}
+                    onCategoryChange={handleCategoryChange}
+                    filterStockStatus={filterStockStatus}
+                    onStockStatusChange={handleStockStatusChange}
+                    currentBranchId={currentBranchId}
+                    branches={branches}
+                    categories={categories}
+                    isAdmin={isAdmin}
+                    onBranchFilter={handleBranchFilter}
+                    viewMode={viewMode}
+                    onViewModeChange={handleViewModeChange}
+                    onOpenAddModal={openAddModal}
+                />
+
+                {/* ── ZONE 3: PRODUCTS DISPLAY (TABLE vs GRID) ── */}
+                <div className="space-y-6">
+                    <AnimatePresence mode="wait">
+                        {viewMode === 'table' ? (
+                            <motion.div
+                                key="table-view"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.3 }}
                             >
-                                <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
-                                    <SelectValue placeholder="All Branches" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Branches</SelectItem>
-                                    {branches?.map((b: any) => (
-                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <ProductTable
+                                    products={paginatedData}
+                                    isAdmin={isAdmin}
+                                    onSelectProduct={openDrawer}
+                                    onOpenStockIn={openStockInModal}
+                                    onOpenEdit={openEditModal}
+                                    onOpenDelete={openDeleteModal}
+                                />
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="grid-view"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <ProductGrid
+                                    products={paginatedData}
+                                    isAdmin={isAdmin}
+                                    onSelectProduct={openDrawer}
+                                    onOpenStockIn={openStockInModal}
+                                    onOpenEdit={openEditModal}
+                                    onOpenDelete={openDeleteModal}
+                                />
+                            </motion.div>
                         )}
-                        <div className="relative w-full sm:w-64">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search products..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-9 h-10 bg-muted/50 focus:bg-background transition-colors"
-                            />
-                        </div>
-                        <Select
-                            value={String(filterCategory)}
-                            onValueChange={(val) => setFilterCategory(val === 'all' ? '' : val)}
-                        >
-                            <SelectTrigger className="w-full sm:w-48 h-10 bg-muted/50">
-                                <SelectValue placeholder="All Categories" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Categories</SelectItem>
-                                {categories.map((c: any) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {isAdmin && (
-                            <Button onClick={openAddModal} className="h-10 gap-2 shadow-lg shadow-primary/20">
-                                <FiPlus className="size-4" /> <span className="hidden lg:inline">Add Product</span>
-                            </Button>
-                        )}
-                    </div>
-                </div>
+                    </AnimatePresence>
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-hidden p-4 sm:p-6 flex flex-col gap-6">
-                    {/* Summary Row */}
-                    <div className="grid gap-4 md:grid-cols-3 shrink-0">
-                        <Card className="bg-primary/5 border-primary/20 shadow-sm group">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Products</CardTitle>
-                                <FiPackage className="size-4 text-primary group-hover:scale-110 transition-transform" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-black">{summary.total_products}</div>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Unique items in system</p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-amber-500/5 border-amber-500/20 shadow-sm group">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Low Stock Items</CardTitle>
-                                <FiAlertTriangle className="size-4 text-amber-500 group-hover:scale-110 transition-transform" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-black text-amber-600">{summary.low_stock}</div>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Stock levels ≤ 5 units</p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-destructive/5 border-destructive/20 shadow-sm group">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Out of Stock</CardTitle>
-                                <FiSlash className="size-4 text-destructive group-hover:scale-110 transition-transform" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-black text-destructive">{summary.out_of_stock}</div>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Items requiring restock</p>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Table Card */}
-                    <Card className="flex-1 flex flex-col overflow-hidden shadow-xl border-none ring-1 ring-black/5 shrink min-h-0">
-                        <div className="flex-1 overflow-auto">
-                            <table className="w-full text-sm">
-                                <thead className="sticky top-0 z-10 bg-background border-b shadow-sm">
-                                    <tr className="bg-muted/30">
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Product Information</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden lg:table-cell">Category</th>
-                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden sm:table-cell">Pricing</th>
-                                        <th className="h-12 px-6 text-center align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Stock Status</th>
-                                        <th className="h-12 px-6 text-left align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px] hidden md:table-cell">Created</th>
-                                        <th className="h-12 px-6 text-right align-middle font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y relative">
-                                    <AnimatePresence mode="popLayout">
-                                        {paginatedData.length === 0 ? (
-                                            <motion.tr
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                exit={{ opacity: 0 }}
-                                                className="h-32 text-center"
-                                            >
-                                                <td colSpan={7} className="text-muted-foreground italic">
-                                                    No products found matching your criteria.
-                                                </td>
-                                            </motion.tr>
-                                        ) : (
-                                            paginatedData.map((product: Product) => (
-                                                <motion.tr
-                                                    key={product.id}
-                                                    layout
-                                                    initial={{ opacity: 0, y: 5 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, scale: 0.98 }}
-                                                    className="border-b transition-colors hover:bg-muted/40 group"
-                                                >
-                                                    <td className="p-4 align-middle">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-semibold">{product.name}</span>
-                                                            <span className="text-xs text-muted-foreground font-mono">{product.sku || 'N/A'}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-4 align-middle hidden lg:table-cell">
-                                                        <Badge variant="outline" className="bg-primary/5 border-primary/10">
-                                                            {product.category?.name || 'Uncategorized'}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="p-4 align-middle text-center">
-                                                        <span className={cn(
-                                                            "font-mono font-bold",
-                                                            product.stock <= 0 ? "text-destructive" : product.stock <= 5 ? "text-amber-600" : ""
-                                                        )}>
-                                                            {product.stock} units
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 align-middle hidden sm:table-cell">
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-[10px] uppercase text-muted-foreground font-semibold">Cost: {formatCurrency(product.cost_price)}</span>
-                                                            <span className="text-sm font-bold text-emerald-600">Sell: {formatCurrency(product.selling_price)}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-4 align-middle text-center">
-                                                        <Badge variant="outline" className={cn("px-2 py-0.5 whitespace-nowrap", getStatusColor(product.status))}>
-                                                            {product.status}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="p-4 align-middle hidden md:table-cell text-muted-foreground">
-                                                        {format(new Date(product.created_at), 'MMM d, yyyy')}
-                                                    </td>
-                                                    <td className="p-4 align-middle text-right">
-                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            {product.is_direct && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    onClick={() => openStockInModal(product)}
-                                                                    className="h-8 w-8 text-primary hover:bg-primary/10"
-                                                                    title="Restock"
-                                                                >
-                                                                    <FiRefreshCw className="size-4" />
-                                                                </Button>
-                                                            )}
-                                                            {isAdmin && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    onClick={() => openEditModal(product)}
-                                                                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                >
-                                                                    <FiEdit2 className="size-4" />
-                                                                </Button>
-                                                            )}
-                                                            {isAdmin && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    onClick={() => openDeleteModal(product)}
-                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                >
-                                                                    <FiTrash2 className="size-4" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </motion.tr>
-                                            ))
-                                        )}
-                                    </AnimatePresence>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination Controls */}
-                        <div className="p-4 bg-muted/5 border-t flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex items-center gap-6">
+                    {/* Pagination Controls */}
+                    {filteredData.length > 0 && (
+                        <div className="rounded-2xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.06)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] p-4 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors duration-300">
+                            <div className="flex items-center gap-4 text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Show</span>
-                                    <Select value={String(itemsPerPage)} onValueChange={(val) => {
-                                        setItemsPerPage(Number(val));
-                                        setCurrentPage(1);
-                                    }}>
-                                        <SelectTrigger className="w-17.5 h-8 rounded-lg border-none bg-background shadow-sm font-bold text-xs ring-1 ring-muted">
+                                    <span className="uppercase tracking-wider">Per Page</span>
+                                    <Select 
+                                        value={String(itemsPerPage)} 
+                                        onValueChange={(val) => {
+                                            setItemsPerPage(Number(val));
+                                            setCurrentPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-20 h-9 rounded-xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] font-mono font-bold text-xs">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-lg border-none shadow-2xl min-w-17.5">
-                                            {[5, 10, 25, 50, 100].map(val => (
-                                                <SelectItem key={val} value={String(val)} className="text-xs">{val}</SelectItem>
+                                        <SelectContent className="rounded-xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl min-w-20 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                            {[8, 12, 24, 48, 96].map(val => (
+                                                <SelectItem key={val} value={String(val)} className="text-xs font-mono font-bold dark:focus:bg-white/10">{val}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
-                                    {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length} products
+
+                                <span className="font-mono">
+                                    Showing {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length} items
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2">
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="icon"
                                     disabled={currentPage === 1}
-                                    onClick={() => setCurrentPage(prev => prev - 1)}
-                                    className="rounded-lg h-9 w-9 ring-1 ring-muted"
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer"
                                 >
-                                    <FiChevronLeft className="size-4" />
+                                    <ChevronLeft className="size-4" />
                                 </Button>
 
                                 <div className="flex items-center gap-1">
@@ -582,11 +486,13 @@ export default function ProductsIndex() {
                                         return (
                                             <Button
                                                 key={pageNum}
-                                                variant={currentPage === pageNum ? 'default' : 'ghost'}
+                                                variant={currentPage === pageNum ? 'default' : 'outline'}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={cn(
-                                                    "h-9 w-9 rounded-lg font-bold text-[10px] transition-all",
-                                                    currentPage === pageNum ? "bg-primary shadow-lg shadow-primary/20 text-white" : "hover:bg-muted"
+                                                    "h-9 w-9 rounded-xl font-bold text-xs font-mono transition-all cursor-pointer",
+                                                    currentPage === pageNum 
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs" 
+                                                        : "border-[#F8C8DC]/60 dark:border-white/10 text-[#5D4A4D] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10"
                                                 )}
                                             >
                                                 {pageNum}
@@ -596,21 +502,33 @@ export default function ProductsIndex() {
                                 </div>
 
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="icon"
                                     disabled={currentPage === totalPages || totalPages === 0}
-                                    onClick={() => setCurrentPage(prev => prev + 1)}
-                                    className="rounded-lg h-9 w-9 ring-1 ring-muted"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer"
                                 >
-                                    <FiChevronRight className="size-4" />
+                                    <ChevronRight className="size-4" />
                                 </Button>
                             </div>
                         </div>
-                    </Card>
+                    )}
                 </div>
+
             </div>
 
-            {/* Success Modal */}
+            {/* Product Details Side Drawer */}
+            <ProductDrawer
+                product={selectedProduct}
+                open={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                isAdmin={isAdmin}
+                onOpenStockIn={openStockInModal}
+                onOpenEdit={openEditModal}
+                onOpenDelete={openDeleteModal}
+            />
+
+            {/* Preserved Action Modals */}
             <ResultModal
                 open={isSuccessModalOpen}
                 onClose={() => setIsSuccessModalOpen(false)}
@@ -626,140 +544,113 @@ export default function ProductsIndex() {
                 type="product"
             />
 
-            {/* Modals */}
+            {/* Add Product Dialog */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="sm:max-w-125">
+                <DialogContent className="sm:max-w-xl rounded-4xl bg-white dark:bg-[#121218] p-6 sm:p-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] font-['Outfit']">
                     <DialogHeader>
-                        <DialogTitle>Add New Product</DialogTitle>
-                        <DialogDescription>
-                            Enter product details and initial stock levels.
+                        <DialogTitle className="text-2xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">Register New Product</DialogTitle>
+                        <DialogDescription className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                            Enter product specifications, base pricing, and recipe materials.
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-sm font-medium">Name</label>
-                                <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="Product Name" />
-                                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">SKU</label>
-                                <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} placeholder="Optional" />
-                                {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
-                            </div>
-                            {isAdmin && (
-                                <div className="col-span-2 space-y-2">
-                                    <label className="text-sm font-medium">Source Branch</label>
-                                    <Select 
-                                        value={data.branch_id} 
-                                        onValueChange={(val) => {
-                                            setData((prev) => ({
-                                                ...prev,
-                                                branch_id: val,
-                                                category_id: '',
-                                                recipe: []
-                                            }));
-                                        }}
-                                    >
-                                        <SelectTrigger className="h-10 bg-muted/30">
-                                            <SelectValue placeholder="Select Source Branch" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {branches.map((b: any) => (
-                                                <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">The primary branch where this product is added.</p>
-                                </div>
-                            )}
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Category</label>
+                    <form onSubmit={handleAddSubmit} className="space-y-4 pt-2">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Name</label>
+                                <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="e.g. Salmon Aburi Nigiri" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
+                                {errors.name && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{errors.name}</p>}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">SKU Identifier</label>
+                                <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} placeholder="e.g. NGR-SLM-01" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
+                                {errors.sku && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{errors.sku}</p>}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Category</label>
                                 <select
                                     required
                                     value={data.category_id}
                                     onChange={(e) => setData('category_id', e.target.value)}
-                                    className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
+                                    className="w-full h-12 px-3 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm focus:ring-4 focus:ring-[#E75480]/15 dark:focus:ring-[#E1062C]/20 focus:border-[#E75480] dark:focus:border-[#E1062C] transition-all appearance-none font-medium"
                                 >
                                     <option value="">Select Category</option>
                                     {categories
-                                        .filter((c: any) => !data.branch_id || String(c.branch_id) === data.branch_id)
-                                        .map((c: any) => (
+                                        .filter((c) => !data.branch_id || String((c as unknown as { branch_id?: number }).branch_id) === data.branch_id)
+                                        .map((c) => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
                                 </select>
-                                {errors.category_id && <p className="text-xs text-destructive">{errors.category_id}</p>}
+                                {errors.category_id && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{errors.category_id}</p>}
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Cost Price</label>
-                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" />
-                                {errors.cost_price && <p className="text-xs text-destructive">{errors.cost_price}</p>}
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Cost Price (PHP)</label>
+                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Selling Price</label>
-                                <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" />
-                                {errors.selling_price && <p className="text-xs text-destructive">{errors.selling_price}</p>}
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Selling Price (PHP)</label>
+                                <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Base Unit</label>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Base Unit</label>
                                 <select
                                     required
                                     value={data.unit}
                                     onChange={(e) => setData('unit', e.target.value)}
-                                    className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
+                                    className="w-full h-12 px-3 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm font-bold appearance-none"
                                 >
                                     {PRODUCT_UNITS.map(unit => (
                                         <option key={unit.value} value={unit.value}>{unit.label}</option>
                                     ))}
                                 </select>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Initial Stock</label>
-                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} placeholder="0" />
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Initial Stock</label>
+                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} placeholder="0" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
                             </div>
-                            {/* Branch Visibility */}
-                            <div className="col-span-2 space-y-2 border-t pt-4">
-                                <label className="text-sm font-bold">Branch Visibility</label>
-                                <p className="text-[10px] text-muted-foreground uppercase font-medium">Select branches that can see this product (Default: All)</p>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {branches?.map((branch: any) => (
-                                        <div
-                                            key={branch.id}
-                                            onClick={() => toggleBranch(branch.id.toString())}
-                                            className={cn(
-                                                "cursor-pointer px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2",
-                                                data.branch_ids.includes(branch.id.toString())
-                                                    ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                    : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "size-2 rounded-full",
-                                                data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
-                                            )} />
-                                            {branch.name}
-                                        </div>
-                                    ))}
-                                    {data.branch_ids.length === 0 && (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20">
-                                            VISIBLE TO ALL BRANCHES
-                                        </Badge>
-                                    )}
+
+                            {/* Branch Visibility Tags Selection */}
+                            {branches && branches.length > 0 && (
+                                <div className="col-span-2 space-y-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-3">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Branch Visibility</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {branches.map((b) => (
+                                            <button
+                                                type="button"
+                                                key={b.id}
+                                                onClick={() => toggleBranch(b.id.toString())}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                                                    data.branch_ids.includes(b.id.toString())
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent"
+                                                        : "bg-white dark:bg-[#181820] text-[#7D6B6E] dark:text-[#94A3B8] border-[#F8C8DC] dark:border-white/10"
+                                                )}
+                                            >
+                                                {b.name}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                            {/* Product Image Upload */}
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-sm font-medium">Product Image <span className="text-muted-foreground text-xs">(Optional, max 2MB)</span></label>
+                            )}
+
+                            {/* Image Upload */}
+                            <div className="col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Image</label>
                                 {imagePreview && (
-                                    <div className="relative w-full h-28 rounded-lg overflow-hidden border bg-muted/30">
+                                    <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7] dark:bg-[#181820] mb-2">
                                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
                                             onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute top-2 right-2 bg-destructive text-white rounded-full size-6 flex items-center justify-center text-xs hover:bg-destructive/90 transition-colors"
+                                            className="absolute top-2 right-2 bg-rose-600 text-white rounded-full size-6 flex items-center justify-center text-xs shadow-xs"
                                         >
-                                            ✕
+                                            <X className="size-3.5" />
                                         </button>
                                     </div>
                                 )}
@@ -771,133 +662,98 @@ export default function ProductsIndex() {
                                         setImageFile(file);
                                         if (file) setImagePreview(URL.createObjectURL(file));
                                     }}
-                                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer transition-all border border-input rounded-lg p-2 bg-background"
+                                    className="w-full text-xs font-medium border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#FADADD]/40 dark:file:bg-white/10 file:text-[#E75480] dark:file:text-[#FF4F81] cursor-pointer"
                                 />
                             </div>
-                            <div className="col-span-2 border-t pt-4 mt-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex flex-col">
-                                        <label className="text-sm font-bold">Recipe Composition</label>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Define required materials for production</p>
+
+                            {/* Recipe Composition */}
+                            <div className="col-span-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Recipe Composition</h4>
+                                        <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Define required raw materials per unit</p>
                                     </div>
-                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5">
-                                        <FiPlus className="size-3 text-primary" /> Add Ingredient
+                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs font-bold rounded-xl border-[#F8C8DC] dark:border-white/10 text-[#E75480] dark:text-[#FF4F81]">
+                                        <Plus className="size-3 mr-1" /> Add Material
                                     </Button>
                                 </div>
 
-                                <div className="space-y-3 max-h-87.5 overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-                                    {data.recipe.length === 0 && (
-                                        <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
-                                            <FiSlash className="size-8 text-destructive/30 mb-2" />
-                                            <p className="text-sm font-bold text-destructive italic tracking-tight">
-                                                NO INGREDIENTS REGISTERED.
-                                            </p>
-                                            <p className="text-[10px] text-muted-foreground uppercase">This product will be unavailable for sale (0 stock)</p>
-                                        </div>
-                                    )}
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {data.recipe.map((item, idx) => {
-                                        const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
+                                        const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
                                         return (
-                                            <motion.div
-                                                layout
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                key={idx}
-                                                className="grid grid-cols-12 gap-2 items-end bg-background p-3 rounded-xl border border-muted ring-offset-background focus-within:ring-2 focus-within:ring-primary/10 transition-all"
-                                            >
-                                                <div className="col-span-7 space-y-1.5">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
-                                                    <select
-                                                        required
-                                                        value={item.ingredient_id}
-                                                        onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none"
-                                                    >
-                                                        <option value="">-- Choose Ingredient --</option>
-                                                        {(usePage().props as any).ingredients.map((ing: Ingredient) => {
-                                                            const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === ing.id.toString() && rIdx !== idx);
-                                                            return (
-                                                                <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                    {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                    </select>
-                                                </div>
-                                                <div className="col-span-3 space-y-1.5 px-1">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            type="number"
-                                                            step="0.0001"
-                                                            required
-                                                            value={item.quantity_required}
-                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                            className="h-10 text-xs font-bold pl-3 pr-8 bg-muted/30 focus:bg-background rounded-lg border-input"
-                                                        />
-                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
-                                                            {selectedIng?.unit || '-'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2 flex justify-end pb-1 text-right">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => removeRecipeItem(idx)}
-                                                        className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-lg"
-                                                    >
-                                                        <FiTrash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            </motion.div>
+                                            <div key={idx} className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                                <select
+                                                    required
+                                                    value={item.ingredient_id}
+                                                    onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                    className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
+                                                >
+                                                    <option value="">-- Choose Ingredient --</option>
+                                                    {ingredients.map((ing) => (
+                                                        <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                                                    ))}
+                                                </select>
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    required
+                                                    value={item.quantity_required}
+                                                    onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                    className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
+                                                    placeholder="Qty"
+                                                />
+                                                <span className="text-[10px] font-mono text-[#9E8B8E] dark:text-[#64748B] w-8">{selectedIng?.unit || '-'}</span>
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                                    <Trash2 className="size-3.5" />
+                                                </Button>
+                                            </div>
                                         );
                                     })}
                                 </div>
-                                {errors.recipe && <p className="text-xs text-destructive font-bold mt-2 px-2">⚠ {errors.recipe}</p>}
                             </div>
+
                         </div>
-                        <DialogFooter className="pt-6">
-                            <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
-                            <Button
-                                type="submit"
-                                disabled={processing}
-                                className="rounded-xl h-12 flex-1 bg-primary shadow-lg shadow-primary/20 font-bold active:scale-95 transition-all"
-                            >
-                                {processing ? 'Processing...' : 'Confirm Registration'}
+
+                        <DialogFooter className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                            <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
+                            <Button type="submit" disabled={processing} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
+                                {processing ? 'Registering...' : 'Confirm Registration'}
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
 
-            {/* Edit Product Modal (Synced for scalability) */}
+            {/* Edit Product Dialog */}
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-125 rounded-4xl">
+                <DialogContent className="sm:max-w-xl rounded-4xl bg-white dark:bg-[#121218] p-6 sm:p-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] font-['Outfit']">
                     <DialogHeader>
-                        <DialogTitle className="text-2xl font-black italic tracking-tighter">REVISE PRODUCT.</DialogTitle>
-                        <DialogDescription className="font-medium">Modify existing product specifications and ingredients.</DialogDescription>
+                        <DialogTitle className="text-2xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">Revise Product Specifications</DialogTitle>
+                        <DialogDescription className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                            Modify existing product parameters, pricing, and raw material composition.
+                        </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleEditSubmit} className="space-y-4 pt-4">
+
+                    <form onSubmit={handleEditSubmit} className="space-y-4 pt-2">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Name</label>
-                                <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
-                                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Name</label>
+                                <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
                             </div>
+
                             <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Identifier (SKU)</label>
-                                <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} className="h-12 rounded-xl bg-muted/30" />
-                                {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">SKU</label>
+                                <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
                             </div>
+
                             <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Category</label>
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Category</label>
                                 <select
                                     required
                                     value={data.category_id}
                                     onChange={(e) => setData('category_id', e.target.value)}
-                                    className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 ring-primary/20 transition-all appearance-none"
+                                    className="w-full h-12 px-3 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm font-medium appearance-none"
                                 >
                                     <option value="">Select Category</option>
                                     {categories.map((c: Category) => (
@@ -905,75 +761,72 @@ export default function ProductsIndex() {
                                     ))}
                                 </select>
                             </div>
+
                             <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Cost (PHP)</label>
-                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold" />
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Cost Price</label>
+                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
                             </div>
+
                             <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling (PHP)</label>
-                                <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-xl bg-muted/30 font-bold text-emerald-600" />
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Selling Price</label>
+                                <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                             </div>
+
                             <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Base Unit</label>
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Base Unit</label>
                                 <select
                                     required
                                     value={data.unit}
                                     onChange={(e) => setData('unit', e.target.value)}
-                                    className="w-full h-12 px-3 rounded-xl border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none font-bold"
+                                    className="w-full h-12 px-3 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm font-bold appearance-none"
                                 >
                                     {PRODUCT_UNITS.map(unit => (
                                         <option key={unit.value} value={unit.value}>{unit.label}</option>
                                     ))}
                                 </select>
                             </div>
+
                             <div className="space-y-1.5">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Current Stock</label>
-                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} className="h-12 rounded-xl bg-muted/30" placeholder="0" />
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Current Stock</label>
+                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
                             </div>
 
-                            {/* Branch Visibility */}
-                            <div className="col-span-2 space-y-2 border-t pt-4">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Branch Visibility</label>
-                                <p className="text-[10px] text-muted-foreground uppercase font-medium ml-1">Select branches that can see this product (Default: All)</p>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {branches?.map((branch: any) => (
-                                        <div
-                                            key={branch.id}
-                                            onClick={() => toggleBranch(branch.id.toString())}
-                                            className={cn(
-                                                "cursor-pointer px-4 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-2",
-                                                data.branch_ids.includes(branch.id.toString())
-                                                    ? "bg-primary/10 border-primary text-primary shadow-sm"
-                                                    : "bg-muted/30 border-muted text-muted-foreground hover:bg-muted/50"
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "size-2 rounded-full",
-                                                data.branch_ids.includes(branch.id.toString()) ? "bg-primary" : "bg-muted-foreground/30"
-                                            )} />
-                                            {branch.name}
-                                        </div>
-                                    ))}
-                                    {data.branch_ids.length === 0 && (
-                                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                                            VISIBLE TO ALL BRANCHES
-                                        </Badge>
-                                    )}
+                            {/* Branch Visibility Tags Selection */}
+                            {branches && branches.length > 0 && (
+                                <div className="col-span-2 space-y-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-3">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Branch Visibility</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {branches.map((b) => (
+                                            <button
+                                                type="button"
+                                                key={b.id}
+                                                onClick={() => toggleBranch(b.id.toString())}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                                                    data.branch_ids.includes(b.id.toString())
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent"
+                                                        : "bg-white dark:bg-[#181820] text-[#7D6B6E] dark:text-[#94A3B8] border-[#F8C8DC] dark:border-white/10"
+                                                )}
+                                            >
+                                                {b.name}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Product Image Upload */}
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Product Image <span className="font-normal">(Optional, max 2MB)</span></label>
+                            <div className="col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Image</label>
                                 {imagePreview && (
-                                    <div className="relative w-full h-28 rounded-xl overflow-hidden border bg-muted/30">
+                                    <div className="relative w-full h-32 rounded-2xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7] dark:bg-[#181820] mb-2">
                                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
                                             onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute top-2 right-2 bg-destructive text-white rounded-full size-6 flex items-center justify-center text-xs hover:bg-destructive/90 transition-colors"
+                                            className="absolute top-2 right-2 bg-rose-600 text-white rounded-full size-6 flex items-center justify-center text-xs shadow-xs"
                                         >
-                                            ✕
+                                            <X className="size-3.5" />
                                         </button>
                                     </div>
                                 )}
@@ -985,100 +838,61 @@ export default function ProductsIndex() {
                                         setImageFile(file);
                                         if (file) setImagePreview(URL.createObjectURL(file));
                                     }}
-                                    className="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer transition-all border border-input rounded-xl p-2 bg-muted/30"
+                                    className="w-full text-xs font-medium border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#FADADD]/40 dark:file:bg-white/10 file:text-[#E75480] dark:file:text-[#FF4F81] cursor-pointer"
                                 />
                             </div>
 
-                            <div className="col-span-2 border-t pt-4 mt-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex flex-col">
-                                        <label className="text-sm font-bold">Recipe Composition</label>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-medium">Update required materials</p>
+                            {/* Recipe Composition */}
+                            <div className="col-span-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Recipe Composition</h4>
+                                        <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Define required raw materials per unit</p>
                                     </div>
-                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs gap-1 shadow-sm hover:bg-primary/5">
-                                        <FiPlus className="size-3 text-primary" /> Add Ingredient
+                                    <Button type="button" variant="outline" size="sm" onClick={addRecipeItem} className="h-8 text-xs font-bold rounded-xl border-[#F8C8DC] dark:border-white/10 text-[#E75480] dark:text-[#FF4F81]">
+                                        <Plus className="size-3 mr-1" /> Add Material
                                     </Button>
                                 </div>
 
-                                <div className="space-y-3 max-h-87.5 overflow-y-auto p-1 pr-2 mt-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-                                    {data.recipe.length === 0 && (
-                                        <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-destructive/5 border border-dashed border-destructive/20">
-                                            <FiSlash className="size-8 text-destructive/30 mb-2" />
-                                            <p className="text-sm font-bold text-destructive italic tracking-tight">
-                                                NO INGREDIENTS REGISTERED.
-                                            </p>
-                                        </div>
-                                    )}
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {data.recipe.map((item, idx) => {
-                                        const selectedIng = (usePage().props as any).ingredients.find((ing: Ingredient) => ing.id.toString() === item.ingredient_id);
+                                        const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
                                         return (
-                                            <motion.div
-                                                layout
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                key={idx}
-                                                className="grid grid-cols-12 gap-2 items-end bg-background p-3 rounded-xl border border-muted"
-                                            >
-                                                <div className="col-span-7 space-y-1.5">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Material</label>
-                                                    <select
-                                                        required
-                                                        value={item.ingredient_id}
-                                                        onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                        className="w-full h-10 px-3 rounded-lg border border-input bg-muted/30 text-xs focus:bg-background focus:outline-none focus:ring-1 ring-primary/20 transition-all appearance-none"
-                                                    >
-                                                        <option value="">-- Choose Ingredient --</option>
-                                                        {(usePage().props as any).ingredients.map((ing: Ingredient) => {
-                                                            const isTaken = data.recipe.some((r, rIdx) => r.ingredient_id === ing.id.toString() && rIdx !== idx);
-                                                            return (
-                                                                <option key={ing.id} value={ing.id} disabled={isTaken}>
-                                                                    {ing.name} {isTaken ? '(Already added)' : `(${ing.unit})`}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                    </select>
-                                                </div>
-                                                <div className="col-span-3 space-y-1.5">
-                                                    <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Qty</label>
-                                                    <div className="relative">
-                                                        <Input
-                                                            type="number"
-                                                            step="0.0001"
-                                                            required
-                                                            value={item.quantity_required}
-                                                            onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                            className="h-10 text-xs font-bold bg-muted/30 focus:bg-background rounded-lg border-input"
-                                                        />
-                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-muted-foreground uppercase">
-                                                            {selectedIng?.unit || '-'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2 flex justify-end pb-1">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => removeRecipeItem(idx)}
-                                                        className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-lg"
-                                                    >
-                                                        <FiTrash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            </motion.div>
+                                            <div key={idx} className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                                <select
+                                                    required
+                                                    value={item.ingredient_id}
+                                                    onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                    className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
+                                                >
+                                                    <option value="">-- Choose Ingredient --</option>
+                                                    {ingredients.map((ing) => (
+                                                        <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                                                    ))}
+                                                </select>
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    required
+                                                    value={item.quantity_required}
+                                                    onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                    className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
+                                                    placeholder="Qty"
+                                                />
+                                                <span className="text-[10px] font-mono text-[#9E8B8E] dark:text-[#64748B] w-8">{selectedIng?.unit || '-'}</span>
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                                    <Trash2 className="size-3.5" />
+                                                </Button>
+                                            </div>
                                         );
                                     })}
                                 </div>
-                                {errors.recipe && <p className="text-xs text-destructive font-bold mt-2 px-2">⚠ {errors.recipe}</p>}
                             </div>
                         </div>
-                        <DialogFooter className="pt-6">
-                            <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-12 font-bold text-muted-foreground">Cancel</Button>
-                            <Button
-                                type="submit"
-                                disabled={processing}
-                                className="rounded-xl h-12 flex-1 bg-primary font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all"
-                            >
+
+                        <DialogFooter className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                            <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
+                            <Button type="submit" disabled={processing} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
                                 {processing ? 'Updating...' : 'Push Updates'}
                             </Button>
                         </DialogFooter>
@@ -1086,24 +900,25 @@ export default function ProductsIndex() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Product Confirmation Dialog */}
             <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-md rounded-3xl bg-white dark:bg-[#121218] p-6 font-['Outfit'] border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]">
                     <DialogHeader>
-                        <DialogTitle className="text-destructive flex items-center gap-2">
-                            <FiTrash2 className="size-5" /> Delete Product
+                        <DialogTitle className="text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-2 text-xl font-bold">
+                            <Trash2 className="size-5 text-rose-600 dark:text-rose-400" /> Confirm Deletion
                         </DialogTitle>
-                        <DialogDescription className="pt-2 text-base">
-                            Are you sure you want to delete <span className="font-bold text-foreground">"{selectedProduct?.name}"</span>?
-                            This will also remove all associated inventory logs.
+                        <DialogDescription className="pt-2 text-xs text-[#7D6B6E] dark:text-[#94A3B8]">
+                            Are you sure you want to delete <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">"{selectedProduct?.name}"</strong>? This will remove all associated inventory records.
                         </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter className="pt-6">
-                        <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>No, keep it</Button>
-                        <Button variant="destructive" onClick={handleDeleteSubmit} disabled={processing}>Yes, delete product</Button>
+                    <DialogFooter className="pt-4">
+                        <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} className="rounded-xl text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
+                        <Button variant="destructive" onClick={handleDeleteSubmit} disabled={processing} className="rounded-xl text-xs font-bold bg-rose-600 dark:bg-rose-700 hover:bg-rose-700 dark:hover:bg-rose-800">
+                            Confirm Delete
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </AppLayout >
+        </AppLayout>
     );
 }
