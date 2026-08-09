@@ -608,6 +608,84 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
     
     activity.form = activityForm
+/**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+export const activityLogs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: activityLogs.url(options),
+    method: 'get',
+})
+
+activityLogs.definition = {
+    methods: ["get","head"],
+    url: '/api/inventory/activity-logs',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+activityLogs.url = (options?: RouteQueryOptions) => {
+    return activityLogs.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+activityLogs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: activityLogs.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: activityLogs.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+    const activityLogsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: activityLogs.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+        activityLogsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: activityLogs.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\NotificationController::activityLogs
+ * @see app/Http/Controllers/NotificationController.php:72
+ * @route '/api/inventory/activity-logs'
+ */
+        activityLogsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: activityLogs.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    activityLogs.form = activityLogsForm
 const inventory = {
     massStockIn: Object.assign(massStockIn, massStockIn),
 bulkDelete: Object.assign(bulkDelete, bulkDelete),
@@ -618,6 +696,7 @@ index: Object.assign(index, index),
 stockIn: Object.assign(stockIn, stockIn),
 wastage: Object.assign(wastage, wastage),
 activity: Object.assign(activity, activity),
+activityLogs: Object.assign(activityLogs, activityLogs),
 }
 
 export default inventory
