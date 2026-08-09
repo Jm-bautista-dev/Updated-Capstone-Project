@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -23,12 +24,16 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $branchId = $request->input('branch_id') && $request->input('branch_id') !== 'all'
+            ? (int) $request->input('branch_id')
+            : null;
 
-        $sales = Sale::with(['cashier', 'items.product'])
+        $sales = Sale::with(['cashier', 'items.product', 'branch'])
             ->when(!$user->isAdmin(), fn($q) => $q
                 ->where('user_id',   $user->id)
                 ->where('branch_id', $user->branch_id)
             )
+            ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
             ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
             ->when($request->date_to,   fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
             ->when($request->cashier_id && $user->isAdmin(), fn($q) => $q->where('user_id', $request->cashier_id))
@@ -37,19 +42,22 @@ class ReportController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $todaySales = Sale::where('status', 'completed')
+        $todayQuery = Sale::where('status', 'completed')
             ->whereDate('created_at', today())
             ->when(!$user->isAdmin(), fn($q) => $q
                 ->where('user_id',   $user->id)
                 ->where('branch_id', $user->branch_id)
             )
-            ->sum('total');
+            ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId));
+
+        $todaySales = (float) (clone $todayQuery)->sum('total');
 
         $shifts = CashierShift::with('cashier')
             ->when(!$user->isAdmin(), fn($q) => $q
                 ->where('cashier_id', $user->id)
                 ->where('branch_id',  $user->branch_id)
             )
+            ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
             ->when($request->date_from, fn($q) => $q->whereDate('opened_at', '>=', $request->date_from))
             ->when($request->date_to,   fn($q) => $q->whereDate('opened_at', '<=', $request->date_to))
             ->when($request->cashier_id && $user->isAdmin(), fn($q) => $q->where('cashier_id', $request->cashier_id))
@@ -62,10 +70,14 @@ class ReportController extends Controller
                 'sales'       => $sales,
                 'shifts'      => $shifts,
                 'cashiers'    => User::where('role', 'cashier')->get(),
-                'filters'     => $request->only(['date_from', 'date_to', 'cashier_id', 'status']),
-                'today_sales' => (float) $todaySales,
+                'branches'    => Branch::orderBy('name')->get(),
+                'filters'     => array_merge(
+                    $request->only(['date_from', 'date_to', 'cashier_id', 'status']),
+                    ['branch_id' => $branchId ? (string) $branchId : 'all']
+                ),
+                'today_sales' => $todaySales,
             ],
-            $this->buildAnalytics($request)
+            $this->buildAnalytics($request, $branchId)
         ));
     }
 
@@ -87,15 +99,19 @@ class ReportController extends Controller
 
     private function compileAllRows(array $payload, $user)
     {
-        $filters = $payload['filters'] ?? [];
+        $filters   = $payload['filters'] ?? [];
         $activeTab = $payload['activeTab'] ?? 'sales';
+        $branchId  = isset($filters['branch_id']) && $filters['branch_id'] !== 'all'
+            ? (int) $filters['branch_id']
+            : null;
 
         if ($activeTab === 'sales') {
-            $sales = Sale::with(['cashier', 'items.product'])
+            $sales = Sale::with(['cashier', 'items.product', 'branch'])
                 ->when(!$user->isAdmin(), fn($q) => $q
                     ->where('user_id',   $user->id)
                     ->where('branch_id', $user->branch_id)
                 )
+                ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
                 ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
                 ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('created_at', '<=', $filters['date_to']))
                 ->when(isset($filters['cashier_id']) && $filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('user_id', $filters['cashier_id']))
@@ -108,6 +124,7 @@ class ReportController extends Controller
                     'order_number' => $sale->order_number,
                     'date' => $sale->created_at->format('M d, Y H:i'),
                     'cashier' => $sale->cashier?->name ?? 'N/A',
+                    'branch' => $sale->branch?->name ?? 'N/A',
                     'status' => ucfirst($sale->status),
                     'total' => '₱' . number_format($sale->total, 2),
                     'profit' => '₱' . number_format($sale->profit, 2),
@@ -119,6 +136,7 @@ class ReportController extends Controller
                     ->where('cashier_id', $user->id)
                     ->where('branch_id',  $user->branch_id)
                 )
+                ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
                 ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('opened_at', '>=', $filters['date_from']))
                 ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('opened_at', '<=', $filters['date_to']))
                 ->when(isset($filters['cashier_id']) && $filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('cashier_id', $filters['cashier_id']))
@@ -186,7 +204,7 @@ class ReportController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function buildAnalytics(Request $request): array
+    private function buildAnalytics(Request $request, ?int $branchId = null): array
     {
         $dateFrom  = $request->date_from;
         $dateTo    = $request->date_to;
@@ -195,6 +213,7 @@ class ReportController extends Controller
         // ── 1. Daily revenue / profit trend ───────────────────────────────────
         /** @var Collection $trendData */
         $trendData = Sale::where('status', 'completed')
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
             ->when($dateTo,   fn($q) => $q->whereDate('created_at', '<=', $dateTo))
             ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback))
@@ -218,6 +237,7 @@ class ReportController extends Controller
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales',    'sale_items.sale_id',    '=', 'sales.id')
             ->where('sales.status', 'completed')
+            ->when($branchId,  fn($q) => $q->where('sales.branch_id', $branchId))
             ->when($dateFrom,  fn($q) => $q->whereDate('sales.created_at', '>=', $dateFrom))
             ->when($dateTo,    fn($q) => $q->whereDate('sales.created_at', '<=', $dateTo))
             ->when(!$dateFrom, fn($q) => $q->where('sales.created_at', '>=', $fallback))
@@ -243,8 +263,9 @@ class ReportController extends Controller
         $peakDay    = $trendData->sortByDesc('Revenue')->first();
 
         // ── 4. KPI aggregates ─────────────────────────────────────────────────
-        [$totalRevenue, $totalProfit, $totalOrders] = $this->kpiAggregates($dateFrom, $dateTo, $fallback);
-        $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback);
+        [$totalRevenue, $totalProfit, $totalOrders] = $this->kpiAggregates($dateFrom, $dateTo, $fallback, $branchId);
+        $totalExpenses  = max(0, $totalRevenue - $totalProfit);
+        $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
 
         return [
             'trend_data'      => $trendData->values(),
@@ -256,6 +277,7 @@ class ReportController extends Controller
                 ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']]
                 : null,
             'total_revenue'   => $totalRevenue,
+            'total_expenses'  => $totalExpenses,
             'total_profit'    => $totalProfit,
             'total_orders'    => $totalOrders,
             'cancelled_count' => $cancelledCount,
@@ -267,9 +289,10 @@ class ReportController extends Controller
      *
      * @return array{float, float, int}
      */
-    private function kpiAggregates(?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback): array
+    private function kpiAggregates(?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback, ?int $branchId = null): array
     {
         $base = Sale::where('status', 'completed')
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
             ->when($dateTo,   fn($q) => $q->whereDate('created_at', '<=', $dateTo))
             ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback));
@@ -284,9 +307,10 @@ class ReportController extends Controller
     /**
      * Count cancelled sales in the active period.
      */
-    private function cancelledCount(?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback): int
+    private function cancelledCount(?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback, ?int $branchId = null): int
     {
         return Sale::where('status', 'cancelled')
+            ->when($branchId,  fn($q) => $q->where('branch_id', $branchId))
             ->when($dateFrom,  fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
             ->when($dateTo,    fn($q) => $q->whereDate('created_at', '<=', $dateTo))
             ->when(!$dateFrom, fn($q) => $q->where('created_at',     '>=', $fallback))

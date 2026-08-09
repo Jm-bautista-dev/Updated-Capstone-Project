@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, RefreshCw, Edit2, Trash2, Eye, PackageSearch } from 'lucide-react';
+import { Package, RefreshCw, Edit2, Trash2, Eye, PackageSearch, Building2 } from 'lucide-react';
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -34,6 +34,7 @@ export function ProductTable({
                         <tr className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
                             <th className="py-4 px-6">Product Specifications</th>
                             <th className="py-4 px-6 hidden lg:table-cell">Category</th>
+                            <th className="py-4 px-6 hidden lg:table-cell">Branch</th>
                             <th className="py-4 px-6 text-center">Stock Level</th>
                             <th className="py-4 px-6 hidden sm:table-cell">Pricing & Cost</th>
                             <th className="py-4 px-6 text-center">Status</th>
@@ -98,6 +99,18 @@ export function ProductTable({
                                         <td className="p-4 px-6 align-middle hidden lg:table-cell">
                                             <span className="text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0] bg-[#FADADD]/30 dark:bg-white/5 border border-[#F8C8DC]/50 dark:border-white/10 px-3 py-1 rounded-xl">
                                                 {product.category?.name || 'Uncategorized'}
+                                            </span>
+                                        </td>
+
+                                        {/* Branch */}
+                                        <td className="p-4 px-6 align-middle hidden lg:table-cell">
+                                            <span className="text-xs font-bold text-[#E75480] dark:text-[#FF4F81] bg-[#FFF5F7] dark:bg-white/5 border border-[#F8C8DC]/50 dark:border-white/10 px-2.5 py-1 rounded-xl inline-flex items-center gap-1.5">
+                                                <Building2 className="size-3" />
+                                                {product.branches && product.branches.length > 1
+                                                    ? 'Both Branches (Global)'
+                                                    : product.branches && product.branches.length === 1
+                                                        ? product.branches[0].name
+                                                        : 'Global'}
                                             </span>
                                         </td>
 

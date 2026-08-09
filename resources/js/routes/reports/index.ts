@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import exportMethod from './export'
 /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -64,7 +64,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\ReportController::index
- * @see app/Http/Controllers/Admin/ReportController.php:23
+ * @see app/Http/Controllers/Admin/ReportController.php:24
  * @route '/reports'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -80,7 +80,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
 export const pdf = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -95,7 +95,7 @@ pdf.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
 pdf.url = (options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ pdf.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
 pdf.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -113,7 +113,7 @@ pdf.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
 pdf.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -123,7 +123,7 @@ pdf.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
     const pdfForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -133,7 +133,7 @@ pdf.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
         pdfForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -142,7 +142,7 @@ pdf.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\ReportController::pdf
- * @see app/Http/Controllers/Admin/ReportController.php:142
+ * @see app/Http/Controllers/Admin/ReportController.php:160
  * @route '/reports/pdf'
  */
         pdfForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -158,7 +158,7 @@ pdf.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     pdf.form = pdfForm
 /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
 export const excel = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -173,7 +173,7 @@ excel.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
 excel.url = (options?: RouteQueryOptions) => {
@@ -182,7 +182,7 @@ excel.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
 excel.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -191,7 +191,7 @@ excel.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
 excel.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -201,7 +201,7 @@ excel.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
     const excelForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -211,7 +211,7 @@ excel.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
         excelForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -220,7 +220,7 @@ excel.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\ReportController::excel
- * @see app/Http/Controllers/Admin/ReportController.php:164
+ * @see app/Http/Controllers/Admin/ReportController.php:182
  * @route '/reports/excel'
  */
         excelForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

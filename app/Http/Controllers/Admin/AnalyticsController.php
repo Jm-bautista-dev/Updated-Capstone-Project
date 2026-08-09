@@ -21,6 +21,7 @@ class AnalyticsController extends Controller
     public function index(Request $request)
     {
         $range     = (int) $request->input('range', 7);
+        $branchId  = $request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int)$request->input('branch_id') : null;
         $startDate = Carbon::now()->subDays($range);
         $today     = Carbon::today();
         $branches  = Branch::orderBy('name')->get();
@@ -28,12 +29,14 @@ class AnalyticsController extends Controller
         $forecastIntel = $this->buildForecastIntel();
 
         return Inertia::render('Admin/Dashboard', [
-            'stats'                => $this->getGlobalStats($startDate),
+            'stats'                => $this->getGlobalStats($startDate, $branchId),
             'branchStats'          => $this->getBranchStats($branches, $startDate, $today),
-            'salesOverTime'        => $this->getSalesOverTime($range, $startDate),
-            'salesPerProduct'      => $this->getTopProducts($startDate),
-            'salesByPaymentMethod' => $this->getSalesByPayment($startDate),
+            'salesOverTime'        => $this->getSalesOverTime($range, $startDate, $branchId),
+            'salesPerProduct'      => $this->getTopProducts($startDate, $branchId),
+            'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $branchId),
             'range'                => $range,
+            'branches'             => $branches,
+            'filters'              => ['branch_id' => $branchId ? (string)$branchId : 'all', 'range' => $range],
             'recentActivity'       => $this->buildRecentActivity(),
             'forecastIntel'        => $forecastIntel,
             'suggestions'          => $this->buildSuggestions(),
@@ -125,13 +128,28 @@ class AnalyticsController extends Controller
     }
 
 
-    private function getGlobalStats($startDate)
+    private function getGlobalStats($startDate, ?int $branchId = null)
     {
+        $query = Sale::where('status', 'completed')->where('created_at', '>=', $startDate);
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $revenue  = (float) (clone $query)->sum('total');
+        $profit   = (float) (clone $query)->sum('profit');
+        $expenses = max(0, $revenue - $profit);
+
+        $stockQuery = IngredientStock::whereHas('ingredient');
+        if ($branchId) {
+            $stockQuery->where('branch_id', $branchId);
+        }
+
         return [
-            'total_revenue'   => (float) Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('total'),
-            'total_profit'    => (float) Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->sum('profit'),
-            'total_orders'    => Sale::where('status', 'completed')->where('created_at', '>=', $startDate)->count(),
-            'low_stock_items' => IngredientStock::whereHas('ingredient')->whereColumn('stock', '<=', 'low_stock_level')->count(),
+            'total_revenue'   => $revenue,
+            'total_expenses'  => $expenses,
+            'total_profit'    => $profit,
+            'total_orders'    => (clone $query)->count(),
+            'low_stock_items' => $stockQuery->whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
     }
 
@@ -176,11 +194,16 @@ class AnalyticsController extends Controller
                     ];
                 });
 
+            $revenue  = (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('total');
+            $profit   = (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('profit');
+            $expenses = max(0, $revenue - $profit);
+
             return [
                 'id'                   => $branch->id,
                 'name'                 => $branch->name,
-                'total_revenue'        => (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('total'),
-                'total_profit'         => (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('profit'),
+                'total_revenue'        => $revenue,
+                'total_expenses'       => $expenses,
+                'total_profit'         => $profit,
                 'total_orders'         => (clone $salesQuery)->where('created_at', '>=', $startDate)->count(),
                 'orders_today'         => (clone $salesQuery)->whereDate('created_at', $today)->count(),
                 'revenue_today'        => (float) (clone $salesQuery)->whereDate('created_at', $today)->sum('total'),
@@ -191,10 +214,16 @@ class AnalyticsController extends Controller
         });
     }
 
-    private function getSalesOverTime($range, $startDate)
+    private function getSalesOverTime($range, $startDate, ?int $branchId = null)
     {
-        $salesData = Sale::where('status', 'completed')
-            ->where('created_at', '>=', $startDate)
+        $query = Sale::where('status', 'completed')
+            ->where('created_at', '>=', $startDate);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $salesData = $query
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total) as revenue'), DB::raw('SUM(profit) as profit'))
             ->groupBy('date')
             ->orderBy('date')
@@ -206,23 +235,33 @@ class AnalyticsController extends Controller
             $date = Carbon::now()->subDays($i)->format('Y-m-d');
             $data = $salesData->get($date);
             
+            $revenue  = (float) ($data->revenue ?? 0);
+            $profit   = (float) ($data->profit ?? 0);
+            $expenses = max(0, $revenue - $profit);
+
             $salesOverTime->push([
-                'date'    => Carbon::parse($date)->format('M d'),
-                'revenue' => (float) ($data->revenue ?? 0),
-                'profit'  => (float) ($data->profit ?? 0),
+                'date'     => Carbon::parse($date)->format('M d'),
+                'revenue'  => $revenue,
+                'expenses' => $expenses,
+                'profit'   => $profit,
             ]);
         }
         return $salesOverTime;
     }
 
-    private function getTopProducts($startDate)
+    private function getTopProducts($startDate, ?int $branchId = null)
     {
-        return DB::table('sale_items')
+        $query = DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->where('sales.status', 'completed')
-            ->where('sales.created_at', '>=', $startDate)
-            ->select('products.name', DB::raw('SUM(sale_items.quantity) as total_sold'), DB::raw('SUM(sale_items.subtotal) as revenue'))
+            ->where('sales.created_at', '>=', $startDate);
+
+        if ($branchId) {
+            $query->where('sales.branch_id', $branchId);
+        }
+
+        return $query->select('products.name', DB::raw('SUM(sale_items.quantity) as total_sold'), DB::raw('SUM(sale_items.subtotal) as revenue'))
             ->groupBy('products.id', 'products.name')
             ->orderByDesc('total_sold')
             ->limit(10)
@@ -234,11 +273,16 @@ class AnalyticsController extends Controller
             });
     }
 
-    private function getSalesByPayment($startDate)
+    private function getSalesByPayment($startDate, ?int $branchId = null)
     {
-        return Sale::where('status', 'completed')
-            ->where('created_at', '>=', $startDate)
-            ->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as revenue'))
+        $query = Sale::where('status', 'completed')
+            ->where('created_at', '>=', $startDate);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        return $query->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as revenue'))
             ->groupBy('payment_method')
             ->get()
             ->map(function ($item) {

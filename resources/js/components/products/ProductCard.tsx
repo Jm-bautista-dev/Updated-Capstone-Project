@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Package, RefreshCw, Edit2, Trash2, Eye } from 'lucide-react';
+import { Package, RefreshCw, Edit2, Trash2, Eye, Building2 } from 'lucide-react';
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -67,10 +67,20 @@ export function ProductCard({
                     </div>
                 </div>
 
-                {/* SKU & Category */}
+                {/* SKU, Category & Branch */}
                 <div className="flex items-center justify-between text-[11px] font-bold text-[#9E8B8E] dark:text-[#64748B] mb-1">
                     <span className="font-mono uppercase">{product.sku || 'N/A'}</span>
-                    <span className="text-[#E75480] dark:text-[#FF4F81] uppercase tracking-wider">{product.category?.name || 'Uncategorized'}</span>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[#E75480] dark:text-[#FF4F81] uppercase tracking-wider">{product.category?.name || 'Uncategorized'}</span>
+                        <span className="text-[9px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] bg-[#FADADD]/40 dark:bg-white/10 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            <Building2 className="size-2.5 text-[#E75480] dark:text-[#FF4F81]" />
+                            {product.branches && product.branches.length > 1
+                                ? 'Both'
+                                : product.branches && product.branches.length === 1
+                                    ? product.branches[0].name
+                                    : 'Global'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Name */}

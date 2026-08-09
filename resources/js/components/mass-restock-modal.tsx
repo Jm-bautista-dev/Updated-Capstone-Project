@@ -1,7 +1,7 @@
 import { useForm } from '@inertiajs/react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import React, { useState, useEffect, useMemo } from 'react';
-import { FiRefreshCw, FiAlertTriangle, FiCheck, FiInfo, FiCheckCircle, FiPackage, FiSlash } from 'react-icons/fi';
+import { FiRefreshCw, FiAlertTriangle, FiInfo, FiCheckCircle, FiPackage, FiSlash } from 'react-icons/fi';
 import { ResultModal } from '@/components/result-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,7 @@ interface InventoryRow {
   branch_id: number;
   display_unit?: string;
   display_stock?: number;
+  cost_per_base_unit?: number;
 }
 
 interface MassRestockModalProps {
@@ -36,7 +37,7 @@ interface MassRestockModalProps {
   branchName: string;
   branchId: number;
   inventory: InventoryRow[];
-  initialQuantities?: Record<number, { quantity: string, unit: string }>;
+  initialQuantities?: Record<number, { quantity: string, unit: string, purchase_price?: string }>;
 }
 
 export function MassRestockModal({ open, onOpenChange, branchName, branchId, inventory, initialQuantities }: MassRestockModalProps) {
@@ -62,7 +63,7 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
 
   const { data, setData, post, processing, reset, errors, transform } = useForm({
     branch_id: branchId,
-    items: [] as { id: number, type: string, quantity: string, unit: string }[]
+    items: [] as { id: number, type: string, quantity: string, unit: string, purchase_price: string }[]
   });
 
   // Initialize form data with ALL branch items when modal opens
@@ -76,14 +77,22 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
             id: item.id,
             type: 'ingredient',
             quantity: prefilled?.quantity || '',
-            unit: prefilled?.unit || item.unit
+            unit: prefilled?.unit || item.unit,
+            purchase_price: prefilled?.purchase_price || (item.cost_per_base_unit ? String(item.cost_per_base_unit) : '')
           };
         })
       });
-      setShowSuccess(false);
-      setFilter('all'); 
     }
-  }, [open, branchId, branchItems, initialQuantities]);
+  }, [open, branchId, branchItems, initialQuantities, setData]);
+
+  const handlePriceChange = (id: number, value: string) => {
+    const newItems = [...data.items];
+    const index = newItems.findIndex(i => i.id === id);
+    if (index > -1) {
+      newItems[index].purchase_price = value;
+      setData('items', newItems);
+    }
+  };
 
   const handleQuantityChange = (id: number, value: string) => {
     const newItems = [...data.items];
@@ -132,6 +141,8 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
     onOpenChange(false);
   };
 
+  const typedErrors = errors as Record<string, string>;
+
   return (
     <>
       <ResultModal 
@@ -142,14 +153,20 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
         message={`Bulk restock for ${branchName} has been processed and logged.`}
       />
 
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
+      <Dialog open={open} onOpenChange={(isOpen) => {
+        if (isOpen) {
+          setShowSuccess(false);
+          setFilter('all');
+        }
+        onOpenChange(isOpen);
+      }}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
           <DialogHeader className="p-8 pb-4">
             {Object.keys(errors).length > 0 && (
               <Alert variant="destructive" className="mb-4 bg-rose-500/10 border-rose-500/20 text-rose-600 rounded-2xl">
                 <FiAlertTriangle className="size-4" />
                 <AlertDescription className="text-[10px] font-black uppercase tracking-tight ml-2">
-                  {(errors as any).error || "Validation failed. Please check quantities."}
+                  {typedErrors.error || "Validation failed. Please check quantities."}
                   {Object.entries(errors).map(([key, val]) => (
                     key !== 'error' && <div key={key} className="mt-1 font-bold lowercase first-letter:uppercase text-[8px]">{val}</div>
                   ))}
@@ -288,7 +305,7 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                           transition={{ delay: Math.min(idx * 0.03, 0.5) }}
                           className={cn(
                             "py-4 flex items-center justify-between gap-6 group transition-all rounded-xl px-2 -mx-2",
-                            Number(formItem?.quantity) > 0 ? "bg-primary/[0.03] ring-1 ring-primary/10" : "hover:bg-muted/30"
+                            Number(formItem?.quantity) > 0 ? "bg-primary/5 ring-1 ring-primary/10" : "hover:bg-muted/30"
                           )}
                         >
                           <div className="flex-1 min-w-0">
@@ -321,16 +338,16 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                             </div>
                           </div>
 
-                          <div className="w-48 shrink-0 flex items-center gap-2">
+                          <div className="w-80 shrink-0 flex items-center gap-2">
                             <div className="relative group/input flex-1">
                               <Input
                                 type="number"
-                                placeholder="0.00"
+                                placeholder="Qty"
                                 value={formItem?.quantity || ''}
                                 onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                                 className={cn(
                                   "h-11 px-3 bg-muted/40 border-none ring-1 transition-all font-black italic text-right tabular-nums rounded-xl text-xs",
-                                  Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/[0.05] shadow-inner" : "ring-border/50 group-hover/input:ring-border"
+                                  Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/5 shadow-inner" : "ring-border/50 group-hover/input:ring-border"
                                 )}
                                 min="0"
                                 step="any"
@@ -342,7 +359,7 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                                 onChange={(e) => handleUnitChange(item.id, e.target.value)}
                                 className={cn(
                                   "h-11 w-full bg-muted/40 border-none ring-1 transition-all font-black text-center uppercase rounded-xl text-xs",
-                                  Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/[0.05] shadow-inner text-primary" : "ring-border/50 text-muted-foreground hover:ring-border"
+                                  Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/5 shadow-inner text-primary" : "ring-border/50 text-muted-foreground hover:ring-border"
                                 )}
                               >
                                 {item.unit === 'g' || item.unit === 'kg' ? (
@@ -359,6 +376,27 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                                   <option value={item.unit}>{item.unit}</option>
                                 )}
                               </select>
+                            </div>
+                            <div className="w-24 shrink-0">
+                              <Input
+                                type="number"
+                                placeholder="₱ Cost"
+                                value={formItem?.purchase_price || ''}
+                                onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                                className={cn(
+                                  "h-11 px-2 bg-muted/40 border-none ring-1 transition-all font-mono font-bold text-right tabular-nums rounded-xl text-xs text-emerald-600 dark:text-emerald-400",
+                                  Number(formItem?.quantity) > 0 ? "ring-emerald-500/50 bg-emerald-500/5" : "ring-border/50"
+                                )}
+                                min="0"
+                                step="any"
+                              />
+                            </div>
+                            <div className="w-20 text-right font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 shrink-0">
+                              {Number(formItem?.quantity) > 0 && Number(formItem?.purchase_price) > 0 ? (
+                                `₱${(Number(formItem?.quantity ?? 0) * Number(formItem?.purchase_price ?? 0)).toFixed(2)}`
+                              ) : (
+                                '—'
+                              )}
                             </div>
                           </div>
                         </motion.div>

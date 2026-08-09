@@ -140,9 +140,10 @@ export default function SalesIndex() {
                 (s.payment_method ?? '').toLowerCase().includes(search.toLowerCase());
 
             const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-            return matchesSearch && matchesStatus;
+            const matchesBranch = !branchFilter || branchFilter === 'all' || String((s as unknown as { branch_id?: number }).branch_id) === String(branchFilter);
+            return matchesSearch && matchesStatus && matchesBranch;
         });
-    }, [salesList, search, statusFilter]);
+    }, [salesList, search, statusFilter, branchFilter]);
 
     // Active Branch Name
     const activeBranchName = useMemo(() => {
@@ -192,7 +193,7 @@ export default function SalesIndex() {
         <AppLayout breadcrumbs={[{ title: 'Sales', href: '/sales' }]}>
             <Head title="Sales Command Center" />
 
-            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 
                 {/* ── ZONE 1: HERO & SALES REVENUE TELEMETRY ── */}
                 <SalesHero

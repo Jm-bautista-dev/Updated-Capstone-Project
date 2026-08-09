@@ -56,7 +56,7 @@ massStore.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     massStore.form = massStoreForm
 /**
 * @see \App\Http\Controllers\StockInController::store
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\StockInController::store
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StockInController::store
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\StockInController::store
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -100,7 +100,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\StockInController::store
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

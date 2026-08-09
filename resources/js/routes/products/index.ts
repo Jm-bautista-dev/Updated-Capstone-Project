@@ -140,7 +140,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\ProductsController::destroy
- * @see app/Http/Controllers/ProductsController.php:359
+ * @see app/Http/Controllers/ProductsController.php:372
  * @route '/products/{id}'
  */
 export const destroy = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -155,7 +155,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\ProductsController::destroy
- * @see app/Http/Controllers/ProductsController.php:359
+ * @see app/Http/Controllers/ProductsController.php:372
  * @route '/products/{id}'
  */
 destroy.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -183,7 +183,7 @@ destroy.url = (args: { id: string | number } | [id: string | number ] | string |
 
 /**
 * @see \App\Http\Controllers\ProductsController::destroy
- * @see app/Http/Controllers/ProductsController.php:359
+ * @see app/Http/Controllers/ProductsController.php:372
  * @route '/products/{id}'
  */
 destroy.delete = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -193,7 +193,7 @@ destroy.delete = (args: { id: string | number } | [id: string | number ] | strin
 
     /**
 * @see \App\Http\Controllers\ProductsController::destroy
- * @see app/Http/Controllers/ProductsController.php:359
+ * @see app/Http/Controllers/ProductsController.php:372
  * @route '/products/{id}'
  */
     const destroyForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -208,7 +208,7 @@ destroy.delete = (args: { id: string | number } | [id: string | number ] | strin
 
             /**
 * @see \App\Http\Controllers\ProductsController::destroy
- * @see app/Http/Controllers/ProductsController.php:359
+ * @see app/Http/Controllers/ProductsController.php:372
  * @route '/products/{id}'
  */
         destroyForm.delete = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

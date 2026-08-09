@@ -210,7 +210,7 @@ export default function RestockSuggestions() {
     <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Restock Suggestions', href: '#' }]}>
       <Head title="Prescriptive Restock" />
 
-      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans text-(--ops-text-secondary)">
+      <div className="flex flex-col h-screen overflow-hidden bg-background font-sans text-(--ops-text-secondary)">
 
         {/* -- Header Area -- */}
         <div className="flex flex-row items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">

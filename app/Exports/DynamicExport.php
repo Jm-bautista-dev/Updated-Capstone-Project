@@ -93,6 +93,10 @@ class DynamicExport implements FromArray, WithStyles, WithTitle, ShouldAutoSize
             ],
         ];
         $sheet->getStyle("A{$headerRow}:{$highestColumn}{$highestRow}")->applyFromArray($styleArray);
+
+        // Enable worksheet protection so exported performance files are locked/read-only
+        $sheet->getProtection()->setSheet(true);
+        $sheet->getProtection()->setPassword(bin2hex(random_bytes(8)));
     }
 
     public function title(): string

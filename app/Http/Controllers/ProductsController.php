@@ -279,58 +279,71 @@ class ProductsController extends Controller
             'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',
             'selling_price'              => 'required|numeric|min:0|max:999999.99',
             'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'recipe'                     => 'required|array|min:1',
+            'recipe'                     => 'nullable|array',
             'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
             'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
-            'recipe.*.unit'              => 'required|string',
+            'recipe.*.unit'              => 'nullable|string',
             'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ]);
-        // ✅ Prevent Duplicate Ingredients
-        $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
-        if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'recipe' => 'Duplicate ingredients are not allowed.'
-            ]);
+
+        // Infer missing recipe unit from ingredient base unit
+        if (!empty($validated['recipe'])) {
+            foreach ($validated['recipe'] as $idx => &$item) {
+                if (empty($item['unit'])) {
+                    $ing = Ingredient::find($item['ingredient_id']);
+                    $item['unit'] = $ing ? $ing->unit : 'pcs';
+                }
+            }
+            unset($item);
         }
-
-        // ✅ Strict Recipe and Cost Consistency Validations
-        $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
-        foreach ($validated['recipe'] as $idx => $item) {
-            if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+        // ✅ Prevent Duplicate Ingredients
+        if (!empty($validated['recipe'])) {
+            $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
+            if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                    'recipe' => 'Duplicate ingredients are not allowed.'
                 ]);
             }
 
-            /** @var Ingredient $ing */
-            $ing = Ingredient::find($item['ingredient_id']);
-            if (!$ing) continue;
-
-            $usedUnit = strtolower(trim($item['unit']));
-            $baseUnit = strtolower(trim($ing->unit));
-            $normUsed = UnitConverter::normalizeUnit($usedUnit);
-            $normBase = UnitConverter::normalizeUnit($baseUnit);
-
-            // If cross-converting (e.g., pcs to g/ml) without avg_weight_per_piece
-            if (in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
-                if (!$ing->avg_weight_per_piece || $ing->avg_weight_per_piece <= 0) {
+            // ✅ Strict Recipe and Cost Consistency Validations
+            $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
+            foreach ($validated['recipe'] as $idx => $item) {
+                if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe" => "Piece-based ingredient '{$ing->name}' requires an average weight per piece to compute cost accurately."
+                        "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
                     ]);
                 }
-            } elseif (!in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
-                if ($normUsed !== $normBase) {
+
+                /** @var Ingredient $ing */
+                $ing = Ingredient::find($item['ingredient_id']);
+                if (!$ing) continue;
+
+                $usedUnit = strtolower(trim($item['unit']));
+                $baseUnit = strtolower(trim($ing->unit));
+                $normUsed = UnitConverter::normalizeUnit($usedUnit);
+                $normBase = UnitConverter::normalizeUnit($baseUnit);
+
+                // If cross-converting (e.g., pcs to g/ml) without avg_weight_per_piece
+                if (in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
+                    if (!$ing->avg_weight_per_piece || $ing->avg_weight_per_piece <= 0) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe" => "Piece-based ingredient '{$ing->name}' requires an average weight per piece to compute cost accurately."
+                        ]);
+                    }
+                } elseif (!in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
+                    if ($normUsed !== $normBase) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe" => "Invalid unit conversion: Cannot convert '{$usedUnit}' to base unit '{$baseUnit}' for ingredient '{$ing->name}'."
+                        ]);
+                    }
+                }
+
+                // Verify base cost exists
+                if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe" => "Invalid unit conversion: Cannot convert '{$usedUnit}' to base unit '{$baseUnit}' for ingredient '{$ing->name}'."
+                        "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
                     ]);
                 }
-            }
-
-            // Verify base cost exists
-            if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
-                ]);
             }
         }
 

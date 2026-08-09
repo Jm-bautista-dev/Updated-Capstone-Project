@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, Sparkles } from 'lucide-react';
+import { Calendar, Sparkles, Building2 } from 'lucide-react';
 import { useMemo } from 'react';
 
 import {
@@ -10,11 +10,19 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 
+interface BranchItem {
+    id: number;
+    name: string;
+}
+
 interface DashboardHeroProps {
     range: number;
     isLoading: boolean;
     lastSync: string;
     onRangeChange: (value: string) => void;
+    branches?: BranchItem[];
+    selectedBranch?: string;
+    onBranchChange?: (value: string) => void;
 }
 
 export function DashboardHero({
@@ -22,6 +30,9 @@ export function DashboardHero({
     isLoading,
     lastSync,
     onRangeChange,
+    branches = [],
+    selectedBranch = 'all',
+    onBranchChange,
 }: DashboardHeroProps) {
     const formattedDate = useMemo(() => {
         return new Date().toLocaleDateString('en-US', {
@@ -88,8 +99,29 @@ export function DashboardHero({
                     </p>
                 </div>
 
-                {/* Period Selector */}
-                <div className="flex items-center gap-3">
+                {/* Period & Branch Selectors */}
+                <div className="flex items-center gap-3 flex-wrap">
+                    {branches.length > 0 && (
+                        <Select disabled={isLoading} value={selectedBranch} onValueChange={onBranchChange}>
+                            <SelectTrigger className="w-48 h-12 bg-white/90 dark:bg-[#181820]/90 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-all">
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                                    <SelectValue placeholder="All Branches" />
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2.5 cursor-pointer dark:focus:bg-white/10">
+                                    All Branches
+                                </SelectItem>
+                                {branches.map((branch) => (
+                                    <SelectItem key={branch.id} value={branch.id.toString()} className="rounded-xl font-bold text-xs uppercase tracking-wider py-2.5 cursor-pointer dark:focus:bg-white/10">
+                                        {branch.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+
                     <Select disabled={isLoading} defaultValue={range.toString()} onValueChange={onRangeChange}>
                         <SelectTrigger className="w-48 h-12 bg-white/90 dark:bg-[#181820]/90 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-all">
                             <div className="flex items-center gap-2">

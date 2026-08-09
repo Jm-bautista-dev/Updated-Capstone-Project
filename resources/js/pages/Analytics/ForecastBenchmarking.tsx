@@ -172,7 +172,7 @@ export default function ForecastBenchmarking() {
     <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Forecast Benchmarking', href: '/analytics/forecast-benchmarking' }]}>
       <Head title="Forecast Benchmarking & Validation" />
 
-      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-sans text-(--ops-text-secondary)">
+      <div className="flex flex-col h-screen overflow-hidden bg-background font-sans text-(--ops-text-secondary)">
 
         {/* ── Sub Navigation Tabs Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 sm:px-8 bg-(--ops-surface-sunken) border-b border-(--ops-border) shrink-0">

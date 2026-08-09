@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Admin\ReportController::prepare
- * @see app/Http/Controllers/Admin/ReportController.php:72
+ * @see app/Http/Controllers/Admin/ReportController.php:84
  * @route '/reports/export/prepare'
  */
 export const prepare = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ prepare.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::prepare
- * @see app/Http/Controllers/Admin/ReportController.php:72
+ * @see app/Http/Controllers/Admin/ReportController.php:84
  * @route '/reports/export/prepare'
  */
 prepare.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ prepare.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\ReportController::prepare
- * @see app/Http/Controllers/Admin/ReportController.php:72
+ * @see app/Http/Controllers/Admin/ReportController.php:84
  * @route '/reports/export/prepare'
  */
 prepare.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ prepare.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\ReportController::prepare
- * @see app/Http/Controllers/Admin/ReportController.php:72
+ * @see app/Http/Controllers/Admin/ReportController.php:84
  * @route '/reports/export/prepare'
  */
     const prepareForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ prepare.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\ReportController::prepare
- * @see app/Http/Controllers/Admin/ReportController.php:72
+ * @see app/Http/Controllers/Admin/ReportController.php:84
  * @route '/reports/export/prepare'
  */
         prepareForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

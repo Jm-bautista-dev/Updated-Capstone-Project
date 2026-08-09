@@ -3,18 +3,35 @@ import { Head, usePage, useForm } from '@inertiajs/react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
-import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiSearch, FiLayers, FiPackage, FiLock, FiUnlock, FiActivity } from 'react-icons/fi';
-import { FiCheckCircle, FiPrinter, FiPlusCircle } from 'react-icons/fi';
+import { 
+  FiShoppingCart, 
+  FiPlus, 
+  FiMinus, 
+  FiTrash2, 
+  FiSearch, 
+  FiPackage, 
+  FiLock, 
+  FiUnlock, 
+  FiActivity,
+  FiCheckCircle, 
+  FiPrinter, 
+  FiPlusCircle,
+  FiArrowLeft,
+  FiCreditCard,
+  FiDollarSign,
+  FiSmartphone,
+  FiChevronRight
+} from 'react-icons/fi';
 import { toast } from 'sonner';
 import { ResultModal } from '@/components/result-modal';
 import { Button } from '@/components/ui/button';
 import {
- Dialog,
- DialogContent,
- DialogDescription,
- DialogFooter,
- DialogHeader,
- DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
@@ -22,19 +39,20 @@ import { addToOfflineQueue } from '@/lib/offline-db';
 import { cn } from '@/lib/utils';
 
 type Category = {
- id: number;
- name: string;
- image_url: string | null;
+  id: number;
+  name: string;
+  image_url: string | null;
 };
 
 type Product = {
- id: number;
- name: string;
- sku: string;
- category_id: number;
- selling_price: number;
- stock: number;
- image_url: string | null;
+  id: number;
+  name: string;
+  sku: string;
+  category_id: number;
+  selling_price: number;
+  stock: number;
+  is_low_stock?: boolean;
+  image_url: string | null;
 };
 
 type CartItem = Product & { quantity: number };
@@ -71,48 +89,52 @@ interface PosPageProps {
   [key: string]: unknown;
 }
 
+type KioskStep = 'browse' | 'review' | 'checkout';
+
+function generateOfflineId(): string {
+  return 'local_' + Date.now().toString(36);
+}
+
 export default function PosIndex() {
- const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
+  const { products = [], categories = [], branch, availableRiders = [], activeShift } = usePage().props as unknown as PosPageProps;
 
- // --- Real-time Sync Logic (Now handled globally by useRealTime hook in AppLayout) ---
- useEffect(() => {
- // Refresh on window focus (Ensures data is fresh when switching back to this tab)
- const handleFocus = () => {
- router.reload({ only: ['products', 'categories'] });
- };
+  // --- Real-time Sync Logic ---
+  useEffect(() => {
+    const handleFocus = () => {
+      router.reload({ only: ['products', 'categories'] });
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
 
- window.addEventListener('focus', handleFocus);
+  // --- Main Kiosk Flow State ---
+  const [kioskStep, setKioskStep] = useState<KioskStep>('browse');
 
- return () => window.removeEventListener('focus', handleFocus);
- }, []);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderType, setOrderType] = useState('dine-in');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
 
-
- const [search, setSearch] = useState('');
- const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
- const [cart, setCart] = useState<CartItem[]>([]);
- const [orderType, setOrderType] = useState('dine-in');
- const [paymentMethod, setPaymentMethod] = useState('cash');
-
- // Modal States
- const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
- const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
- const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
- const [alertModal, setAlertModal] = useState<{ type: 'error' | 'warning'; title: string; message: string }>({
- type: 'warning', title: '', message: '',
- });
+  // Modal States
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ type: 'error' | 'warning'; title: string; message: string }>({
+    type: 'warning', title: '', message: '',
+  });
   const [cashReceived, setCashReceived] = useState('');
   const [lastSale, setLastSale] = useState<Record<string, unknown> | null>(null);
 
- // Shift Management States
- const [isShiftModalOpen, setIsShiftModalOpen] = useState(!activeShift);
- const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
- const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
- const [openingCash, setOpeningCash] = useState('2000');
- const [closingCash, setClosingCash] = useState('');
- const [varianceReason, setVarianceReason] = useState('');
- const [adjustmentType, setAdjustmentType] = useState<'in' | 'out'>('in');
- const [adjustmentAmount, setAdjustmentAmount] = useState('');
- const [adjustmentNotes, setAdjustmentNotes] = useState('');
+  // Shift Management States
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(!activeShift);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
+  const [openingCash, setOpeningCash] = useState('2000');
+  const [closingCash, setClosingCash] = useState('');
+  const [varianceReason, setVarianceReason] = useState('');
+  const [adjustmentType, setAdjustmentType] = useState<'in' | 'out'>('in');
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentNotes, setAdjustmentNotes] = useState('');
 
   const handleOpenShift = () => {
     router.post('/shifts/open', { opening_balance: openingCash }, {
@@ -159,997 +181,1231 @@ export default function PosIndex() {
     });
   };
 
-  useEffect(() => {
-   if (!activeShift) {
-     setIsShiftModalOpen(true);
-   } else {
-     setIsShiftModalOpen(false);
-   }
- }, [activeShift]);
 
- // --- Delivery State ---
- const [deliveryInfo, setDeliveryInfo] = useState({
- customer_name: '',
- customer_phone: '',
- customer_address: '',
- delivery_type: 'internal' as 'internal' | 'external',
- external_service: 'grab' as 'grab' | 'lalamove',
- rider_id: '' as string | number,
- tracking_number: '',
- distance_km: '' as string | number,
- delivery_fee: 0,
- delivery_notes: '',
- external_notes: '',
- });
- const [proofFile, setProofFile] = useState<File | null>(null);
- const [deliveryRecommendation, setDeliveryRecommendation] = useState<string | null>(null);
- const [recommendationLoading, setRecommendationLoading] = useState<boolean>(false);
- // Suppress unused-variable lint — these are set by the delivery useEffect below
- void deliveryRecommendation;
- void recommendationLoading;
+  // --- Delivery State ---
+  const [deliveryInfo, setDeliveryInfo] = useState({
+    customer_name: '',
+    customer_phone: '',
+    customer_address: '',
+    delivery_type: 'internal' as 'internal' | 'external',
+    external_service: 'grab' as 'grab' | 'lalamove',
+    rider_id: '' as string | number,
+    tracking_number: '',
+    distance_km: '' as string | number,
+    delivery_notes: '',
+    external_notes: '',
+  });
+  const [proofFile, setProofFile] = useState<File | null>(null);
 
- const deliveryFee = useMemo(() => {
- if (orderType !== 'delivery') return 0;
- const distance = parseFloat(String(deliveryInfo.distance_km)) || 0;
- const base = parseFloat(String(branch?.base_delivery_fee ?? 49)) || 49;
- const perKm = parseFloat(String(branch?.per_km_fee ?? 15)) || 15;
- const freeKm = 2.0;
+  const deliveryFee = useMemo(() => {
+    if (orderType !== 'delivery') return 0;
+    const distance = parseFloat(String(deliveryInfo.distance_km)) || 0;
+    const base = parseFloat(String(branch?.base_delivery_fee ?? 49)) || 49;
+    const perKm = parseFloat(String(branch?.per_km_fee ?? 15)) || 15;
+    const freeKm = 2.0;
 
- if (distance === 0) return 0;
- if (distance <= freeKm) return base;
- return Math.round(base + (distance - freeKm) * perKm);
- }, [orderType, deliveryInfo.distance_km, branch]);
-
- useEffect(() => {
- setDeliveryInfo(prev => ({ ...prev, delivery_fee: deliveryFee }));
- }, [deliveryFee]);
-
- useEffect(() => {
- if (orderType !== 'delivery' || !branch) {
- setDeliveryRecommendation(null);
- return;
- }
-
- const distance = parseFloat(String(deliveryInfo.distance_km));
- if (Number.isNaN(distance) || distance <= 0) {
- setDeliveryRecommendation(null);
- return;
- }
-
- const timeout = window.setTimeout(async () => {
- setRecommendationLoading(true);
- try {
- const response = await fetch(`/deliveries/recommend?branch_id=${branch.id}&distance_km=${distance}`, {
- method: 'GET',
- credentials: 'same-origin',
- headers: {
- 'Accept': 'application/json',
- },
- });
-
- if (response.ok) {
- const data = await response.json();
- setDeliveryRecommendation(data.recommendation);
- }
- } finally {
- setRecommendationLoading(false);
- }
- }, 300);
-
- return () => window.clearTimeout(timeout);
- }, [orderType, deliveryInfo.distance_km, branch]);
-
- const cartTotal = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0) + (orderType === 'delivery' ? deliveryFee : 0);
-
- const changeDue = useMemo(() => {
- const cash = parseFloat(cashReceived) || 0;
- return Math.max(0, cash - cartTotal);
- }, [cashReceived, cartTotal]);
-
- const filteredProducts = useMemo(() => {
- return products.filter((p: Product) => {
- const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
- const matchesCategory = !selectedCategory || p.category_id === selectedCategory;
- return matchesSearch && matchesCategory;
- });
- }, [products, search, selectedCategory]);
-
- const addToCart = (product: Product) => {
- if (product.stock <= 0) return;
- setCart(prev => {
- const existing = prev.find(item => item.id === product.id);
- if (existing) {
- if (existing.quantity >= product.stock) return prev;
- return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
- }
- return [...prev, { ...product, quantity: 1 }];
- });
- };
-
- const updateQuantity = (id: number, delta: number) => {
- setCart(prev => prev.map(item => {
- if (item.id === id) {
- const newQty = Math.max(0, item.quantity + delta);
- const product = products.find((p: Product) => p.id === id);
- if (newQty > (product?.stock || 0)) return item;
- return { ...item, quantity: newQty };
- }
- return item;
- }).filter(item => item.quantity > 0));
- };
+    if (distance === 0) return 0;
+    if (distance <= freeKm) return base;
+    return Math.round(base + (distance - freeKm) * perKm);
+  }, [orderType, deliveryInfo.distance_km, branch]);
 
 
+  const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
+  const cartTotal = useMemo(() => cartSubtotal + (orderType === 'delivery' ? deliveryFee : 0), [cartSubtotal, orderType, deliveryFee]);
 
- const { processing } = useForm();
+  const changeDue = useMemo(() => {
+    const cash = parseFloat(cashReceived) || 0;
+    return Math.max(0, cash - cartTotal);
+  }, [cashReceived, cartTotal]);
 
-  const handleCheckout = () => {
-  if (!activeShift) {
-    setAlertModal({ type: 'warning', title: 'Shift Required', message: 'You must open a shift before you can process any sales.' });
-    setIsAlertModalOpen(true);
-    setIsShiftModalOpen(true);
-    return;
-  }
- if (cart.length === 0) return;
-
- if (orderType === 'delivery') {
- if (!deliveryInfo.customer_name || !deliveryInfo.customer_address) {
- setAlertModal({ type: 'warning', title: 'Missing Info', message: 'Customer name and address are required for delivery.' });
- setIsAlertModalOpen(true);
- return;
- }
- if (!deliveryInfo.distance_km) {
- setAlertModal({ type: 'warning', title: 'Missing Distance', message: 'Please enter delivery distance to calculate fees.' });
- setIsAlertModalOpen(true);
- return;
- }
- if (deliveryInfo.delivery_type === 'internal' && !deliveryInfo.rider_id) {
- setAlertModal({ type: 'warning', title: 'No Rider', message: 'Please assign an internal rider.' });
- setIsAlertModalOpen(true);
- return;
- }
- if (deliveryInfo.delivery_type === 'external' && !deliveryInfo.tracking_number) {
- setAlertModal({ type: 'warning', title: 'No Tracking', message: 'Tracking number is required for external delivery.' });
- setIsAlertModalOpen(true);
- return;
- }
- }
-
- setIsPaymentModalOpen(true);
- };
-
- const confirmPayment = () => {
- const paid = paymentMethod === 'cash' ? parseFloat(cashReceived) : cartTotal;
-
-  if (paymentMethod === 'cash' && paid < cartTotal) {
-  setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
-  setIsAlertModalOpen(true);
-  return;
-  }
-
-  if (!navigator.onLine) {
-    const opId = 'local_' + Math.random().toString(36).substr(2, 9);
-    const salePayload = {
-      type: orderType,
-      items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
-      total: cartTotal,
-      payment_method: paymentMethod,
-      paid_amount: paid,
-      change_amount: paymentMethod === 'cash' ? changeDue : 0,
-      delivery_info: orderType === 'delivery' ? deliveryInfo : null
-    };
-
-    addToOfflineQueue({
-      id: opId,
-      type: 'SALE',
-      payload: salePayload
-    }).then(() => {
-      toast.success('Offline Mode: Order saved locally. It will auto-sync when online.');
-      setCart([]);
-      setCashReceived('');
-      setProofFile(null);
-      setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
-      setIsPaymentModalOpen(false);
-    }).catch(() => {
-      toast.error('Offline Mode: Failed to save order locally.');
+  const filteredProducts = useMemo(() => {
+    return products.filter((p: Product) => {
+      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()));
+      const matchesCategory = !selectedCategory || p.category_id === selectedCategory;
+      return matchesSearch && matchesCategory;
     });
-    return;
-  }
+  }, [products, search, selectedCategory]);
 
- const formData = new FormData();
- formData.append('type', orderType);
- formData.append('items', JSON.stringify(cart.map(item => ({ id: item.id, quantity: item.quantity }))));
- formData.append('total', String(cartTotal));
- formData.append('payment_method', paymentMethod);
- formData.append('paid_amount', String(paid));
- formData.append('change_amount', String(paymentMethod === 'cash' ? changeDue : 0));
+  const addToCart = (product: Product) => {
+    if (product.stock <= 0) {
+      toast.error(`"${product.name}" is currently sold out.`);
+      return;
+    }
 
- if (orderType === 'delivery') {
- cart.forEach((item, index) => {
- formData.append(`items[${index}][id]`, String(item.id));
- formData.append(`items[${index}][quantity]`, String(item.quantity));
- });
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        if (existing.quantity >= product.stock) {
+          toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
+          return prev;
+        }
+        toast.success(`✓ Added another ${product.name}`);
+        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      toast.success(`✓ Added ${product.name}`);
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
 
- Object.entries(deliveryInfo).forEach(([key, value]) => {
- if (value === null || value === undefined || value === '') {
- return;
- }
+  const updateQuantity = (id: number, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = item.quantity + delta;
+        const product = products.find((p: Product) => p.id === id);
+        const maxStock = product?.stock || 0;
+        
+        if (newQty > maxStock) {
+          toast.warning(`Cannot exceed available stock of ${maxStock}`);
+          return item;
+        }
+        return { ...item, quantity: Math.max(0, newQty) };
+      }
+      return item;
+    }).filter(item => item.quantity > 0));
+  };
 
- formData.append(`delivery_info[${key}]`, String(value));
- });
+  const removeFromCart = (id: number) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
 
- if (proofFile) {
- formData.append('delivery_info[proof_of_delivery]', proofFile);
- }
- } else {
- cart.forEach((item, index) => {
- formData.append(`items[${index}][id]`, String(item.id));
- formData.append(`items[${index}][quantity]`, String(item.quantity));
- });
- }
+  const { processing } = useForm();
 
- router.post('/pos', formData, {
- forceFormData: true,
- onSuccess: (page) => {
- const sale = ((page.props as unknown) as { recentOrders?: Record<string, unknown>[] }).recentOrders?.[0] || null;
- setLastSale(sale);
- setCart([]);
- setCashReceived('');
- setProofFile(null);
- setDeliveryInfo(prev => ({ ...prev, customer_name: '', customer_phone: '', customer_address: '', rider_id: '', tracking_number: '', distance_km: '', delivery_fee: 0, delivery_notes: '', external_notes: '' }));
- setIsPaymentModalOpen(false);
- setIsSuccessModalOpen(true);
- },
- onError: (err: Record<string, string>) => {
- setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });
- setIsAlertModalOpen(true);
- }
- });
- };
+  const handleProceedToCheckout = () => {
+    if (!activeShift) {
+      setAlertModal({ type: 'warning', title: 'Shift Required', message: 'You must open a shift before processing sales.' });
+      setIsAlertModalOpen(true);
+      setIsShiftModalOpen(true);
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error('Cart is empty. Please select products first.');
+      return;
+    }
+
+    if (orderType === 'delivery') {
+      if (!deliveryInfo.customer_name || !deliveryInfo.customer_address) {
+        setAlertModal({ type: 'warning', title: 'Missing Info', message: 'Customer name and address are required for delivery.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (!deliveryInfo.distance_km) {
+        setAlertModal({ type: 'warning', title: 'Missing Distance', message: 'Please enter delivery distance to calculate fees.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (deliveryInfo.delivery_type === 'internal' && !deliveryInfo.rider_id) {
+        setAlertModal({ type: 'warning', title: 'No Rider', message: 'Please assign an internal rider.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (deliveryInfo.delivery_type === 'external' && !deliveryInfo.tracking_number) {
+        setAlertModal({ type: 'warning', title: 'No Tracking', message: 'Tracking number is required for external delivery.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+    }
+
+    setKioskStep('checkout');
+  };
+
+  const confirmPayment = () => {
+    const paid = paymentMethod === 'cash' ? parseFloat(cashReceived) : cartTotal;
+
+    if (paymentMethod === 'cash' && paid < cartTotal) {
+      setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
+      setIsAlertModalOpen(true);
+      return;
+    }
+
+    if (!navigator.onLine) {
+      const opId = generateOfflineId();
+      const salePayload = {
+        type: orderType,
+        items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+        total: cartTotal,
+        payment_method: paymentMethod,
+        paid_amount: paid,
+        change_amount: paymentMethod === 'cash' ? changeDue : 0,
+        delivery_info: orderType === 'delivery' ? { ...deliveryInfo, delivery_fee: deliveryFee } : null
+      };
+
+      addToOfflineQueue({
+        id: opId,
+        type: 'SALE',
+        payload: salePayload
+      }).then(() => {
+        toast.success('Offline Mode: Order saved locally. It will auto-sync when online.');
+        setLastSale({
+          order_number: opId.toUpperCase(),
+          created_at: new Date().toISOString(),
+          type: orderType,
+          items: cart.map(item => ({ id: item.id, product: { name: item.name }, quantity: item.quantity, unit_price: item.selling_price })),
+          total: cartTotal,
+          payment_method: paymentMethod,
+          paid_amount: paid,
+          change_amount: paymentMethod === 'cash' ? changeDue : 0,
+          cashier: { name: 'Staff (Offline)' }
+        });
+        setIsSuccessModalOpen(true);
+      }).catch(() => {
+        toast.error('Offline Mode: Failed to save order locally.');
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('type', orderType);
+    formData.append('items', JSON.stringify(cart.map(item => ({ id: item.id, quantity: item.quantity }))));
+    formData.append('total', String(cartTotal));
+    formData.append('payment_method', paymentMethod);
+    formData.append('paid_amount', String(paid));
+    formData.append('change_amount', String(paymentMethod === 'cash' ? changeDue : 0));
+
+    if (orderType === 'delivery') {
+      cart.forEach((item, index) => {
+        formData.append(`items[${index}][id]`, String(item.id));
+        formData.append(`items[${index}][quantity]`, String(item.quantity));
+      });
+
+      Object.entries({ ...deliveryInfo, delivery_fee: deliveryFee }).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '') return;
+        formData.append(`delivery_info[${key}]`, String(value));
+      });
+
+      if (proofFile) {
+        formData.append('delivery_info[proof_of_delivery]', proofFile);
+      }
+    } else {
+      cart.forEach((item, index) => {
+        formData.append(`items[${index}][id]`, String(item.id));
+        formData.append(`items[${index}][quantity]`, String(item.quantity));
+      });
+    }
+
+    router.post('/pos', formData, {
+      forceFormData: true,
+      onSuccess: (page) => {
+        const sale = ((page.props as unknown) as { recentOrders?: Record<string, unknown>[] }).recentOrders?.[0] || null;
+        setLastSale(sale);
+        setIsSuccessModalOpen(true);
+      },
+      onError: (err: Record<string, string>) => {
+        setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });
+        setIsAlertModalOpen(true);
+      }
+    });
+  };
 
   const handleNewOrder = () => {
- setIsSuccessModalOpen(false);
- setLastSale(null);
- };
+    setIsSuccessModalOpen(false);
+    setLastSale(null);
+    setCart([]);
+    setCashReceived('');
+    setProofFile(null);
+    setDeliveryInfo(prev => ({
+      ...prev,
+      customer_name: '',
+      customer_phone: '',
+      customer_address: '',
+      rider_id: '',
+      tracking_number: '',
+      distance_km: '',
+      delivery_fee: 0,
+      delivery_notes: '',
+      external_notes: ''
+    }));
+    setKioskStep('browse');
+  };
 
- const formatCurrency = (amount: number) => {
- return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
- };
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
+  };
 
- return (
- <AppLayout breadcrumbs={[{ title: 'POS', href: '/pos' }]}>
- <Head title="Point of Sale" />
+  const getCategoryIcon = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('donburi') || lower.includes('rice')) return '🍱';
+    if (lower.includes('maki') || lower.includes('roll')) return '🍣';
+    if (lower.includes('ramen') || lower.includes('noodle')) return '🍜';
+    if (lower.includes('sashimi') || lower.includes('nigiri')) return '🥢';
+    if (lower.includes('side') || lower.includes('appetizer')) return '🍟';
+    if (lower.includes('drink') || lower.includes('beverage')) return '🍹';
+    if (lower.includes('dessert')) return '🍡';
+    return '🍙';
+  };
 
- <div className="flex flex-col lg:flex-row gap-3 p-3 h-[calc(100vh-64px)] overflow-hidden bg-background text-foreground/90 font-sans relative selection:bg-primary/30">
- {/* Ambient Background Gradients */}
- <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
- <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none" />
+  return (
+    <AppLayout breadcrumbs={[{ title: 'POS Kiosk', href: '/pos' }]}>
+      <Head title="Point of Sale Kiosk" />
 
- {/* FAR LEFT: Vertical Category Rail (Floating) */}
- <div className="hidden lg:flex w-16 xl:w-20 shrink-0 flex-col items-center py-4 gap-4 bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-10">
- <motion.button
- whileHover={{ scale: 1.1 }}
- whileTap={{ scale: 0.9 }}
- onClick={() => setSelectedCategory(null)}
- className={cn(
- "relative size-10 xl:size-12 rounded-2xl flex items-center justify-center transition-all duration-300",
-  selectedCategory === null ?"bg-primary text-primary-foreground shadow-md shadow-primary/40" :"bg-card/50 text-muted-foreground hover:bg-accent hover:text-foreground/90"
- )}
- >
- <FiLayers className="size-4 xl:size-5" />
-  <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase opacity-80 hidden xl:block">All</span>
- </motion.button>
-
- <div className="w-8 h-px bg-accent my-2" />
-
- <div className="flex-1 overflow-y-auto w-full flex flex-col items-center gap-6 scrollbar-hide pb-6">
- {categories.map((c: Category) => (
- <motion.button
- key={c.id}
- whileHover={{ scale: 1.1 }}
- whileTap={{ scale: 0.9 }}
- onClick={() => setSelectedCategory(c.id)}
- className={cn(
- "relative size-10 xl:size-12 rounded-2xl flex items-center justify-center transition-all duration-300 border border-border group",
-  selectedCategory === c.id ?"ring-2 ring-primary ring-offset-2 ring-offset-background" :"opacity-70 hover:opacity-100"
- )}
- >
- {c.image_url ? (
- <img src={c.image_url} alt={c.name} className="w-full h-full object-cover rounded-2xl" />
- ) : (
- <div className="w-full h-full bg-card/50 rounded-2xl flex items-center justify-center">
- <span className="text-xs font-bold">{c.name.substring(0, 2)}</span>
- </div>
- )}
- <span className="absolute -bottom-5 text-[9px] font-bold tracking-widest uppercase text-center w-16 xl:w-20 truncate opacity-80 group-hover:opacity-100 hidden xl:block">
-  {c.name}
-  </span>
- </motion.button>
- ))}
- </div>
- </div>
-
- {/* CENTER LEFT: Products Panel */}
- <div className="flex-1 flex flex-col min-w-0 bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-10 overflow-hidden relative min-h-0">
- {/* Header */}
- <div className="h-14 lg:h-18 px-4 lg:px-8 flex items-center justify-between border-b border-border/50 bg-transparent gap-3">
- <div>
- <h1 className="text-lg lg:text-2xl font-black tracking-tight text-foreground drop-shadow-md">Stock</h1>
-  <p className="text-[10px] lg:text-xs font-medium text-muted-foreground/80 uppercase tracking-widest mt-0.5 hidden sm:block">{filteredProducts.length} Items in Stock</p>
- </div>
- <div className="flex items-center gap-4">
- {/* Shift Control Buttons */}
- {activeShift && (
-   <div className="flex items-center gap-2 mr-4 bg-muted/50 p-1.5 rounded-2xl border border-border/50">
-     <div className="px-3 py-1 flex flex-col items-end">
-       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80">Shift Cash</span>
-       <span className="text-sm font-black text-primary">{formatCurrency(activeShift.expected_balance || 0)}</span>
-     </div>
-     <Button 
-       variant="outline" 
-       size="sm" 
-       className="h-9 rounded-xl gap-2 border-primary/20 hover:bg-primary/10"
-       onClick={() => setIsAdjustmentModalOpen(true)}
-     >
-       <FiActivity className="size-4" />
-       <span className="hidden xl:inline">Adjust</span>
-     </Button>
-     <Button 
-       variant="destructive" 
-       size="sm" 
-       className="h-9 rounded-xl gap-2 shadow-lg shadow-rose-500/20"
-       onClick={() => setIsCloseShiftModalOpen(true)}
-     >
-       <FiLock className="size-4" />
-       <span className="hidden xl:inline">End Shift</span>
-     </Button>
-   </div>
- )}
-
-
-
-  {/* Search Bar (Apple Style) */}
-  <div className="relative group">
- <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-4 group-focus-within:text-primary transition-colors" />
- <Input
- placeholder="Search..."
- className="pl-11 h-10 w-40 sm:w-52 lg:w-64 bg-muted border border-border rounded-2xl text-foreground/90 placeholder:text-muted-foreground/80 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all shadow-inner"
- value={search}
- onChange={(e) => setSearch(e.target.value)}
- />
- </div>
- </div>
- </div>
-
- {/* Mobile Category Scroller */}
- <div className="lg:hidden px-4 py-3 border-b border-border/50 bg-card/30 flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
- <Button 
- variant={selectedCategory === null ? "default" : "outline"} 
- size="sm" 
- className="rounded-xl px-4 h-9 text-[10px] font-black uppercase tracking-widest shrink-0"
- onClick={() => setSelectedCategory(null)}
- >
- All
- </Button>
- {categories.map((c: Category) => (
- <Button 
- key={c.id}
- variant={selectedCategory === c.id ? "default" : "outline"} 
- size="sm" 
- className="rounded-xl px-4 h-9 text-[10px] font-black uppercase tracking-widest shrink-0"
- onClick={() => setSelectedCategory(c.id)}
- >
- {c.name}
- </Button>
- ))}
- </div>
-
-  {/* Grid */}
-  <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
-  <AnimatePresence mode="popLayout">
-  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-6">
-  {filteredProducts.map((p: Product) => (
-  <motion.div
-  key={p.id}
-  layout
-  initial={{ opacity: 0, scale: 0.95, y: 15 }}
-  animate={{ opacity: 1, scale: 1, y: 0 }}
-  exit={{ opacity: 0, scale: 0.95 }}
-  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-  whileHover={p.stock > 0 ? { y: -6 } : {}}
-  whileTap={p.stock > 0 ? { scale: 0.98 } : {}}
-  onClick={() => addToCart(p)}
-  className={cn(
-    "group flex flex-col bg-white/80 dark:bg-zinc-900/60 border border-primary/5 dark:border-white/5 rounded-3xl cursor-pointer shadow-sm hover:shadow-lg transition-all duration-300 relative",
-    p.stock <= 0 && "opacity-40 grayscale pointer-events-none"
-  )}
-  >
-  {/* Nested Product Image Container */}
-  <div className="relative aspect-4/3 rounded-[18px] overflow-hidden bg-muted m-2 shrink-0">
-    {p.image_url ? (
-      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-    ) : (
-      <div className="w-full h-full bg-linear-to-tr from-accent/20 to-primary/10 flex items-center justify-center">
-        <FiPackage className="size-8 text-primary/30" />
-      </div>
-    )}
-
-    {/* Low Stock Badge */}
-    {p.stock <= 5 && p.stock > 0 && (
-      <div className="absolute top-2 right-2 bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">
-        Low ({p.stock})
-      </div>
-    )}
-
-    {/* Price Tag Overlay */}
-    <div className="absolute bottom-2 left-2 bg-black/45 backdrop-blur-md px-2.5 py-0.5 rounded-full shadow">
-       <span className="text-white font-extrabold text-xs tracking-tight">{formatCurrency(p.selling_price)}</span>
-    </div>
-  </div>
-
-  {/* Info Section */}
-  <div className="p-3 pt-1 flex-1 flex flex-col justify-between gap-2">
-    <div>
-      <h3 className="text-foreground font-black text-xs uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
-        {p.name}
-      </h3>
-      <span className="text-[8px] font-bold text-muted-foreground/45 uppercase tracking-widest leading-none mt-1 block">
-        {p.sku}
-      </span>
-    </div>
-
-    <div className="flex items-center justify-between border-t border-border/10 pt-2 mt-auto">
-      <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wider">
-        Stock: {p.stock}
-      </span>
-      <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
-        <FiPlus className="size-3.5" />
-      </div>
-    </div>
-  </div>
-  </motion.div>
-  ))}
-  
-  {filteredProducts.length === 0 && (
-  <motion.div
-  initial={{ opacity: 0 }}
-  animate={{ opacity: 1 }}
-  className="col-span-full flex flex-col items-center justify-center py-24 text-muted-foreground/80 gap-4"
-  >
-  <div className="size-24 rounded-full border border-dashed border-border flex items-center justify-center bg-card/70">
-  <FiPackage className="size-10 opacity-50" />
-  </div>
-  <p className="text-sm font-medium tracking-widest uppercase">No products found</p>
-  </motion.div>
-  )}
-  </div>
-  </AnimatePresence>
-  </div>
-  </div>
-
-  {/* RIGHT SIDEBAR: Unified Cart & Checkout Panel */}
-  <div className="w-full lg:w-95 xl:w-105 shrink-0 flex flex-col bg-card/70 border border-border/50 rounded-3xl backdrop-blur-2xl shadow-xl z-20 overflow-hidden relative min-h-0 lg:max-h-full max-h-95">
-      {/* Header */}
-      <div className="h-16 px-5 flex items-center justify-between border-b border-border/50 bg-transparent shrink-0">
+      {/* Main Kiosk Container: Responsive Light & Dark Mode */}
+      <div className="flex flex-col h-screen overflow-hidden bg-[#FFFDFE] dark:bg-[#0F0F11] text-[#3D2C2E] dark:text-zinc-100 font-['Outfit',sans-serif] antialiased transition-colors duration-300 relative selection:bg-[#E75480]/20">
+        
+        {/* TOP KIOSK HEADER */}
+        <header className="h-16 px-4 sm:px-6 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white/90 dark:bg-[#171719]/90 backdrop-blur-xl flex items-center justify-between z-20 shrink-0 gap-4 transition-colors">
           <div className="flex items-center gap-3">
-              <div className="size-10 rounded-2xl bg-primary/20 text-primary flex items-center justify-center border border-primary/20">
-                  <FiShoppingCart className="size-5" />
-              </div>
-              <div>
-                  <h2 className="text-lg font-black text-foreground tracking-tight">Order Cart</h2>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground/80 font-bold">{cart.length} Items</p>
-              </div>
+            <div className="size-10 rounded-2xl bg-[#E75480] text-white flex items-center justify-center font-black shadow-md shadow-[#E75480]/20">
+              POS
+            </div>
+            <div>
+              <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-[#3D2C2E] dark:text-white uppercase">
+                {branch?.name || 'Maki Desu Victoria'}
+              </h1>
+              <p className="text-[10px] font-bold text-[#E75480] uppercase tracking-widest">
+                {kioskStep === 'browse' ? 'PRODUCT CATALOG' : kioskStep === 'review' ? 'ORDER REVIEW' : 'CHECKOUT'}
+              </p>
+            </div>
           </div>
-          <Button variant="ghost" size="icon" className="text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 rounded-xl" onClick={() => setCart([])}>
-              <FiTrash2 className="size-4" />
-          </Button>
-      </div>
 
-      {/* Cart Items List */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-3 scrollbar-hide">
-          <AnimatePresence>
-              {cart.map(item => (
-                  <motion.div
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, x: 20, scale: 0.95 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -20, scale: 0.95 }}
-                      className="group flex flex-col gap-3 p-3 rounded-2xl bg-card border border-border/30 hover:bg-accent/40 hover:border-border/50 transition-all shadow-sm"
-                  >
-                      <div className="flex gap-3">
-                          <div className="size-14 rounded-xl overflow-hidden bg-muted border border-border/50 shrink-0">
-                              {item.image_url ? (
-                                  <img src={item.image_url} className="w-full h-full object-cover" />
-                              ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-linear-to-tr from-accent/20 to-primary/10">
-                                      <FiPackage className="size-5 text-primary/30" />
-                                  </div>
-                              )}
-                          </div>
-                          <div className="flex-1 min-w-0 flex flex-col justify-center">
-                              <p className="text-xs font-black uppercase text-foreground truncate">{item.name}</p>
-                              <p className="text-primary font-black text-xs mt-0.5">{formatCurrency(item.selling_price)}</p>
-                          </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between border-t border-border/10 pt-2.5 mt-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Qty</span>
-                          <div className="flex items-center bg-muted dark:bg-zinc-800 rounded-xl border border-border/30 p-0.5">
-                              <Button variant="ghost" size="icon" className="h-7 w-8 rounded-lg hover:bg-accent text-muted-foreground" onClick={() => updateQuantity(item.id, -1)}>
-                                  <FiMinus className="size-3" />
-                              </Button>
-                              <span className="w-8 text-center text-xs font-black text-foreground">{item.quantity}</span>
-                              <Button variant="ghost" size="icon" className="h-7 w-8 rounded-lg hover:bg-accent text-muted-foreground" onClick={() => updateQuantity(item.id, 1)}>
-                                  <FiPlus className="size-3" />
-                              </Button>
-                          </div>
-                      </div>
-                  </motion.div>
-              ))}
-          </AnimatePresence>
-          {cart.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground/85 gap-4 py-16 opacity-60">
-                  <div className="size-20 rounded-full border border-dashed border-border/80 flex items-center justify-center">
-                      <FiShoppingCart className="size-7 text-primary/40" />
-                  </div>
-                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground/60">No items in cart</p>
+          {/* Operational Shift Controls */}
+          <div className="flex items-center gap-3">
+            {activeShift && (
+              <div className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#1E1E21] p-1.5 rounded-2xl border border-[#F8C8DC]/60 dark:border-[#26262A]">
+                <div className="px-3 py-0.5 flex flex-col items-end">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[#7D6B6E] dark:text-zinc-400">Shift Cash</span>
+                  <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(activeShift.expected_balance || 0)}</span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 rounded-xl text-xs gap-1.5 border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#26262A] text-[#3D2C2E] dark:text-zinc-200 hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
+                  onClick={() => setIsAdjustmentModalOpen(true)}
+                >
+                  <FiActivity className="size-3.5 text-[#E75480]" />
+                  <span className="hidden sm:inline">Adjust</span>
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="h-8 rounded-xl text-xs gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                  onClick={() => setIsCloseShiftModalOpen(true)}
+                >
+                  <FiLock className="size-3.5" />
+                  <span className="hidden sm:inline">End Shift</span>
+                </Button>
               </div>
-          )}
-      </div>
+            )}
+          </div>
+        </header>
 
-      {/* Checkout Section at the bottom */}
-      <div className="p-5 bg-background/80 dark:bg-zinc-950/80 backdrop-blur-2xl border-t border-border/30 space-y-5 shrink-0">
-          {/* Order Type Toggle */}
-          <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/65 ml-1">Order Settings</label>
-              <div className="flex p-1 bg-muted dark:bg-zinc-800 rounded-2xl border border-border/20 relative">
-                  {['dine-in', 'take-out'].map((type) => (
-                      <button
+        {/* MAIN KIOSK CONTENT CONTAINER */}
+        <div className="flex-1 flex overflow-hidden relative z-10">
+          
+          {/* ========================================================================= */}
+          {/* STEP 1: FULL-WIDTH PRODUCT CATALOG SCREEN (NO PERMANENT RIGHT CART) */}
+          {/* ========================================================================= */}
+          {kioskStep === 'browse' && (
+            <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden relative">
+              
+              {/* Compact Category Navigation Rail (Desktop) */}
+              <div className="hidden lg:flex w-28 shrink-0 flex-col items-center py-4 gap-3 bg-white dark:bg-[#171719] border-r border-[#F8C8DC]/60 dark:border-[#26262A] z-10 transition-colors">
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className={cn(
+                    "w-22 py-3 rounded-2xl flex flex-col items-center gap-1 transition-all duration-200 border text-center cursor-pointer",
+                    selectedCategory === null 
+                      ? "bg-[#E75480] text-white border-[#E75480] shadow-md shadow-[#E75480]/20 font-bold" 
+                      : "bg-[#FFF5F7] dark:bg-[#1E1E21] text-[#7D6B6E] dark:text-zinc-400 border-[#F8C8DC]/60 dark:border-[#26262A] hover:bg-[#FFF5F7]/80 dark:hover:bg-[#26262A] hover:text-[#E75480] dark:hover:text-white"
+                  )}
+                >
+                  <span className="text-xl">🍱</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">ALL</span>
+                </button>
+
+                <div className="w-12 h-px bg-[#F8C8DC]/60 dark:bg-[#26262A] my-1" />
+
+                <div className="flex-1 overflow-y-auto w-full flex flex-col items-center gap-3 scrollbar-hide px-2">
+                  {categories.map((c: Category) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCategory(c.id)}
+                      className={cn(
+                        "w-22 py-3 rounded-2xl flex flex-col items-center gap-1 transition-all duration-200 border text-center cursor-pointer",
+                        selectedCategory === c.id 
+                          ? "bg-[#E75480] text-white border-[#E75480] shadow-md shadow-[#E75480]/20 font-bold" 
+                          : "bg-[#FFF5F7] dark:bg-[#1E1E21] text-[#7D6B6E] dark:text-zinc-400 border-[#F8C8DC]/60 dark:border-[#26262A] hover:bg-[#FFF5F7]/80 dark:hover:bg-[#26262A] hover:text-[#E75480] dark:hover:text-white"
+                      )}
+                    >
+                      <span className="text-xl">{getCategoryIcon(c.name)}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider line-clamp-2 w-full px-1">
+                        {c.name.replace('& NOODLES', '').replace('& BEVERAGES', '').replace('& NIGIRI', '')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Center Main Product Grid & Search */}
+              <div className="flex-1 flex flex-col min-w-0 bg-[#FFFDFE] dark:bg-[#0F0F11] overflow-hidden relative transition-colors">
+                
+                {/* Search Bar Container */}
+                <div className="p-4 sm:px-6 border-b border-[#F8C8DC]/60 dark:border-[#26262A] flex flex-col sm:flex-row gap-3 items-center justify-between bg-white/70 dark:bg-[#171719]/50 shrink-0">
+                  <div className="relative w-full sm:w-96 group">
+                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7D6B6E] dark:text-zinc-400 size-4 group-focus-within:text-[#E75480] transition-colors" />
+                    <Input
+                      placeholder="🔍 Search products or scan SKU..."
+                      className="pl-11 h-12 bg-white dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl text-[#3D2C2E] dark:text-white placeholder:text-[#7D6B6E]/70 dark:placeholder:text-zinc-500 focus-visible:ring-2 focus-visible:ring-[#E75480]/30 focus-visible:border-[#E75480] transition-all text-sm font-medium shadow-2xs"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Category Pills (Mobile & Tablet) */}
+                  <div className="lg:hidden w-full flex gap-2 overflow-x-auto scrollbar-hide py-1 shrink-0">
+                    <Button 
+                      variant={selectedCategory === null ? "default" : "outline"} 
+                      size="sm" 
+                      className={cn("rounded-xl px-4 h-9 text-xs font-bold uppercase shrink-0 border-[#F8C8DC]/60 dark:border-[#26262A]", selectedCategory === null && "bg-[#E75480] text-white")}
+                      onClick={() => setSelectedCategory(null)}
+                    >
+                      All
+                    </Button>
+                    {categories.map((c: Category) => (
+                      <Button 
+                        key={c.id}
+                        variant={selectedCategory === c.id ? "default" : "outline"} 
+                        size="sm" 
+                        className={cn("rounded-xl px-4 h-9 text-xs font-bold uppercase shrink-0 border-[#F8C8DC]/60 dark:border-[#26262A]", selectedCategory === c.id && "bg-[#E75480] text-white")}
+                        onClick={() => setSelectedCategory(c.id)}
+                      >
+                        {c.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RESPONSIVE PRODUCT CATALOG GRID (5 cols desktop, 4 md, 3 sm, 2 xs) */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 scrollbar-hide pb-28">
+                  <AnimatePresence mode="popLayout">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
+                      {filteredProducts.map((p: Product) => {
+                        const inCartCount = cart.find(i => i.id === p.id)?.quantity || 0;
+                        const isOutOfStock = p.stock <= 0;
+                        const isLowStock = p.stock > 0 && (p.stock <= 5 || p.is_low_stock);
+
+                        return (
+                          <motion.div
+                            key={p.id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            whileHover={!isOutOfStock ? { y: -4 } : {}}
+                            whileTap={!isOutOfStock ? { scale: 0.98 } : {}}
+                            onClick={() => addToCart(p)}
+                            className={cn(
+                              "group flex flex-col bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl cursor-pointer shadow-[0_4px_20px_-4px_rgba(231,84,128,0.08)] dark:shadow-md hover:shadow-lg hover:border-[#E75480]/60 transition-all duration-200 overflow-hidden relative",
+                              isOutOfStock && "opacity-50 grayscale pointer-events-none"
+                            )}
+                          >
+                            {/* Product Image Area (Aspect 4/3, fixed) */}
+                            <div className="relative aspect-4/3 rounded-t-2xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] shrink-0 border-b border-[#F8C8DC]/40 dark:border-[#26262A]">
+                              {p.image_url ? (
+                                <img src={p.image_url} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                                  <FiPackage className="size-8 opacity-40" />
+                                </div>
+                              )}
+
+                              {/* Cart Count Overlay Badge */}
+                              {inCartCount > 0 && (
+                                <div className="absolute top-2 left-2 bg-[#E75480] text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                                  <FiShoppingCart className="size-3" />
+                                  <span>{inCartCount} in cart</span>
+                                </div>
+                              )}
+
+                              {/* Stock Status Badge */}
+                              <div className="absolute top-2 right-2">
+                                {isOutOfStock ? (
+                                  <span className="bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs backdrop-blur-md">
+                                    SOLD OUT
+                                  </span>
+                                ) : isLowStock ? (
+                                  <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs backdrop-blur-md">
+                                    LOW STOCK ({p.stock})
+                                  </span>
+                                ) : (
+                                  <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs backdrop-blur-md">
+                                    AVAILABLE
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Product Info Section */}
+                            <div className="p-3.5 flex-1 flex flex-col justify-between gap-2">
+                              <div>
+                                <h3 className="text-[#3D2C2E] dark:text-zinc-100 font-bold text-xs sm:text-sm line-clamp-1 leading-tight group-hover:text-[#E75480] transition-colors">
+                                  {p.name}
+                                </h3>
+                                <span className="text-[10px] font-semibold text-[#7D6B6E] dark:text-zinc-500 block mt-0.5">
+                                  SKU: {p.sku || `PROD-${p.id}`}
+                                </span>
+                              </div>
+
+                              {/* Price & Add Button Row */}
+                              <div className="flex items-center justify-between border-t border-[#F8C8DC]/40 dark:border-[#26262A] pt-2.5 mt-auto">
+                                <span className="text-sm sm:text-base font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
+                                  {formatCurrency(p.selling_price)}
+                                </span>
+
+                                <Button
+                                  size="icon"
+                                  className="size-9 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-md active:scale-95 transition-all"
+                                  disabled={isOutOfStock}
+                                >
+                                  <FiPlus className="size-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+
+                      {filteredProducts.length === 0 && (
+                        <div className="col-span-full flex flex-col items-center justify-center py-20 text-[#7D6B6E] dark:text-zinc-500 gap-3">
+                          <FiPackage className="size-10 opacity-30" />
+                          <p className="text-xs font-bold tracking-wider uppercase text-[#7D6B6E] dark:text-zinc-400">No products match search criteria</p>
+                        </div>
+                      )}
+                    </div>
+                  </AnimatePresence>
+                </div>
+
+                {/* FLOATING STICKY ORDER BUTTON (Bottom-Right Badge) */}
+                <AnimatePresence>
+                  {cart.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                      className="fixed bottom-6 right-6 left-6 lg:left-auto lg:w-96 bg-white/95 dark:bg-[#171719]/95 border-2 border-[#E75480] rounded-2xl p-4 shadow-2xl backdrop-blur-2xl z-30 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="size-11 rounded-xl bg-[#E75480] text-white flex items-center justify-center font-bold text-base shadow shrink-0">
+                          <FiShoppingCart className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-[#7D6B6E] dark:text-zinc-400 uppercase tracking-wider">
+                            🛒 {cartTotalItems} {cartTotalItems === 1 ? 'ITEM' : 'ITEMS'}
+                          </p>
+                          <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 truncate">
+                            {formatCurrency(cartSubtotal)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="lg"
+                        className="h-12 px-5 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-lg flex items-center gap-2 shrink-0 active:scale-95 transition-all"
+                        onClick={() => setKioskStep('review')}
+                      >
+                        <span>VIEW ORDER</span>
+                        <FiChevronRight className="size-4" />
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STEP 2: DEDICATED ORDER REVIEW SCREEN */}
+          {/* ========================================================================= */}
+          {kioskStep === 'review' && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="flex-1 flex flex-col h-full bg-[#FFFDFE] dark:bg-[#0F0F11] overflow-hidden transition-colors"
+            >
+              {/* Review Header */}
+              <div className="p-4 sm:px-6 py-4 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#171719] flex items-center justify-between shrink-0">
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-2 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A]"
+                  onClick={() => setKioskStep('browse')}
+                >
+                  <FiArrowLeft className="size-4 text-[#E75480]" />
+                  <span>ADD MORE ITEMS</span>
+                </Button>
+                <div className="text-center">
+                  <h2 className="text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white">YOUR ORDER</h2>
+                  <p className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase">{cartTotalItems} Items in Order</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl text-xs gap-1 font-bold"
+                  onClick={() => setCart([])}
+                >
+                  <FiTrash2 className="size-4" /> Clear Cart
+                </Button>
+              </div>
+
+              {/* Review Content */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 scrollbar-hide pb-28">
+                {/* Left: Cart Items List */}
+                <div className="lg:col-span-8 space-y-4">
+                  {cart.map(item => (
+                    <div 
+                      key={item.id}
+                      className="p-4 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="size-16 rounded-xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/40 dark:border-[#26262A] shrink-0">
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                              <FiPackage className="size-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-extrabold uppercase text-[#3D2C2E] dark:text-white tracking-tight">{item.name}</h4>
+                          <p className="text-xs font-medium text-[#7D6B6E] dark:text-zinc-400 mt-0.5">Unit Price: {formatCurrency(item.selling_price)}</p>
+                          <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                            Subtotal: {formatCurrency(item.selling_price * item.quantity)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between w-full sm:w-auto border-t sm:border-t-0 border-[#F8C8DC]/40 dark:border-[#26262A] pt-3 sm:pt-0 gap-4">
+                        {/* Quantity Controls */}
+                        <div className="flex items-center bg-[#FFF5F7] dark:bg-[#1E1E21] rounded-xl border border-[#F8C8DC]/60 dark:border-[#26262A] p-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="size-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 text-[#3D2C2E] dark:text-zinc-300"
+                            onClick={() => updateQuantity(item.id, -1)}
+                          >
+                            <FiMinus className="size-3.5" />
+                          </Button>
+                          <span className="w-8 text-center font-extrabold text-sm text-[#3D2C2E] dark:text-white">{item.quantity}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="size-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 text-[#3D2C2E] dark:text-zinc-300"
+                            onClick={() => updateQuantity(item.id, 1)}
+                          >
+                            <FiPlus className="size-3.5" />
+                          </Button>
+                        </div>
+
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="size-9 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          onClick={() => removeFromCart(item.id)}
+                        >
+                          <FiTrash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {cart.length === 0 && (
+                    <div className="p-12 border-2 border-dashed border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl text-center space-y-4">
+                      <FiShoppingCart className="size-10 text-[#7D6B6E] dark:text-zinc-600 mx-auto" />
+                      <p className="text-[#7D6B6E] dark:text-zinc-400 text-xs font-bold uppercase">Your order is empty</p>
+                      <Button className="rounded-xl bg-[#E75480] text-white" onClick={() => setKioskStep('browse')}>Browse Products</Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Summary & Order Settings */}
+                <div className="lg:col-span-4 space-y-6">
+                  <div className="p-5 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] space-y-4 shadow-2xs">
+                    <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400 block">Order Settings</label>
+                    <div className="grid grid-cols-3 gap-2 p-1 bg-[#FFF5F7] dark:bg-[#1E1E21] rounded-xl border border-[#F8C8DC]/40 dark:border-[#26262A]">
+                      {['dine-in', 'take-out', 'delivery'].map((type) => (
+                        <button
                           key={type}
                           onClick={() => setOrderType(type)}
                           className={cn(
-                              "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all z-10",
-                              orderType === type ? "text-foreground drop-shadow" : "text-muted-foreground/60 hover:text-muted-foreground"
+                            "py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase transition-all cursor-pointer",
+                            orderType === type 
+                              ? "bg-[#E75480] text-white shadow-xs" 
+                              : "text-[#7D6B6E] dark:text-zinc-400 hover:text-[#3D2C2E] dark:hover:text-white"
                           )}
-                      >
+                        >
                           {type.replace('-', ' ')}
-                      </button>
-                  ))}
-                  <div 
-                      className="absolute top-1 bottom-1 bg-accent/80 dark:bg-zinc-700/80 rounded-xl border border-border/10 shadow-sm transition-all duration-300"
-                      style={{
-                          width: 'calc(50% - 4px)',
-                          left: orderType === 'dine-in' ? '4px' : 'calc(50% + 2px)'
-                      }}
-                  />
-              </div>
-          </div>
+                        </button>
+                      ))}
+                    </div>
 
-          {/* Payment Selection */}
-          <div className="space-y-2">
-              <label className="text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/65 ml-1">Payment Method</label>
-              <div className="grid grid-cols-3 gap-2">
-                  {['cash', 'card', 'e-wallet'].map((method) => (
-                      <button
-                          key={method}
-                          onClick={() => setPaymentMethod(method)}
+                    {/* Delivery Form */}
+                    {orderType === 'delivery' && (
+                      <div className="space-y-3 pt-3 border-t border-[#F8C8DC]/40 dark:border-[#26262A] text-xs">
+                        <Input
+                          placeholder="Customer Name *"
+                          className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
+                          value={deliveryInfo.customer_name}
+                          onChange={e => setDeliveryInfo(p => ({ ...p, customer_name: e.target.value }))}
+                        />
+                        <Input
+                          placeholder="Customer Address *"
+                          className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
+                          value={deliveryInfo.customer_address}
+                          onChange={e => setDeliveryInfo(p => ({ ...p, customer_address: e.target.value }))}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            placeholder="Phone"
+                            className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
+                            value={deliveryInfo.customer_phone}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, customer_phone: e.target.value }))}
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Distance (km) *"
+                            className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
+                            value={deliveryInfo.distance_km}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, distance_km: e.target.value }))}
+                          />
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={deliveryInfo.delivery_type === 'internal' ? 'default' : 'outline'}
+                            className={cn("flex-1 text-[10px] uppercase font-bold rounded-xl", deliveryInfo.delivery_type === 'internal' && "bg-[#E75480] text-white")}
+                            onClick={() => setDeliveryInfo(p => ({ ...p, delivery_type: 'internal' }))}
+                          >
+                            Internal Rider
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={deliveryInfo.delivery_type === 'external' ? 'default' : 'outline'}
+                            className={cn("flex-1 text-[10px] uppercase font-bold rounded-xl", deliveryInfo.delivery_type === 'external' && "bg-[#E75480] text-white")}
+                            onClick={() => setDeliveryInfo(p => ({ ...p, delivery_type: 'external' }))}
+                          >
+                            External Courier
+                          </Button>
+                        </div>
+
+                        {deliveryInfo.delivery_type === 'internal' ? (
+                          <select
+                            className="w-full bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 px-3 text-[#3D2C2E] dark:text-white text-xs font-bold"
+                            value={deliveryInfo.rider_id}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, rider_id: e.target.value }))}
+                          >
+                            <option value="">Select Internal Rider *</option>
+                            {availableRiders.map((r: Rider) => (
+                              <option key={r.id} value={r.id}>{r.name} ({r.phone || 'No phone'})</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            placeholder="Tracking Number *"
+                            className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
+                            value={deliveryInfo.tracking_number}
+                            onChange={e => setDeliveryInfo(p => ({ ...p, tracking_number: e.target.value }))}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Card */}
+                  <div className="p-5 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] space-y-3 shadow-2xs">
+                    <h3 className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Order Totals</h3>
+                    
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300">
+                        <span>Subtotal</span>
+                        <span className="font-extrabold text-[#3D2C2E] dark:text-white">{formatCurrency(cartSubtotal)}</span>
+                      </div>
+
+                      {orderType === 'delivery' && (
+                        <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300">
+                          <span>Delivery Fee</span>
+                          <span className="font-extrabold text-amber-600 dark:text-amber-400">{formatCurrency(deliveryFee)}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300">
+                        <span>Discount</span>
+                        <span className="font-bold text-[#7D6B6E] dark:text-zinc-400">₱0.00</span>
+                      </div>
+
+                      <div className="flex justify-between text-sm font-black pt-3 border-t border-[#F8C8DC]/40 dark:border-[#26262A] text-[#3D2C2E] dark:text-white">
+                        <span>TOTAL</span>
+                        <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(cartTotal)}</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="lg"
+                      className="w-full h-13 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-md mt-4 active:scale-95 transition-all cursor-pointer"
+                      disabled={cart.length === 0}
+                      onClick={handleProceedToCheckout}
+                    >
+                      PROCEED TO CHECKOUT →
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STEP 3: DEDICATED CHECKOUT SCREEN */}
+          {/* ========================================================================= */}
+          {kioskStep === 'checkout' && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              className="flex-1 flex flex-col h-full bg-[#FFFDFE] dark:bg-[#0F0F11] overflow-hidden transition-colors"
+            >
+              {/* Header */}
+              <div className="p-4 sm:px-6 py-4 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#171719] flex items-center justify-between shrink-0">
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-2 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A]"
+                  onClick={() => setKioskStep('review')}
+                >
+                  <FiArrowLeft className="size-4 text-[#E75480]" />
+                  <span>BACK TO ORDER</span>
+                </Button>
+                <div className="text-center">
+                  <h2 className="text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white">CHECKOUT</h2>
+                  <p className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase">Select payment method below</p>
+                </div>
+                <div className="w-24" />
+              </div>
+
+              {/* Checkout Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto w-full space-y-6 scrollbar-hide pb-28">
+                {/* Total Banner */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#171719] border-2 border-[#E75480]/50 text-center shadow-md relative overflow-hidden">
+                  <span className="text-xs font-bold uppercase tracking-widest text-[#E75480]">ORDER TOTAL</span>
+                  <h2 className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
+                    {formatCurrency(cartTotal)}
+                  </h2>
+                  <p className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase tracking-wider mt-1">
+                    {cartTotalItems} Items • {orderType.toUpperCase()}
+                  </p>
+                </div>
+
+                {/* Payment Methods */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400 block">Payment Method</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { id: 'cash', label: 'CASH', icon: FiDollarSign, desc: 'Pay with cash bill' },
+                      { id: 'card', label: 'CARD', icon: FiCreditCard, desc: 'Credit / Debit terminal' },
+                      { id: 'e-wallet', label: 'E-WALLET', icon: FiSmartphone, desc: 'GCash / PayMaya QR' },
+                    ].map(pm => {
+                      const Icon = pm.icon;
+                      const isSelected = paymentMethod === pm.id;
+                      return (
+                        <button
+                          key={pm.id}
+                          onClick={() => setPaymentMethod(pm.id)}
                           className={cn(
-                              "py-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all duration-300",
-                              paymentMethod === method
-                                  ? "bg-primary/10 border-primary/50 shadow-sm"
-                                  : "bg-card border-border/30 hover:bg-accent/30 text-muted-foreground/80"
+                            "p-4 rounded-2xl border flex flex-col items-center text-center gap-2 transition-all cursor-pointer",
+                            isSelected 
+                              ? "bg-[#FFF5F7] dark:bg-[#E75480]/15 border-[#E75480] text-[#3D2C2E] dark:text-white shadow-xs font-bold" 
+                              : "bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#7D6B6E] dark:text-zinc-400 hover:border-[#E75480]/40 hover:text-[#3D2C2E] dark:hover:text-white"
                           )}
-                      >
+                        >
                           <div className={cn(
-                              "size-7 rounded-full flex items-center justify-center border transition-colors", 
-                              paymentMethod === method 
-                                  ? "border-primary/30 text-primary bg-primary/10" 
-                                  : "border-border/30 text-muted-foreground bg-muted"
+                            "size-10 rounded-xl flex items-center justify-center transition-all",
+                            isSelected ? "bg-[#E75480] text-white" : "bg-[#FFF5F7] dark:bg-[#1E1E21] text-[#E75480] dark:text-zinc-400"
                           )}>
-                              {method === 'cash' ? <span className="text-xs font-black">₱</span> : method === 'card' ? <FiPackage className="size-3"/> : <FiLayers className="size-3"/>}
+                            <Icon className="size-5" />
                           </div>
-                          <span className={cn("text-[8px] font-black uppercase tracking-widest", paymentMethod === method ? "text-primary" : "text-muted-foreground/60")}>{method}</span>
-                      </button>
-                  ))}
-              </div>
-          </div>
+                          <div>
+                            <h4 className="font-bold text-xs uppercase tracking-wider">{pm.label}</h4>
+                            <p className="text-[10px] text-[#7D6B6E] dark:text-zinc-500 font-medium mt-0.5">{pm.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          {/* Pricing Summary */}
-          <div className="space-y-2 pt-2 border-t border-border/10">
-              <div className="flex justify-between items-center text-muted-foreground/75 text-xs font-bold uppercase tracking-wider">
-                  <span>Subtotal</span>
-                  <span className="text-foreground dark:text-zinc-200 tabular-nums">{formatCurrency(cartTotal)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2.5 border-t border-border/20 gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-foreground">Total Amount</span>
-                  <span className="text-xl font-black text-primary drop-shadow-[0_0_12px_rgba(231,84,128,0.25)] text-right truncate tabular-nums">
-                      {formatCurrency(cartTotal)}
-                  </span>
-              </div>
-          </div>
+                {/* Cash Details */}
+                {paymentMethod === 'cash' && (
+                  <div className="p-5 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] space-y-5 shadow-2xs">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-300">Amount Received</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-xl text-[#7D6B6E] dark:text-zinc-400">₱</span>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          className="pl-10 h-14 text-2xl font-black rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-emerald-600 dark:text-emerald-400 placeholder:text-[#7D6B6E]/50 focus-visible:ring-2 focus-visible:ring-[#E75480]/30"
+                          value={cashReceived}
+                          onChange={(e) => setCashReceived(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
 
-          <Button
-              className="w-full h-12 text-xs font-black uppercase tracking-[0.25em] rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/45 active:scale-[0.98] transition-all disabled:opacity-50 border border-primary/20 relative overflow-hidden group"
-              disabled={cart.length === 0 || processing}
-              onClick={handleCheckout}
-          >
-              <span className="relative z-10">{processing ? 'Processing...' : 'Checkout'}</span>
-              <div className="absolute inset-0 bg-linear-to-t from-black/5 to-transparent z-0" />
-          </Button>
+                    {/* Quick Tender Presets */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-[#7D6B6E] dark:text-zinc-500">Quick Amount Tender</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { label: 'Exact', val: cartTotal },
+                          { label: '₱500', val: 500 },
+                          { label: '₱1,000', val: 1000 },
+                          { label: '₱2,000', val: 2000 },
+                        ].map((preset, idx) => (
+                          <Button
+                            key={idx}
+                            variant="outline"
+                            className="h-11 rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7] dark:bg-[#1E1E21] text-xs font-bold text-[#3D2C2E] dark:text-white hover:bg-[#E75480] hover:text-white transition-all"
+                            onClick={() => setCashReceived(String(preset.val))}
+                          >
+                            {preset.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Change Indicator */}
+                    <div className="p-3.5 rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Change</span>
+                      <span className="text-xl font-extrabold text-amber-600 dark:text-amber-400">{formatCurrency(changeDue)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Non-Cash Instructions */}
+                {paymentMethod !== 'cash' && (
+                  <div className="p-8 border-2 border-dashed border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl flex flex-col items-center justify-center text-center gap-2 text-[#7D6B6E] dark:text-zinc-400">
+                    <FiCreditCard className="size-10 text-[#E75480]" />
+                    <h4 className="font-bold text-[#3D2C2E] dark:text-white text-sm uppercase">External Payment Terminal</h4>
+                    <p className="text-xs text-[#7D6B6E] dark:text-zinc-500 font-medium">
+                      Please process payment of <strong className="text-[#3D2C2E] dark:text-white">{formatCurrency(cartTotal)}</strong> on the payment terminal. Click Complete Order below once processed.
+                    </p>
+                  </div>
+                )}
+
+                {/* Complete Order Action */}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    className="h-13 flex-1 rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] text-xs font-bold uppercase text-[#3D2C2E] dark:text-zinc-300 bg-white dark:bg-[#1E1E21]"
+                    onClick={() => setKioskStep('review')}
+                  >
+                    Go Back
+                  </Button>
+                  <Button
+                    className="h-13 flex-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-md disabled:opacity-50 cursor-pointer"
+                    disabled={processing || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
+                    onClick={confirmPayment}
+                  >
+                    {processing ? 'Processing...' : 'COMPLETE ORDER'}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* ORDER SUCCESS MODAL */}
+        {/* ========================================================================= */}
+        <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
+          <DialogContent className="max-w-md bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white max-h-[90vh] overflow-y-auto">
+            <div className="flex flex-col items-center text-center py-3">
+              <div className="size-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 border border-emerald-300 dark:border-emerald-800/40">
+                <FiCheckCircle className="size-8" />
+              </div>
+              <DialogTitle className="text-xl font-extrabold tracking-tight text-[#3D2C2E] dark:text-white">✓ ORDER COMPLETED</DialogTitle>
+              <DialogDescription className="text-[#7D6B6E] dark:text-zinc-400 text-xs font-bold uppercase tracking-wider mt-1">
+                Order #{String(lastSale?.order_number || 'POS-0001')}
+              </DialogDescription>
+            </div>
+
+            {/* Receipt Preview */}
+            <div className="bg-white text-black p-5 rounded-xl border-t-4 border-emerald-500 shadow-md space-y-3 font-mono text-xs">
+              <div className="text-center border-b pb-3 space-y-0.5">
+                <h3 className="font-bold text-base uppercase tracking-tight">{branch?.name || 'Maki Desu'}</h3>
+                <p className="text-zinc-500 text-[10px]">{(branch?.address as string | undefined) || 'Restaurant POS System'}</p>
+              </div>
+
+              <div className="flex justify-between text-[10px]">
+                <span>Date: {lastSale?.created_at ? format(new Date(String(lastSale.created_at)), 'MMM dd, yyyy HH:mm') : format(new Date(), 'MMM dd, yyyy HH:mm')}</span>
+                <span className="font-bold uppercase">{String(lastSale?.type || orderType)}</span>
+              </div>
+
+              <div className="border-y py-2 space-y-1.5">
+                <div className="flex justify-between font-bold border-b pb-1">
+                  <span>Item</span>
+                  <div className="flex gap-6">
+                    <span>Qty</span>
+                    <span>Price</span>
+                  </div>
+                </div>
+                {(lastSale?.items as Record<string, unknown>[] | undefined)?.map((item: Record<string, unknown>, idx: number) => (
+                  <div key={idx} className="flex justify-between text-[11px]">
+                    <span className="truncate max-w-32.5">{(item.product as Record<string, unknown> | undefined)?.name as string || 'Product'}</span>
+                    <div className="flex gap-8">
+                      <span>{String(item.quantity)}</span>
+                      <span>{formatCurrency(Number(item.unit_price))}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1 text-xs border-b pb-2">
+                <div className="flex justify-between font-bold text-sm">
+                  <span>TOTAL</span>
+                  <span>{formatCurrency(Number(lastSale?.total) || cartTotal)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] pt-1">
+                  <span className="capitalize">{String(lastSale?.payment_method || paymentMethod)} Paid</span>
+                  <span>{formatCurrency(Number(lastSale?.paid_amount) || cartTotal)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] font-bold text-zinc-700">
+                  <span>CHANGE</span>
+                  <span>{formatCurrency(Number(lastSale?.change_amount) || changeDue)}</span>
+                </div>
+              </div>
+
+              <div className="text-center pt-1 italic text-[9px] text-zinc-500">
+                <p>Thank you for dining with us!</p>
+              </div>
+            </div>
+
+            <DialogFooter className="grid grid-cols-2 gap-3 pt-3">
+              <Button variant="outline" className="h-11 rounded-xl gap-2 font-bold border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white bg-white dark:bg-[#1E1E21]" onClick={() => window.print()}>
+                <FiPrinter className="size-4 text-[#E75480]" /> PRINT RECEIPT
+              </Button>
+              <Button className="h-11 rounded-xl gap-2 font-bold bg-[#E75480] text-white" onClick={handleNewOrder}>
+                <FiPlusCircle className="size-4" /> NEW ORDER
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Result Modal (Errors/Warnings) */}
+        <ResultModal
+          open={isAlertModalOpen}
+          onClose={() => setIsAlertModalOpen(false)}
+          type={alertModal.type}
+          title={alertModal.title}
+          message={alertModal.message}
+        />
+
+        {/* Opening Shift Modal */}
+        <Dialog open={isShiftModalOpen} onOpenChange={() => {}}>
+          <DialogContent className="max-w-md bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white" onInteractOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <div className="size-14 rounded-full bg-[#FFF5F7] dark:bg-[#E75480]/20 text-[#E75480] flex items-center justify-center mb-3 mx-auto border border-[#F8C8DC]/60 dark:border-[#E75480]/30">
+                <FiUnlock className="size-7" />
+              </div>
+              <DialogTitle className="text-center text-xl font-extrabold text-[#3D2C2E] dark:text-white">Open Cashier Shift</DialogTitle>
+              <DialogDescription className="text-center text-[#7D6B6E] dark:text-zinc-400 text-xs font-medium">
+                Enter initial cash balance in your drawer to start shift.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Opening Cash</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#7D6B6E] dark:text-zinc-400">₱</span>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    className="pl-10 h-13 text-xl font-black rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white"
+                    value={openingCash}
+                    onChange={(e) => setOpeningCash(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                {[100, 500, 1000, 2000].map(amount => (
+                  <Button 
+                    key={amount} 
+                    variant="outline" 
+                    className="h-11 rounded-xl font-bold border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7] dark:bg-[#1E1E21] text-[#3D2C2E] dark:text-white hover:bg-[#E75480] hover:text-white"
+                    onClick={() => setOpeningCash(String(amount))}
+                  >
+                    ₱{amount}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                className="w-full h-13 text-xs font-bold uppercase tracking-wider rounded-xl bg-[#E75480] text-white shadow-md cursor-pointer"
+                onClick={handleOpenShift}
+                disabled={!openingCash || parseFloat(openingCash) < 0}
+              >
+                Start Shift
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Close Shift Modal */}
+        <Dialog open={isCloseShiftModalOpen} onOpenChange={setIsCloseShiftModalOpen}>
+          <DialogContent className="max-w-md bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white">
+            <DialogHeader>
+              <div className="size-14 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-3 mx-auto border border-rose-200 dark:border-rose-800/40">
+                <FiLock className="size-7" />
+              </div>
+              <DialogTitle className="text-center text-xl font-extrabold text-[#3D2C2E] dark:text-white">End Cashier Shift</DialogTitle>
+              <DialogDescription className="text-center text-[#7D6B6E] dark:text-zinc-400 text-xs font-medium">
+                Count actual cash in drawer for shift reconciliation.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 bg-[#FFF5F7] dark:bg-[#1E1E21] rounded-xl border border-[#F8C8DC]/60 dark:border-[#26262A] text-center">
+                  <p className="text-[10px] font-bold uppercase text-[#7D6B6E] dark:text-zinc-400 mb-0.5">Expected</p>
+                  <p className="text-base font-extrabold text-[#3D2C2E] dark:text-white">{formatCurrency(activeShift?.expected_balance || 0)}</p>
+                </div>
+                <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-center">
+                  <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400 mb-0.5">Cash Sales</p>
+                  <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">{formatCurrency(activeShift?.total_cash_sales || 0)}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Actual Cash Count</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#7D6B6E] dark:text-zinc-400">₱</span>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    className="pl-10 h-13 text-xl font-black rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white"
+                    value={closingCash}
+                    onChange={(e) => setClosingCash(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {closingCash && (parseFloat(closingCash) - (activeShift?.expected_balance || 0)) !== 0 && (
+                <div className="space-y-3">
+                  <div className={cn(
+                    "p-3 rounded-xl border flex items-center justify-between text-xs font-bold",
+                    (parseFloat(closingCash) - (activeShift?.expected_balance || 0)) > 0 
+                      ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400" 
+                      : "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-400"
+                  )}>
+                    <span className="uppercase">
+                      {(parseFloat(closingCash) - (activeShift?.expected_balance || 0)) > 0 ? "Overage" : "Shortage"} Detected
+                    </span>
+                    <span className="text-base font-extrabold">
+                      {formatCurrency(Math.abs(parseFloat(closingCash) - (activeShift?.expected_balance || 0)))}
+                    </span>
+                  </div>
+                  
+                  <Input
+                    placeholder="Explain variance..."
+                    className="rounded-xl h-11 bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white text-xs"
+                    value={varianceReason}
+                    onChange={(e) => setVarianceReason(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                className="h-11 rounded-xl font-bold border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-zinc-300 bg-[#FFF5F7] dark:bg-[#1E1E21]" 
+                onClick={() => setIsCloseShiftModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="h-11 flex-1 text-xs font-bold uppercase rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md cursor-pointer"
+                onClick={handleCloseShift}
+                disabled={!closingCash || ((parseFloat(closingCash) - (activeShift?.expected_balance || 0)) !== 0 && !varianceReason)}
+              >
+                Close Cash Drawer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Adjustment Modal */}
+        <Dialog open={isAdjustmentModalOpen} onOpenChange={setIsAdjustmentModalOpen}>
+          <DialogContent className="max-w-md bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-extrabold text-[#3D2C2E] dark:text-white">Add/Remove Cash</DialogTitle>
+              <DialogDescription className="text-[#7D6B6E] dark:text-zinc-400 text-xs font-medium">Record cash added to or taken from drawer.</DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="flex p-1 bg-[#FFF5F7] dark:bg-[#1E1E21] rounded-xl border border-[#F8C8DC]/40 dark:border-[#26262A] relative">
+                {(['in', 'out'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setAdjustmentType(type)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-lg text-xs font-bold uppercase transition-all z-10 cursor-pointer",
+                      adjustmentType === type ? "text-white bg-[#E75480] shadow-xs" : "text-[#7D6B6E] dark:text-zinc-400"
+                    )}
+                  >
+                    Cash {type.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Amount</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#7D6B6E] dark:text-zinc-400">₱</span>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      className="pl-10 h-12 text-xl font-bold rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white"
+                      value={adjustmentAmount}
+                      onChange={(e) => setAdjustmentAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Notes / Reason</label>
+                  <Input
+                    placeholder="e.g. For office supplies..."
+                    className="rounded-xl h-11 bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white text-xs"
+                    value={adjustmentNotes}
+                    onChange={(e) => setAdjustmentNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" className="h-11 rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-zinc-300 bg-[#FFF5F7] dark:bg-[#1E1E21]" onClick={() => setIsAdjustmentModalOpen(false)}>Cancel</Button>
+              <Button 
+                className={cn(
+                  "h-11 flex-1 rounded-xl font-bold uppercase text-white text-xs cursor-pointer shadow-md",
+                  adjustmentType === 'in' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
+                )}
+                onClick={handleAdjustment}
+                disabled={!adjustmentAmount || !adjustmentNotes}
+              >
+                Confirm Cash {adjustmentType === 'in' ? 'Added' : 'Removed'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-  </div>
-  </div>
-
- {/* Payment Modal */}
- <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
- <DialogContent className="max-w-md">
- <DialogHeader>
- <DialogTitle>Receive Payment</DialogTitle>
- <DialogDescription>Enter the amount paid by the customer</DialogDescription>
- </DialogHeader>
-
- <div className="space-y-6 py-4">
- <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border border-primary/10">
- <span className="text-muted-foreground font-medium">Total to Pay</span>
- <span className="text-3xl font-black text-primary">{formatCurrency(cartTotal)}</span>
- </div>
-
- {paymentMethod === 'cash' && (
- <div className="space-y-4">
- <div className="space-y-2">
- <label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Amount Received</label>
- <div className="relative">
- <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
- <Input
- type="number"
- placeholder="0.00"
- className="pl-8 h-12 text-xl font-bold rounded-xl"
- value={cashReceived}
- onChange={(e) => setCashReceived(e.target.value)}
- autoFocus
- />
- </div>
- </div>
-
- <div className="flex justify-between items-center p-4 bg-muted/50 rounded-2xl border">
- <span className="text-muted-foreground font-medium">Change to Give</span>
- <span className="text-2xl font-black text-amber-600">{formatCurrency(changeDue)}</span>
- </div>
- </div>
- )}
-
- {paymentMethod !== 'cash' && (
- <div className="p-12 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 text-muted-foreground">
- <FiPackage className="size-8 opacity-20" />
- <p className="text-sm font-medium">Process via external terminal</p>
- </div>
- )}
- </div>
-
- <DialogFooter>
- <Button variant="outline" className="h-11 rounded-xl" onClick={() => setIsPaymentModalOpen(false)}>Go Back</Button>
- <Button
- className="h-11 rounded-xl px-8 font-bold"
- disabled={processing || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
- onClick={confirmPayment}
- >
- Finish Order
- </Button>
- </DialogFooter>
- </DialogContent>
- </Dialog>
-
- {/* Success & Receipt Modal */}
- <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
- <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
- <div className="flex flex-col items-center text-center py-4">
- <motion.div
- initial={{ scale: 0 }}
- animate={{ scale: 1 }}
- transition={{ type: 'spring', damping: 12 }}
- className="size-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4"
- >
- <FiCheckCircle className="size-8 text-green-500" />
- </motion.div>
- <DialogTitle className="text-2xl font-black">Order Saved!</DialogTitle>
- <DialogDescription>Receipt for #{String(lastSale?.order_number || '')} is ready</DialogDescription>
- </div>
-
- {/* Receipt Preview Area */}
- <div className="bg-white text-black p-6 rounded-xl border-t-4 border-primary shadow-sm space-y-4 font-mono text-xs">
- <div className="text-center border-b pb-4 space-y-1">
- <h3 className="font-bold text-lg uppercase tracking-tight">{branch?.name || 'Maki Desu'}</h3>
- <p className="text-muted-foreground text-[10px]">{(branch?.address as string | undefined) || 'Restaurant POS System'}</p>
- </div>
-
- <div className="flex justify-between">
- <span>Date: {lastSale?.created_at ? format(new Date(String(lastSale.created_at)), 'MMM dd, yyyy HH:mm') : ''}</span>
- <span className="font-bold uppercase">{String(lastSale?.type || '')}</span>
- </div>
-
- <div className="border-y py-3 space-y-2">
- <div className="flex justify-between font-bold border-b pb-1">
- <span>Item</span>
- <div className="flex gap-8">
- <span>Qty</span>
- <span>Price</span>
- </div>
- </div>
- {(lastSale?.items as Record<string, unknown>[] | undefined)?.map((item: Record<string, unknown>) => (
- <div key={String(item.id)} className="flex justify-between">
- <span className="truncate max-w-37.5">{(item.product as Record<string, unknown> | undefined)?.name as string}</span>
- <div className="flex gap-10">
- <span>{String(item.quantity)}</span>
- <span>{formatCurrency(Number(item.unit_price))}</span>
- </div>
- </div>
- ))}
- </div>
-
- <div className="space-y-1 text-sm border-b pb-4">
- <div className="flex justify-between font-black">
- <span>TOTAL</span>
- <span>{formatCurrency(Number(lastSale?.total) || 0)}</span>
- </div>
- <div className="flex justify-between text-xs pt-2">
- <span className="capitalize">{String(lastSale?.payment_method || '')} Received</span>
- <span>{formatCurrency(Number(lastSale?.paid_amount) || 0)}</span>
- </div>
- <div className="flex justify-between text-xs font-bold">
- <span>CHANGE</span>
- <span>{formatCurrency(Number(lastSale?.change_amount) || 0)}</span>
- </div>
- </div>
-
- <div className="text-center pt-2 italic text-[10px] space-y-1">
- <p>Thank you for dining with us!</p>
- <p>Cashier: {String((lastSale?.cashier as Record<string, unknown> | undefined)?.name || 'Staff')}</p>
- </div>
- </div>
-
- <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-0">
- <Button variant="outline" className="h-11 rounded-xl gap-2 font-bold" onClick={() => window.print()}>
- <FiPrinter className="size-4" /> Print Receipt
- </Button>
- <Button className="h-11 rounded-xl gap-2 font-bold" onClick={handleNewOrder}>
- <FiPlusCircle className="size-4" /> Next Order
- </Button>
- </DialogFooter>
- </DialogContent>
- </Dialog>
- {/* Result Modal (Errors/Warnings) */}
- <ResultModal
- open={isAlertModalOpen}
- onClose={() => setIsAlertModalOpen(false)}
- type={alertModal.type}
- title={alertModal.title}
- message={alertModal.message}
- />
-
- {/* Opening Shift Modal */}
- <Dialog open={isShiftModalOpen} onOpenChange={() => {}}>
-   <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-     <DialogHeader>
-       <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 mx-auto">
-         <FiUnlock className="size-8 text-primary" />
-       </div>
-       <DialogTitle className="text-center text-2xl font-black">Open Cashier Shift</DialogTitle>
-       <DialogDescription className="text-center">
-         Enter the initial cash balance in your drawer to start your shift.
-       </DialogDescription>
-     </DialogHeader>
-
-     <div className="py-6 space-y-4">
-       <div className="space-y-2">
-         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Opening Cash</label>
-         <div className="relative">
-           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
-           <Input
-             type="number"
-             placeholder="0.00"
-             className="pl-10 h-14 text-2xl font-black rounded-2xl shadow-inner border-border/50"
-             value={openingCash}
-             onChange={(e) => setOpeningCash(e.target.value)}
-             autoFocus
-           />
-         </div>
-       </div>
-       
-       <div className="grid grid-cols-2 gap-3">
-         {[100, 500, 1000, 2000].map(amount => (
-           <Button 
-             key={amount} 
-             variant="outline" 
-             className="h-12 rounded-xl font-bold border-border/50 hover:bg-primary/10 hover:text-primary transition-all"
-             onClick={() => setOpeningCash(String(amount))}
-           >
-             ₱{amount}
-           </Button>
-         ))}
-       </div>
-     </div>
-
-     <DialogFooter>
-       <Button 
-         className="w-full h-14 text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/40"
-         onClick={handleOpenShift}
-         disabled={!openingCash || parseFloat(openingCash) < 0}
-       >
-         Start Shift
-       </Button>
-     </DialogFooter>
-   </DialogContent>
- </Dialog>
-
- {/* Close Shift Modal */}
- <Dialog open={isCloseShiftModalOpen} onOpenChange={setIsCloseShiftModalOpen}>
-   <DialogContent className="max-w-md">
-     <DialogHeader>
-       <div className="size-16 rounded-full bg-rose-500/10 flex items-center justify-center mb-4 mx-auto">
-         <FiLock className="size-8 text-rose-500" />
-       </div>
-       <DialogTitle className="text-center text-2xl font-black">End Cashier Shift</DialogTitle>
-       <DialogDescription className="text-center">
-         Count the actual cash in your drawer for reconciliation.
-       </DialogDescription>
-     </DialogHeader>
-
-     <div className="py-4 space-y-6">
-       <div className="grid grid-cols-2 gap-4">
-         <div className="p-4 bg-muted/50 rounded-2xl border border-border/50 text-center">
-           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 mb-1">Expected</p>
-           <p className="text-xl font-black text-foreground">{formatCurrency(activeShift?.expected_balance || 0)}</p>
-         </div>
-         <div className="p-4 bg-primary/5 rounded-2xl border border-primary/20 text-center">
-           <p className="text-[10px] font-black uppercase tracking-widest text-primary/80 mb-1">Cash Sales</p>
-           <p className="text-xl font-black text-primary">{formatCurrency(activeShift?.total_cash_sales || 0)}</p>
-         </div>
-       </div>
-
-       <div className="space-y-2">
-         <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Actual Cash Count</label>
-         <div className="relative">
-           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
-           <Input
-             type="number"
-             placeholder="0.00"
-             className="pl-10 h-14 text-2xl font-black rounded-2xl shadow-inner"
-             value={closingCash}
-             onChange={(e) => setClosingCash(e.target.value)}
-             autoFocus
-           />
-         </div>
-       </div>
-
-       {closingCash && (parseFloat(closingCash) - (activeShift?.expected_balance || 0)) !== 0 && (
-         <motion.div 
-           initial={{ opacity: 0, y: 10 }}
-           animate={{ opacity: 1, y: 0 }}
-           className="space-y-4"
-         >
-           <div className={cn(
-             "p-4 rounded-2xl border flex items-center justify-between",
-             (parseFloat(closingCash) - (activeShift?.expected_balance || 0)) > 0 
-               ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" 
-               : "bg-rose-500/10 border-rose-500/20 text-rose-600"
-           )}>
-             <span className="font-bold uppercase tracking-wider text-xs">
-               {(parseFloat(closingCash) - (activeShift?.expected_balance || 0)) > 0 ? "Overage" : "Shortage"} Detected
-             </span>
-             <span className="text-lg font-black">
-               {formatCurrency(Math.abs(parseFloat(closingCash) - (activeShift?.expected_balance || 0)))}
-             </span>
-           </div>
-           
-           <div className="space-y-2">
-             <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Reason / Notes</label>
-             <Input
-               placeholder="Explain the variance..."
-               className="rounded-xl h-12 bg-muted border-border/50"
-               value={varianceReason}
-               onChange={(e) => setVarianceReason(e.target.value)}
-             />
-           </div>
-         </motion.div>
-       )}
-     </div>
-
-     <DialogFooter>
-       <Button 
-         variant="outline" 
-         className="h-14 rounded-2xl font-bold" 
-         onClick={() => setIsCloseShiftModalOpen(false)}
-       >
-         Cancel
-       </Button>
-       <Button 
-         className="h-14 flex-1 text-lg font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/40"
-         onClick={handleCloseShift}
-         disabled={!closingCash || ((parseFloat(closingCash) - (activeShift?.expected_balance || 0)) !== 0 && !varianceReason)}
-       >
-         Close Cash Drawer
-       </Button>
-     </DialogFooter>
-   </DialogContent>
- </Dialog>
-
- {/* Adjustment Modal */}
- <Dialog open={isAdjustmentModalOpen} onOpenChange={setIsAdjustmentModalOpen}>
-   <DialogContent className="max-w-md">
-     <DialogHeader>
-       <DialogTitle className="text-2xl font-black">Add/Remove Cash</DialogTitle>
-       <DialogDescription>Record cash added to or taken from the drawer.</DialogDescription>
-     </DialogHeader>
-
-     <div className="py-6 space-y-6">
-       <div className="flex p-1 bg-muted rounded-2xl border border-border/50 relative">
-         {(['in', 'out'] as const).map((type) => (
-           <button
-             key={type}
-             onClick={() => setAdjustmentType(type)}
-             className={cn(
-               "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all z-10",
-               adjustmentType === type ? "text-foreground" : "text-muted-foreground/80"
-             )}
-           >
-             Cash {type}
-           </button>
-         ))}
-         <div 
-           className={cn(
-             "absolute top-1 bottom-1 rounded-xl border shadow-sm transition-all duration-300",
-             adjustmentType === 'in' ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"
-           )}
-           style={{
-             width: 'calc(50% - 4px)',
-             left: adjustmentType === 'in' ? '4px' : 'calc(50% + 2px)'
-           }}
-         />
-       </div>
-
-       <div className="space-y-4">
-         <div className="space-y-2">
-           <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Amount</label>
-           <div className="relative">
-             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">₱</span>
-             <Input
-               type="number"
-               placeholder="0.00"
-               className="pl-10 h-14 text-2xl font-black rounded-2xl shadow-inner"
-               value={adjustmentAmount}
-               onChange={(e) => setAdjustmentAmount(e.target.value)}
-             />
-           </div>
-         </div>
-
-         <div className="space-y-2">
-           <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Notes / Reason</label>
-           <Input
-             placeholder="e.g. For office supplies, GCash transfer, etc."
-             className="rounded-xl h-12 bg-muted border-border/50"
-             value={adjustmentNotes}
-             onChange={(e) => setAdjustmentNotes(e.target.value)}
-           />
-         </div>
-       </div>
-     </div>
-
-     <DialogFooter>
-       <Button variant="outline" className="h-12 rounded-xl" onClick={() => setIsAdjustmentModalOpen(false)}>Cancel</Button>
-       <Button 
-         className={cn(
-           "h-12 flex-1 rounded-xl font-black uppercase tracking-widest",
-           adjustmentType === 'in' ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
-         )}
-         onClick={handleAdjustment}
-         disabled={!adjustmentAmount || !adjustmentNotes}
-       >
-         Confirm Cash {adjustmentType === 'in' ? 'Added' : 'Removed'}
-       </Button>
-     </DialogFooter>
-   </DialogContent>
- </Dialog>
-
-  </AppLayout>
- );
+    </AppLayout>
+  );
 }

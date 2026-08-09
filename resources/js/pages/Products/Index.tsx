@@ -74,7 +74,7 @@ type Product = {
     selling_price: number;
     status: string;
     image_url: string | null;
-    ingredients: (Ingredient & { pivot: { quantity_required: string } })[];
+    ingredients: (Ingredient & { pivot: { quantity_required: string; unit?: string } })[];
     branches: { id: number; name: string }[];
     branch_id: number;
     is_direct: boolean;
@@ -216,7 +216,7 @@ export default function ProductsIndex() {
         selling_price: '',
         branch_id: currentBranchId ? String(currentBranchId) : '',
         branch_ids: [] as string[],
-        recipe: [] as { ingredient_id: string; quantity_required: string }[],
+        recipe: [] as { ingredient_id: string; quantity_required: string; unit: string }[],
         unit: 'pcs',
         stock: '0',
     });
@@ -259,7 +259,8 @@ export default function ProductsIndex() {
             branch_ids: product.branches ? product.branches.map(b => b.id.toString()) : [],
             recipe: product.ingredients ? product.ingredients.map(ing => ({
                 ingredient_id: ing.id.toString(),
-                quantity_required: ing.pivot?.quantity_required ? ing.pivot.quantity_required.toString() : '1'
+                quantity_required: ing.pivot?.quantity_required ? ing.pivot.quantity_required.toString() : '1',
+                unit: ing.pivot?.unit || ing.unit || 'pcs'
             })) : [],
             unit: product.unit || 'pcs',
             stock: product.stock.toString(),
@@ -338,7 +339,7 @@ export default function ProductsIndex() {
     };
 
     const addRecipeItem = () => {
-        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1' }]);
+        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1', unit: 'pcs' }]);
     };
 
     const removeRecipeItem = (index: number) => {
@@ -368,7 +369,7 @@ export default function ProductsIndex() {
         <AppLayout breadcrumbs={[{ title: 'Products', href: '/products' }]}>
             <Head title="Products Management" />
 
-            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 
                 {/* ── ZONE 1: HERO & STATISTICS ── */}
                 <ProductsHero
@@ -546,16 +547,16 @@ export default function ProductsIndex() {
 
             {/* Add Product Dialog */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-                <DialogContent className="sm:max-w-xl rounded-4xl bg-white dark:bg-[#121218] p-6 sm:p-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] font-['Outfit']">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col rounded-4xl bg-white dark:bg-[#121218] p-6 sm:p-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] font-['Outfit'] overflow-hidden">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle className="text-2xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">Register New Product</DialogTitle>
                         <DialogDescription className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
                             Enter product specifications, base pricing, and recipe materials.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleAddSubmit} className="space-y-4 pt-2">
-                        <div className="grid grid-cols-2 gap-4">
+                    <form onSubmit={handleAddSubmit} className="flex flex-col flex-1 overflow-hidden space-y-4 pt-2">
+                        <div className="grid grid-cols-2 gap-4 flex-1 overflow-y-auto max-h-[60vh] pr-1 pb-2">
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="e.g. Salmon Aburi Nigiri" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
@@ -715,7 +716,7 @@ export default function ProductsIndex() {
 
                         </div>
 
-                        <DialogFooter className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                        <DialogFooter className="shrink-0 pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
                             <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
                             <Button type="submit" disabled={processing} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
                                 {processing ? 'Registering...' : 'Confirm Registration'}
@@ -727,16 +728,16 @@ export default function ProductsIndex() {
 
             {/* Edit Product Dialog */}
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-xl rounded-4xl bg-white dark:bg-[#121218] p-6 sm:p-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] font-['Outfit']">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col rounded-4xl bg-white dark:bg-[#121218] p-6 sm:p-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] font-['Outfit'] overflow-hidden">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle className="text-2xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">Revise Product Specifications</DialogTitle>
                         <DialogDescription className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
                             Modify existing product parameters, pricing, and raw material composition.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleEditSubmit} className="space-y-4 pt-2">
-                        <div className="grid grid-cols-2 gap-4">
+                    <form onSubmit={handleEditSubmit} className="flex flex-col flex-1 overflow-hidden space-y-4 pt-2">
+                        <div className="grid grid-cols-2 gap-4 flex-1 overflow-y-auto max-h-[60vh] pr-1 pb-2">
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
@@ -890,7 +891,7 @@ export default function ProductsIndex() {
                             </div>
                         </div>
 
-                        <DialogFooter className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                        <DialogFooter className="shrink-0 pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
                             <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
                             <Button type="submit" disabled={processing} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
                                 {processing ? 'Updating...' : 'Push Updates'}

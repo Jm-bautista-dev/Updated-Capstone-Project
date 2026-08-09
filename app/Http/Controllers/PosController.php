@@ -27,7 +27,7 @@ class PosController extends Controller
 
     public function index()
     {
-        $user     = Auth::user();
+        $user = Auth::user();
         $branchId = $user->branch_id;
 
         // Load products scoped to the cashier's branch via direct branch_id ownership
@@ -35,17 +35,17 @@ class PosController extends Controller
         if ($branchId) {
             $productsQuery->where(function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
-                  ->orWhereNull('branch_id')
-                  ->orWhereHas('branches', function ($bq) use ($branchId) {
-                      $bq->where('branches.id', $branchId);
-                  });
+                    ->orWhereNull('branch_id')
+                    ->orWhereHas('branches', function ($bq) use ($branchId) {
+                        $bq->where('branches.id', $branchId);
+                    });
             });
         }
 
         $products = $productsQuery->get()->map(function (Product $product) use ($branchId) {
             // Compute dynamic availability (ingredient-based truth)
             $availability = $product->dynamicAvailability($branchId);
-            
+
             $product->stock = $availability['available'];
             $product->limiting_ingredient = $availability['limiting_ingredient'];
             $product->is_low_stock = $availability['is_low_stock'];
@@ -82,27 +82,27 @@ class PosController extends Controller
             ->first();
 
         return Inertia::render('Pos/Index', [
-            'products'        => $products,
-            'categories'      => $categories,
-            'recentOrders'    => $recentOrders,
-            'branch'          => $user->branch,
+            'products' => $products,
+            'categories' => $categories,
+            'recentOrders' => $recentOrders,
+            'branch' => $user->branch,
             'availableRiders' => $availableRiders,
-            'activeShift'     => $activeShift,
+            'activeShift' => $activeShift,
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type'          => 'required|string',
-            'items'         => 'required|array|min:1',
-            'items.*.id'    => 'required|exists:products,id',
+            'type' => 'required|string',
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:1',
-            'total'         => 'required|numeric',
-            'payment_method'=> 'required|string',
-            'paid_amount'   => 'required|numeric',
+            'total' => 'required|numeric',
+            'payment_method' => 'required|string',
+            'paid_amount' => 'required|numeric',
             'change_amount' => 'nullable|numeric',
-            'delivery_info'  => 'nullable|array',
+            'delivery_info' => 'nullable|array',
             'delivery_info.customer_name' => 'required_if:type,delivery|string',
             'delivery_info.customer_address' => 'required_if:type,delivery|string',
             'delivery_info.customer_phone' => 'nullable|string',
@@ -110,7 +110,7 @@ class PosController extends Controller
             'delivery_info.rider_id' => 'required_if:delivery_info.delivery_type,internal|nullable|exists:riders,id',
             'delivery_info.external_service' => 'required_if:delivery_info.delivery_type,external|nullable|in:grab,lalamove',
             'delivery_info.tracking_number' => 'required_if:delivery_info.delivery_type,external|nullable|string',
-            'delivery_info.distance_km' => ['required_if:type,delivery', 'numeric', 'gt:0', 'max:'.config('delivery.max_distance_km', 50)],
+            'delivery_info.distance_km' => ['required_if:type,delivery', 'numeric', 'gt:0', 'max:' . config('delivery.max_distance_km', 50)],
             'delivery_info.delivery_fee' => 'nullable|numeric',
             'delivery_info.external_notes' => 'nullable|string|max:1000',
             'delivery_info.proof_of_delivery' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:4096',
@@ -124,7 +124,7 @@ class PosController extends Controller
             $orderNumber = 'POS-' . strtoupper(uniqid());
             $this->saleService->processSale(array_merge($validated, [
                 'order_number' => $orderNumber,
-                'status'       => 'completed',
+                'status' => 'completed',
             ]));
 
             return redirect()->back()->with('success', 'Order processed successfully');

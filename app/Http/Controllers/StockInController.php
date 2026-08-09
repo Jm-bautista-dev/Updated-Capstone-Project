@@ -33,10 +33,12 @@ class StockInController extends Controller
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'items'     => 'required|array|min:1',
-            'items.*.id'       => 'required|integer',
-            'items.*.type'     => 'required|in:ingredient,product',
-            'items.*.quantity' => 'required|numeric|gt:0|max:1000000',
-            'items.*.unit'     => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'items.*.id'             => 'required|integer',
+            'items.*.type'           => 'required|in:ingredient,product',
+            'items.*.quantity'       => 'required|numeric|gt:0|max:1000000',
+            'items.*.unit'           => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'items.*.purchase_price' => 'nullable|numeric|min:0',
+            'items.*.unit_cost'      => 'nullable|numeric|min:0',
         ]);
 
         $user         = Auth::user();

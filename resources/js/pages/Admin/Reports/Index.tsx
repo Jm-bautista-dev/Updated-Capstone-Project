@@ -14,7 +14,9 @@ import {
     Zap,
     Calendar,
     RefreshCw,
-    Activity
+    Activity,
+    Building2,
+    Receipt
 } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 import {
@@ -383,6 +385,7 @@ interface SaleItem {
     order_number: string;
     created_at: string;
     cashier?: { name: string };
+    branch?: { name: string };
     status: string;
     total: number;
     profit: number;
@@ -406,13 +409,20 @@ interface PaginatedData<T> {
     links: Array<{ url?: string; label: string; active: boolean }>;
 }
 
+interface BranchItem {
+    id: number;
+    name: string;
+}
+
 interface AdminReportsProps {
     sales: PaginatedData<SaleItem>;
     shifts: PaginatedData<ShiftItem>;
-    filters: { date_from?: string; date_to?: string };
+    filters: { date_from?: string; date_to?: string; branch_id?: string };
+    branches?: BranchItem[];
     trend_data?: Array<{ date: string; revenue: number; profit: number }>;
     category_data?: Array<{ name: string; value: number }>;
     total_revenue: number;
+    total_expenses: number;
     total_profit: number;
     total_orders: number;
     cancelled_count: number;
@@ -420,9 +430,10 @@ interface AdminReportsProps {
 }
 
 // ── ADMIN REPORTS DASHBOARD ──
-function AdminReports({ sales, shifts, filters, trend_data, category_data, total_revenue, total_profit, total_orders, cancelled_count, today_sales }: AdminReportsProps) {
+function AdminReports({ sales, shifts, filters, branches = [], trend_data, category_data, total_revenue, total_expenses, total_profit, total_orders, cancelled_count, today_sales }: AdminReportsProps) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
+    const [selectedBranch, setSelectedBranch] = useState(filters.branch_id || 'all');
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
     const [isExportOpen, setIsExportOpen] = useState(false);
 
@@ -430,8 +441,13 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
         setDateFrom(from);
         setDateTo(to);
         if (from !== dateFrom || to !== dateTo) {
-             router.get('/reports', { date_from: from, date_to: to }, { preserveState: true });
+             router.get('/reports', { date_from: from, date_to: to, branch_id: selectedBranch }, { preserveState: true });
         }
+    };
+
+    const handleBranchChange = (value: string) => {
+        setSelectedBranch(value);
+        router.get('/reports', { date_from: dateFrom, date_to: dateTo, branch_id: value }, { preserveState: true });
     };
 
     const triggerExport = async (options: ExportOptions) => {
@@ -453,6 +469,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
             columns.push({ title: 'Order #', key: 'order_number', align: 'text-left' });
             columns.push({ title: 'Date', key: 'date', align: 'text-left' });
             columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Branch', key: 'branch', align: 'text-left' });
             columns.push({ title: 'Status', key: 'status', align: 'text-left' });
             columns.push({ title: 'Total Sales', key: 'total', align: 'text-right' });
             columns.push({ title: 'Net Profit', key: 'profit', align: 'text-right' });
@@ -473,6 +490,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
                     order_number: sale.order_number,
                     date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
                     cashier: sale.cashier?.name ?? 'N/A',
+                    branch: sale.branch?.name ?? 'N/A',
                     status: sale.status,
                     total: formatCurrency(sale.total),
                     profit: formatCurrency(sale.profit)
@@ -524,7 +542,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
     const CAT_DATA = category_data || [];
 
     return (
-        <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+        <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
             
             {/* ── ZONE 1: EXECUTIVE HERO BANNER ── */}
             <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 lg:p-10 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300">
@@ -552,6 +570,23 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
 
                         {/* Top Controls: Export & Date Picker */}
                         <div className="flex items-center gap-2.5 flex-wrap self-start lg:self-center">
+                            {branches.length > 0 && (
+                                <Select value={selectedBranch} onValueChange={handleBranchChange}>
+                                    <SelectTrigger className="h-10 px-4 rounded-2xl font-bold text-xs gap-2 border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] shadow-2xs cursor-pointer">
+                                        <Building2 className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                                        <SelectValue placeholder="All Branches" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
+                                        <SelectItem value="all" className="rounded-xl py-2 cursor-pointer">All Branches</SelectItem>
+                                        {branches.map((branch) => (
+                                            <SelectItem key={branch.id} value={branch.id.toString()} className="rounded-xl py-2 cursor-pointer">
+                                                {branch.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+
                             <Button 
                                 onClick={() => setIsExportOpen(true)}
                                 className="h-10 px-4 rounded-2xl bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white text-xs font-bold gap-2 cursor-pointer shadow-xs"
@@ -565,7 +600,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
                     </div>
 
                     {/* Dashboard Reused KPI Cards Strip */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 pt-2">
                         <KPICard
                             title="Today's Revenue"
                             value={formatCurrency(today_sales ?? 0)}
@@ -600,15 +635,26 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
                             index={2}
                         />
                         <KPICard
+                            title="Operating Expenses"
+                            value={formatCurrency(total_expenses ?? 0)}
+                            icon={Receipt}
+                            trend="down"
+                            trendValue="COGS"
+                            comparison="cost of goods sold"
+                            sparklineData={[{ value: 25 }, { value: 40 }, { value: 55 }, { value: 70 }]}
+                            badgeText="Expenses"
+                            index={3}
+                        />
+                        <KPICard
                             title="Net Profit"
                             value={formatCurrency(total_profit ?? 0)}
                             icon={TrendingUp}
                             trend="up"
-                            trendValue="+21.3%"
-                            comparison="operating margin"
+                            trendValue="Margin"
+                            comparison="revenue minus expenses"
                             sparklineData={[{ value: 20 }, { value: 50 }, { value: 65 }, { value: 88 }]}
                             badgeText="Margin"
-                            index={3}
+                            index={4}
                         />
                         <KPICard
                             title="Cancelled Orders"
@@ -619,7 +665,7 @@ function AdminReports({ sales, shifts, filters, trend_data, category_data, total
                             comparison="void count"
                             sparklineData={[{ value: 5 }, { value: 3 }, { value: 8 }, { value: 2 }]}
                             badgeText="Audited"
-                            index={4}
+                            index={5}
                         />
                     </div>
                 </div>
@@ -1006,7 +1052,7 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
     };
 
     return (
-        <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+        <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
             
             {/* Header Banner */}
             <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300 space-y-6">

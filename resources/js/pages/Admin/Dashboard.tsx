@@ -3,7 +3,8 @@ import {
     DollarSign, 
     TrendingUp, 
     ShoppingBag, 
-    AlertTriangle 
+    AlertTriangle,
+    Receipt
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -80,9 +81,15 @@ interface ActivityItem {
     status?: string;
 }
 
+interface BranchItem {
+    id: number;
+    name: string;
+}
+
 interface DashboardProps {
     stats: {
         total_revenue: number;
+        total_expenses: number;
         total_profit: number;
         total_orders: number;
         low_stock_items: number;
@@ -92,6 +99,8 @@ interface DashboardProps {
     salesPerProduct?: SalesPerProductItem[];
     salesByPaymentMethod?: PaymentMethodItem[];
     range: number;
+    branches?: BranchItem[];
+    filters?: { branch_id?: string; range?: number };
     recentActivity?: ActivityItem[];
     forecastIntel?: ForecastIntel;
     suggestions?: Suggestion[];
@@ -105,6 +114,8 @@ export default function Dashboard({
     salesPerProduct,
     salesByPaymentMethod,
     range,
+    branches = [],
+    filters = {},
     recentActivity = [],
     forecastIntel = { recommended_model: 'SES Model', confidence: 'High', accuracy_pct: 88.5, explanation: '' },
     suggestions = [],
@@ -112,10 +123,11 @@ export default function Dashboard({
 }: DashboardProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [lastSync, setLastSync] = useState(new Date().toLocaleTimeString());
+    const [selectedBranch, setSelectedBranch] = useState(filters.branch_id || 'all');
 
-    const handleRangeChange = (value: string) => {
+    const navigateDashboard = (params: Record<string, string>) => {
         setIsLoading(true);
-        router.get('/dashboard', { range: value }, {
+        router.get('/dashboard', params, {
             preserveState: true,
             preserveScroll: true,
             onFinish: () => {
@@ -125,11 +137,20 @@ export default function Dashboard({
         });
     };
 
+    const handleRangeChange = (value: string) => {
+        navigateDashboard({ range: value, branch_id: selectedBranch });
+    };
+
+    const handleBranchChange = (value: string) => {
+        setSelectedBranch(value);
+        navigateDashboard({ range: range.toString(), branch_id: value });
+    };
+
     return (
         <AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
             <Head title="Executive Operations Command" />
 
-            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 
                 {/* ── ZONE 1: LUXURY HERO SECTION ── */}
                 <DashboardHero 
@@ -137,10 +158,13 @@ export default function Dashboard({
                     isLoading={isLoading}
                     lastSync={lastSync}
                     onRangeChange={handleRangeChange}
+                    branches={branches}
+                    selectedBranch={selectedBranch}
+                    onBranchChange={handleBranchChange}
                 />
 
                 {/* ── ZONE 2: EXECUTIVE KPI SUMMARY GRID ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     <KPICard 
                         title="Aggregated Revenue"
                         value={formatCurrency(stats.total_revenue)}
@@ -153,15 +177,26 @@ export default function Dashboard({
                         index={0}
                     />
                     <KPICard 
-                        title="Operational Profit"
+                        title="Operating Expenses"
+                        value={formatCurrency(stats.total_expenses)}
+                        icon={Receipt}
+                        trend="down"
+                        trendValue="COGS"
+                        comparison="Cost of goods sold"
+                        loading={isLoading}
+                        sparklineData={salesOverTime?.map((s) => ({ value: Math.max(0, s.revenue - s.profit) }))}
+                        index={1}
+                    />
+                    <KPICard 
+                        title="Net Profit"
                         value={formatCurrency(stats.total_profit)}
                         icon={TrendingUp}
                         trend="up"
-                        trendValue="+11.6%"
-                        comparison="Gross margin gain"
+                        trendValue="Margin"
+                        comparison="Revenue minus expenses"
                         loading={isLoading}
                         sparklineData={salesOverTime?.map((s) => ({ value: s.profit }))}
-                        index={1}
+                        index={2}
                     />
                     <KPICard 
                         title="Volume Traffic"
@@ -172,7 +207,7 @@ export default function Dashboard({
                         comparison="Total order checkouts"
                         loading={isLoading}
                         sparklineData={salesOverTime?.map((s) => ({ value: s.revenue * 0.1 }))}
-                        index={2}
+                        index={3}
                     />
                     <KPICard 
                         title="Safety Stock Alert"
@@ -183,7 +218,7 @@ export default function Dashboard({
                         comparison="Low stock thresholds"
                         loading={isLoading}
                         badgeText={stats.low_stock_items > 0 ? `${stats.low_stock_items} Alert` : 'Clear'}
-                        index={3}
+                        index={4}
                     />
                 </div>
 

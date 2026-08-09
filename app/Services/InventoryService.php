@@ -114,7 +114,7 @@ class InventoryService
                     (float) $item['quantity'],
                     $item['unit'],
                     $branchId,
-                    (float) ($item['purchase_price'] ?? 0),
+                    (float) ($item['purchase_price'] ?? $item['unit_cost'] ?? 0),
                     $userId
                 );
             }

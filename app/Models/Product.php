@@ -122,13 +122,50 @@ class Product extends Model
         }
 
         if (!$branchId) {
+            // Aggregate stock across all branches for "All Branches" view
+            $minPossible = PHP_FLOAT_MAX;
+            $limitingIngredient = null;
+            $blockingIngredients = [];
+
+            foreach ($ingredients as $ingredient) {
+                $qtyInput = (float) $ingredient->pivot->quantity_required;
+                $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+
+                $requiredPerUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                    $qtyInput,
+                    $unitInput,
+                    $ingredient->unit,
+                    $ingredient->avg_weight_per_piece
+                );
+
+                if ($requiredPerUnit <= 0) {
+                    continue;
+                }
+
+                // Sum stock across ALL branches
+                $availableInStock = (float) $ingredient->stocks()->sum('stock');
+
+                $unitsPossible = floor($availableInStock / $requiredPerUnit);
+
+                if ($unitsPossible < $minPossible) {
+                    $minPossible = $unitsPossible;
+                    $limitingIngredient = $ingredient->name;
+                }
+
+                if ($availableInStock < $requiredPerUnit) {
+                    $blockingIngredients[] = $ingredient->name;
+                }
+            }
+
+            $finalAvailable = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (int) $minPossible);
+
             return [
-                'available' => 0, 
-                'is_available' => false,
-                'max_servings' => 0,
-                'limiting_ingredient' => 'No Branch Context', 
-                'blocking_ingredients' => [],
-                'is_low_stock' => false
+                'available' => $finalAvailable,
+                'is_available' => $finalAvailable > 0,
+                'max_servings' => $finalAvailable,
+                'limiting_ingredient' => $finalAvailable <= 0 ? ($limitingIngredient ?? 'Insufficient Stock') : $limitingIngredient,
+                'blocking_ingredients' => $blockingIngredients,
+                'is_low_stock' => $finalAvailable > 0 && $finalAvailable <= 5
             ];
         }
 

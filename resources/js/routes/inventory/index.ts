@@ -422,7 +422,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\StockInController::stockIn
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
 export const stockIn = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -437,7 +437,7 @@ stockIn.definition = {
 
 /**
 * @see \App\Http\Controllers\StockInController::stockIn
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
 stockIn.url = (options?: RouteQueryOptions) => {
@@ -446,7 +446,7 @@ stockIn.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StockInController::stockIn
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
 stockIn.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -456,7 +456,7 @@ stockIn.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\StockInController::stockIn
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
     const stockInForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -466,7 +466,7 @@ stockIn.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\StockInController::stockIn
- * @see app/Http/Controllers/StockInController.php:64
+ * @see app/Http/Controllers/StockInController.php:66
  * @route '/inventory/stock-in'
  */
         stockInForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

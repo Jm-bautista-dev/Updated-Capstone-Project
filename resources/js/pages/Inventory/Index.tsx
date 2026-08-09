@@ -561,7 +561,7 @@ export default function InventoryIndex() {
         <AppLayout breadcrumbs={[{ title: 'Inventory', href: '/inventory' }]}>
             <Head title="Inventory Command Center" />
 
-            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-[calc(100vh-64px)] overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 
                 {/* ── ZONE 1: HERO & VALUATION STATISTICS ── */}
                 <InventoryHero
@@ -815,7 +815,7 @@ export default function InventoryIndex() {
                             {/* Branch Selection Chips */}
                             {isAdmin && branchList.length > 0 && (
                                 <div className="col-span-2 space-y-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-3">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Allocate to Branches</label>
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Branch Assignment</label>
                                     <div className="flex flex-wrap gap-2">
                                         {branchList.map((b) => (
                                             <button
@@ -823,15 +823,33 @@ export default function InventoryIndex() {
                                                 key={b.id}
                                                 onClick={() => toggleBranchInAddForm(b.id.toString())}
                                                 className={cn(
-                                                    "px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer",
+                                                    "px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
                                                     data.branch_ids.includes(b.id.toString())
-                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent"
-                                                        : "bg-white dark:bg-[#181820] text-[#7D6B6E] dark:text-[#94A3B8] border-[#F8C8DC] dark:border-white/10"
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs"
+                                                        : "bg-white dark:bg-[#181820] text-[#7D6B6E] dark:text-[#94A3B8] border-[#F8C8DC] dark:border-white/10 hover:border-[#E75480]"
                                                 )}
                                             >
-                                                {b.name}
+                                                <span>{b.name}</span>
                                             </button>
                                         ))}
+                                        {branchList.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const allIds = branchList.map(b => b.id.toString());
+                                                    const allSelected = branchList.every(b => data.branch_ids.includes(b.id.toString()));
+                                                    setData('branch_ids', allSelected ? [] : allIds);
+                                                }}
+                                                className={cn(
+                                                    "px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
+                                                    branchList.every(b => data.branch_ids.includes(b.id.toString()))
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs"
+                                                        : "bg-white dark:bg-[#181820] text-[#7D6B6E] dark:text-[#94A3B8] border-[#F8C8DC] dark:border-white/10 hover:border-[#E75480]"
+                                                )}
+                                            >
+                                                <span>Both Branches (Global)</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             )}
