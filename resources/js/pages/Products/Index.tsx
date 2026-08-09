@@ -212,6 +212,7 @@ export default function ProductsIndex() {
         name: '',
         sku: '',
         category_id: '',
+        description: '',
         cost_price: '',
         selling_price: '',
         branch_id: currentBranchId ? String(currentBranchId) : '',
@@ -220,6 +221,10 @@ export default function ProductsIndex() {
         unit: 'pcs',
         stock: '0',
     });
+
+    // Local error state for edit form (router.post doesn't auto-populate useForm errors)
+    const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+    const [addErrors, setAddErrors] = useState<Record<string, string>>({});
 
     // Filtered Products Calculation
     const filteredData = useMemo(() => {
@@ -253,6 +258,7 @@ export default function ProductsIndex() {
             name: product.name,
             sku: product.sku || '',
             category_id: product.category_id.toString(),
+            description: (product as unknown as { description?: string }).description || '',
             cost_price: product.cost_price.toString(),
             selling_price: product.selling_price.toString(),
             branch_id: product.branch_id?.toString() || '',
@@ -267,6 +273,7 @@ export default function ProductsIndex() {
         });
         setImageFile(null);
         setImagePreview(product.image_url || null);
+        setEditErrors({});
         setIsEditModalOpen(true);
     };
 
@@ -287,6 +294,7 @@ export default function ProductsIndex() {
 
     const handleAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setAddErrors({});
         router.post('/products', {
             ...data,
             image: imageFile,
@@ -302,28 +310,34 @@ export default function ProductsIndex() {
                 setImageFile(null);
                 setImagePreview(null);
             },
+            onError: (errs) => {
+                setAddErrors(errs as Record<string, string>);
+            },
         });
     };
 
     const handleEditSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (selectedProduct) {
-            router.post(`/products/${selectedProduct.id}`, {
-                _method: 'PUT',
-                ...data,
-                image: imageFile,
-            } as RequestPayload, {
-                forceFormData: true,
-                onSuccess: () => {
-                    setIsEditModalOpen(false);
-                    reset();
-                    setImageFile(null);
-                    setImagePreview(null);
-                    setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
-                    setIsSuccessModalOpen(true);
-                },
-            });
-        }
+        if (!selectedProduct) return;
+        setEditErrors({});
+        router.post(`/products/${selectedProduct.id}`, {
+            _method: 'PUT',
+            ...data,
+            image: imageFile,
+        } as RequestPayload, {
+            forceFormData: true,
+            onSuccess: () => {
+                setIsEditModalOpen(false);
+                reset();
+                setImageFile(null);
+                setImagePreview(null);
+                setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
+                setIsSuccessModalOpen(true);
+            },
+            onError: (errs) => {
+                setEditErrors(errs as Record<string, string>);
+            },
+        });
     };
 
     const handleDeleteSubmit = () => {
@@ -737,15 +751,25 @@ export default function ProductsIndex() {
                     </DialogHeader>
 
                     <form onSubmit={handleEditSubmit} className="flex flex-col flex-1 overflow-hidden space-y-4 pt-2">
+                        {Object.keys(editErrors).length > 0 && (
+                            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-bold space-y-1">
+                                <p className="font-extrabold uppercase tracking-tight">Validation Error</p>
+                                {Object.entries(editErrors).map(([key, err]) => (
+                                    <p key={key} className="text-[11px] font-medium">• {err}</p>
+                                ))}
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4 flex-1 overflow-y-auto max-h-[60vh] pr-1 pb-2">
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
+                                {editErrors.name && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.name}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">SKU</label>
                                 <Input value={data.sku} onChange={(e) => setData('sku', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
+                                {editErrors.sku && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.sku}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -761,16 +785,19 @@ export default function ProductsIndex() {
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
+                                {editErrors.category_id && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.category_id}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Cost Price</label>
                                 <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
+                                {editErrors.cost_price && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.cost_price}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Selling Price</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
+                                {editErrors.selling_price && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.selling_price}</p>}
                             </div>
 
                             <div className="space-y-1.5">

@@ -42,9 +42,14 @@ class UnitConverter
     public static function normalizeUnit(string $unit): string
     {
         return match (strtolower($unit)) {
-            'kg', 'g', 'grams' => 'g',
+            'kg', 'g', 'grams'              => 'g',
             'l', 'liters', 'ml', 'milliliters' => 'ml',
-            default => 'pcs',
+            'mg'                             => 'mg',
+            'box'                            => 'box',
+            'bottle'                         => 'bottle',
+            'pack'                           => 'pack',
+            'sack'                           => 'sack',
+            default                          => 'pcs',
         };
     }
 
@@ -99,6 +104,6 @@ class UnitConverter
      */
     public static function getAllowedUnits(): array
     {
-        return ['g', 'ml', 'pcs', 'kg', 'L', 'liters', 'cloves', 'clove', 'half', 'whole'];
+        return ['g', 'ml', 'pcs', 'kg', 'L', 'liters', 'mg', 'box', 'bottle', 'pack', 'sack', 'cloves', 'clove', 'half', 'whole'];
     }
 }
