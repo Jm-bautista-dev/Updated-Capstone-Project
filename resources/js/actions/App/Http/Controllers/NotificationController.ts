@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
+ * @see app/Http/Controllers/NotificationController.php:135
  * @route '/api/v1/notifications/mark-as-read'
  */
 export const markAsRead = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ markAsRead.definition = {
 
 /**
 * @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
+ * @see app/Http/Controllers/NotificationController.php:135
  * @route '/api/v1/notifications/mark-as-read'
  */
 markAsRead.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ markAsRead.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
+ * @see app/Http/Controllers/NotificationController.php:135
  * @route '/api/v1/notifications/mark-as-read'
  */
 markAsRead.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ markAsRead.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
+ * @see app/Http/Controllers/NotificationController.php:135
  * @route '/api/v1/notifications/mark-as-read'
  */
     const markAsReadForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ markAsRead.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\NotificationController::markAsRead
- * @see app/Http/Controllers/NotificationController.php:71
+ * @see app/Http/Controllers/NotificationController.php:135
  * @route '/api/v1/notifications/mark-as-read'
  */
         markAsReadForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ markAsRead.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     markAsRead.form = markAsReadForm
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
 export const activity = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -149,7 +149,7 @@ activity.definition = {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
 activity.url = (options?: RouteQueryOptions) => {
@@ -158,7 +158,7 @@ activity.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
 activity.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -167,7 +167,7 @@ activity.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
 activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -177,7 +177,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
     const activityForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -187,7 +187,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
         activityForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -196,7 +196,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:84
+ * @see app/Http/Controllers/NotificationController.php:148
  * @route '/inventory/activity'
  */
         activityForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
