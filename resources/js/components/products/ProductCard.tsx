@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Package, RefreshCw, Edit2, Trash2, Eye, Building2 } from 'lucide-react';
+import { useState } from 'react';
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -27,6 +28,8 @@ export function ProductCard({
     onOpenDelete,
     index = 0,
 }: ProductCardProps) {
+    const [imgError, setImgError] = useState(false);
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -44,10 +47,11 @@ export function ProductCard({
                     onClick={() => onSelectProduct(product)}
                     className="relative w-full h-44 rounded-2xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/30 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center mb-4 cursor-pointer group-hover:shadow-xs transition-all"
                 >
-                    {product.image_url ? (
+                    {product.image_url && !imgError ? (
                         <img
                             src={product.image_url}
                             alt={product.name}
+                            onError={() => setImgError(true)}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                     ) : (

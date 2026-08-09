@@ -73,15 +73,15 @@ export function ProductTable({
                                         {/* Product info with image thumbnail */}
                                         <td className="p-4 px-6 align-middle">
                                             <div className="flex items-center gap-3.5">
-                                                <div className="size-11 rounded-xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-                                                    {product.image_url ? (
+                                                <div className="size-11 rounded-xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0 relative">
+                                                    <Package className="size-5 text-[#E75480]/50 dark:text-[#FF4F81]/50 absolute" />
+                                                    {product.image_url && (
                                                         <img
                                                             src={product.image_url}
                                                             alt={product.name}
-                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                            className="w-full h-full object-cover relative z-10"
                                                         />
-                                                    ) : (
-                                                        <Package className="size-5 text-[#E75480]/50 dark:text-[#FF4F81]/50" />
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col">

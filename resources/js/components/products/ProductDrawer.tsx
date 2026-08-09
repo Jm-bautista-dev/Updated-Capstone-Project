@@ -90,17 +90,17 @@ export function ProductDrawer({
                 
                 {/* Image Header Banner */}
                 <div className="relative w-full h-60 bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#181822] dark:to-[#20202E] flex items-center justify-center border-b border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
-                    {product.image_url ? (
+                    <div className="flex flex-col items-center gap-2 text-[#E75480]/40 dark:text-[#FF4F81]/40 absolute">
+                        <Package className="size-16" />
+                        <span className="text-xs font-bold uppercase tracking-widest">No Image Asset</span>
+                    </div>
+                    {product.image_url && (
                         <img
                             src={product.image_url}
                             alt={product.name}
-                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            className="w-full h-full object-cover relative z-10"
                         />
-                    ) : (
-                        <div className="flex flex-col items-center gap-2 text-[#E75480]/40 dark:text-[#FF4F81]/40">
-                            <Package className="size-16" />
-                            <span className="text-xs font-bold uppercase tracking-widest">No Image Asset</span>
-                        </div>
                     )}
 
                     <div className="absolute top-4 left-4">

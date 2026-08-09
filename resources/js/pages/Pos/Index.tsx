@@ -599,13 +599,15 @@ export default function PosIndex() {
                             )}
                           >
                             {/* Product Image Area (Aspect 4/3, fixed) */}
-                            <div className="relative aspect-4/3 rounded-t-2xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] shrink-0 border-b border-[#F8C8DC]/40 dark:border-[#26262A]">
-                              {p.image_url ? (
-                                <img src={p.image_url} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-zinc-400">
-                                  <FiPackage className="size-8 opacity-40" />
-                                </div>
+                            <div className="relative aspect-4/3 rounded-t-2xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] shrink-0 border-b border-[#F8C8DC]/40 dark:border-[#26262A] flex items-center justify-center">
+                              <FiPackage className="size-8 text-zinc-400 opacity-40 absolute" />
+                              {p.image_url && (
+                                <img
+                                  src={p.image_url}
+                                  alt={p.name}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
+                                />
                               )}
 
                               {/* Cart Count Overlay Badge */}
@@ -755,13 +757,15 @@ export default function PosIndex() {
                       className="p-4 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs"
                     >
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="size-16 rounded-xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/40 dark:border-[#26262A] shrink-0">
-                          {item.image_url ? (
-                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-zinc-400">
-                              <FiPackage className="size-6" />
-                            </div>
+                        <div className="size-16 rounded-xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/40 dark:border-[#26262A] shrink-0 flex items-center justify-center relative">
+                          <FiPackage className="size-6 text-zinc-400 absolute" />
+                          {item.image_url && (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              className="w-full h-full object-cover relative z-10"
+                            />
                           )}
                         </div>
                         <div>
