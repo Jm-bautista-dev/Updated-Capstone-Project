@@ -134,16 +134,11 @@ export default function InventoryIndex() {
     // Load activity logs on page mount
     const fetchActivityLogs = async () => {
         try {
-            const response = await axios.get('/inventory/activity', {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-Inertia': 'true',
-                    'X-Inertia-Partial-Component': 'Inventory/Activity',
-                    'X-Inertia-Partial-Data': 'logs'
-                }
+            const response = await axios.get('/api/inventory/activity-logs', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
-            if (response.data?.props?.logs?.data) {
-                const logs = response.data.props.logs.data;
+            if (response.data?.logs) {
+                const logs = response.data.logs;
                 setRecentLogs(logs);
                 
                 const map: Record<string, Record<string, unknown>> = {};
@@ -177,17 +172,12 @@ export default function InventoryIndex() {
     useEffect(() => {
         if (selectedRow) {
             setLoadingDrawerLogs(true);
-            axios.get(`/inventory/activity?ingredient_id=${selectedRow.id}&branch_id=${selectedRow.branch_id}`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-Inertia': 'true',
-                    'X-Inertia-Partial-Component': 'Inventory/Activity',
-                    'X-Inertia-Partial-Data': 'logs'
-                }
+            axios.get(`/api/inventory/activity-logs?ingredient_id=${selectedRow.id}&branch_id=${selectedRow.branch_id}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(res => {
-                if (res.data?.props?.logs?.data) {
-                    setDrawerLogs(res.data.props.logs.data);
+                if (res.data?.logs) {
+                    setDrawerLogs(res.data.logs);
                 }
             })
             .catch(() => {})

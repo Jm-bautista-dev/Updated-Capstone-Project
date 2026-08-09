@@ -66,6 +66,70 @@ class NotificationController extends Controller
     }
 
     /**
+     * JSON API: Get activity logs for inventory page (avoids Inertia 409 version conflict).
+     * Used by axios calls from Inventory/Index.tsx drawer and recent-activity panel.
+     */
+    public function activityLogs(Request $request)
+    {
+        $user = Auth::user();
+
+        $query = IngredientLog::with(['ingredient', 'branch', 'user'])
+            ->latest();
+
+        // Branch visibility rules
+        if (!$user->isAdmin()) {
+            $query->where('branch_id', $user->branch_id);
+        } elseif ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        if ($request->filled('ingredient_id')) {
+            $query->where('ingredient_id', $request->ingredient_id);
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        $logs = $query->limit($request->input('limit', 50))->get()->map(function ($log) use ($user) {
+            if (!$log->ingredient) return null;
+
+            $currentStock = 0;
+            if ($log->branch_id) {
+                $stockRow = IngredientStock::where('ingredient_id', $log->ingredient_id)
+                    ->where('branch_id', $log->branch_id)
+                    ->first();
+                $currentStock = $stockRow ? $stockRow->stock : 0;
+            }
+
+            $isAlert = str_contains($log->reason, 'Stock Alert');
+
+            return [
+                'id'               => $log->id,
+                'ingredient_id'    => $log->ingredient_id,
+                'branch_id'        => $log->branch_id,
+                'employee_name'    => $log->user ? $log->user->name : 'System',
+                'action'           => $isAlert ? 'Alert' : ($log->change_qty > 0 ? 'Added' : 'Deducted'),
+                'ingredient_name'  => $log->ingredient->name,
+                'quantity_change'  => abs((float)$log->change_qty) . ' ' . $log->ingredient->unit,
+                'remaining'        => $currentStock . ' ' . $log->ingredient->unit,
+                'source'           => $log->reason,
+                'branch_name'      => $log->branch ? $log->branch->name : 'N/A',
+                'created_at'       => $log->created_at->toIso8601String(),
+                'time_ago'         => $log->created_at->diffForHumans(),
+                'is_unread'        => $user->last_notifications_read_at
+                    ? $log->created_at->gt($user->last_notifications_read_at)
+                    : true,
+                'type'             => str_contains($log->reason, 'Out of Stock')
+                    ? 'out_of_stock'
+                    : (str_contains($log->reason, 'Low Stock') ? 'low_stock' : 'activity'),
+            ];
+        })->filter()->values();
+
+        return response()->json(['logs' => $logs]);
+    }
+
+    /**
      * Mark all notifications as read.
      */
     public function markAsRead()

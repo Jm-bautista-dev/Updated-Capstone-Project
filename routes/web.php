@@ -150,8 +150,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');
             Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
 
-            // Notifications
+            // Notifications — Inertia page
             Route::get('inventory/activity', [NotificationController::class, 'activity'])->name('inventory.activity');
+            // JSON API for axios calls (avoids Inertia 409 version conflict in production)
+            Route::get('api/inventory/activity-logs', [NotificationController::class, 'activityLogs'])->name('inventory.activity-logs');
 
             // New Weight/Volume Inventory System
             Route::get('/inventory-items', [InventoryActionController::class, 'index'])->name('inventory-items.index');
