@@ -74,7 +74,7 @@ class ProductsController extends Controller
             $product->status = $this->getStockStatus($product->stock);
             $product->is_direct = !$product->hasRecipe();
 
-            $product->image_url = $product->image_path
+            $product->image_url = ($product->image_path && Storage::disk('public')->exists($product->image_path))
                 ? asset('storage/' . $product->image_path)
                 : null;
 

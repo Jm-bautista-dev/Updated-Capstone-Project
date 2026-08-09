@@ -50,7 +50,7 @@ class PosController extends Controller
             $product->limiting_ingredient = $availability['limiting_ingredient'];
             $product->is_low_stock = $availability['is_low_stock'];
 
-            $product->image_url = $product->image_path
+            $product->image_url = ($product->image_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($product->image_path))
                 ? asset('storage/' . $product->image_path)
                 : null;
             return $product;
@@ -58,7 +58,7 @@ class PosController extends Controller
 
         // Load categories globally (shared across branches)
         $categories = Category::orderBy('name')->get()->map(function ($category) {
-            $category->image_url = $category->image_path
+            $category->image_url = ($category->image_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($category->image_path))
                 ? asset('storage/' . $category->image_path)
                 : null;
             return $category;

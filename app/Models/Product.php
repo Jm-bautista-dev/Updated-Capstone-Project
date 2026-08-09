@@ -32,7 +32,12 @@ class Product extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+        if (!$this->image_path) {
+            return null;
+        }
+        return \Illuminate\Support\Facades\Storage::disk('public')->exists($this->image_path)
+            ? asset('storage/' . $this->image_path)
+            : null;
     }
 
     public function branch()
