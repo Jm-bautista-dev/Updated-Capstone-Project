@@ -31,7 +31,7 @@ class CategoriesController extends Controller
         }
 
         $categories = $query->orderBy('name')->get()->map(function (Category $category) {
-            $category->image_url = ($category->image_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($category->image_path))
+            $category->image_url = ($category->image_path && Storage::disk('public')->exists($category->image_path))
                 ? asset('storage/' . $category->image_path)
                 : null;
             return $category;
