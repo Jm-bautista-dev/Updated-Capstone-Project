@@ -570,6 +570,14 @@ export default function ProductsIndex() {
                     </DialogHeader>
 
                     <form onSubmit={handleAddSubmit} className="flex flex-col flex-1 overflow-hidden space-y-4 pt-2">
+                        {Object.keys(addErrors).length > 0 && (
+                            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs font-bold space-y-1">
+                                <p className="font-extrabold uppercase tracking-tight">Validation Error</p>
+                                {Object.entries(addErrors).map(([key, err]) => (
+                                    <p key={key} className="text-[11px] font-medium">• {err}</p>
+                                ))}
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4 flex-1 overflow-y-auto max-h-[60vh] pr-1 pb-2">
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Name</label>
