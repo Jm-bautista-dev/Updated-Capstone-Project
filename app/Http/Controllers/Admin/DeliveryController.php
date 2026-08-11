@@ -27,6 +27,8 @@ class DeliveryController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
+
         $query = Delivery::with([
             'sale.cashier',
             'sale.branch',
@@ -36,19 +38,42 @@ class DeliveryController extends Controller
             'rider',
             'creator',
             'cancelledBy'
-        ])->latest();
+        ]);
 
-        // Filter by Status
+        // ── Branch Isolation: Cashiers only see their own branch ────────────
+        if (!$user->isAdmin()) {
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
+                  ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
+            });
+        }
+
+        // ── Queue-first ordering: active states by age, then completed ──────
+        // Active queue states sorted oldest-first (FIFO by wait time)
+        $activeStatuses = [
+            'waiting_for_kitchen',
+            'pending',
+            'preparing',
+            'ready_for_pickup',
+            'assigned_to_rider',
+            'picked_up',
+            'in_transit',
+            'failed_delivery',
+        ];
+
+        $query->orderByRaw(
+            "CASE WHEN status IN ('" . implode("','",$activeStatuses) . "') THEN 0 ELSE 1 END ASC"
+        )->orderBy('created_at', 'asc');
+
+        // ── Filters ────────────────────────────────────────────────────────
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
-        // Filter by Type (Internal/External)
         if ($request->filled('type') && $request->type !== 'all') {
             $query->where('delivery_type', $request->type);
         }
 
-        // Filter by Branch
         if ($request->filled('branch_id') && $request->branch_id !== 'all') {
             $branchId = $request->branch_id;
             $query->where(function ($q) use ($branchId) {
@@ -57,7 +82,6 @@ class DeliveryController extends Controller
             });
         }
 
-        // Search by Customer, Order #, Tracking, Landmark
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -73,14 +97,28 @@ class DeliveryController extends Controller
 
         $deliveries = $query->paginate(50)->withQueryString();
 
-        // Transform for frontend
-        $deliveries->getCollection()->transform(function ($delivery) {
-            $delivery->status_label = $delivery->getStatusLabel();
-            $delivery->status_color = $delivery->getStatusColor();
-            $delivery->next_statuses = $delivery->getNextStatuses();
-            $delivery->is_cancelled = $delivery->isCancelled();
-            $delivery->is_delivered = $delivery->isDelivered();
+        // ── Queue position counter (only for active statuses) ───────────────
+        $queuePosition = 1;
+        $deliveries->getCollection()->transform(function ($delivery) use (&$queuePosition, $activeStatuses) {
+            $delivery->status_label    = $delivery->getStatusLabel();
+            $delivery->status_color    = $delivery->getStatusColor();
+            $delivery->next_statuses   = $delivery->getNextStatuses();
+            $delivery->is_cancelled    = $delivery->isCancelled();
+            $delivery->is_delivered    = $delivery->isDelivered();
+            $delivery->is_failed       = $delivery->status === Delivery::STATUS_FAILED;
+            $delivery->can_mark_failed = $delivery->canMarkFailed();
             $delivery->cancelled_by_name = $delivery->cancelledBy?->name;
+
+            // Waiting time in minutes
+            $delivery->waiting_minutes = (int) now()->diffInMinutes($delivery->created_at);
+
+            // Queue position (only for active/in-flight deliveries)
+            if (in_array($delivery->status, $activeStatuses)) {
+                $delivery->queue_position = $queuePosition++;
+            } else {
+                $delivery->queue_position = null;
+            }
+
             return $delivery;
         });
 
@@ -94,25 +132,46 @@ class DeliveryController extends Controller
             ->get()
             ->map(function ($rider) {
                 return [
-                    'id' => $rider->id,
-                    'name' => $rider->name,
-                    'status' => $rider->status,
-                    'branch_name' => $rider->branch?->name ?? 'Global',
-                    'active_deliveries' => $rider->deliveries_count,
+                    'id'               => $rider->id,
+                    'name'             => $rider->name,
+                    'status'           => $rider->status,
+                    'branch_name'      => $rider->branch?->name ?? 'Global',
+                    'active_deliveries'=> $rider->deliveries_count,
                 ];
             });
 
+        // ── Accurate stats across all queue states ─────────────────────────
+        $baseQuery = Delivery::query();
+        if (!$user->isAdmin()) {
+            $baseQuery->where(function ($q) use ($user) {
+                $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
+                  ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
+            });
+        }
+
+        $stats = [
+            'waiting'    => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
+            'preparing'  => (clone $baseQuery)->where('status', 'preparing')->count(),
+            'ready'      => (clone $baseQuery)->where('status', 'ready_for_pickup')->count(),
+            'assigned'   => (clone $baseQuery)->where('status', 'assigned_to_rider')->count(),
+            'in_transit' => (clone $baseQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
+            'delivered'  => (clone $baseQuery)->where('status', 'delivered')->whereDate('created_at', today())->count(),
+            'failed'     => (clone $baseQuery)->where('status', 'failed_delivery')->count(),
+            'delayed'    => (clone $baseQuery)
+                ->whereNotIn('status', ['delivered', 'cancelled', 'failed_delivery'])
+                ->where('created_at', '<', now()->subMinutes(45))
+                ->count(),
+            // Legacy aliases for backward compatibility
+            'pending'    => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
+            'active'     => (clone $baseQuery)->whereNotIn('status', ['pending', 'waiting_for_kitchen', 'delivered', 'cancelled'])->count(),
+        ];
+
         return Inertia::render('Admin/Deliveries', [
-            'deliveries' => $deliveries,
-            'availableRiders' => $availableRiders,
-            'filters' => $request->only(['status', 'type', 'branch_id', 'search']),
-            'branches' => Branch::orderBy('name')->get(['id', 'name']),
-            'stats' => [
-                'pending' => Delivery::where('status', 'pending')->count(),
-                'active' => Delivery::whereNotIn('status', ['pending', 'delivered', 'cancelled'])->count(),
-                'delivered' => Delivery::where('status', 'delivered')->whereDate('created_at', today())->count(),
-                'delayed' => Delivery::whereNotIn('status', ['delivered', 'cancelled'])->where('created_at', '<', now()->subHour())->count(),
-            ],
+            'deliveries'     => $deliveries,
+            'availableRiders'=> $availableRiders,
+            'filters'        => $request->only(['status', 'type', 'branch_id', 'search']),
+            'branches'       => Branch::orderBy('name')->get(['id', 'name']),
+            'stats'          => $stats,
         ]);
     }
 
@@ -187,7 +246,6 @@ class DeliveryController extends Controller
         $user = Auth::user();
 
         // ── Step 1: Authorization & Branch Check ────────────────────────────
-        // Check if Cashier is restricted to their branch
         if ($user->role === 'Cashier') {
             $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
             if ($branchId && $user->branch_id !== $branchId) {
@@ -207,10 +265,10 @@ class DeliveryController extends Controller
         // ── Step 3: Execute Cancellation ───────────────────────────────────
         try {
             $delivery->update([
-                'status' => Delivery::STATUS_CANCELLED,
+                'status'              => Delivery::STATUS_CANCELLED,
                 'cancellation_reason' => $request->input('reason', 'Customer requested cancellation'),
-                'cancelled_by' => $user->id,
-                'cancelled_at' => now(),
+                'cancelled_by'        => $user->id,
+                'cancelled_at'        => now(),
             ]);
 
             // Sync with parent order if applicable
@@ -224,6 +282,38 @@ class DeliveryController extends Controller
             return back()->with('success', 'Delivery cancelled successfully.');
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to cancel delivery: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mark a delivery as failed (rider could not complete).
+     * POST /deliveries/{delivery}/fail
+     */
+    public function failDelivery(Request $request, Delivery $delivery)
+    {
+        $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $this->deliveryService->handleFailedDelivery(
+                $delivery,
+                $request->input('reason', 'Delivery could not be completed')
+            );
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Delivery marked as failed. Please reassign a rider.',
+                ]);
+            }
+
+            return back()->with('success', 'Delivery marked as failed. Please reassign a rider.');
+        } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+            return back()->with('error', $e->getMessage());
         }
     }
 

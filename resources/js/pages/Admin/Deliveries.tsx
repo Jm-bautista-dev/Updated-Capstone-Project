@@ -150,6 +150,12 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         executeStatusUpdate(id);
     }, [accumulatedDeliveries, executeStatusUpdate]);
 
+    const handleFailDelivery = useCallback((id: number) => {
+        if (confirm('Are you sure you want to mark this delivery as failed? The rider will be freed and you can reassign a new rider.')) {
+            router.post(`/deliveries/${id}/fail`, {}, { preserveState: true });
+        }
+    }, []);
+
     const handleSelectDelivery = useCallback((delivery: Delivery) => {
         setSelectedDelivery(delivery);
     }, []);
@@ -216,8 +222,11 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                     onToggleGroupByStatus={() => setGroupByStatus(v => !v)}
                 />
 
-                {/* 2. DELIVERY KPIS */}
-                <DeliveryStats stats={stats} />
+                {/* 2. DELIVERY KPIS & PIPELINE */}
+                <DeliveryStats
+                    stats={stats}
+                    onStatusFilterClick={(status) => handleFilterChange({ status })}
+                />
 
                 {/* 3. QUICK ACTIONS */}
                 <DeliveryQuickActions />
@@ -248,6 +257,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                             onSelect={handleSelectDelivery}
                             onUpdateStatus={handleUpdateStatus}
                             onAssignRider={handleAssignRider}
+                            onFailDelivery={handleFailDelivery}
                         />
                     ) : viewMode === 'table' ? (
                         /* Flat Table View */
@@ -256,6 +266,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                             onSelect={handleSelectDelivery}
                             onUpdateStatus={handleUpdateStatus}
                             onAssignRider={handleAssignRider}
+                            onFailDelivery={handleFailDelivery}
                             containerHeight={Math.min(700, accumulatedDeliveries.length * 56)}
                         />
                     ) : (
@@ -268,6 +279,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                     onSelect={handleSelectDelivery}
                                     onUpdateStatus={handleUpdateStatus}
                                     onAssignRider={handleAssignRider}
+                                    onFailDelivery={handleFailDelivery}
                                 />
                             ))}
                         </div>

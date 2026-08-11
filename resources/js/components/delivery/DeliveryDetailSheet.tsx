@@ -38,10 +38,18 @@ const STATUS_STEPS = [
 ];
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
-    const currentIndex = STATUS_STEPS.findIndex(s => s.key === currentStatus);
+    const isFailed = currentStatus === 'failed_delivery';
+    const isCancelled = currentStatus === 'cancelled';
+    const normalizedStatus = currentStatus === 'waiting_for_kitchen' ? 'pending' : currentStatus;
+    const currentIndex = STATUS_STEPS.findIndex(s => s.key === normalizedStatus);
 
     return (
         <div className="w-full py-6 relative overflow-hidden group/timeline">
+            {(isFailed || isCancelled) && (
+                <div className="mb-4 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-400 text-xs font-bold flex items-center justify-between">
+                    <span>{isFailed ? '⚠️ Delivery Attempt Failed — Requires Rider Reassignment' : '🚫 Delivery Cancelled'}</span>
+                </div>
+            )}
             {/* Custom Animation Styles */}
             <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes pulse-subtle {

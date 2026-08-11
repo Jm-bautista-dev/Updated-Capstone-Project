@@ -17,6 +17,7 @@ interface DeliveryStatusGroupProps {
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
     onAssignRider: (delivery: Delivery) => void;
+    onFailDelivery?: (id: number) => void;
 }
 
 const StatusGroupSection = React.memo(function StatusGroupSection({
@@ -32,6 +33,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
     onSelect,
     onUpdateStatus,
     onAssignRider,
+    onFailDelivery,
 }: {
     label: string;
     color: string;
@@ -45,6 +47,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
     onAssignRider: (delivery: Delivery) => void;
+    onFailDelivery?: (id: number) => void;
 }) {
     if (deliveries.length === 0) return null;
 
@@ -73,6 +76,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
                         onSelect={onSelect}
                         onUpdateStatus={onUpdateStatus}
                         onAssignRider={onAssignRider}
+                        onFailDelivery={onFailDelivery}
                         containerHeight={Math.min(400, deliveries.length * 56)}
                     />
                 ) : (
@@ -84,6 +88,7 @@ const StatusGroupSection = React.memo(function StatusGroupSection({
                                 onSelect={onSelect}
                                 onUpdateStatus={onUpdateStatus}
                                 onAssignRider={onAssignRider}
+                                onFailDelivery={onFailDelivery}
                             />
                         ))}
                     </div>
@@ -101,6 +106,7 @@ const DeliveryStatusGroup = React.memo(function DeliveryStatusGroup({
     onSelect,
     onUpdateStatus,
     onAssignRider,
+    onFailDelivery,
 }: DeliveryStatusGroupProps) {
     const grouped = useMemo(() => {
         const map = new Map<string, Delivery[]>();
@@ -111,8 +117,8 @@ const DeliveryStatusGroup = React.memo(function DeliveryStatusGroup({
             if (group) {
                 map.get(group.key)!.push(delivery);
             } else {
-                // Fallback: put unrecognized statuses in pending
-                map.get('pending')!.push(delivery);
+                // Fallback: put unrecognized statuses in waiting_for_kitchen group
+                (map.get('waiting_for_kitchen') || map.get('pending') || []).push(delivery);
             }
         });
 
@@ -138,6 +144,7 @@ const DeliveryStatusGroup = React.memo(function DeliveryStatusGroup({
                         onSelect={onSelect}
                         onUpdateStatus={onUpdateStatus}
                         onAssignRider={onAssignRider}
+                        onFailDelivery={onFailDelivery}
                     />
                 );
             })}

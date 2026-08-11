@@ -19,6 +19,10 @@ export interface Delivery {
     next_statuses: string[];
     is_cancelled: boolean;
     is_delivered: boolean;
+    is_failed?: boolean;
+    can_mark_failed?: boolean;
+    waiting_minutes?: number;
+    queue_position?: number | null;
     cancellation_reason?: string | null;
     cancelled_at?: string | null;
     cancelled_by_name?: string | null;
@@ -62,7 +66,7 @@ export interface Delivery {
 
 export interface DeliveryPagination {
     data: Delivery[];
-    links: any[];
+    links: Array<{ url: string | null; label: string; active: boolean }>;
     current_page: number;
     last_page: number;
     total: number;
@@ -78,10 +82,16 @@ export interface DeliveryFilters {
 }
 
 export interface DeliveryStatsData {
+    waiting?: number;
+    preparing?: number;
+    ready?: number;
+    assigned?: number;
+    in_transit?: number;
+    delivered: number;
+    failed?: number;
+    delayed: number;
     pending: number;
     active: number;
-    delivered: number;
-    delayed: number;
 }
 
 export interface Branch {
@@ -100,14 +110,14 @@ export interface Rider {
 }
 
 export const STATUS_GROUPS = [
-    { key: 'pending',          label: 'Pending',        statuses: ['pending'],           color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-50 dark:bg-amber-950/20',     border: 'border-amber-200 dark:border-amber-900/30',  ring: 'ring-amber-500/10' },
-    { key: 'preparing',        label: 'Preparing',      statuses: ['preparing'],         color: 'text-blue-600 dark:text-blue-400',     bg: 'bg-blue-50 dark:bg-blue-950/20',      border: 'border-blue-200 dark:border-blue-900/30',   ring: 'ring-blue-500/10' },
-    { key: 'ready_for_pickup', label: 'Ready',          statuses: ['ready_for_pickup'],  color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/20',  border: 'border-orange-200 dark:border-orange-900/30', ring: 'ring-orange-500/10' },
-    { key: 'assigned_to_rider',label: 'Rider Assigned', statuses: ['assigned_to_rider'], color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/20',  border: 'border-indigo-200 dark:border-indigo-900/30', ring: 'ring-indigo-500/10' },
-    { key: 'picked_up',        label: 'Picked Up',      statuses: ['picked_up'],         color: 'text-cyan-600 dark:text-cyan-400',     bg: 'bg-cyan-50 dark:bg-cyan-950/20',      border: 'border-cyan-200 dark:border-cyan-900/30',   ring: 'ring-cyan-500/10' },
-    { key: 'in_transit',       label: 'In Transit',     statuses: ['in_transit'],        color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20',  border: 'border-violet-200 dark:border-violet-900/30', ring: 'ring-violet-500/10' },
-    { key: 'delivered',        label: 'Delivered',      statuses: ['delivered'],         color: 'text-emerald-600 dark:text-emerald-400',bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-200 dark:border-emerald-900/30',ring: 'ring-emerald-500/10' },
-    { key: 'cancelled',        label: 'Cancelled',      statuses: ['cancelled'],         color: 'text-rose-600 dark:text-rose-400',     bg: 'bg-rose-50 dark:bg-rose-950/20',      border: 'border-rose-200 dark:border-rose-900/30',   ring: 'ring-rose-500/10' },
+    { key: 'waiting_for_kitchen', label: 'New Orders',     statuses: ['waiting_for_kitchen', 'pending'], color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-200 dark:border-orange-900/30', ring: 'ring-orange-500/10' },
+    { key: 'preparing',           label: 'Preparing',      statuses: ['preparing'],         color: 'text-blue-600 dark:text-blue-400',     bg: 'bg-blue-50 dark:bg-blue-950/20',      border: 'border-blue-200 dark:border-blue-900/30',   ring: 'ring-blue-500/10' },
+    { key: 'ready_for_pickup',    label: 'Ready for Pickup', statuses: ['ready_for_pickup'],  color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-50 dark:bg-amber-950/20',     border: 'border-amber-200 dark:border-amber-900/30',  ring: 'ring-amber-500/10' },
+    { key: 'assigned_to_rider',   label: 'Rider Assigned', statuses: ['assigned_to_rider'], color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/20',  border: 'border-indigo-200 dark:border-indigo-900/30', ring: 'ring-indigo-500/10' },
+    { key: 'in_transit',          label: 'In Transit',     statuses: ['picked_up', 'in_transit'], color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20', border: 'border-violet-200 dark:border-violet-900/30', ring: 'ring-violet-500/10' },
+    { key: 'failed_delivery',     label: 'Failed / Reassign', statuses: ['failed_delivery'], color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-red-200 dark:border-red-900/30', ring: 'ring-red-500/10' },
+    { key: 'delivered',           label: 'Delivered',      statuses: ['delivered'],         color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-200 dark:border-emerald-900/30', ring: 'ring-emerald-500/10' },
+    { key: 'cancelled',           label: 'Cancelled',      statuses: ['cancelled'],         color: 'text-rose-600 dark:text-rose-400',     bg: 'bg-rose-50 dark:bg-rose-950/20',      border: 'border-rose-200 dark:border-rose-900/30',   ring: 'ring-rose-500/10' },
 ] as const;
 
 export const formatCurrency = (amount: number) =>

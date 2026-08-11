@@ -53,6 +53,7 @@ class Delivery extends Model
     const STATUS_OUT_FOR_DELIVERY  = 'in_transit';       // renamed from out_for_delivery
     const STATUS_DELIVERED         = 'delivered';
     const STATUS_CANCELLED         = 'cancelled';
+    const STATUS_FAILED            = 'failed_delivery';  // rider failed, requires reassign
 
     // External delivery flow
     const STATUS_BOOKED   = 'booked';
@@ -160,8 +161,14 @@ class Delivery extends Model
             return [];
         }
 
+        // failed_delivery can be reassigned — loops back to assigned_to_rider
+        if ($this->status === self::STATUS_FAILED) {
+            return [self::STATUS_ASSIGNED];
+        }
+
         // Admin can only advance up to ready_for_pickup.
         // Everything after (picked_up, in_transit, delivered) is RIDER ONLY.
+        // EXCEPTION: failed_delivery (admin marks) → reassign (admin action).
         $adminFlow = [
             self::STATUS_WAITING_KITCHEN => self::STATUS_PREPARING,
             self::STATUS_PENDING         => self::STATUS_PREPARING,
@@ -178,20 +185,33 @@ class Delivery extends Model
     }
 
     /**
+     * Whether a delivery can be marked as failed.
+     * Only applies to in-transit deliveries.
+     */
+    public function canMarkFailed(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_OUT_FOR_DELIVERY,
+            self::STATUS_PICKED_UP,
+        ]);
+    }
+
+    /**
      * Get display-friendly label for status.
      */
     public function getStatusLabel(): string
     {
         return match ($this->status) {
-            self::STATUS_WAITING_KITCHEN  => 'Waiting for Kitchen',
+            self::STATUS_WAITING_KITCHEN  => 'New Order',
             self::STATUS_PENDING          => 'Pending',
             self::STATUS_PREPARING        => 'Preparing',
             self::STATUS_READY            => 'Ready for Pickup',
             self::STATUS_ASSIGNED         => 'Rider Assigned',
             self::STATUS_PICKED_UP        => 'Picked Up',
-            self::STATUS_OUT_FOR_DELIVERY => 'In Transit',   // in_transit
+            self::STATUS_OUT_FOR_DELIVERY => 'In Transit',
             self::STATUS_DELIVERED        => 'Delivered',
             self::STATUS_CANCELLED        => 'Cancelled',
+            self::STATUS_FAILED           => 'Failed Delivery',
             self::STATUS_BOOKED           => 'Booked',
             default                       => ucwords(str_replace('_', ' ', $this->status)),
         };
@@ -216,13 +236,16 @@ class Delivery extends Model
     public function getStatusColor(): string
     {
         return match ($this->status) {
+            self::STATUS_WAITING_KITCHEN                => 'bg-orange-100 text-orange-700',
             self::STATUS_PENDING                        => 'bg-slate-100 text-slate-600',
             self::STATUS_PREPARING                      => 'bg-blue-100 text-blue-700',
             self::STATUS_READY                          => 'bg-amber-100 text-amber-700',
+            self::STATUS_ASSIGNED                       => 'bg-indigo-100 text-indigo-700',
             self::STATUS_OUT_FOR_DELIVERY, self::STATUS_PICKED_UP => 'bg-violet-100 text-violet-700',
             self::STATUS_BOOKED                         => 'bg-sky-100 text-sky-700',
-            self::STATUS_DELIVERED                       => 'bg-emerald-100 text-emerald-700',
-            self::STATUS_CANCELLED                       => 'bg-rose-100 text-rose-700',
+            self::STATUS_DELIVERED                      => 'bg-emerald-100 text-emerald-700',
+            self::STATUS_CANCELLED                      => 'bg-rose-100 text-rose-700',
+            self::STATUS_FAILED                         => 'bg-red-100 text-red-800',
             default                                     => 'bg-gray-100 text-gray-600',
         };
     }

@@ -1,6 +1,7 @@
 import {
+    AlertOctagon,
     ArrowUpDown,
-    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, Truck,
+    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, RotateCcw, Truck,
 } from 'lucide-react';
 import React, { useCallback, useRef } from 'react';
 import { List } from 'react-window';
@@ -17,6 +18,7 @@ interface DeliveryTableProps {
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
     onAssignRider: (delivery: Delivery) => void;
+    onFailDelivery?: (id: number) => void;
     containerHeight?: number;
 }
 
@@ -31,6 +33,7 @@ interface RowProps {
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
     onAssignRider: (delivery: Delivery) => void;
+    onFailDelivery?: (id: number) => void;
 }
 
 const TableRow = React.memo(function TableRow({
@@ -40,6 +43,7 @@ const TableRow = React.memo(function TableRow({
     onSelect,
     onUpdateStatus,
     onAssignRider,
+    onFailDelivery,
 }: {
     index: number;
     style: React.CSSProperties;
@@ -152,7 +156,49 @@ const TableRow = React.memo(function TableRow({
 
             {/* Actions */}
             <div className="w-30 shrink-0 flex items-center justify-end gap-1 group-hover:opacity-100 transition-opacity duration-200">
-                {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
+                {delivery.can_mark_failed && onFailDelivery && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400 transition-all"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFailDelivery(delivery.id);
+                                }}
+                            >
+                                <AlertOctagon className="size-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-[10px] font-bold">Mark Delivery Failed</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+
+                {delivery.is_failed && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7 rounded-lg hover:bg-red-500/10 text-red-600 transition-all"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAssignRider(delivery);
+                                }}
+                            >
+                                <RotateCcw className="size-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-[10px] font-bold">Reassign Rider</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+
+                {!delivery.is_failed && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
@@ -176,7 +222,7 @@ const TableRow = React.memo(function TableRow({
                     </Tooltip>
                 )}
 
-                {delivery.next_statuses.length > 0 && !delivery.is_cancelled && !delivery.is_delivered && (
+                {delivery.next_statuses.length > 0 && !delivery.is_cancelled && !delivery.is_delivered && !delivery.is_failed && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
@@ -254,6 +300,7 @@ export function DeliveryTable({
     onSelect,
     onUpdateStatus,
     onAssignRider,
+    onFailDelivery,
     containerHeight = 600,
 }: DeliveryTableProps) {
     const [sortKey, setSortKey] = React.useState<SortKey>('date');
@@ -352,7 +399,8 @@ export function DeliveryTable({
                         deliveries: sortedDeliveries,
                         onSelect,
                         onUpdateStatus,
-                        onAssignRider
+                        onAssignRider,
+                        onFailDelivery,
                     }}
                 />
             </div>

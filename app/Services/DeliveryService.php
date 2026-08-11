@@ -206,6 +206,15 @@ class DeliveryService
             if ($delivery->order_id) {
                 $order = $delivery->order()->with('items.product')->first();
                 if ($order instanceof Order) {
+                    // CRITICAL FIX: The Order state machine requires pending → confirmed → preparing.
+                    // When admin starts preparing a mobile order (still 'pending'),
+                    // we auto-confirm first, then move to preparing.
+                    if ($newStatus === Delivery::STATUS_PREPARING && $order->status === 'pending') {
+                        if ($order->canTransitionTo('confirmed')) {
+                            $order->transitionTo('confirmed', 'Auto-confirmed on kitchen start', Auth::id());
+                        }
+                    }
+
                     $mappedOrderStatus = $deliveryToOrderStatus[$newStatus] ?? null;
 
                     if ($mappedOrderStatus && $order->canTransitionTo($mappedOrderStatus)) {
@@ -236,7 +245,7 @@ class DeliveryService
             }
 
             if ($newStatus === Delivery::STATUS_DELIVERED && $delivery->rider_id) {
-                /** @var \App\Models\Rider|null $rider */
+                /** @var Rider|null $rider */
                 $rider = Rider::find($delivery->rider_id);
                 if ($rider) {
                     $rider->markAvailable();
@@ -306,9 +315,24 @@ class DeliveryService
     }
     /**
      * Manually assign a rider to a delivery.
+     * Guard: delivery must be in ready_for_pickup or failed_delivery (reassign).
      */
     public function assignRider(Delivery $delivery, int $riderId): Delivery
     {
+        // GUARD: Prevent assigning a rider before the order is ready for pickup
+        $assignableStatuses = [
+            Delivery::STATUS_READY,
+            Delivery::STATUS_ASSIGNED,  // reassign
+            Delivery::STATUS_FAILED,    // reassign after failed delivery
+        ];
+
+        if (!in_array($delivery->status, $assignableStatuses)) {
+            throw new \Exception(
+                "Cannot assign a rider to a delivery in '{$delivery->status}' status. " .
+                "Order must be 'Ready for Pickup' before a rider can be assigned."
+            );
+        }
+
         return DB::transaction(function () use ($delivery, $riderId) {
             /** @var Rider $rider */
             $rider = Rider::where('id', $riderId)
@@ -321,14 +345,14 @@ class DeliveryService
                 Rider::where('id', $delivery->rider_id)->update(['status' => 'available']);
             }
 
-            // ✅ Update the Delivery record
+            // Update the Delivery record
             $delivery->update([
                 'rider_id'   => $rider->id,
-                'status'     => 'assigned_to_rider', // sync delivery status
+                'status'     => 'assigned_to_rider',
                 'updated_by' => Auth::id(),
             ]);
 
-            // ✅ CRITICAL FIX: Also update the parent Order (this is what was missing)
+            // Also update the parent Order
             if ($delivery->order_id) {
                 $order = $delivery->order;
                 if ($order) {
@@ -389,5 +413,65 @@ class DeliveryService
         }
 
         return null;
+    }
+
+    /**
+     * Mark a delivery as failed (rider could not deliver).
+     * Frees the rider and transitions delivery to failed_delivery,
+     * allowing admin to reassign.
+     */
+    public function handleFailedDelivery(Delivery $delivery, string $reason = 'Delivery failed'): Delivery
+    {
+        if (!$delivery->canMarkFailed()) {
+            throw new \Exception(
+                "Cannot mark delivery as failed from status '{$delivery->status}'. " .
+                "Only in_transit or picked_up deliveries can be marked as failed."
+            );
+        }
+
+        return DB::transaction(function () use ($delivery, $reason) {
+            // Free the current rider
+            if ($delivery->rider_id) {
+                /** @var Rider|null $rider */
+                $rider = Rider::find($delivery->rider_id);
+                if ($rider) {
+                    $rider->markAvailable();
+                }
+            }
+
+            $delivery->update([
+                'status'              => Delivery::STATUS_FAILED,
+                'cancellation_reason' => $reason,
+                'updated_by'          => Auth::id(),
+            ]);
+
+            // Write audit log on the linked order
+            if ($delivery->order_id) {
+                $order = $delivery->order;
+                if ($order) {
+                    \App\Models\OrderAuditLog::create([
+                        'order_id'   => $order->id,
+                        'user_id'    => Auth::id(),
+                        'rider_id'   => $delivery->rider_id,
+                        'old_status' => $order->status,
+                        'new_status' => 'failed_delivery',
+                        'device_ip'  => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                        'reason'     => $reason,
+                    ]);
+                }
+            }
+
+            \Illuminate\Support\Facades\Log::warning('Delivery marked as failed', [
+                'delivery_id' => $delivery->id,
+                'order_id'    => $delivery->order_id,
+                'rider_id'    => $delivery->rider_id,
+                'reason'      => $reason,
+            ]);
+
+            event(new OrderStatusUpdated($delivery->fresh(), 'admin'));
+
+            return $delivery->fresh();
+        });
     }
 }

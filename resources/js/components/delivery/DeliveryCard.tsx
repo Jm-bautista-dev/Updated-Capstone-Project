@@ -1,4 +1,4 @@
-import { Bike, Building2, ChevronRight, Clock, Eye, Truck, User } from 'lucide-react';
+import { AlertOctagon, Bike, Building2, ChevronRight, Clock, Eye, RotateCcw, Truck, User } from 'lucide-react';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -14,31 +14,38 @@ interface DeliveryCardProps {
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
     onAssignRider: (delivery: Delivery) => void;
+    onFailDelivery?: (id: number) => void;
 }
 
-const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onAssignRider }: DeliveryCardProps) {
+const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onAssignRider, onFailDelivery }: DeliveryCardProps) {
     const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
     const typeColor = delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-emerald-600 dark:text-emerald-400';
     const typeBg = delivery.delivery_type === 'internal' ? 'bg-[#FFF5F7] dark:bg-[#1C1C28]' : 'bg-emerald-50 dark:bg-emerald-950/20';
 
-    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
+    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id && ['ready_for_pickup', 'assigned_to_rider', 'failed_delivery'].includes(delivery.status);
 
     return (
         <div
             className={cn(
                 "rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer font-['Outfit']",
-                isUnassignedInternal && "ring-1 ring-amber-500/30"
+                isUnassignedInternal && "ring-1 ring-amber-500/30",
+                delivery.is_failed && "ring-2 ring-red-500/50 bg-red-50/10 dark:bg-red-950/10"
             )}
             onClick={() => onSelect(delivery)}
         >
             <div className="flex items-stretch">
                 {/* Type indicator strip */}
-                <div className={`w-1.5 shrink-0 ${delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40') : 'bg-emerald-400/40'}`} />
+                <div className={`w-1.5 shrink-0 ${delivery.is_failed ? 'bg-red-500' : (delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40') : 'bg-emerald-400/40')}`} />
 
                 <div className="flex-1 p-4 space-y-3">
-                    {/* Top row: Status, Order #, Amount */}
+                    {/* Top row: Queue Position, Status, Order #, Amount */}
                     <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                            {delivery.queue_position && (
+                                <Badge className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-slate-900 text-white dark:bg-white dark:text-slate-900 shrink-0">
+                                    Queue #{delivery.queue_position}
+                                </Badge>
+                            )}
                             <Badge className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${delivery.status_color}`}>
                                 {delivery.status_label}
                             </Badge>
@@ -46,10 +53,20 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                 <p className="font-black text-sm tracking-tight truncate text-[#3D2C2E] dark:text-[#F8FAFC]">
                                     {delivery.sale?.order_number || (delivery.order && `#ORD-${delivery.order.id}`)}
                                 </p>
-                                <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] flex items-center gap-1 font-medium">
-                                    <Clock className="size-2.5" />
-                                    {formatTime(delivery.created_at)}
-                                </p>
+                                <div className="flex items-center gap-2 text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                                    <span className="flex items-center gap-1">
+                                        <Clock className="size-2.5" />
+                                        {formatTime(delivery.created_at)}
+                                    </span>
+                                    {delivery.waiting_minutes !== undefined && (
+                                        <span className={cn(
+                                            "font-bold px-1.5 py-0.2 rounded-md text-[9px]",
+                                            delivery.waiting_minutes > 30 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                        )}>
+                                            {delivery.waiting_minutes}m ago
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <p className="text-base font-black font-mono text-[#E75480] dark:text-[#FF4F81] shrink-0 tabular-nums">
@@ -115,7 +132,20 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
 
                     {/* Actions */}
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {isUnassignedInternal && (
+                        {delivery.is_failed ? (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAssignRider(delivery);
+                                }}
+                            >
+                                <RotateCcw className="size-3.5" />
+                                Reassign Rider
+                            </Button>
+                        ) : isUnassignedInternal ? (
                             <Button
                                 size="sm"
                                 variant="outline"
@@ -128,9 +158,9 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                 <Bike className="size-3.5" />
                                 Assign Rider
                             </Button>
-                        )}
+                        ) : null}
                         
-                        {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (
+                        {delivery.next_statuses.length > 0 && !delivery.is_cancelled && !delivery.is_failed && (
                             <Button
                                 size="sm"
                                 className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 shadow-md bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white"
@@ -145,7 +175,26 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         )}
                         
                         <div className="flex items-center gap-2 ml-auto">
-                            {!isUnassignedInternal && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
+                            {delivery.can_mark_failed && onFailDelivery && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-9 w-9 rounded-xl shrink-0 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-950/30"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onFailDelivery(delivery.id);
+                                            }}
+                                        >
+                                            <AlertOctagon className="size-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Mark Delivery Failed</TooltipContent>
+                                </Tooltip>
+                            )}
+
+                            {!isUnassignedInternal && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && !delivery.is_failed && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
