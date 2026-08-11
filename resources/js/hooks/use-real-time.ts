@@ -3,6 +3,23 @@ import { useEffect } from 'react';
 import { toast } from 'sonner';
 import echo from '@/echo';
 
+interface RealTimeOrderEvent {
+    order_id?: number;
+    branch_id?: number;
+    branch_name?: string;
+    customer_name?: string;
+    total_amount?: number;
+    message?: string;
+}
+
+interface AuthState {
+    user?: {
+        id?: number;
+        role?: string;
+        branch_id?: number | null;
+    };
+}
+
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const playNotificationSound = () => {
@@ -11,15 +28,15 @@ const playNotificationSound = () => {
 };
 
 export function useRealTime(branchId?: number | null) {
-    const { auth } = usePage().props as any;
+    const { auth } = usePage().props as unknown as { auth: AuthState };
 
     useEffect(() => {
         // 1. Listen for Global Category Updates
         if (echo) {
             echo.channel('global')
-                .listen('CategoryUpdated', (e: any) => {
+                .listen('CategoryUpdated', (e: Record<string, unknown>) => {
                     console.log('Real-time: Global Categories Updated', e);
-                    router.reload({ preserveScroll: true } as any);
+                    router.reload();
                 });
         }
 
@@ -28,33 +45,30 @@ export function useRealTime(branchId?: number | null) {
             const targetId = branchId || auth?.user?.branch_id;
             
             echo.private(`branch.${targetId}`)
-                .listen('SaleCreated', (e: any) => {
+                .listen('SaleCreated', (e: Record<string, unknown>) => {
                     console.log('Real-time: New Sale in Branch', e);
                     // Refresh data without page reload
                     router.reload({ 
                         only: ['products', 'summary', 'recentOrders', 'sales'],
-                        preserveScroll: true 
-                    } as any);
+                    });
                 })
-                .listen('StockUpdated', (e: any) => {
+                .listen('StockUpdated', (e: Record<string, unknown>) => {
                     console.log('Real-time: Stock Level Changed', e);
                     router.reload({ 
                         only: ['products', 'ingredients', 'summary'],
-                        preserveScroll: true 
-                    } as any);
+                    });
                 })
-                .listen('ProductUpdated', (e: any) => {
+                .listen('ProductUpdated', (e: Record<string, unknown>) => {
                     console.log('Real-time: Product Data Sync', e);
                     router.reload({ 
                         only: ['products'],
-                        preserveScroll: true 
-                    } as any);
+                    });
                 });
         }
 
         // 3. Listen for Orders (Admin or Branch Specific)
         if (echo) {
-            const handleOrderNotification = (e: any) => {
+            const handleOrderNotification = (e: RealTimeOrderEvent) => {
                 console.log('Real-time: New Order Received', e);
                 
                 // Play sound
@@ -66,35 +80,44 @@ export function useRealTime(branchId?: number | null) {
                     duration: 10000,
                     action: {
                         label: 'View Order',
-                        onClick: () => router.visit('/deliveries') // Fixed from /orders to /deliveries
+                        onClick: () => router.visit('/deliveries')
                     }
                 });
 
-                // Refresh relevant data
+                // Refresh relevant data including deliveries page props
                 router.reload({ 
-                    only: ['summary', 'recentOrders', 'orders'],
-                    preserveScroll: true 
-                } as any);
+                    only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats'],
+                });
             };
 
-            if (auth?.user?.role === 'admin') {
-                echo.private('admin.orders').listen('OrderCreated', handleOrderNotification);
-            } else if (auth?.user?.branch_id) {
-                echo.private(`branch.${auth.user.branch_id}.orders`).listen('OrderCreated', handleOrderNotification);
+            const userRole = (auth?.user?.role || '').toLowerCase();
+            const userBranchId = branchId || auth?.user?.branch_id;
+
+            if (userRole === 'admin') {
+                echo.private('admin.orders')
+                    .listen('OrderCreated', handleOrderNotification)
+                    .listen('.OrderCreated', handleOrderNotification);
+            }
+
+            if (userBranchId) {
+                echo.private(`branch.${userBranchId}.orders`)
+                    .listen('OrderCreated', handleOrderNotification)
+                    .listen('.OrderCreated', handleOrderNotification);
             }
         }
 
         return () => {
             if (echo) {
                 echo.leave('global');
-                if (branchId || auth?.user?.branch_id) {
-                    echo.leave(`branch.${branchId || auth?.user?.branch_id}`);
-                    echo.leave(`branch.${auth?.user?.branch_id}.orders`);
+                const userBranchId = branchId || auth?.user?.branch_id;
+                if (userBranchId) {
+                    echo.leave(`branch.${userBranchId}`);
+                    echo.leave(`branch.${userBranchId}.orders`);
                 }
-                if (auth?.user?.role === 'admin') {
+                if ((auth?.user?.role || '').toLowerCase() === 'admin') {
                     echo.leave('admin.orders');
                 }
             }
         };
-    }, [branchId, auth?.user?.branch_id]);
+    }, [branchId, auth?.user?.branch_id, auth?.user?.role]);
 }

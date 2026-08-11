@@ -8,11 +8,11 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class OrderCreated implements ShouldBroadcast
+class OrderCreated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -29,7 +29,7 @@ class OrderCreated implements ShouldBroadcast
     /**
      * Get the channels the event should broadcast on.
      *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
+     * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
@@ -37,6 +37,14 @@ class OrderCreated implements ShouldBroadcast
             new PrivateChannel('admin.orders'),
             new PrivateChannel('branch.' . $this->order->branch_id . '.orders'),
         ];
+    }
+
+    /**
+     * The event's broadcast name.
+     */
+    public function broadcastAs(): string
+    {
+        return 'OrderCreated';
     }
 
     /**
@@ -48,7 +56,7 @@ class OrderCreated implements ShouldBroadcast
     {
         return [
             'order_id'      => $this->order->id,
-            'branch_id'    => $this->order->branch_id,
+            'branch_id'     => $this->order->branch_id,
             'customer_name' => $this->order->customer_name,
             'total_amount'  => $this->order->total_amount,
             'branch_name'   => $this->order->branch?->name ?? 'Unknown Branch',

@@ -185,9 +185,9 @@ class ApiOrderController extends Controller
                 ]);
 
                 try {
-                    broadcast(new OrderCreated($order->load('branch')))->toOthers();
+                    broadcast(new OrderCreated($order->load('branch')));
                 } catch (\Throwable $e) {
-                    Log::warning('Broadcast failed but order saved');
+                    Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
                 }
 
                 return response()->json([

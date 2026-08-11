@@ -71,7 +71,7 @@ export function AppSidebarHeader({
 
                 <div className="h-4 w-px bg-primary/10 mx-1 hidden md:block" />
 
-                {auth.user.role === 'admin' && <NotificationBell />}
+                {auth.user && <NotificationBell />}
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

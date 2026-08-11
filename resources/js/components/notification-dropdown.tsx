@@ -1,14 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { formatDistanceToNow } from 'date-fns';
 import React from 'react';
 import { FiShoppingBag, FiPackage, FiSettings, FiCheckCircle, FiAlertTriangle, FiAlertOctagon } from 'react-icons/fi';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface Notification {
-    id: number;
+    id: string | number;
     employee_name: string;
-    action: 'Added' | 'Deducted' | 'Alert';
+    action: 'Added' | 'Deducted' | 'Alert' | 'Order';
     ingredient_name: string;
     quantity_change: string;
     remaining: string;
@@ -17,7 +15,8 @@ interface Notification {
     created_at: string;
     time_ago: string;
     is_unread: boolean;
-    type: 'activity' | 'low_stock' | 'out_of_stock';
+    type: 'activity' | 'low_stock' | 'out_of_stock' | 'new_order';
+    url?: string;
 }
 
 interface NotificationDropdownProps {
@@ -27,6 +26,7 @@ interface NotificationDropdownProps {
 
 export function NotificationDropdown({ notifications, onMarkAllAsRead }: NotificationDropdownProps) {
     const getIcon = (source: string, type: string) => {
+        if (type === 'new_order') return <FiShoppingBag className="size-4" />;
         if (type === 'out_of_stock') return <FiAlertOctagon className="size-4" />;
         if (type === 'low_stock') return <FiAlertTriangle className="size-4" />;
         const s = source.toLowerCase();
@@ -37,6 +37,7 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
 
     const getSourceLabel = (source: string) => {
         const s = source.toLowerCase();
+        if (s.includes('customer') || s.includes('order')) return 'Customer App';
         if (s.includes('sale')) return 'POS Sale';
         if (s.includes('initial')) return 'Initial Stock';
         if (s.includes('manual')) return 'Manual Stock';
@@ -46,20 +47,20 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
     return (
         <div className="flex flex-col bg-popover rounded-lg shadow-lg border overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-                <h3 className="text-sm font-bold tracking-tight">Inventory Notifications</h3>
+                <h3 className="text-sm font-bold tracking-tight">Notifications</h3>
                 <button 
                     onClick={onMarkAllAsRead}
-                    className="text-[10px] font-bold uppercase text-primary hover:underline"
+                    className="text-[10px] font-bold uppercase text-primary hover:underline cursor-pointer"
                 >
                     Mark all as read
                 </button>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto">
+            <div className="max-h-100 overflow-y-auto">
                 {notifications.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">
                         <FiCheckCircle className="size-8 mx-auto mb-2 opacity-20" />
-                        <p className="text-xs">No recent activity</p>
+                        <p className="text-xs">No recent notifications</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-border/50">
@@ -69,12 +70,14 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                 className={cn(
                                     "px-4 py-3 transition-colors hover:bg-muted/30 flex gap-3",
                                     notif.is_unread && "bg-primary/5",
+                                    notif.type === 'new_order' && "bg-emerald-500/5 hover:bg-emerald-500/10",
                                     notif.type === 'out_of_stock' && "bg-red-500/5 hover:bg-red-500/10",
                                     notif.type === 'low_stock' && "bg-orange-500/5 hover:bg-orange-500/10"
                                 )}
                             >
                                 <div className={cn(
                                     "size-8 rounded-full flex items-center justify-center shrink-0",
+                                    notif.type === 'new_order' ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
                                     notif.type === 'out_of_stock' ? "bg-red-500/20 text-red-600" :
                                     notif.type === 'low_stock' ? "bg-orange-500/20 text-orange-600" :
                                     notif.action === 'Added' ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
@@ -82,7 +85,19 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                     {getIcon(notif.source, notif.type)}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    {notif.type === 'activity' ? (
+                                    {notif.type === 'new_order' ? (
+                                        <Link href={notif.url || '/deliveries'} className="block group">
+                                            <p className="text-xs leading-tight">
+                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                                                    {notif.ingredient_name}
+                                                </span>
+                                                <br />
+                                                <span className="font-medium text-foreground">
+                                                    {notif.employee_name} ({notif.quantity_change})
+                                                </span>
+                                            </p>
+                                        </Link>
+                                    ) : notif.type === 'activity' ? (
                                         <p className="text-xs leading-tight">
                                             <span className="font-bold">{notif.employee_name}</span>
                                             {' '}
@@ -118,7 +133,7 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                     )}
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                                            {notif.type === 'activity' ? getSourceLabel(notif.source) : 'Alert'}
+                                            {notif.type === 'new_order' ? 'Mobile Order' : notif.type === 'activity' ? getSourceLabel(notif.source) : 'Alert'}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground opacity-50">•</span>
                                         <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
@@ -135,12 +150,20 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                 )}
             </div>
 
-            <Link 
-                href="/inventory/activity" 
-                className="block py-2 text-center text-xs font-bold border-t bg-muted/20 hover:bg-muted/40 transition-colors uppercase tracking-widest text-muted-foreground"
-            >
-                View All Activity
-            </Link>
+            <div className="grid grid-cols-2 divide-x border-t bg-muted/20 text-center">
+                <Link 
+                    href="/deliveries" 
+                    className="py-2 text-[10px] font-bold hover:bg-muted/40 transition-colors uppercase tracking-widest text-primary"
+                >
+                    Delivery Nav
+                </Link>
+                <Link 
+                    href="/inventory/activity" 
+                    className="py-2 text-[10px] font-bold hover:bg-muted/40 transition-colors uppercase tracking-widest text-muted-foreground"
+                >
+                    All Activity
+                </Link>
+            </div>
         </div>
     );
 }

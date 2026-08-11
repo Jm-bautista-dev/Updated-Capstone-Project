@@ -532,7 +532,7 @@ wastage.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     wastage.form = wastageForm
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
 export const activity = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -547,7 +547,7 @@ activity.definition = {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
 activity.url = (options?: RouteQueryOptions) => {
@@ -556,7 +556,7 @@ activity.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
 activity.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -565,7 +565,7 @@ activity.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
 activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -575,7 +575,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
     const activityForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -585,7 +585,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
         activityForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -594,7 +594,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:148
+ * @see app/Http/Controllers/NotificationController.php:181
  * @route '/inventory/activity'
  */
         activityForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -610,7 +610,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     activity.form = activityForm
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
 export const activityLogs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -625,7 +625,7 @@ activityLogs.definition = {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
 activityLogs.url = (options?: RouteQueryOptions) => {
@@ -634,7 +634,7 @@ activityLogs.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
 activityLogs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -643,7 +643,7 @@ activityLogs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
 activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -653,7 +653,7 @@ activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
     const activityLogsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -663,7 +663,7 @@ activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
         activityLogsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -672,7 +672,7 @@ activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:72
+ * @see app/Http/Controllers/NotificationController.php:105
  * @route '/api/inventory/activity-logs'
  */
         activityLogsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
