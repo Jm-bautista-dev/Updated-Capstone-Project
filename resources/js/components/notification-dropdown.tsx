@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
-import React from 'react';
-import { FiShoppingBag, FiPackage, FiSettings, FiCheckCircle, FiAlertTriangle, FiAlertOctagon } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FiShoppingBag, FiPackage, FiSettings, FiCheckCircle, FiAlertTriangle, FiAlertOctagon, FiVolume2, FiVolumeX } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 
 interface Notification {
@@ -25,6 +25,16 @@ interface NotificationDropdownProps {
 }
 
 export function NotificationDropdown({ notifications, onMarkAllAsRead }: NotificationDropdownProps) {
+    const [soundEnabled, setSoundEnabled] = useState(() => {
+        return localStorage.getItem('order_notification_sound') !== 'disabled';
+    });
+
+    const toggleSound = () => {
+        const nextState = !soundEnabled;
+        setSoundEnabled(nextState);
+        localStorage.setItem('order_notification_sound', nextState ? 'enabled' : 'disabled');
+    };
+
     const getIcon = (source: string, type: string) => {
         if (type === 'new_order') return <FiShoppingBag className="size-4" />;
         if (type === 'out_of_stock') return <FiAlertOctagon className="size-4" />;
@@ -48,12 +58,22 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
         <div className="flex flex-col bg-popover rounded-lg shadow-lg border overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
                 <h3 className="text-sm font-bold tracking-tight">Notifications</h3>
-                <button 
-                    onClick={onMarkAllAsRead}
-                    className="text-[10px] font-bold uppercase text-primary hover:underline cursor-pointer"
-                >
-                    Mark all as read
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={toggleSound}
+                        title={soundEnabled ? 'Order sound ON' : 'Order sound OFF'}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                        {soundEnabled ? <FiVolume2 className="size-3.5 text-emerald-500" /> : <FiVolumeX className="size-3.5 text-muted-foreground" />}
+                        <span className="text-[10px] font-bold uppercase">{soundEnabled ? 'Sound ON' : 'Sound OFF'}</span>
+                    </button>
+                    <button 
+                        onClick={onMarkAllAsRead}
+                        className="text-[10px] font-bold uppercase text-primary hover:underline cursor-pointer"
+                    >
+                        Mark read
+                    </button>
+                </div>
             </div>
 
             <div className="max-h-100 overflow-y-auto">
