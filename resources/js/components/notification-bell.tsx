@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiBell } from 'react-icons/fi';
 import { NotificationDropdown } from '@/components/notification-dropdown';
 import { Badge } from '@/components/ui/badge';
@@ -11,33 +11,61 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 
+interface AuthState {
+    user?: {
+        id?: number;
+        role?: string;
+        [key: string]: unknown;
+    };
+}
+
 export function NotificationBell() {
-    const { auth } = usePage().props as any;
+    const { auth } = usePage().props as unknown as { auth?: AuthState };
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [open, setOpen] = useState(false);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         if (!auth?.user) return;
         try {
             const response = await axios.get('/api/v1/notifications');
             setNotifications(response.data.notifications);
             setUnreadCount(response.data.unread_count);
         } catch (error) {
-            // Only log if it's not a 401 (just in case auth state shifted)
             if (axios.isAxiosError(error) && error.response?.status !== 401) {
                 console.error('Failed to fetch notifications:', error);
             }
         }
-    };
+    }, [auth?.user]);
 
     useEffect(() => {
         if (!auth?.user) return;
-        
-        fetchNotifications();
-        // Refresh every 5 seconds
-        const interval = setInterval(fetchNotifications, 5000);
-        return () => clearInterval(interval);
+
+        let active = true;
+
+        const loadNotifications = async () => {
+            try {
+                const response = await axios.get('/api/v1/notifications');
+                if (active) {
+                    setNotifications(response.data.notifications);
+                    setUnreadCount(response.data.unread_count);
+                }
+            } catch (error) {
+                if (axios.isAxiosError(error) && error.response?.status !== 401) {
+                    console.error('Failed to fetch notifications:', error);
+                }
+            }
+        };
+
+        // Defer initial fetch to prevent synchronous setState during effect setup
+        const timer = setTimeout(loadNotifications, 0);
+        const interval = setInterval(loadNotifications, 5000);
+
+        return () => {
+            active = false;
+            clearTimeout(timer);
+            clearInterval(interval);
+        };
     }, [auth?.user]);
 
     const handleOpenChange = (newOpen: boolean) => {
@@ -52,7 +80,6 @@ export function NotificationBell() {
         try {
             await axios.post('/api/v1/notifications/mark-as-read');
             setUnreadCount(0);
-            // Optionally refresh the list to update "unread" highlights
             fetchNotifications();
         } catch (error) {
             console.error('Failed to mark notifications as read:', error);
@@ -62,8 +89,8 @@ export function NotificationBell() {
     return (
         <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
-                <button className="relative p-2 rounded-full hover:bg-muted/50 transition-colors focus:outline-none group">
-                    <FiBell className="size-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <button className="relative p-2.5 rounded-2xl bg-white/80 dark:bg-[#121218]/80 hover:bg-white dark:hover:bg-[#1C1C28] border border-[#F8C8DC]/60 dark:border-white/10 shadow-xs backdrop-blur-xl transition-all duration-300 focus:outline-none group cursor-pointer">
+                    <FiBell className="size-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     <AnimatePresence>
                         {unreadCount > 0 && (
                             <motion.div
@@ -77,11 +104,11 @@ export function NotificationBell() {
                                     scale: { duration: 0.3 },
                                     opacity: { duration: 0.2 }
                                 }}
-                                className="absolute top-1 right-1"
+                                className="absolute -top-1.5 -right-1.5"
                             >
                                 <Badge 
                                     variant="destructive"
-                                    className="min-w-[17px] h-[17px] rounded-full flex items-center justify-center p-0.5 text-[9px] font-black bg-rose-600 text-white border-white border-[1.5px] shadow-sm tabular-nums"
+                                    className="min-w-4.5 h-4.5 rounded-full flex items-center justify-center p-0.5 text-[9px] font-black bg-rose-600 text-white border-white dark:border-[#121218] border-[1.5px] shadow-xs tabular-nums"
                                 >
                                     {unreadCount > 99 ? '99+' : unreadCount}
                                 </Badge>
