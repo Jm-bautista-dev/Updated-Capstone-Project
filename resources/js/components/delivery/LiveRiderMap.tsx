@@ -1,25 +1,17 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-    Activity,
     Bike,
-    Building2,
-    CheckCircle2,
     ChevronRight,
     Compass,
-    MapPin,
     Navigation,
-    Phone,
     Radio,
     RefreshCw,
-    ShieldAlert,
     Wifi,
     WifiOff,
-    Zap,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export interface ActiveRiderData {
@@ -105,7 +97,7 @@ const createRiderDivIcon = (rider: ActiveRiderData, isSelected: boolean) => {
     });
 };
 
-const createHQDivIcon = (name: string) => {
+const createHQDivIcon = () => {
     const html = `
         <div class="relative flex items-center justify-center size-10 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white border-2 border-white shadow-xl">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -225,7 +217,7 @@ export function LiveRiderMap({
 
             if (!hqMarkerRef.current) {
                 const hqMarker = L.marker([hqLat, hqLng], {
-                    icon: createHQDivIcon(riders[0].branch.name),
+                    icon: createHQDivIcon(),
                 }).addTo(map);
 
                 hqMarker.bindPopup(`
@@ -395,7 +387,7 @@ export function LiveRiderMap({
             {/* ── MAP CONTAINER & SIDEBAR PANEL ─────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 {/* Map Viewport */}
-                <div className="lg:col-span-3 relative h-96 sm:h-[450px] rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group">
+                <div className="lg:col-span-3 relative h-96 sm:h-112 rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group">
                     <div ref={mapContainerRef} className="size-full z-0" />
 
                     {/* Custom Map Controls Overlay */}
@@ -433,13 +425,13 @@ export function LiveRiderMap({
                 </div>
 
                 {/* Active Rider Side List */}
-                <div className="lg:col-span-1 flex flex-col h-96 sm:h-[450px] bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/60 dark:border-white/5 p-4 overflow-hidden">
+                <div className="lg:col-span-1 flex flex-col h-96 sm:h-112 bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/60 dark:border-white/5 p-4 overflow-hidden">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-white/5 shrink-0">
                         <h5 className="text-xs font-black uppercase tracking-wider text-[#7D6B6E] dark:text-slate-400">
                             Active Fleet ({riders.length})
                         </h5>
                         <span className="text-[10px] text-slate-400 font-medium">
-                            Auto 5s sync
+                            Synced {lastRefreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                     </div>
 
