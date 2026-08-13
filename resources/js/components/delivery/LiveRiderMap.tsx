@@ -243,11 +243,11 @@ export function LiveRiderMap({
                 }).addTo(map);
 
                 hqMarker.bindPopup(`
-                    <div style="font-family: 'Outfit', sans-serif; max-width: 220px; padding: 2px;">
-                        <div style="font-weight: 800; font-size: 13px; color: #E75480;">${riders[0].branch.name}</div>
-                        <div style="font-size: 11px; color: #64748B;">Central Branch Operations Hub</div>
+                    <div style="font-family: 'Outfit', sans-serif; width: 100%; max-width: 190px; padding: 2px; box-sizing: border-box;">
+                        <div style="font-weight: 800; font-size: 12px; color: #E75480; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${riders[0].branch.name}</div>
+                        <div style="font-size: 10px; color: #64748B;">Central Operations Hub</div>
                     </div>
-                `);
+                `, { maxWidth: 200 });
                 hqMarkerRef.current = hqMarker;
             } else {
                 hqMarkerRef.current.setLatLng([hqLat, hqLng]);
@@ -273,10 +273,10 @@ export function LiveRiderMap({
             const icon = createRiderDivIcon(rider, isSelected);
 
             const popupContent = `
-                <div style="font-family: 'Outfit', sans-serif; max-width: 220px; width: 100%; padding: 2px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 4px;">
-                        <span style="font-weight: 900; font-size: 13px; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${rider.name}</span>
-                        <span style="font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 9999px; white-space: nowrap; background: ${
+                <div style="font-family: 'Outfit', sans-serif; width: 100%; max-width: 190px; padding: 2px; box-sizing: border-box;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 4px;">
+                        <span style="font-weight: 900; font-size: 12px; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">${rider.name}</span>
+                        <span style="font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 9999px; white-space: nowrap; background: ${
                             rider.signal_status === 'live'
                                 ? '#DEF7EC'
                                 : rider.signal_status === 'signal_delayed'
@@ -295,13 +295,13 @@ export function LiveRiderMap({
 
                     ${
                         rider.delivery
-                            ? `<div style="font-size: 11px; font-weight: 800; color: #E75480; margin-bottom: 4px;">
+                            ? `<div style="font-size: 11px; font-weight: 800; color: #E75480; margin-bottom: 2px;">
                                 Order #${rider.delivery.order_number}
                                </div>
-                               <div style="font-size: 10px; color: #475569; margin-bottom: 6px; word-break: break-word;">
+                               <div style="font-size: 10px; color: #475569; margin-bottom: 4px; word-break: break-word; white-space: normal;">
                                 📍 ${rider.delivery.customer_name} ${rider.delivery.customer_address ? `• ${rider.delivery.customer_address}` : ''}
                                </div>`
-                            : `<div style="font-size: 10px; color: #64748B; margin-bottom: 6px;">No active order assignment</div>`
+                            : `<div style="font-size: 10px; color: #64748B; margin-bottom: 4px;">No active order assignment</div>`
                     }
 
                     <div style="display: flex; align-items: center; justify-content: space-between; font-size: 9px; color: #94A3B8; border-top: 1px solid #F1F5F9; padding-top: 4px; margin-top: 4px;">
@@ -318,7 +318,7 @@ export function LiveRiderMap({
                 marker.setPopupContent(popupContent);
             } else {
                 const marker = L.marker(position, { icon }).addTo(map);
-                marker.bindPopup(popupContent, { maxWidth: 240 });
+                marker.bindPopup(popupContent, { maxWidth: 210 });
                 marker.on('click', () => setSelectedRiderId(rider.id));
                 markersRef.current[rider.id] = marker;
             }
@@ -357,43 +357,43 @@ export function LiveRiderMap({
     const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
 
     return (
-        <div className="relative rounded-3xl sm:rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-2xl p-4 sm:p-6 backdrop-blur-2xl transition-colors duration-300 space-y-4 sm:space-y-5 font-['Outfit'] overflow-hidden">
+        <div className="relative rounded-3xl sm:rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-2xl p-3.5 sm:p-6 backdrop-blur-2xl transition-colors duration-300 space-y-4 sm:space-y-5 font-['Outfit'] overflow-hidden w-full max-w-full min-w-0 box-border">
             {/* ── TOP MAP BAR & KPI SUMMARY ─────────────────────────────────── */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 sm:p-3 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white shadow-md shadow-[#E75480]/20 shrink-0">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 min-w-0 w-full">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <div className="p-2 sm:p-3 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white shadow-md shadow-[#E75480]/20 shrink-0">
                         <Navigation className="size-5 sm:size-6 animate-pulse" />
                     </div>
-                    <div>
-                        <h4 className="text-base sm:text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                    <div className="min-w-0">
+                        <h4 className="text-sm sm:text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate">
                             Live Rider Telemetry Map
                         </h4>
-                        <p className="text-[11px] sm:text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                        <p className="text-[10px] sm:text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium truncate">
                             Real-time GPS tracking powered by OpenStreetMap
                         </p>
                     </div>
                 </div>
 
-                {/* KPI Status Counters — Responsive grid on mobile, flex on desktop */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-black">
-                        <Bike className="size-3.5 sm:size-4 text-slate-500" />
-                        <span>Active: {stats.total_active}</span>
+                {/* KPI Status Counters — Grid on mobile, flex on desktop */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto min-w-0">
+                    <div className="flex items-center justify-center sm:justify-start gap-1 px-2 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[11px] sm:text-xs font-black min-w-0">
+                        <Bike className="size-3.5 sm:size-4 text-slate-500 shrink-0" />
+                        <span className="truncate">Active: {stats.total_active}</span>
                     </div>
 
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black">
-                        <Wifi className="size-3.5 sm:size-4 text-emerald-500 animate-pulse" />
-                        <span>Live: {stats.live}</span>
+                    <div className="flex items-center justify-center sm:justify-start gap-1 px-2 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] sm:text-xs font-black min-w-0">
+                        <Wifi className="size-3.5 sm:size-4 text-emerald-500 animate-pulse shrink-0" />
+                        <span className="truncate">Live: {stats.live}</span>
                     </div>
 
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-black">
-                        <Radio className="size-3.5 sm:size-4 text-amber-500" />
-                        <span>Delayed: {stats.delayed}</span>
+                    <div className="flex items-center justify-center sm:justify-start gap-1 px-2 py-1.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-[11px] sm:text-xs font-black min-w-0">
+                        <Radio className="size-3.5 sm:size-4 text-amber-500 shrink-0" />
+                        <span className="truncate">Delayed: {stats.delayed}</span>
                     </div>
 
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-black">
-                        <WifiOff className="size-3.5 sm:size-4 text-rose-500" />
-                        <span>Offline: {stats.offline}</span>
+                    <div className="flex items-center justify-center sm:justify-start gap-1 px-2 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-[11px] sm:text-xs font-black min-w-0">
+                        <WifiOff className="size-3.5 sm:size-4 text-rose-500 shrink-0" />
+                        <span className="truncate">Offline: {stats.offline}</span>
                     </div>
 
                     <Button
@@ -410,9 +410,9 @@ export function LiveRiderMap({
             </div>
 
             {/* ── MAP CONTAINER & SIDEBAR PANEL ─────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0 w-full">
                 {/* Map Viewport */}
-                <div className="lg:col-span-3 relative h-72 sm:h-96 lg:h-112 rounded-2xl sm:rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group">
+                <div className="lg:col-span-3 relative h-72 sm:h-96 lg:h-112 rounded-2xl sm:rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group w-full min-w-0">
                     <div ref={mapContainerRef} className="size-full z-0" />
 
                     {/* Custom Map Controls Overlay */}
@@ -450,17 +450,17 @@ export function LiveRiderMap({
                 </div>
 
                 {/* Active Rider Side List */}
-                <div className="lg:col-span-1 flex flex-col h-64 sm:h-80 lg:h-112 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl sm:rounded-3xl border border-slate-200/60 dark:border-white/5 p-3 sm:p-4 overflow-hidden">
-                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
-                        <h5 className="text-xs font-black uppercase tracking-wider text-[#7D6B6E] dark:text-slate-400">
+                <div className="lg:col-span-1 flex flex-col h-64 sm:h-80 lg:h-112 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl sm:rounded-3xl border border-slate-200/60 dark:border-white/5 p-3 sm:p-4 overflow-hidden min-w-0 w-full">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-white/5 shrink-0 min-w-0">
+                        <h5 className="text-xs font-black uppercase tracking-wider text-[#7D6B6E] dark:text-slate-400 truncate">
                             Active Fleet ({riders.length})
                         </h5>
-                        <span className="text-[10px] text-slate-400 font-medium">
+                        <span className="text-[10px] text-slate-400 font-medium shrink-0">
                             Synced {lastRefreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pt-2.5 space-y-2">
+                    <div className="flex-1 overflow-y-auto pt-2.5 space-y-2 min-w-0">
                         {riders.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-2 text-slate-400">
                                 <Bike className="size-7 stroke-1 opacity-50" />
@@ -475,13 +475,13 @@ export function LiveRiderMap({
                                     <div
                                         key={rider.id}
                                         onClick={() => handleSelectRider(rider)}
-                                        className={`p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
+                                        className={`p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer space-y-1 min-w-0 w-full ${
                                             isSelected
                                                 ? 'bg-white dark:bg-[#181824] border-[#E75480] dark:border-[#FF4F81] shadow-lg scale-[1.01]'
                                                 : 'bg-white/60 dark:bg-[#121218]/60 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                                         }`}
                                     >
-                                        <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center justify-between gap-2 min-w-0">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <div
                                                     className={`size-2.5 rounded-full shrink-0 ${
@@ -508,14 +508,14 @@ export function LiveRiderMap({
                                                 Order #{rider.delivery.order_number}
                                             </div>
                                         ) : (
-                                            <div className="text-[11px] text-slate-400 font-medium italic">
+                                            <div className="text-[11px] text-slate-400 font-medium italic truncate">
                                                 Standby / Waiting assignment
                                             </div>
                                         )}
 
-                                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium pt-0.5">
-                                            <span>{rider.last_updated_at}</span>
-                                            <span>±{Math.round(rider.accuracy)}m</span>
+                                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium pt-0.5 min-w-0">
+                                            <span className="truncate">{rider.last_updated_at}</span>
+                                            <span className="shrink-0">±{Math.round(rider.accuracy)}m</span>
                                         </div>
                                     </div>
                                 );

@@ -22,15 +22,15 @@ export function DeliveryHero({
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="relative overflow-hidden rounded-[2.5rem] bg-linear-to-br from-white/90 via-[#FFF9FA]/80 to-[#FFF0F5]/60 dark:from-[#0F0F14]/90 dark:via-[#14141E]/80 dark:to-[#181824]/70 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.08)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] p-6 sm:p-8 lg:p-10 backdrop-blur-2xl transition-colors duration-300 space-y-6"
+            className="relative overflow-hidden rounded-[2.5rem] bg-linear-to-br from-white/90 via-[#FFF9FA]/80 to-[#FFF0F5]/60 dark:from-[#0F0F14]/90 dark:via-[#14141E]/80 dark:to-[#181824]/70 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.08)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] p-4 sm:p-8 lg:p-10 backdrop-blur-2xl transition-colors duration-300 space-y-6 min-w-0 w-full"
         >
             {/* Ambient Background Glows */}
             <div className="absolute top-0 right-0 -mr-20 -mt-20 size-80 rounded-full bg-radial from-[#FADADD]/40 via-[#F8C8DC]/15 dark:from-[#E1062C]/20 dark:via-rose-950/10 to-transparent blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-1/3 -ml-20 -mb-20 size-60 rounded-full bg-radial from-[#FFE4E1]/50 dark:from-[#E1062C]/15 to-transparent blur-3xl pointer-events-none" />
 
             {/* Top Bar */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
-                <div className="space-y-2">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10 min-w-0 w-full">
+                <div className="space-y-2 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E75480]/10 dark:bg-[#E1062C]/15 border border-[#E75480]/20 dark:border-[#E1062C]/30 text-[#E75480] dark:text-[#FF4F81] text-xs font-bold tracking-wider uppercase">
                             <Sparkles className="size-3.5" />
@@ -55,8 +55,8 @@ export function DeliveryHero({
                 </div>
 
                 {/* Status Tab Pills & Group Toggle */}
-                <div className="flex items-center gap-3 flex-wrap self-start lg:self-center">
-                    <div className="flex items-center bg-white/70 dark:bg-[#181820]/70 rounded-2xl p-1 border border-[#F8C8DC]/60 dark:border-white/10 backdrop-blur-xl shadow-2xs">
+                <div className="flex items-center gap-3 flex-wrap self-start lg:self-center min-w-0 w-full lg:w-auto">
+                    <div className="flex items-center bg-white/70 dark:bg-[#181820]/70 rounded-2xl p-1 border border-[#F8C8DC]/60 dark:border-white/10 backdrop-blur-xl shadow-2xs max-w-full overflow-x-auto min-w-0 shrink-0">
                         {[
                             { id: 'all', label: 'All Orders' },
                             { id: 'pending', label: 'Pending' },

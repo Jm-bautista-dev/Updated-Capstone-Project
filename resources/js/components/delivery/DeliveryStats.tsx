@@ -83,7 +83,7 @@ export default function DeliveryStats({ stats, onStatusFilterClick }: DeliverySt
     ];
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 font-['Outfit']">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3 font-['Outfit'] w-full min-w-0 max-w-full">
             {pipelineItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -91,7 +91,7 @@ export default function DeliveryStats({ stats, onStatusFilterClick }: DeliverySt
                         key={item.key}
                         whileHover={{ y: -2 }}
                         onClick={() => onStatusFilterClick?.(item.key)}
-                        className={`p-3.5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border ${item.border} shadow-xs backdrop-blur-xl flex flex-col justify-between transition-all cursor-pointer group`}
+                        className={`p-3 sm:p-3.5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border ${item.border} shadow-xs backdrop-blur-xl flex flex-col justify-between transition-all cursor-pointer group min-w-0 w-full`}
                     >
                         <div className="flex items-center justify-between gap-1.5">
                             <span className="text-[10px] font-black uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">

@@ -213,7 +213,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         <AppLayout breadcrumbs={[{ title: 'Delivery Dashboard', href: '/deliveries' }]}>
             <Head title="Delivery Management" />
 
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-['Outfit'] transition-colors duration-300">
+            <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 w-full max-w-7xl min-w-0 mx-auto font-['Outfit'] transition-colors duration-300 box-border">
                 {/* 1. HERO BANNER */}
                 <DeliveryHero
                     currentStatusFilter={filters.status || 'all'}
