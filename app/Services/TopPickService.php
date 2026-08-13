@@ -74,6 +74,7 @@ class TopPickService
             'products.name',
             'products.sku',
             'products.barcode',
+            'products.description',
             'products.selling_price as price',
             'products.image_path',
             'categories.name as category_name',
@@ -81,7 +82,7 @@ class TopPickService
             DB::raw('SUM(sale_items.subtotal) as total_revenue')
         )->groupBy(
             'products.id', 'products.name', 'products.sku', 
-            'products.barcode', 'products.selling_price', 
+            'products.barcode', 'products.description', 'products.selling_price', 
             'products.image_path', 'categories.name'
         )->get();
 
@@ -106,6 +107,7 @@ class TopPickService
             'products.name',
             'products.sku',
             'products.barcode',
+            'products.description',
             'products.selling_price as price',
             'products.image_path',
             'categories.name as category_name',
@@ -113,7 +115,7 @@ class TopPickService
             DB::raw('SUM(order_items.quantity * order_items.price) as total_revenue')
         )->groupBy(
             'products.id', 'products.name', 'products.sku', 
-            'products.barcode', 'products.selling_price', 
+            'products.barcode', 'products.description', 'products.selling_price', 
             'products.image_path', 'categories.name'
         )->get();
 
@@ -127,6 +129,7 @@ class TopPickService
                 'name'          => $item->name,
                 'sku'           => $item->sku,
                 'barcode'       => $item->barcode,
+                'description'   => $item->description ?? '',
                 'category'      => $item->category_name ?? 'General',
                 'brand'         => config('app.name', 'MakiDesu'),
                 'price'         => (float) $item->price,
@@ -147,6 +150,7 @@ class TopPickService
                     'name'          => $item->name,
                     'sku'           => $item->sku,
                     'barcode'       => $item->barcode,
+                    'description'   => $item->description ?? '',
                     'category'      => $item->category_name ?? 'General',
                     'brand'         => config('app.name', 'MakiDesu'),
                     'price'         => (float) $item->price,
@@ -175,6 +179,7 @@ class TopPickService
                     'name'          => $p->name,
                     'sku'           => $p->sku,
                     'barcode'       => $p->barcode,
+                    'description'   => $p->description ?? '',
                     'category'      => $p->category->name ?? 'General',
                     'brand'         => config('app.name', 'MakiDesu'),
                     'price'         => (float) $p->selling_price,
