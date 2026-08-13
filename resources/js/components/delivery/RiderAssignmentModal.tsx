@@ -40,7 +40,7 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
 
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl font-['Outfit']">
+            <DialogContent className="sm:max-w-125 rounded-3xl p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl font-['Outfit']">
                 <div className="bg-linear-to-r from-[#E75480] to-[#FF4F81] p-6 text-white">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="size-10 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -54,7 +54,7 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                 </div>
 
                 <div className="p-6">
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-3 max-h-100 overflow-y-auto pr-2 custom-scrollbar">
                         {riders.length === 0 ? (
                             <div className="text-center py-10">
                                 <AlertTriangle className="size-10 text-amber-500 mx-auto mb-3 opacity-20" />
