@@ -257,19 +257,19 @@ export default function ProductsIndex() {
         setData({
             name: product.name,
             sku: product.sku || '',
-            category_id: product.category_id.toString(),
+            category_id: product.category_id != null ? String(product.category_id) : '',
             description: (product as unknown as { description?: string }).description || '',
-            cost_price: product.cost_price.toString(),
-            selling_price: product.selling_price.toString(),
-            branch_id: product.branch_id?.toString() || '',
-            branch_ids: product.branches ? product.branches.map(b => b.id.toString()) : [],
+            cost_price: product.cost_price != null ? String(product.cost_price) : '0',
+            selling_price: product.selling_price != null ? String(product.selling_price) : '0',
+            branch_id: product.branch_id != null ? String(product.branch_id) : '',
+            branch_ids: product.branches ? product.branches.map(b => String(b.id)) : [],
             recipe: product.ingredients ? product.ingredients.map(ing => ({
-                ingredient_id: ing.id.toString(),
-                quantity_required: ing.pivot?.quantity_required ? ing.pivot.quantity_required.toString() : '1',
+                ingredient_id: String(ing.id),
+                quantity_required: ing.pivot?.quantity_required != null ? String(ing.pivot.quantity_required) : '1',
                 unit: ing.pivot?.unit || ing.unit || 'pcs'
             })) : [],
             unit: product.unit || 'pcs',
-            stock: product.stock.toString(),
+            stock: product.stock != null ? String(product.stock) : '0',
         });
         setImageFile(null);
         setImagePreview(product.image_url || null);
