@@ -55,7 +55,9 @@ class Product extends Model
      */
     public function branches()
     {
-        return $this->belongsToMany(Branch::class, 'branch_product');
+        return $this->belongsToMany(Branch::class, 'branch_product')
+                    ->withPivot(['stock', 'price', 'is_active'])
+                    ->withTimestamps();
     }
 
     public function unit_model()
@@ -193,14 +195,26 @@ class Product extends Model
         $ingredients = $this->ingredients;
 
         if ($ingredients->isEmpty()) {
-            $stock = (float) ($this->stock ?? 0);
+            if ($branchId) {
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $this->id)
+                    ->where('branch_id', $branchId)
+                    ->first();
+                $stock = $pivot ? (float) $pivot->stock : (float) ($this->stock ?? 0);
+            } else {
+                $pivotSum = (float) DB::table('branch_product')
+                    ->where('product_id', $this->id)
+                    ->sum('stock');
+                $stock = $pivotSum > 0 ? $pivotSum : (float) ($this->stock ?? 0);
+            }
+
             return [
-                'available' => $stock,
-                'is_available' => $stock > 0,
-                'max_servings' => $stock,
-                'limiting_ingredient' => $stock <= 0 ? 'Physical Stock' : null,
+                'available'            => $stock,
+                'is_available'         => $stock > 0,
+                'max_servings'         => $stock,
+                'limiting_ingredient'  => $stock <= 0 ? 'Physical Stock' : null,
                 'blocking_ingredients' => [],
-                'is_low_stock' => $stock > 0 && $stock <= 5
+                'is_low_stock'         => $stock > 0 && $stock <= 5
             ];
         }
 
@@ -273,7 +287,7 @@ class Product extends Model
             }
 
             $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
-            $availableInStock = $stockRow ? (float) $stockRow->stock : 0;
+            $availableInStock = $stockRow ? (float) $stockRow->stock : (float) ($ingredient->stock ?? 0);
             
             $unitsPossible = floor($availableInStock / $requiredPerUnit);
             

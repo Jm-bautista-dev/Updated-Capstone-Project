@@ -12,6 +12,7 @@ import {
 
 import { StatusBadge } from '@/components/products/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
     Sheet,
     SheetContent,
@@ -38,6 +39,13 @@ export interface Branch {
     name: string;
 }
 
+export interface BranchStockItem {
+    branch_id: number;
+    branch_name: string;
+    stock: number;
+    is_available: boolean;
+}
+
 export interface Product {
     id: number;
     name: string;
@@ -55,6 +63,7 @@ export interface Product {
     ingredients: Ingredient[];
     branches: Branch[];
     branch_id: number;
+    branch_breakdown?: Record<number, BranchStockItem>;
     is_direct: boolean;
     unit: string;
     created_at: string;
@@ -153,23 +162,32 @@ export function ProductDrawer({
                         </div>
                     </div>
 
-                    {/* Branch Visibility Tags */}
+                    {/* Branch Availability Breakdown */}
                     <div className="space-y-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] flex items-center gap-1.5">
                             <MapPin className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                            <span>Branch Availability</span>
+                            <span>Branch Inventory Breakdown</span>
                         </span>
-                        <div className="flex flex-wrap gap-2">
-                            {product.branches && product.branches.length > 0 ? (
-                                product.branches.map((b) => (
-                                    <span key={b.id} className="text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0] bg-[#FADADD]/30 dark:bg-white/5 border border-[#F8C8DC]/50 dark:border-white/10 px-3 py-1 rounded-xl">
-                                        {b.name}
-                                    </span>
+                        <div className="grid grid-cols-2 gap-2">
+                            {product.branch_breakdown && Object.keys(product.branch_breakdown).length > 0 ? (
+                                Object.values(product.branch_breakdown).map((b) => (
+                                    <div key={b.branch_id} className="p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between shadow-2xs">
+                                        <span className="text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">{b.branch_name}</span>
+                                        <span className={cn(
+                                            "text-xs font-mono font-extrabold px-2 py-0.5 rounded-lg border",
+                                            b.stock > 0
+                                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
+                                                : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/40"
+                                        )}>
+                                            {b.stock} {product.unit || 'pcs'}
+                                        </span>
+                                    </div>
                                 ))
                             ) : (
-                                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 px-3 py-1 rounded-xl">
-                                    All Branches (Global)
-                                </span>
+                                <div className="col-span-2 p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between shadow-2xs">
+                                    <span className="text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">Global Stock</span>
+                                    <span className="text-xs font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{product.stock} {product.unit || 'pcs'}</span>
+                                </div>
                             )}
                         </div>
                     </div>

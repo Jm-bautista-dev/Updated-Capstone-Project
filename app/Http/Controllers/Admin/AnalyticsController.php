@@ -197,6 +197,7 @@ class AnalyticsController extends Controller
             $revenue  = (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('total');
             $profit   = (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('profit');
             $expenses = max(0, $revenue - $profit);
+            $margin   = $revenue > 0 ? round(($profit / $revenue) * 100, 1) : 0.0;
 
             return [
                 'id'                   => $branch->id,
@@ -204,6 +205,7 @@ class AnalyticsController extends Controller
                 'total_revenue'        => $revenue,
                 'total_expenses'       => $expenses,
                 'total_profit'         => $profit,
+                'profit_margin'        => $margin,
                 'total_orders'         => (clone $salesQuery)->where('created_at', '>=', $startDate)->count(),
                 'orders_today'         => (clone $salesQuery)->whereDate('created_at', $today)->count(),
                 'revenue_today'        => (float) (clone $salesQuery)->whereDate('created_at', $today)->sum('total'),
@@ -238,12 +240,14 @@ class AnalyticsController extends Controller
             $revenue  = (float) ($data->revenue ?? 0);
             $profit   = (float) ($data->profit ?? 0);
             $expenses = max(0, $revenue - $profit);
+            $margin   = $revenue > 0 ? round(($profit / $revenue) * 100, 1) : 0.0;
 
             $salesOverTime->push([
-                'date'     => Carbon::parse($date)->format('M d'),
-                'revenue'  => $revenue,
-                'expenses' => $expenses,
-                'profit'   => $profit,
+                'date'       => Carbon::parse($date)->format('M d'),
+                'revenue'    => $revenue,
+                'expenses'   => $expenses,
+                'profit'     => $profit,
+                'margin_pct' => $margin,
             ]);
         }
         return $salesOverTime;
@@ -282,14 +286,23 @@ class AnalyticsController extends Controller
             $query->where('branch_id', $branchId);
         }
 
-        return $query->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as revenue'))
+        $results = $query->select('payment_method', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as revenue'))
             ->groupBy('payment_method')
-            ->get()
-            ->map(function ($item) {
-                $item->count = (int) $item->count;
-                $item->revenue = (float) $item->revenue;
-                return $item;
-            });
+            ->get();
+
+        $grandTotal = (float) $results->sum('revenue');
+
+        return $results->map(function ($item) use ($grandTotal) {
+            $revenue = (float) $item->revenue;
+            $pct = $grandTotal > 0 ? round(($revenue / $grandTotal) * 100, 1) : 0.0;
+            return [
+                'payment_method' => ucfirst(str_replace('_', ' ', $item->payment_method ?: 'Cash')),
+                'raw_method'     => $item->payment_method ?: 'cash',
+                'count'          => (int) $item->count,
+                'revenue'        => $revenue,
+                'percentage'     => $pct,
+            ];
+        });
     }
     public function cashierPerformance(Request $request)
     {

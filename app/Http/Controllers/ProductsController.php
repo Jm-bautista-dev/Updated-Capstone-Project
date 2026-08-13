@@ -37,10 +37,10 @@ class ProductsController extends Controller
 
         // Determine branch filter (Strict multi-branch)
         $branchId = $user->isAdmin()
-            ? ($request->filled('branch_id') ? $request->input('branch_id') : null)
-            : $user->branch_id;
+            ? ($request->filled('branch_id') && $request->input('branch_id') !== 'all' ? (int) $request->input('branch_id') : null)
+            : (int) $user->branch_id;
 
-        $query = Product::query()->with(['category', 'ingredients', 'branch']); // Included branch ownership info
+        $query = Product::query()->with(['category', 'ingredients.stocks', 'branch', 'branches']);
 
         if ($branchId) {
             $query->where(function ($q) use ($branchId) {
@@ -60,17 +60,38 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId) {
-            // Compute dynamic availability (ingredient-based truth) for the selected branch context
-            $availability = $product->dynamicAvailability($branchId ?: $product->branch_id);
-            
-            $product->stock = $availability['available'];
+        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId, $branches) {
+            // Build dynamic branch stock breakdown for all active branches
+            $branchBreakdown = [];
+            $totalStock = 0;
+
+            foreach ($branches as $branch) {
+                $bAvail = $product->dynamicAvailability($branch->id);
+                $bStock = (float) $bAvail['available'];
+                $branchBreakdown[$branch->id] = [
+                    'branch_id'    => $branch->id,
+                    'branch_name'  => $branch->name,
+                    'stock'        => $bStock,
+                    'is_available' => $bAvail['is_available'],
+                ];
+                $totalStock += $bStock;
+            }
+
+            if ($branchId) {
+                $availability = $product->dynamicAvailability($branchId);
+                $product->stock = (float) $availability['available'];
+            } else {
+                $availability = $product->dynamicAvailability(null);
+                $product->stock = $totalStock > 0 ? $totalStock : (float) $availability['available'];
+            }
+
+            $product->branch_breakdown = $branchBreakdown;
             $product->max_servings = $availability['max_servings'];
-            $product->is_available = $availability['is_available'];
-            $product->blocking_ingredients = $availability['blocking_ingredients'];
-            $product->limiting_ingredient = $availability['limiting_ingredient'];
-            $product->is_low_stock = $availability['is_low_stock'];
-            
+            $product->is_available = $product->stock > 0;
+            $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+            $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
+            $product->is_low_stock = $product->stock > 0 && $product->stock <= 5;
+
             $product->status = $this->getStockStatus($product->stock);
             $product->is_direct = !$product->hasRecipe();
 

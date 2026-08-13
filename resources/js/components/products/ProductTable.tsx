@@ -5,6 +5,7 @@ import { Package, RefreshCw, Edit2, Trash2, Eye, PackageSearch, Building2 } from
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
@@ -115,8 +116,34 @@ export function ProductTable({
                                         </td>
 
                                         {/* Stock Level */}
-                                        <td className="p-4 px-6 align-middle text-center font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                            <span>{product.stock} {product.unit || 'pcs'}</span>
+                                        <td className="p-4 px-6 align-middle text-center font-mono">
+                                            {product.branch_breakdown && Object.keys(product.branch_breakdown).length > 0 ? (
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                                        {Object.values(product.branch_breakdown).map((b) => (
+                                                            <span
+                                                                key={b.branch_id}
+                                                                className={cn(
+                                                                    "px-2 py-0.5 rounded-lg text-[11px] font-bold border shadow-2xs transition-all",
+                                                                    b.stock > 0
+                                                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
+                                                                        : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/40"
+                                                                )}
+                                                                title={`${b.branch_name}: ${b.stock} ${product.unit || 'pcs'}`}
+                                                            >
+                                                                {b.branch_name}: <span className="font-mono font-extrabold">{b.stock}</span>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B] font-bold">
+                                                        Total: {product.stock} {product.unit || 'pcs'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                    {product.stock} {product.unit || 'pcs'}
+                                                </span>
+                                            )}
                                         </td>
 
                                         {/* Pricing */}

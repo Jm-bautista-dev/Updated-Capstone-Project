@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:63
+ * @see app/Http/Controllers/SalesController.php:64
  * @route '/sales/{sale}/status'
  */
 export const updateStatus = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -94,7 +94,7 @@ updateStatus.definition = {
 
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:63
+ * @see app/Http/Controllers/SalesController.php:64
  * @route '/sales/{sale}/status'
  */
 updateStatus.url = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -127,7 +127,7 @@ updateStatus.url = (args: { sale: number | { id: number } } | [sale: number | { 
 
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:63
+ * @see app/Http/Controllers/SalesController.php:64
  * @route '/sales/{sale}/status'
  */
 updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -137,7 +137,7 @@ updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { 
 
     /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:63
+ * @see app/Http/Controllers/SalesController.php:64
  * @route '/sales/{sale}/status'
  */
     const updateStatusForm = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -152,7 +152,7 @@ updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { 
 
             /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:63
+ * @see app/Http/Controllers/SalesController.php:64
  * @route '/sales/{sale}/status'
  */
         updateStatusForm.put = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

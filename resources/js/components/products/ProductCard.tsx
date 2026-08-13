@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
@@ -106,7 +107,31 @@ export function ProductCard({
 
                     <div className="text-right">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Stock Level</span>
-                        <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono">{product.stock} {product.unit || 'pcs'}</span>
+                        {product.branch_breakdown && Object.keys(product.branch_breakdown).length > 0 ? (
+                            <div className="flex flex-col items-end gap-0.5 mt-0.5">
+                                <div className="flex flex-wrap justify-end gap-1">
+                                    {Object.values(product.branch_breakdown).map((b) => (
+                                        <span
+                                            key={b.branch_id}
+                                            className={cn(
+                                                "px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                                                b.stock > 0
+                                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
+                                                    : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/40"
+                                            )}
+                                            title={`${b.branch_name}: ${b.stock}`}
+                                        >
+                                            {b.branch_name}: <span className="font-mono font-extrabold">{b.stock}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                                <span className="text-[10px] font-bold text-[#9E8B8E] dark:text-[#64748B]">
+                                    Total: {product.stock} {product.unit || 'pcs'}
+                                </span>
+                            </div>
+                        ) : (
+                            <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono">{product.stock} {product.unit || 'pcs'}</span>
+                        )}
                     </div>
                 </div>
 

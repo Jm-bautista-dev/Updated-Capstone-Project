@@ -36,10 +36,11 @@ class SalesController extends Controller
                               ->where('branch_id', $user->branch_id);
         } else {
             // Admin: sees ALL, optional branch filter
-            $statsScope = new Sale();
             if ($branchId && $branchId !== 'all') {
-                $query->where('branch_id', $branchId);
-                $statsScope = Sale::where('branch_id', $branchId);
+                $query->where('branch_id', (int) $branchId);
+                $statsScope = Sale::where('branch_id', (int) $branchId);
+            } else {
+                $statsScope = Sale::query();
             }
         }
 
