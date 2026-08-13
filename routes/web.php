@@ -146,6 +146,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
 
+            // Reviews & Ratings Management
+            Route::get('admin/reviews', [App\Http\Controllers\Admin\ReviewController::class, 'index'])->name('admin.reviews.index');
+            Route::put('admin/reviews/{review}/status', [App\Http\Controllers\Admin\ReviewController::class, 'updateStatus'])->name('admin.reviews.update-status');
+            Route::post('admin/reviews/{review}/respond', [App\Http\Controllers\Admin\ReviewController::class, 'respond'])->name('admin.reviews.respond');
+            Route::delete('admin/reviews/{review}', [App\Http\Controllers\Admin\ReviewController::class, 'destroy'])->name('admin.reviews.destroy');
+
             // Branches
             Route::get('branches', [BranchController::class, 'adminIndex'])->name('branches.index');
             Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');

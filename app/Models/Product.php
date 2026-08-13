@@ -16,7 +16,7 @@ class Product extends Model
     use BelongsToBranch, SoftDeletes;
     protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id', 'barcode'];
 
-    protected $appends = ['computed_stock', 'image_url'];
+    protected $appends = ['computed_stock', 'image_url', 'average_rating', 'review_count'];
 
     protected static function booted()
     {
@@ -81,6 +81,70 @@ class Product extends Model
     public function stockLogs()
     {
         return $this->morphMany(StockLog::class, 'storable');
+    }
+
+    /**
+     * Reviews for this product.
+     */
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
+    /**
+     * Compute average star rating (published reviews only).
+     */
+    public function getAverageRatingAttribute(): float
+    {
+        if (!$this->exists) return 0.0;
+        $avg = $this->reviews()->published()->avg('rating');
+        return $avg ? (float) round($avg, 1) : 0.0;
+    }
+
+    /**
+     * Count of published reviews.
+     */
+    public function getReviewCountAttribute(): int
+    {
+        if (!$this->exists) return 0;
+        return (int) $this->reviews()->published()->count();
+    }
+
+    /**
+     * Rating distribution summary (counts and percentages for 1..5 stars).
+     */
+    public function getRatingDistributionAttribute(): array
+    {
+        if (!$this->exists) {
+            return [
+                'counts' => [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0],
+                'percentages' => [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0],
+            ];
+        }
+
+        $total = $this->review_count;
+        $counts = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+        $percentages = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+
+        if ($total > 0) {
+            $grouped = $this->reviews()
+                ->published()
+                ->selectRaw('rating, count(*) as count')
+                ->groupBy('rating')
+                ->pluck('count', 'rating')
+                ->toArray();
+
+            foreach ([5, 4, 3, 2, 1] as $star) {
+                $c = (int) ($grouped[$star] ?? 0);
+                $counts[$star] = $c;
+                $percentages[$star] = (int) round(($c / $total) * 100);
+            }
+        }
+
+        return [
+            'counts' => $counts,
+            'percentages' => $percentages,
+        ];
     }
 
     /**

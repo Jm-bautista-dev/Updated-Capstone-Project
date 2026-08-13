@@ -39,8 +39,9 @@ Route::prefix('v1')->group(function () {
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);
     
-    // Delivery
+    // Delivery & Reviews (Public)
     Route::post('delivery/check-fee', [DeliveryFeeController::class, 'checkFee']);
+    Route::get('products/{id}/reviews', [App\Http\Controllers\Api\ReviewController::class, 'getProductReviews']);
 
     // Protected Routes (Multi-Auth Support)
     Route::middleware('auth:sanctum')->group(function () {
@@ -86,6 +87,12 @@ Route::prefix('v1')->group(function () {
         Route::delete('cart/clear', [CartController::class, 'clear']);
         Route::post('cart/validate', [CartController::class, 'validate']);
         
+        // Product Reviews & Ratings (Customer)
+        Route::get('customer/eligible-reviews', [App\Http\Controllers\Api\ReviewController::class, 'getEligibleReviews']);
+        Route::get('customer/reviews', [App\Http\Controllers\Api\ReviewController::class, 'getCustomerReviews']);
+        Route::post('reviews', [App\Http\Controllers\Api\ReviewController::class, 'store']);
+        Route::put('reviews/{id}', [App\Http\Controllers\Api\ReviewController::class, 'update']);
+
         // Notifications
         Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index']);
         Route::post('notifications/mark-as-read', [App\Http\Controllers\NotificationController::class, 'markAsRead']);

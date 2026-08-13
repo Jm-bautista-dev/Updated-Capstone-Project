@@ -11,6 +11,7 @@ import {
     MapPin,
     Navigation,
     ShoppingCart,
+    Star,
     TrendingUp,
     Users,
     Zap,
@@ -62,6 +63,11 @@ const mainNavItems: NavItem[] = [
         title: 'Inventory',
         href: '/inventory',
         icon: ClipboardList,
+    },
+    {
+        title: 'Reviews & Ratings',
+        href: '/admin/reviews',
+        icon: Star,
     },
     {
         title: 'Reports',
@@ -131,7 +137,7 @@ export function AppSidebar() {
 
     const sidebarSections = [
         { label: 'Core', titles: ['Dashboard', 'Pos'] },
-        { label: 'Operations', titles: ['Products', 'Categories', 'Inventory'] },
+        { label: 'Operations', titles: ['Products', 'Categories', 'Inventory', 'Reviews & Ratings'] },
         { label: 'Sales', titles: ['Sales', 'Reports'] },
         { label: 'Analytics', titles: ['Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'] },
         { label: 'Logistics', titles: ['Delivery', 'Riders'] },
