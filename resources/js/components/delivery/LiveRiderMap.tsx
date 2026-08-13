@@ -78,9 +78,9 @@ const createRiderDivIcon = (rider: ActiveRiderData, isSelected: boolean) => {
     const selectedRing = isSelected ? 'ring-4 ring-[#E75480] scale-125 z-50' : 'scale-100';
 
     const html = `
-        <div class="relative flex items-center justify-center size-10 rounded-2xl border-2 shadow-xl backdrop-blur-md transition-all duration-300 ${statusColorClass} ${selectedRing}">
+        <div class="relative flex items-center justify-center size-9 sm:size-10 rounded-2xl border-2 shadow-xl backdrop-blur-md transition-all duration-300 ${statusColorClass} ${selectedRing}">
             ${rider.signal_status === 'live' ? pulseHtml : ''}
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h1"></path>
                 <circle cx="7.5" cy="17.5" r="2.5"></circle>
                 <circle cx="17.5" cy="17.5" r="2.5"></circle>
@@ -91,16 +91,16 @@ const createRiderDivIcon = (rider: ActiveRiderData, isSelected: boolean) => {
     return L.divIcon({
         html,
         className: 'custom-rider-leaflet-marker',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-        popupAnchor: [0, -22],
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -20],
     });
 };
 
 const createHQDivIcon = () => {
     const html = `
-        <div class="relative flex items-center justify-center size-10 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white border-2 border-white shadow-xl">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <div class="relative flex items-center justify-center size-9 sm:size-10 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white border-2 border-white shadow-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path>
                 <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path>
                 <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path>
@@ -114,9 +114,9 @@ const createHQDivIcon = () => {
     return L.divIcon({
         html,
         className: 'custom-hq-leaflet-marker',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-        popupAnchor: [0, -22],
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -20],
     });
 };
 
@@ -166,6 +166,28 @@ export function LiveRiderMap({
         } finally {
             setIsLoading(false);
         }
+    }, []);
+
+    // Handle responsive container resize invalidation for Leaflet
+    useEffect(() => {
+        const handleResize = () => {
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.invalidateSize();
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        const timer = setTimeout(() => {
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.invalidateSize();
+            }
+        }, 300);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(timer);
+        };
     }, []);
 
     // Initialize Leaflet Map
@@ -221,8 +243,8 @@ export function LiveRiderMap({
                 }).addTo(map);
 
                 hqMarker.bindPopup(`
-                    <div style="font-family: 'Outfit', sans-serif; padding: 4px;">
-                        <div style="font-weight: 800; font-size: 14px; color: #E75480;">${riders[0].branch.name}</div>
+                    <div style="font-family: 'Outfit', sans-serif; max-width: 220px; padding: 2px;">
+                        <div style="font-weight: 800; font-size: 13px; color: #E75480;">${riders[0].branch.name}</div>
                         <div style="font-size: 11px; color: #64748B;">Central Branch Operations Hub</div>
                     </div>
                 `);
@@ -251,10 +273,10 @@ export function LiveRiderMap({
             const icon = createRiderDivIcon(rider, isSelected);
 
             const popupContent = `
-                <div style="font-family: 'Outfit', sans-serif; min-width: 200px; padding: 4px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                        <span style="font-weight: 900; font-size: 14px; color: #1E293B;">${rider.name}</span>
-                        <span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 9999px; background: ${
+                <div style="font-family: 'Outfit', sans-serif; max-width: 220px; width: 100%; padding: 2px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 4px;">
+                        <span style="font-weight: 900; font-size: 13px; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${rider.name}</span>
+                        <span style="font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 9999px; white-space: nowrap; background: ${
                             rider.signal_status === 'live'
                                 ? '#DEF7EC'
                                 : rider.signal_status === 'signal_delayed'
@@ -273,18 +295,18 @@ export function LiveRiderMap({
 
                     ${
                         rider.delivery
-                            ? `<div style="font-size: 12px; font-weight: 800; color: #E75480; margin-bottom: 4px;">
+                            ? `<div style="font-size: 11px; font-weight: 800; color: #E75480; margin-bottom: 4px;">
                                 Order #${rider.delivery.order_number}
                                </div>
-                               <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">
+                               <div style="font-size: 10px; color: #475569; margin-bottom: 6px; word-break: break-word;">
                                 📍 ${rider.delivery.customer_name} ${rider.delivery.customer_address ? `• ${rider.delivery.customer_address}` : ''}
                                </div>`
-                            : `<div style="font-size: 11px; color: #64748B; margin-bottom: 6px;">No active order assignment</div>`
+                            : `<div style="font-size: 10px; color: #64748B; margin-bottom: 6px;">No active order assignment</div>`
                     }
 
-                    <div style="display: flex; items-center; justify-content: space-between; font-size: 10px; color: #94A3B8; border-top: 1px solid #F1F5F9; pt: 4px; margin-top: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 9px; color: #94A3B8; border-top: 1px solid #F1F5F9; padding-top: 4px; margin-top: 4px;">
                         <span>Updated ${rider.last_updated_at}</span>
-                        <span>Accuracy ±${Math.round(rider.accuracy)}m</span>
+                        <span>±${Math.round(rider.accuracy)}m</span>
                     </div>
                 </div>
             `;
@@ -296,11 +318,14 @@ export function LiveRiderMap({
                 marker.setPopupContent(popupContent);
             } else {
                 const marker = L.marker(position, { icon }).addTo(map);
-                marker.bindPopup(popupContent);
+                marker.bindPopup(popupContent, { maxWidth: 240 });
                 marker.on('click', () => setSelectedRiderId(rider.id));
                 markersRef.current[rider.id] = marker;
             }
         });
+
+        // Trigger size invalidation to adjust to container bounds
+        map.invalidateSize();
     }, [riders, selectedRiderId]);
 
     // Handle focusing/selecting a rider
@@ -325,49 +350,49 @@ export function LiveRiderMap({
         if (hqMarkerRef.current) {
             bounds.extend(hqMarkerRef.current.getLatLng());
         }
-        map.fitBounds(bounds, { padding: [50, 50] });
+        map.fitBounds(bounds, { padding: [30, 30] });
     };
 
     const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
     const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
 
     return (
-        <div className="relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-2xl p-6 backdrop-blur-2xl transition-colors duration-300 space-y-5 font-['Outfit'] overflow-hidden">
+        <div className="relative rounded-3xl sm:rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-2xl p-4 sm:p-6 backdrop-blur-2xl transition-colors duration-300 space-y-4 sm:space-y-5 font-['Outfit'] overflow-hidden">
             {/* ── TOP MAP BAR & KPI SUMMARY ─────────────────────────────────── */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white shadow-md shadow-[#E75480]/20">
-                        <Navigation className="size-6 animate-pulse" />
+                    <div className="p-2.5 sm:p-3 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white shadow-md shadow-[#E75480]/20 shrink-0">
+                        <Navigation className="size-5 sm:size-6 animate-pulse" />
                     </div>
                     <div>
-                        <h4 className="text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                        <h4 className="text-base sm:text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
                             Live Rider Telemetry Map
                         </h4>
-                        <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                        <p className="text-[11px] sm:text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
                             Real-time GPS tracking powered by OpenStreetMap
                         </p>
                     </div>
                 </div>
 
-                {/* KPI Status Counters */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-black">
-                        <Bike className="size-4 text-slate-500" />
+                {/* KPI Status Counters — Responsive grid on mobile, flex on desktop */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-black">
+                        <Bike className="size-3.5 sm:size-4 text-slate-500" />
                         <span>Active: {stats.total_active}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black">
-                        <Wifi className="size-4 text-emerald-500 animate-pulse" />
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black">
+                        <Wifi className="size-3.5 sm:size-4 text-emerald-500 animate-pulse" />
                         <span>Live: {stats.live}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-black">
-                        <Radio className="size-4 text-amber-500" />
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-black">
+                        <Radio className="size-3.5 sm:size-4 text-amber-500" />
                         <span>Delayed: {stats.delayed}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-black">
-                        <WifiOff className="size-4 text-rose-500" />
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 px-2.5 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-black">
+                        <WifiOff className="size-3.5 sm:size-4 text-rose-500" />
                         <span>Offline: {stats.offline}</span>
                     </div>
 
@@ -376,7 +401,7 @@ export function LiveRiderMap({
                         size="sm"
                         onClick={fetchLiveLocations}
                         disabled={isLoading}
-                        className="rounded-2xl h-8 text-xs gap-1.5 border-[#F8C8DC] dark:border-white/10 hover:bg-[#FFF5F7] dark:hover:bg-slate-800 cursor-pointer"
+                        className="col-span-2 sm:col-span-1 w-full sm:w-auto rounded-2xl h-8 text-xs gap-1.5 border-[#F8C8DC] dark:border-white/10 hover:bg-[#FFF5F7] dark:hover:bg-slate-800 cursor-pointer justify-center"
                     >
                         <RefreshCw className={`size-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                         <span>Refresh</span>
@@ -387,16 +412,16 @@ export function LiveRiderMap({
             {/* ── MAP CONTAINER & SIDEBAR PANEL ─────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 {/* Map Viewport */}
-                <div className="lg:col-span-3 relative h-96 sm:h-112 rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group">
+                <div className="lg:col-span-3 relative h-72 sm:h-96 lg:h-112 rounded-2xl sm:rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group">
                     <div ref={mapContainerRef} className="size-full z-0" />
 
                     {/* Custom Map Controls Overlay */}
-                    <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                    <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 flex flex-col gap-2">
                         <div className="flex flex-col rounded-2xl bg-white/90 dark:bg-[#121218]/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
                             <button
                                 type="button"
                                 onClick={handleZoomIn}
-                                className="size-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-black text-lg"
+                                className="size-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-black text-lg touch-manipulation"
                                 title="Zoom In"
                             >
                                 +
@@ -405,7 +430,7 @@ export function LiveRiderMap({
                             <button
                                 type="button"
                                 onClick={handleZoomOut}
-                                className="size-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-black text-lg"
+                                className="size-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-black text-lg touch-manipulation"
                                 title="Zoom Out"
                             >
                                 −
@@ -416,7 +441,7 @@ export function LiveRiderMap({
                             variant="secondary"
                             size="sm"
                             onClick={handleLocateAllRiders}
-                            className="rounded-2xl shadow-lg bg-white/90 dark:bg-[#121218]/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 text-xs font-bold gap-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            className="rounded-2xl shadow-lg bg-white/90 dark:bg-[#121218]/90 backdrop-blur-xl border border-slate-200 dark:border-slate-800 text-xs font-bold gap-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 touch-manipulation"
                         >
                             <Compass className="size-4 text-[#E75480]" />
                             <span className="hidden sm:inline">Fit All</span>
@@ -425,8 +450,8 @@ export function LiveRiderMap({
                 </div>
 
                 {/* Active Rider Side List */}
-                <div className="lg:col-span-1 flex flex-col h-96 sm:h-112 bg-slate-50/50 dark:bg-slate-900/40 rounded-3xl border border-slate-200/60 dark:border-white/5 p-4 overflow-hidden">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-white/5 shrink-0">
+                <div className="lg:col-span-1 flex flex-col h-64 sm:h-80 lg:h-112 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl sm:rounded-3xl border border-slate-200/60 dark:border-white/5 p-3 sm:p-4 overflow-hidden">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
                         <h5 className="text-xs font-black uppercase tracking-wider text-[#7D6B6E] dark:text-slate-400">
                             Active Fleet ({riders.length})
                         </h5>
@@ -435,10 +460,10 @@ export function LiveRiderMap({
                         </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pt-3 space-y-2.5">
+                    <div className="flex-1 overflow-y-auto pt-2.5 space-y-2">
                         {riders.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-2 text-slate-400">
-                                <Bike className="size-8 stroke-1 opacity-50" />
+                                <Bike className="size-7 stroke-1 opacity-50" />
                                 <p className="text-xs font-bold">No active riders online</p>
                                 <p className="text-[10px]">Assigned delivery riders will appear on the live telemetry map automatically.</p>
                             </div>
@@ -450,16 +475,16 @@ export function LiveRiderMap({
                                     <div
                                         key={rider.id}
                                         onClick={() => handleSelectRider(rider)}
-                                        className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1.5 ${
+                                        className={`p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
                                             isSelected
-                                                ? 'bg-white dark:bg-[#181824] border-[#E75480] dark:border-[#FF4F81] shadow-lg scale-[1.02]'
+                                                ? 'bg-white dark:bg-[#181824] border-[#E75480] dark:border-[#FF4F81] shadow-lg scale-[1.01]'
                                                 : 'bg-white/60 dark:bg-[#121218]/60 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                                         }`}
                                     >
                                         <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
                                                 <div
-                                                    className={`size-2.5 rounded-full ${
+                                                    className={`size-2.5 rounded-full shrink-0 ${
                                                         rider.signal_status === 'live'
                                                             ? 'bg-emerald-500 animate-pulse'
                                                             : rider.signal_status === 'signal_delayed'
@@ -472,14 +497,14 @@ export function LiveRiderMap({
                                                 </span>
                                             </div>
                                             <ChevronRight
-                                                className={`size-4 transition-transform ${
-                                                    isSelected ? 'text-[#E75480] translate-x-1' : 'text-slate-400'
+                                                className={`size-4 shrink-0 transition-transform ${
+                                                    isSelected ? 'text-[#E75480] translate-x-0.5' : 'text-slate-400'
                                                 }`}
                                             />
                                         </div>
 
                                         {rider.delivery ? (
-                                            <div className="text-[11px] font-bold text-[#E75480] dark:text-[#FF4F81]">
+                                            <div className="text-[11px] font-bold text-[#E75480] dark:text-[#FF4F81] truncate">
                                                 Order #{rider.delivery.order_number}
                                             </div>
                                         ) : (
@@ -488,7 +513,7 @@ export function LiveRiderMap({
                                             </div>
                                         )}
 
-                                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium pt-1">
+                                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium pt-0.5">
                                             <span>{rider.last_updated_at}</span>
                                             <span>±{Math.round(rider.accuracy)}m</span>
                                         </div>
