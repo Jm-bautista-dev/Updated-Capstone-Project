@@ -22,7 +22,7 @@ import {
     Users,
     Zap,
 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,6 @@ import {
     Sheet,
     SheetContent,
     SheetDescription,
-    SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useAppearance } from '@/hooks/use-appearance';
@@ -55,6 +54,14 @@ const allNavItems: NavItem[] = [
     { title: 'Branches', href: '/branches', icon: MapPin },
     { title: 'Sales Data Management', href: '/admin/sales-data', icon: Database },
 ];
+
+const getHrefString = (href: NavItem['href'] | unknown): string => {
+    if (typeof href === 'string') return href;
+    if (href && typeof href === 'object' && 'url' in href && typeof (href as { url: string }).url === 'string') {
+        return (href as { url: string }).url;
+    }
+    return '#';
+};
 
 export function MobileBottomNav() {
     const { url, props } = usePage();
@@ -105,8 +112,8 @@ export function MobileBottomNav() {
 
     // Secondary items for "More" sheet
     const secondaryItems = useMemo(() => {
-        const primaryHrefs = new Set(primaryItems.map((i) => i?.href));
-        return filteredNavItems.filter((i) => !primaryHrefs.has(i.href));
+        const primaryHrefs = new Set(primaryItems.map((i) => getHrefString(i?.href)));
+        return filteredNavItems.filter((i) => !primaryHrefs.has(getHrefString(i.href)));
     }, [filteredNavItems, primaryItems]);
 
     // Group secondary items into clean sections
@@ -134,16 +141,20 @@ export function MobileBottomNav() {
             .filter((sec) => sec.items.length > 0);
     }, [secondaryItems]);
 
-    const isCurrentUrl = (href: string) => {
-        if (href === '/dashboard' || href === '/pos') {
-            return url === href;
-        }
-        return url.startsWith(href);
-    };
+    const isCurrentUrl = useCallback(
+        (href: NavItem['href'] | unknown) => {
+            const hrefStr = getHrefString(href);
+            if (hrefStr === '/dashboard' || hrefStr === '/pos') {
+                return url === hrefStr;
+            }
+            return url.startsWith(hrefStr);
+        },
+        [url]
+    );
 
     const isSecondaryActive = useMemo(() => {
         return secondaryItems.some((item) => isCurrentUrl(item.href));
-    }, [secondaryItems, url]);
+    }, [secondaryItems, isCurrentUrl]);
 
     const toggleTheme = () => {
         updateAppearance(resolvedAppearance === 'dark' ? 'light' : 'dark');
@@ -168,13 +179,14 @@ export function MobileBottomNav() {
                 <div className="grid grid-cols-5 h-15 items-center px-1 max-w-md mx-auto">
                     {primaryItems.map((item) => {
                         if (!item) return null;
+                        const hrefStr = getHrefString(item.href);
                         const active = isCurrentUrl(item.href);
-                        const Icon = item.icon;
+                        const Icon = item.icon || Box;
 
                         return (
                             <Link
-                                key={item.href}
-                                href={item.href}
+                                key={hrefStr}
+                                href={hrefStr}
                                 className={`flex flex-col items-center justify-center h-full w-full py-1 rounded-2xl transition-all duration-200 relative group ${
                                     active
                                         ? 'text-[#E75480] dark:text-[#FF4F81] font-black'
@@ -285,13 +297,14 @@ export function MobileBottomNav() {
                                 </h3>
                                 <div className="grid grid-cols-1 gap-1">
                                     {sec.items.map((item) => {
+                                        const hrefStr = getHrefString(item.href);
                                         const active = isCurrentUrl(item.href);
-                                        const Icon = item.icon;
+                                        const Icon = item.icon || Box;
 
                                         return (
                                             <Link
-                                                key={item.href}
-                                                href={item.href}
+                                                key={hrefStr}
+                                                href={hrefStr}
                                                 onClick={() => setMoreOpen(false)}
                                                 className={`flex items-center justify-between p-3 rounded-2xl transition-colors font-bold text-sm ${
                                                     active
