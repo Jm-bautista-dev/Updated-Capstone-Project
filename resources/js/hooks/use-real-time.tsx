@@ -167,7 +167,7 @@ export function useRealTime(branchId?: number | null) {
                 console.log('Real-time: Order Status Updated', e);
                 router.reload({
                     only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats', 'sales'],
-                } as any);
+                });
             };
 
             const userRole = (auth?.user?.role || '').toLowerCase();
