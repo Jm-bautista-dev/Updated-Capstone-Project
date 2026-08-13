@@ -26,10 +26,12 @@ export type Sale = {
     status: 'pending' | 'preparing' | 'completed' | 'cancelled';
     created_at: string;
     items: SaleItem[];
+    branch_id?: number;
     cashier: {
         name: string;
     };
     branch?: {
+        id?: number;
         name: string;
     };
 };

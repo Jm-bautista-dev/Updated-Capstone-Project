@@ -140,7 +140,7 @@ export default function SalesIndex() {
                 (s.payment_method ?? '').toLowerCase().includes(search.toLowerCase());
 
             const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-            const saleBranchId = (s as unknown as { branch_id?: number }).branch_id ?? s.branch?.id;
+            const saleBranchId = s.branch_id ?? s.branch?.id;
             const matchesBranch = !branchFilter || branchFilter === 'all' || (saleBranchId !== undefined && String(saleBranchId) === String(branchFilter));
             return matchesSearch && matchesStatus && matchesBranch;
         });

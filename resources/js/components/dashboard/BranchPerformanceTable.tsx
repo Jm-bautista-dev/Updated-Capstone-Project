@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MapPin, TrendingUp, DollarSign, Percent } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import React from 'react';
 
 const formatCurrency = (amount: number) =>

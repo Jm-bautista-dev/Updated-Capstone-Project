@@ -12,7 +12,6 @@ import {
 
 import { StatusBadge } from '@/components/products/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import {
     Sheet,
     SheetContent,
@@ -20,6 +19,7 @@ import {
     SheetTitle,
     SheetDescription,
 } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);

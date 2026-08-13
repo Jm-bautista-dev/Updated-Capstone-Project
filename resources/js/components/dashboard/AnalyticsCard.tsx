@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, BarChart3, PieChart as PieIcon, Legend as LegendIcon } from 'lucide-react';
+import { TrendingUp, BarChart3, PieChart as PieIcon } from 'lucide-react';
 import React from 'react';
 import {
     AreaChart,
@@ -14,7 +14,6 @@ import {
     PieChart,
     Pie,
     Cell,
-    Legend,
 } from 'recharts';
 
 const formatCurrency = (amount: number) =>
