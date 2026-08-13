@@ -723,8 +723,8 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                     </div>
                                 </div>
 
-                                <div className="h-72 w-full min-h-72 min-w-0 pt-2">
-                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
+                                 <div className="h-72 w-full min-h-72 min-w-0 pt-2">
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 500, height: 250 }}>
                                         <AreaChart data={TREND_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -757,7 +757,7 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                 </div>
 
                                 <div className="h-52 w-full min-h-52 min-w-0 flex items-center justify-center relative">
-                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180} debounce={1}>
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={180} initialDimension={{ width: 300, height: 200 }}>
                                         <PieChart>
                                             <Pie data={CAT_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
                                                 {CAT_DATA.map((entry, index) => (

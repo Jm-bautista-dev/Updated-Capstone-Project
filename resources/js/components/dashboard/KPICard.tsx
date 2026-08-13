@@ -97,7 +97,7 @@ export function KPICard({
             {/* Sparkline Chart */}
             {sparklineData && sparklineData.length > 0 && (
                 <div className="h-10 w-full min-h-10 min-w-0 mt-4 opacity-70 group-hover:opacity-100 transition-opacity">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={40} debounce={1}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={50} minHeight={40} initialDimension={{ width: 120, height: 40 }}>
                         <AreaChart data={sparklineData}>
                             <defs>
                                 <linearGradient id={`kpi-grad-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">

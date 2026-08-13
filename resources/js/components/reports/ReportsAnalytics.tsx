@@ -86,7 +86,7 @@ export function ReportsAnalytics() {
                     </div>
 
                     <div className="h-72 w-full min-h-72 min-w-0 pt-2">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 500, height: 250 }}>
                             <AreaChart data={SALES_TREND_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -135,7 +135,7 @@ export function ReportsAnalytics() {
                     </div>
 
                     <div className="h-52 w-full min-h-52 min-w-0 flex items-center justify-center relative">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180} debounce={1}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={180} initialDimension={{ width: 500, height: 200 }}>
                             <PieChart>
                                 <Pie
                                     data={CATEGORY_SHARE}
@@ -206,7 +206,7 @@ export function ReportsAnalytics() {
                 </div>
 
                 <div className="h-56 w-full min-h-56 min-w-0 pt-2">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180} debounce={1}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={180} initialDimension={{ width: 500, height: 200 }}>
                         <BarChart data={HOURLY_PEAK_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                             <XAxis dataKey="hour" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} />

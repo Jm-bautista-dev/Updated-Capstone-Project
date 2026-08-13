@@ -84,7 +84,7 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
             </div>
 
             <div className="h-72 w-full min-h-72 min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 500, height: 250 }}>
                     <AreaChart data={salesOverTime} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                         <defs>
                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -158,7 +158,7 @@ export function ProductDemandChart({ salesPerProduct }: { salesPerProduct?: Sale
             </p>
 
             <div className="h-60 w-full min-h-60 min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 500, height: 250 }}>
                     <BarChart data={salesPerProduct?.slice(0, 5)} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--ops-border, rgba(255, 255, 255, 0.06))" />
                         <XAxis dataKey="name" stroke="#9E8B8E" fontSize={10} tickLine={false} interval={0} />
@@ -204,7 +204,7 @@ export function PaymentMixChart({ salesByPaymentMethod = [] }: { salesByPaymentM
 
             <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="h-56 w-full md:w-1/2 min-h-56 min-w-0 flex items-center justify-center relative">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180} debounce={1}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={180} initialDimension={{ width: 250, height: 200 }}>
                         <PieChart>
                             <Pie
                                 data={salesByPaymentMethod}

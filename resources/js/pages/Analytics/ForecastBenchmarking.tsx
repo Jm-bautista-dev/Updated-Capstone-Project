@@ -536,7 +536,7 @@ export default function ForecastBenchmarking() {
 
                   {/* Recharts Comparison Area */}
                   <div className="xl:col-span-3 h-70 min-h-70 min-w-0" style={{ height: 280, minHeight: 250 }}>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250} debounce={1}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={250} initialDimension={{ width: 500, height: 280 }}>
                       <LineChart data={validationChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-muted/10 dark:text-zinc-850" vertical={false} />
                         <XAxis dataKey="date" fontSize={9} stroke="currentColor" className="text-(--ops-text-muted) font-bold" axisLine={false} tickLine={false} />
