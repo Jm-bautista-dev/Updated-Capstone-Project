@@ -231,9 +231,9 @@ export default function CashierPerformance() {
                             </div>
                         </div>
 
-                        <div className="h-64 w-full pt-2">
+                        <div className="h-64 w-full min-h-64 min-w-0 pt-2">
                             {chartData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
                                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                         <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} />
@@ -267,8 +267,8 @@ export default function CashierPerformance() {
                             </p>
                         </div>
 
-                        <div className="h-48 w-full pt-2">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                        <div className="h-48 w-full min-h-48 min-w-0 pt-2">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={150} debounce={1}>
                                 <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorSalesVel" x1="0" y1="0" x2="0" y2="1">

@@ -62,8 +62,8 @@ export function TrajectoryChart({ salesOverTime }: { salesOverTime?: SalesOverTi
                 </div>
             </div>
 
-            <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div className="h-72 w-full min-h-72 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
                     <AreaChart data={salesOverTime} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -118,8 +118,8 @@ export function ProductDemandChart({ salesPerProduct }: { salesPerProduct?: Sale
                 Highest selling items by checkout volume.
             </p>
 
-            <div className="h-60 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div className="h-60 w-full min-h-60 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
                     <BarChart data={salesPerProduct?.slice(0, 5)} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--ops-border, rgba(255, 255, 255, 0.06))" />
                         <XAxis dataKey="name" stroke="#9E8B8E" fontSize={10} tickLine={false} interval={0} />
@@ -161,8 +161,8 @@ export function PaymentMixChart({ salesByPaymentMethod }: { salesByPaymentMethod
                 Revenue distribution across payment channels.
             </p>
 
-            <div className="h-60 w-full flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div className="h-60 w-full min-h-60 min-w-0 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200} debounce={1}>
                     <PieChart>
                         <Pie
                             data={salesByPaymentMethod}
