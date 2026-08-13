@@ -84,6 +84,7 @@ class SalesController extends Controller
         }
 
         // Sync linked Delivery status if present & broadcast real-time event
+        /** @var \App\Models\Delivery|null $delivery */
         $delivery = \App\Models\Delivery::where('sale_id', $sale->id)->first();
         if ($delivery) {
             $mappedDeliveryStatus = match ($validated['status']) {

@@ -169,7 +169,7 @@ class ApiOrderController extends Controller
                     ]);
                 }
 
-                Delivery::create([
+                $delivery = Delivery::create([
                     'order_id'         => $order->id,
                     'customer_name'    => $validated['customer_name'],
                     'customer_phone'   => $validated['mobile_number'],
