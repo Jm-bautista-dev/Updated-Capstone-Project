@@ -498,10 +498,12 @@ class RiderController extends Controller
             }
 
             $request->validate([
-                'latitude'  => 'required|numeric|between:-90,90',
-                'longitude' => 'required|numeric|between:-180,180',
-                'speed'     => 'nullable|numeric|min:0',
-                'heading'   => 'nullable|numeric|between:0,360',
+                'latitude'    => 'required|numeric|between:-90,90',
+                'longitude'   => 'required|numeric|between:-180,180',
+                'accuracy'    => 'nullable|numeric|min:0',
+                'speed'       => 'nullable|numeric|min:0',
+                'heading'     => 'nullable|numeric|between:0,360',
+                'recorded_at' => 'nullable|date',
             ]);
 
             // Find active delivery for this rider
@@ -509,6 +511,8 @@ class RiderController extends Controller
                 ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit']))
                 ->latest()
                 ->first();
+
+            $recordedAt = $request->recorded_at ? \Carbon\Carbon::parse($request->recorded_at) : now();
 
             // Store location log
             RiderLocationLog::create([
@@ -518,17 +522,36 @@ class RiderController extends Controller
                 'longitude'   => $request->longitude,
                 'speed'       => $request->speed,
                 'heading'     => $request->heading,
-                'recorded_at' => now(),
+                'recorded_at' => $recordedAt,
             ]);
 
-            // Update rider's last known position on the riders table
+            // Update rider's current position on riders table
             $rider->update([
-                'last_active_at' => now(),
-                'latitude'       => $request->latitude,
-                'longitude'      => $request->longitude,
+                'last_active_at'      => now(),
+                'location_updated_at' => $recordedAt,
+                'latitude'            => $request->latitude,
+                'longitude'           => $request->longitude,
+                'accuracy'            => $request->accuracy,
+                'speed'               => $request->speed,
+                'heading'             => $request->heading,
             ]);
 
-            return response()->json(['success' => true, 'message' => 'Location updated']);
+            // Broadcast real-time location update event
+            try {
+                event(new \App\Events\RiderLocationUpdated($rider, $delivery));
+            } catch (\Throwable $e) {
+                // Non-blocking fallback if broadcast fails
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Location updated successfully',
+                'data'    => [
+                    'latitude'            => (float) $rider->latitude,
+                    'longitude'           => (float) $rider->longitude,
+                    'location_updated_at' => $rider->location_updated_at?->toIso8601String(),
+                ]
+            ]);
         } catch (\Throwable $e) {
             Log::error('Rider::updateLocation failed', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Failed to update location'], 500);

@@ -78,6 +78,84 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     index.form = indexForm
 /**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+export const liveRiders = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: liveRiders.url(options),
+    method: 'get',
+})
+
+liveRiders.definition = {
+    methods: ["get","head"],
+    url: '/deliveries/live-riders',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+liveRiders.url = (options?: RouteQueryOptions) => {
+    return liveRiders.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+liveRiders.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: liveRiders.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+liveRiders.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: liveRiders.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+    const liveRidersForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: liveRiders.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+        liveRidersForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: liveRiders.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::liveRiders
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+        liveRidersForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: liveRiders.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    liveRiders.form = liveRidersForm
+/**
 * @see \App\Http\Controllers\Admin\DeliveryController::store
  * @see app/Http/Controllers/Admin/DeliveryController.php:232
  * @route '/deliveries'
@@ -538,6 +616,7 @@ recommend.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     recommend.form = recommendForm
 const deliveries = {
     index: Object.assign(index, index),
+liveRiders: Object.assign(liveRiders, liveRiders),
 store: Object.assign(store, store),
 updateStatus: Object.assign(updateStatus, updateStatus),
 cancel: Object.assign(cancel, cancel),

@@ -1,9 +1,9 @@
 import Auth from './Auth'
 import Api from './Api'
 import BranchController from './BranchController'
+import Admin from './Admin'
 import NotificationController from './NotificationController'
 import StockInController from './StockInController'
-import Admin from './Admin'
 import ProductsController from './ProductsController'
 import InventoryController from './InventoryController'
 import PosController from './PosController'
@@ -17,9 +17,9 @@ const Controllers = {
     Auth: Object.assign(Auth, Auth),
 Api: Object.assign(Api, Api),
 BranchController: Object.assign(BranchController, BranchController),
+Admin: Object.assign(Admin, Admin),
 NotificationController: Object.assign(NotificationController, NotificationController),
 StockInController: Object.assign(StockInController, StockInController),
-Admin: Object.assign(Admin, Admin),
 ProductsController: Object.assign(ProductsController, ProductsController),
 InventoryController: Object.assign(InventoryController, InventoryController),
 PosController: Object.assign(PosController, PosController),

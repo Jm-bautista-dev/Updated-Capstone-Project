@@ -33,6 +33,12 @@ class Rider extends Authenticatable
         'role',
         'last_active_at',
         'must_change_password',
+        'latitude',
+        'longitude',
+        'accuracy',
+        'speed',
+        'heading',
+        'location_updated_at',
     ];
 
     protected $hidden = [
@@ -41,10 +47,16 @@ class Rider extends Authenticatable
     ];
 
     protected $casts = [
-        'password' => 'hashed',
-        'is_active' => 'boolean',
-        'last_active_at' => 'datetime',
+        'password'             => 'hashed',
+        'is_active'            => 'boolean',
+        'last_active_at'       => 'datetime',
+        'location_updated_at'  => 'datetime',
         'must_change_password' => 'boolean',
+        'latitude'             => 'float',
+        'longitude'            => 'float',
+        'accuracy'             => 'float',
+        'speed'                => 'float',
+        'heading'              => 'float',
     ];
 
     /* ── Relationships ─────────────────────────────── */

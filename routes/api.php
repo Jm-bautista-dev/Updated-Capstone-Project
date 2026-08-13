@@ -78,6 +78,9 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{id}/cancel',  [RiderController::class, 'cancelOrder']);  // fully cancelled
         });
 
+        // Deliveries Live Tracking
+        Route::get('deliveries/live-riders', [App\Http\Controllers\Admin\DeliveryController::class, 'getLiveRiderLocations']);
+
         // Orders & Cart
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);

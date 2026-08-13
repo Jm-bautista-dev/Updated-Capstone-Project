@@ -358,4 +358,121 @@ class DeliveryController extends Controller
             ],
         ]);
     }
+
+    /**
+     * API endpoint to get real-time active rider location telemetry for Leaflet Map.
+     * GET /api/v1/deliveries/live-riders
+     */
+    public function getLiveRiderLocations(Request $request)
+    {
+        $user = Auth::user();
+
+        // Query active riders with location data
+        $riderQuery = Rider::query()
+            ->with(['branch', 'deliveries' => function ($q) {
+                $q->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED])
+                  ->with(['order', 'sale'])
+                  ->latest();
+            }]);
+
+        // Branch permission filtering
+        if (!$user->isAdmin()) {
+            $riderQuery->where('branch_id', $user->branch_id);
+        } elseif ($request->filled('branch_id') && $request->branch_id !== 'all') {
+            $riderQuery->where('branch_id', $request->branch_id);
+        }
+
+        $riders = $riderQuery->get();
+
+        $activeRiders = [];
+        $totalLive = 0;
+        $totalDelayed = 0;
+        $totalOffline = 0;
+
+        foreach ($riders as $rider) {
+            // Find current active delivery (if any)
+            $activeDelivery = $rider->deliveries->first();
+
+            // Only include riders who have an active delivery assignment or are currently active
+            if (!$activeDelivery && $rider->status === 'offline') {
+                continue;
+            }
+
+            $lastUpdated = $rider->location_updated_at ?? $rider->last_active_at;
+            $secondsAgo = $lastUpdated ? (int) now()->diffInSeconds($lastUpdated) : 9999;
+
+            // Stale Location Classification
+            if ($secondsAgo < 30) {
+                $signalStatus = 'live'; // 🟢 Live
+                $totalLive++;
+            } elseif ($secondsAgo <= 120) {
+                $signalStatus = 'signal_delayed'; // 🟡 Signal Delayed
+                $totalDelayed++;
+            } else {
+                $signalStatus = 'offline'; // 🔴 Offline
+                $totalOffline++;
+            }
+
+            $orderNumber = $activeDelivery?->order?->order_number 
+                ?? $activeDelivery?->sale?->order_number 
+                ?? ($activeDelivery ? "DEL-{$activeDelivery->id}" : null);
+
+            $customerName = $activeDelivery?->customer_name ?? $activeDelivery?->order?->customer_name ?? 'Guest Customer';
+            $customerAddress = $activeDelivery?->customer_address ?? $activeDelivery?->order?->address ?? null;
+            $customerLat = $activeDelivery?->latitude ?? $activeDelivery?->order?->latitude ?? null;
+            $customerLng = $activeDelivery?->longitude ?? $activeDelivery?->order?->longitude ?? null;
+
+            // Default branch lat/lng coordinates (Victoria HQ fallback: 14.229371, 121.328383)
+            $branchLat = (float) ($rider->branch?->latitude ?? 14.229371);
+            $branchLng = (float) ($rider->branch?->longitude ?? 121.328383);
+
+            // Fallback rider coordinates near branch if GPS location not recorded yet
+            $riderLat = $rider->latitude ? (float) $rider->latitude : $branchLat;
+            $riderLng = $rider->longitude ? (float) $rider->longitude : $branchLng;
+
+            $activeRiders[] = [
+                'id'                  => $rider->id,
+                'name'                => $rider->name,
+                'phone'               => $rider->phone,
+                'status'              => $rider->status,
+                'is_active'           => $rider->is_active,
+                'signal_status'       => $signalStatus,
+                'latitude'            => $riderLat,
+                'longitude'           => $riderLng,
+                'accuracy'            => (float) ($rider->accuracy ?? 10),
+                'speed'               => (float) ($rider->speed ?? 0),
+                'heading'             => (float) ($rider->heading ?? 0),
+                'seconds_ago'         => $secondsAgo,
+                'last_updated_at'     => $lastUpdated ? $lastUpdated->diffForHumans() : 'No signal',
+                'raw_timestamp'       => $lastUpdated?->toIso8601String(),
+                'branch' => [
+                    'id'        => $rider->branch?->id,
+                    'name'      => $rider->branch?->name ?? 'Maki Desu HQ',
+                    'latitude'  => $branchLat,
+                    'longitude' => $branchLng,
+                ],
+                'delivery' => $activeDelivery ? [
+                    'id'               => $activeDelivery->id,
+                    'order_number'     => $orderNumber,
+                    'status'           => $activeDelivery->status,
+                    'status_label'     => $activeDelivery->getStatusLabel(),
+                    'customer_name'    => $customerName,
+                    'customer_address' => $customerAddress,
+                    'latitude'         => $customerLat ? (float) $customerLat : null,
+                    'longitude'        => $customerLng ? (float) $customerLng : null,
+                ] : null,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'stats' => [
+                'total_active' => count($activeRiders),
+                'live'         => $totalLive,
+                'delayed'      => $totalDelayed,
+                'offline'      => $totalOffline,
+            ],
+            'riders' => $activeRiders,
+        ]);
+    }
 }

@@ -138,6 +138,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Deliveries
             Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
+            Route::get('deliveries/live-riders', [DeliveryController::class, 'getLiveRiderLocations'])->name('deliveries.live-riders');
             Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
             Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
             Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');

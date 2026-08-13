@@ -56,7 +56,7 @@ changePassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
     changePassword.form = changePasswordForm
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:547
+ * @see app/Http/Controllers/Api/RiderController.php:570
  * @route '/api/v1/rider/status'
  */
 export const updateStatus = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -71,7 +71,7 @@ updateStatus.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:547
+ * @see app/Http/Controllers/Api/RiderController.php:570
  * @route '/api/v1/rider/status'
  */
 updateStatus.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ updateStatus.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:547
+ * @see app/Http/Controllers/Api/RiderController.php:570
  * @route '/api/v1/rider/status'
  */
 updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -90,7 +90,7 @@ updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => 
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:547
+ * @see app/Http/Controllers/Api/RiderController.php:570
  * @route '/api/v1/rider/status'
  */
     const updateStatusForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -105,7 +105,7 @@ updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => 
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:547
+ * @see app/Http/Controllers/Api/RiderController.php:570
  * @route '/api/v1/rider/status'
  */
         updateStatusForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -121,7 +121,7 @@ updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => 
     updateStatus.form = updateStatusForm
 /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:613
+ * @see app/Http/Controllers/Api/RiderController.php:636
  * @route '/api/v1/rider/ping'
  */
 export const ping = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -136,7 +136,7 @@ ping.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:613
+ * @see app/Http/Controllers/Api/RiderController.php:636
  * @route '/api/v1/rider/ping'
  */
 ping.url = (options?: RouteQueryOptions) => {
@@ -145,7 +145,7 @@ ping.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:613
+ * @see app/Http/Controllers/Api/RiderController.php:636
  * @route '/api/v1/rider/ping'
  */
 ping.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -155,7 +155,7 @@ ping.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:613
+ * @see app/Http/Controllers/Api/RiderController.php:636
  * @route '/api/v1/rider/ping'
  */
     const pingForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -165,7 +165,7 @@ ping.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:613
+ * @see app/Http/Controllers/Api/RiderController.php:636
  * @route '/api/v1/rider/ping'
  */
         pingForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -176,7 +176,7 @@ ping.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     ping.form = pingForm
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
 export const getStats = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -191,7 +191,7 @@ getStats.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
 getStats.url = (options?: RouteQueryOptions) => {
@@ -200,7 +200,7 @@ getStats.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
 getStats.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -209,7 +209,7 @@ getStats.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
 getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -219,7 +219,7 @@ getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
     const getStatsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -229,7 +229,7 @@ getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
         getStatsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -238,7 +238,7 @@ getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:575
+ * @see app/Http/Controllers/Api/RiderController.php:598
  * @route '/api/v1/rider/stats'
  */
         getStatsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

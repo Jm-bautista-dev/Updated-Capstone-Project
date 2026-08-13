@@ -7,7 +7,7 @@ import DeliveryDetailSheet from '@/components/delivery/DeliveryDetailSheet';
 import DeliveryEmptyState from '@/components/delivery/DeliveryEmptyState';
 import DeliveryFilters from '@/components/delivery/DeliveryFilters';
 import { DeliveryHero } from '@/components/delivery/DeliveryHero';
-import { DeliveryMapPlaceholder } from '@/components/delivery/DeliveryMapPlaceholder';
+import { LiveRiderMap } from '@/components/delivery/LiveRiderMap';
 import { DeliveryQuickActions } from '@/components/delivery/DeliveryQuickActions';
 import DeliveryStats from '@/components/delivery/DeliveryStats';
 import DeliveryStatusGroup from '@/components/delivery/DeliveryStatusGroup';
@@ -354,8 +354,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                     )}
                 </div>
 
-                {/* 6. DELIVERY MAP PLACEHOLDER */}
-                <DeliveryMapPlaceholder activeDeliveriesCount={stats.active} />
+                {/* 6. REAL-TIME LIVE RIDER TRACKING MAP */}
+                <LiveRiderMap />
 
                 {/* 7. ASSIGNED RIDERS SECTION */}
                 <RiderFleetSection riders={availableRiders} />

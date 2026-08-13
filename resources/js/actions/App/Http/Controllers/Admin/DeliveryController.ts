@@ -1,5 +1,167 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+const getLiveRiderLocations054d85beb9c8c410feec91746240edf6 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url(options),
+    method: 'get',
+})
+
+getLiveRiderLocations054d85beb9c8c410feec91746240edf6.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/deliveries/live-riders',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url = (options?: RouteQueryOptions) => {
+    return getLiveRiderLocations054d85beb9c8c410feec91746240edf6.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+getLiveRiderLocations054d85beb9c8c410feec91746240edf6.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+getLiveRiderLocations054d85beb9c8c410feec91746240edf6.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+    const getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+        getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/api/v1/deliveries/live-riders'
+ */
+        getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getLiveRiderLocations054d85beb9c8c410feec91746240edf6.form = getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form
+    /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+const getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url(options),
+    method: 'get',
+})
+
+getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.definition = {
+    methods: ["get","head"],
+    url: '/deliveries/live-riders',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url = (options?: RouteQueryOptions) => {
+    return getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+    const getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+        getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
+ * @see app/Http/Controllers/Admin/DeliveryController.php:366
+ * @route '/deliveries/live-riders'
+ */
+        getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.form = getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm
+
+export const getLiveRiderLocations = {
+    '/api/v1/deliveries/live-riders': getLiveRiderLocations054d85beb9c8c410feec91746240edf6,
+    '/deliveries/live-riders': getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc,
+}
+
+/**
 * @see \App\Http\Controllers\Admin\DeliveryController::index
  * @see app/Http/Controllers/Admin/DeliveryController.php:28
  * @route '/deliveries'
@@ -536,6 +698,6 @@ recommend.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
     
     recommend.form = recommendForm
-const DeliveryController = { index, store, updateStatus, cancel, failDelivery, assignRider, recommend }
+const DeliveryController = { getLiveRiderLocations, index, store, updateStatus, cancel, failDelivery, assignRider, recommend }
 
 export default DeliveryController
