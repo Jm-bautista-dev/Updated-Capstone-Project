@@ -22,6 +22,7 @@ class ProductService
             $imagePath = null;
             if ($image) {
                 $imagePath = $image->store('products', 'public');
+                $this->syncToPublicStorage($imagePath);
             }
 
             $product = Product::create([
@@ -83,6 +84,7 @@ class ProductService
                     Storage::disk('public')->delete($product->image_path);
                 }
                 $imagePath = $image->store('products', 'public');
+                $this->syncToPublicStorage($imagePath);
             }
 
             $product->update([
@@ -138,5 +140,19 @@ class ProductService
     {
         if ($sku) return strtoupper($sku);
         return 'PRD-' . strtoupper(uniqid());
+    }
+
+    /**
+     * Copy uploaded image to public/storage if storage link is a physical folder.
+     */
+    private function syncToPublicStorage(?string $imagePath): void
+    {
+        if (!$imagePath) return;
+        $source = storage_path('app/public/' . $imagePath);
+        $dest = public_path('storage/' . $imagePath);
+        if (file_exists($source) && !is_link(public_path('storage'))) {
+            @mkdir(dirname($dest), 0755, true);
+            @copy($source, $dest);
+        }
     }
 }
