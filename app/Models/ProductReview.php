@@ -34,6 +34,7 @@ class ProductReview extends Model
     ];
 
     const STATUS_PUBLISHED = 'published';
+    const STATUS_APPROVED  = 'published';
     const STATUS_HIDDEN    = 'hidden';
     const STATUS_FLAGGED   = 'flagged';
     const STATUS_PENDING   = 'pending';
@@ -74,7 +75,7 @@ class ProductReview extends Model
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', self::STATUS_PUBLISHED);
+        return $query->whereIn('status', [self::STATUS_PUBLISHED, 'approved']);
     }
 
     public function scopeFlagged(Builder $query): Builder
