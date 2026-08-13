@@ -2,8 +2,6 @@ import { motion } from 'framer-motion';
 import { DollarSign, ShoppingBag, TrendingUp, CheckCircle, Clock, Store } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { cn } from '@/lib/utils';
-
 export type SaleItem = {
     id: number;
     product_id: number;
