@@ -16,7 +16,7 @@ class Product extends Model
     use BelongsToBranch, SoftDeletes;
     protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id', 'barcode'];
 
-    protected $appends = ['computed_stock', 'image_url', 'average_rating', 'review_count'];
+    protected $appends = ['computed_stock', 'image_url', 'average_rating', 'review_count', 'quantity_sold'];
 
     protected static function booted()
     {
@@ -108,6 +108,20 @@ class Product extends Model
     {
         if (!$this->exists) return 0;
         return (int) $this->reviews()->published()->count();
+    }
+
+    /**
+     * Total quantity of this product sold/delivered.
+     */
+    public function getQuantitySoldAttribute(): int
+    {
+        if (!$this->exists) return 0;
+
+        return (int) \App\Models\OrderItem::where('product_id', $this->id)
+            ->whereHas('order', function ($query) {
+                $query->whereIn('status', ['delivered', 'completed']);
+            })
+            ->sum('quantity');
     }
 
     /**

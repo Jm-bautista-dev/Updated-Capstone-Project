@@ -28,19 +28,29 @@ class TopPickResource extends JsonResource
             $imageUrl = asset('images/product-placeholder.png');
         }
 
+        $productId = (int) ($data['id'] ?? 0);
+        $productModel = is_object($this->resource) && $this->resource instanceof \App\Models\Product 
+            ? $this->resource 
+            : ($productId ? \App\Models\Product::find($productId) : null);
+
+        $averageRating = (float) ($data['average_rating'] ?? $productModel?->average_rating ?? 0.0);
+        $reviewCount   = (int) ($data['review_count'] ?? $productModel?->review_count ?? 0);
+
         return [
-            'id'            => (int) ($data['id'] ?? 0),
-            'name'          => (string) ($data['name'] ?? 'Product'),
-            'sku'           => (string) ($data['sku'] ?? ''),
-            'barcode'       => (string) ($data['barcode'] ?? ''),
-            'category'      => (string) ($data['category'] ?? 'General'),
-            'brand'         => (string) ($data['brand'] ?? config('app.name', 'MakiDesu')),
-            'price'         => (float) round((float) ($data['price'] ?? 0), 2),
-            'image'         => $imageUrl,
-            'quantity_sold' => (int) ($data['quantity_sold'] ?? 0),
-            'total_sales'   => (float) round((float) ($data['total_sales'] ?? 0), 2),
-            'ranking'       => (int) ($data['ranking'] ?? 0),
-            'forecast_trend'=> $data['forecast_trend'] ?? null,
+            'id'             => $productId,
+            'name'           => (string) ($data['name'] ?? 'Product'),
+            'sku'            => (string) ($data['sku'] ?? ''),
+            'barcode'        => (string) ($data['barcode'] ?? ''),
+            'category'       => (string) ($data['category'] ?? 'General'),
+            'brand'          => (string) ($data['brand'] ?? config('app.name', 'MakiDesu')),
+            'price'          => (float) round((float) ($data['price'] ?? 0), 2),
+            'image'          => $imageUrl,
+            'average_rating' => $averageRating,
+            'review_count'   => $reviewCount,
+            'quantity_sold'  => (int) ($data['quantity_sold'] ?? $productModel?->quantity_sold ?? 0),
+            'total_sales'    => (float) round((float) ($data['total_sales'] ?? 0), 2),
+            'ranking'        => (int) ($data['ranking'] ?? 0),
+            'forecast_trend' => $data['forecast_trend'] ?? null,
         ];
     }
 }

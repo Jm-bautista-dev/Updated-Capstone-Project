@@ -75,17 +75,20 @@ class ProductController extends Controller
             $availability = $product->dynamicAvailability($nearestBranch->id);
             
             return [
-                'id'            => $product->id,
-                'name'          => $product->name,
-                'price'         => (float) $product->selling_price,
-                'selling_price' => (float) $product->selling_price,
-                'description'   => $product->description,
-                'image'         => $this->resolveImageUrl($product->image_path),
-                'category'      => $product->category?->name ?? 'Uncategorized',
-                'unit'          => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
-                'stock'         => (float) $availability['available'], // This is the calculated stock
-                'is_low_stock'  => $availability['is_low_stock'],
-                'limiting_item' => $availability['limiting_ingredient'],
+                'id'             => $product->id,
+                'name'           => $product->name,
+                'price'          => (float) $product->selling_price,
+                'selling_price'  => (float) $product->selling_price,
+                'description'    => $product->description,
+                'image'          => $this->resolveImageUrl($product->image_path),
+                'category'       => $product->category?->name ?? 'Uncategorized',
+                'unit'           => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
+                'stock'          => (float) $availability['available'],
+                'is_low_stock'   => $availability['is_low_stock'],
+                'limiting_item'  => $availability['limiting_ingredient'],
+                'average_rating' => $product->average_rating,
+                'review_count'   => $product->review_count,
+                'quantity_sold'  => $product->quantity_sold,
             ];
         });
 
