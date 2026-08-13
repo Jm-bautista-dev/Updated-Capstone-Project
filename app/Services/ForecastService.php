@@ -66,15 +66,20 @@ class ForecastService
             'status' => $completenessPct >= 80 ? 'Good' : ($completenessPct >= 50 ? 'Fair' : 'Poor')
         ];
 
-        // 5. Time-Series Split (Walk-Forward Validation Set: Last 14 days)
-        $validationSize = $totalDays >= 28 ? 14 : ($totalDays >= 14 ? 7 : 0);
-        
-        if ($validationSize === 0) {
+        // 5. Time-Series Split (Walk-Forward Validation Set)
+        // Use last 7 days if >= 14 days available, else last 3 days if >= 6 days, else use 1 day
+        $validationSize = $totalDays >= 28 ? 14 : ($totalDays >= 14 ? 7 : ($totalDays >= 6 ? 3 : max(1, (int) floor($totalDays / 2))));
+
+        // Ensure we have at least 2 data points to train on
+        if ($totalDays < 2) {
             return [
-                'error' => 'Insufficient data to perform walk-forward validation. At least 14 days of sales history required.',
+                'error' => 'Not enough sales data yet. At least 2 days of sales history is required.',
                 'quality' => $dataQuality
             ];
         }
+
+        // Clamp validationSize so trainSet always has at least 1 data point
+        $validationSize = min($validationSize, $totalDays - 1);
 
         $trainSet = array_slice($series, 0, $totalDays - $validationSize);
         $valSet = array_slice($series, $totalDays - $validationSize);
