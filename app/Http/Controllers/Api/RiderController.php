@@ -339,6 +339,7 @@ class RiderController extends Controller
                 // Store proof of delivery photo if provided
                 if ($request->hasFile('proof_of_delivery')) {
                     $path = $request->file('proof_of_delivery')->store('proof_of_delivery', 'public');
+                    $this->syncToPublicStorage($path);
                     $updateData['proof_of_delivery'] = $path;
                 }
 
@@ -690,5 +691,19 @@ class RiderController extends Controller
             'created_at'       => $delivery->created_at?->toIso8601String(),
             'updated_at'       => $delivery->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Copy uploaded image to public/storage if storage link is a physical folder.
+     */
+    private function syncToPublicStorage(?string $imagePath): void
+    {
+        if (!$imagePath) return;
+        $source = storage_path('app/public/' . $imagePath);
+        $dest = public_path('storage/' . $imagePath);
+        if (file_exists($source) && !is_link(public_path('storage'))) {
+            @mkdir(dirname($dest), 0755, true);
+            @copy($source, $dest);
+        }
     }
 }

@@ -301,6 +301,85 @@ cancel.post = (args: { delivery: number | { id: number } } | [delivery: number |
     
     cancel.form = cancelForm
 /**
+* @see \App\Http\Controllers\Admin\DeliveryController::fail
+ * @see app/Http/Controllers/Admin/DeliveryController.php:303
+ * @route '/deliveries/{delivery}/fail'
+ */
+export const fail = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: fail.url(args, options),
+    method: 'post',
+})
+
+fail.definition = {
+    methods: ["post"],
+    url: '/deliveries/{delivery}/fail',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::fail
+ * @see app/Http/Controllers/Admin/DeliveryController.php:303
+ * @route '/deliveries/{delivery}/fail'
+ */
+fail.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { delivery: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { delivery: args.id }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    delivery: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        delivery: typeof args.delivery === 'object'
+                ? args.delivery.id
+                : args.delivery,
+                }
+
+    return fail.definition.url
+            .replace('{delivery}', parsedArgs.delivery.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Admin\DeliveryController::fail
+ * @see app/Http/Controllers/Admin/DeliveryController.php:303
+ * @route '/deliveries/{delivery}/fail'
+ */
+fail.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: fail.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Admin\DeliveryController::fail
+ * @see app/Http/Controllers/Admin/DeliveryController.php:303
+ * @route '/deliveries/{delivery}/fail'
+ */
+    const failForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: fail.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Admin\DeliveryController::fail
+ * @see app/Http/Controllers/Admin/DeliveryController.php:303
+ * @route '/deliveries/{delivery}/fail'
+ */
+        failForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: fail.url(args, options),
+            method: 'post',
+        })
+    
+    fail.form = failForm
+/**
 * @see \App\Http\Controllers\Admin\DeliveryController::assignRider
  * @see app/Http/Controllers/Admin/DeliveryController.php:193
  * @route '/deliveries/{delivery}/assign-rider'
@@ -462,6 +541,7 @@ const deliveries = {
 store: Object.assign(store, store),
 updateStatus: Object.assign(updateStatus, updateStatus),
 cancel: Object.assign(cancel, cancel),
+fail: Object.assign(fail, fail),
 assignRider: Object.assign(assignRider, assignRider),
 recommend: Object.assign(recommend, recommend),
 }

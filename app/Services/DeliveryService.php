@@ -142,6 +142,7 @@ class DeliveryService
             $proofPath = null;
             if (isset($data['proof_of_delivery']) && $data['proof_of_delivery'] instanceof UploadedFile) {
                 $proofPath = $data['proof_of_delivery']->store('delivery-proofs', 'public');
+                $this->syncToPublicStorage($proofPath);
             }
 
             $delivery = Delivery::create([
@@ -491,5 +492,19 @@ class DeliveryService
 
             return $delivery->fresh();
         });
+    }
+
+    /**
+     * Copy uploaded image to public/storage if storage link is a physical folder.
+     */
+    private function syncToPublicStorage(?string $imagePath): void
+    {
+        if (!$imagePath) return;
+        $source = storage_path('app/public/' . $imagePath);
+        $dest = public_path('storage/' . $imagePath);
+        if (file_exists($source) && !is_link(public_path('storage'))) {
+            @mkdir(dirname($dest), 0755, true);
+            @copy($source, $dest);
+        }
     }
 }
