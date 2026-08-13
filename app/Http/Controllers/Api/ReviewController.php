@@ -211,6 +211,7 @@ class ReviewController extends Controller
         ]);
 
         try {
+            /** @var ProductReview $review */
             $review = ProductReview::where('id', $id)
                 ->where('user_id', $user->id)
                 ->firstOrFail();

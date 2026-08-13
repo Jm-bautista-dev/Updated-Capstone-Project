@@ -4,7 +4,6 @@ import {
     CheckCircle2,
     Eye,
     EyeOff,
-    Filter,
     MessageSquare,
     RefreshCw,
     Search,
@@ -12,11 +11,9 @@ import {
     Star,
     Trash2,
     UserCheck,
-    X,
 } from 'lucide-react';
 import React, { useState } from 'react';
 
-import AppLayout from '@/layouts/app-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +22,6 @@ import {
     DialogContent,
     DialogDescription,
     DialogFooter,
-    DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -37,6 +33,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import AppLayout from '@/layouts/app-layout';
 
 interface ReviewUser {
     id: number;
@@ -445,6 +442,19 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                             </SelectContent>
                         </Select>
 
+                        {/* Branch Filter */}
+                        <Select value={branchFilter} onValueChange={(val) => { setBranchFilter(val); handleFilterChange('branch_id', val); }}>
+                            <SelectTrigger className="rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800">
+                                <SelectValue placeholder="All Branches" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl max-h-60">
+                                <SelectItem value="all">All Branches</SelectItem>
+                                {branches.map((b) => (
+                                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
                         {/* Clear Filters */}
                         <Button type="button" variant="outline" className="rounded-2xl font-bold flex items-center justify-center gap-2" onClick={clearFilters}>
                             <RefreshCw className="size-4" /> Reset
@@ -488,7 +498,7 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                                                     <div>
                                                         <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-1">
                                                             {review.user?.name || 'Customer'}
-                                                            <UserCheck className="size-3.5 text-emerald-500" title="Verified Purchase" />
+                                                            <span title="Verified Purchase"><UserCheck className="size-3.5 text-emerald-500" /></span>
                                                         </p>
                                                         <p className="text-[10px] text-slate-400">{review.user?.email || `Order #${review.order_id}`}</p>
                                                     </div>
@@ -535,13 +545,22 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                                             {/* Actions */}
                                             <td className="p-4 pr-6 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    {/* View Details */}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="size-8 p-0 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                                                        onClick={() => { setSelectedReview(review); setDetailModalOpen(true); }}
+                                                    >
+                                                        <Eye className="size-4" />
+                                                    </Button>
+
                                                     {/* Toggle Publish/Hide */}
                                                     {review.status === 'published' ? (
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
                                                             className="size-8 p-0 rounded-xl text-slate-500 hover:text-slate-800"
-                                                            title="Hide Review"
                                                             onClick={() => handleStatusToggle(review, 'hidden')}
                                                         >
                                                             <EyeOff className="size-4" />
@@ -551,7 +570,6 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                                                             size="sm"
                                                             variant="ghost"
                                                             className="size-8 p-0 rounded-xl text-emerald-600 hover:bg-emerald-50"
-                                                            title="Publish Review"
                                                             onClick={() => handleStatusToggle(review, 'published')}
                                                         >
                                                             <Eye className="size-4" />
@@ -563,7 +581,6 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                                                         size="sm"
                                                         variant="ghost"
                                                         className="size-8 p-0 rounded-xl text-blue-600 hover:bg-blue-50"
-                                                        title="Reply to Review"
                                                         onClick={() => openReplyModal(review)}
                                                     >
                                                         <MessageSquare className="size-4" />
@@ -574,7 +591,6 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                                                         size="sm"
                                                         variant="ghost"
                                                         className="size-8 p-0 rounded-xl text-rose-600 hover:bg-rose-50"
-                                                        title="Delete Review"
                                                         onClick={() => handleDelete(review)}
                                                     >
                                                         <Trash2 className="size-4" />
@@ -589,6 +605,73 @@ export default function Reviews({ reviews, stats, filters, products, branches }:
                     </div>
                 </Card>
             </div>
+
+            {/* ── REVIEW DETAIL MODAL ────────────────────────────────────────── */}
+            <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+                <DialogContent className="sm:max-w-125 rounded-3xl p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl font-['Outfit']">
+                    <div className="bg-linear-to-r from-[#E75480] to-[#FF4F81] p-6 text-white">
+                        <DialogTitle className="text-xl font-black text-white">Review Details</DialogTitle>
+                        <DialogDescription className="text-white/80 font-medium mt-1">
+                            Verified purchase review details & order history.
+                        </DialogDescription>
+                    </div>
+
+                    <div className="p-6 space-y-4 text-xs">
+                        <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+                            <div>
+                                <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC] text-sm">{selectedReview?.user?.name}</p>
+                                <p className="text-slate-400">{selectedReview?.user?.email}</p>
+                            </div>
+                            {selectedReview && renderStars(selectedReview.rating, 'size-5')}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">
+                            <div>
+                                <span className="font-bold text-slate-400 uppercase text-[10px] block">Product</span>
+                                <span className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{selectedReview?.product?.name}</span>
+                            </div>
+                            <div>
+                                <span className="font-bold text-slate-400 uppercase text-[10px] block">Branch</span>
+                                <span className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{selectedReview?.branch?.name || 'Global'}</span>
+                            </div>
+                            <div>
+                                <span className="font-bold text-slate-400 uppercase text-[10px] block">Order ID</span>
+                                <span className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">#{selectedReview?.order_id}</span>
+                            </div>
+                            <div>
+                                <span className="font-bold text-slate-400 uppercase text-[10px] block">Date</span>
+                                <span className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    {selectedReview?.created_at ? new Date(selectedReview.created_at).toLocaleString() : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <span className="font-black text-[10px] uppercase text-slate-400 block mb-1">Customer Written Review</span>
+                            <p className="text-slate-700 dark:text-slate-200 font-medium italic">
+                                "{selectedReview?.comment || 'No written comment'}"
+                            </p>
+                        </div>
+
+                        {selectedReview?.admin_response && (
+                            <div className="bg-emerald-50 dark:bg-emerald-950/30 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/40">
+                                <span className="font-black text-[10px] uppercase text-emerald-600 dark:text-emerald-400 block mb-1">
+                                    Official Response (by {selectedReview.responder?.name || 'Admin'})
+                                </span>
+                                <p className="text-slate-700 dark:text-slate-200 font-medium">
+                                    {selectedReview.admin_response}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800">
+                        <Button variant="ghost" className="rounded-xl font-bold" onClick={() => setDetailModalOpen(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* ── ADMIN REPLY MODAL ────────────────────────────────────────── */}
             <Dialog open={replyModalOpen} onOpenChange={setReplyModalOpen}>
