@@ -187,6 +187,7 @@ class DeliveryService
         }
 
         return DB::transaction(function () use ($delivery, $nextStatuses) {
+            $previousStatus = $delivery->status;
             $newStatus = $nextStatuses[0];
             $delivery->update([
                 'status'     => $newStatus,
@@ -253,7 +254,7 @@ class DeliveryService
                 }
             }
 
-            event(new OrderStatusUpdated($delivery->fresh(), 'admin'));
+            event(new OrderStatusUpdated($delivery->fresh(), 'admin', $previousStatus ?? null));
 
             return $delivery->fresh();
         });
@@ -335,6 +336,7 @@ class DeliveryService
         }
 
         return DB::transaction(function () use ($delivery, $riderId) {
+            $previousStatus = $delivery->status;
             /** @var Rider $rider */
             $rider = Rider::where('id', $riderId)
                 ->where('is_active', true)
@@ -406,7 +408,7 @@ class DeliveryService
                 'rider_name'  => $rider->name,
             ]);
 
-            event(new OrderStatusUpdated($delivery->fresh(), 'admin'));
+            event(new OrderStatusUpdated($delivery->fresh(), 'admin', $previousStatus ?? null));
 
             return $delivery->fresh(['rider']);
         });
@@ -449,6 +451,7 @@ class DeliveryService
         }
 
         return DB::transaction(function () use ($delivery, $reason) {
+            $previousStatus = $delivery->status;
             // Free the current rider
             if ($delivery->rider_id) {
                 /** @var Rider|null $rider */
@@ -488,7 +491,7 @@ class DeliveryService
                 'reason'      => $reason,
             ]);
 
-            event(new OrderStatusUpdated($delivery->fresh(), 'admin'));
+            event(new OrderStatusUpdated($delivery->fresh(), 'admin', $previousStatus ?? null));
 
             return $delivery->fresh();
         });

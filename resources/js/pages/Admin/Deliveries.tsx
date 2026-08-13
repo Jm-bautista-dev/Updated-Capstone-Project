@@ -87,19 +87,57 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
         }
     }
 
-    // Real-time updates via Pusher
+    // Real-time updates via Pusher / Reverb
     useEffect(() => {
         if (!echo) return;
 
         const channel = echo.channel('deliveries');
 
-        channel.listen('.order-status-updated', () => {
+        const handleStatusUpdate = (e: {
+            delivery_id?: number;
+            order_id?: number;
+            status?: string;
+            status_label?: string;
+            rider_id?: number | null;
+            rider_name?: string | null;
+            proof_of_delivery_url?: string | null;
+            timestamp?: string;
+        }) => {
+            console.log('Real-time order status update received in Deliveries page:', e);
+
+            // 1. Instantly update local React state for zero-latency UI update
+            if (e.delivery_id || e.order_id) {
+                setAccumulatedDeliveries(prev =>
+                    prev.map(item => {
+                        const matches = (e.delivery_id && item.id === e.delivery_id) ||
+                                        (e.order_id && item.order_id === e.order_id) ||
+                                        (e.order_id && item.sale_id === e.order_id);
+                        if (matches && e.status) {
+                            return {
+                                ...item,
+                                status: e.status,
+                                status_label: e.status_label || e.status.replace('_', ' '),
+                                rider_id: e.rider_id !== undefined ? e.rider_id : item.rider_id,
+                                rider: e.rider_name ? ({ ...item.rider, id: e.rider_id, name: e.rider_name } as unknown as Rider) : item.rider,
+                                proof_of_delivery: e.proof_of_delivery_url || item.proof_of_delivery,
+                                updated_at: e.timestamp || new Date().toISOString(),
+                            };
+                        }
+                        return item;
+                    })
+                );
+            }
+
+            // 2. Refresh Inertia props without full page reload
             router.reload({
                 only: ['deliveries', 'stats'],
                 preserveScroll: true,
                 preserveState: true,
             } as Parameters<typeof router.reload>[0]);
-        });
+        };
+
+        channel.listen('.order-status-updated', handleStatusUpdate)
+               .listen('OrderStatusUpdated', handleStatusUpdate);
 
         return () => {
             echo?.leaveChannel('deliveries');

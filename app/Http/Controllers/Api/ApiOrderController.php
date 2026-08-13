@@ -186,6 +186,7 @@ class ApiOrderController extends Controller
 
                 try {
                     broadcast(new OrderCreated($order->load('branch')));
+                    broadcast(new \App\Events\OrderStatusUpdated($delivery->fresh(), 'customer', null));
                 } catch (\Throwable $e) {
                     Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
                 }

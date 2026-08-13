@@ -75,10 +75,26 @@ class SalesController extends Controller
 
         $saleService = app(\App\Services\SaleService::class);
 
+        $oldStatus = $sale->status;
+
         if ($validated['status'] === 'cancelled' && $sale->status !== 'cancelled') {
             $saleService->voidSale($sale);
         } else {
             $sale->update($validated);
+        }
+
+        // Sync linked Delivery status if present & broadcast real-time event
+        $delivery = \App\Models\Delivery::where('sale_id', $sale->id)->first();
+        if ($delivery) {
+            $mappedDeliveryStatus = match ($validated['status']) {
+                'pending'   => 'pending',
+                'preparing' => 'preparing',
+                'completed' => 'delivered',
+                'cancelled' => 'cancelled',
+                default     => $validated['status'],
+            };
+            $delivery->update(['status' => $mappedDeliveryStatus]);
+            event(new \App\Events\OrderStatusUpdated($delivery->fresh(), 'cashier', $oldStatus));
         }
 
         return back()->with('success', "Order #{$sale->order_number} status updated to {$validated['status']}");

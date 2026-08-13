@@ -156,19 +156,39 @@ export function useRealTime(branchId?: number | null) {
                 });
             };
 
+            const handleStatusUpdate = (e: {
+                order_id?: number;
+                order_number?: string;
+                status?: string;
+                status_label?: string;
+                updated_by?: string;
+                customer_name?: string;
+            }) => {
+                console.log('Real-time: Order Status Updated', e);
+                router.reload({
+                    only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats', 'sales'],
+                    preserveScroll: true,
+                    preserveState: true,
+                });
+            };
+
             const userRole = (auth?.user?.role || '').toLowerCase();
             const userBranchId = branchId || auth?.user?.branch_id;
 
             if (userRole === 'admin') {
                 echo.private('admin.orders')
                     .listen('OrderCreated', handleOrderNotification)
-                    .listen('.OrderCreated', handleOrderNotification);
+                    .listen('.OrderCreated', handleOrderNotification)
+                    .listen('OrderStatusUpdated', handleStatusUpdate)
+                    .listen('.order-status-updated', handleStatusUpdate);
             }
 
             if (userBranchId) {
                 echo.private(`branch.${userBranchId}.orders`)
                     .listen('OrderCreated', handleOrderNotification)
-                    .listen('.OrderCreated', handleOrderNotification);
+                    .listen('.OrderCreated', handleOrderNotification)
+                    .listen('OrderStatusUpdated', handleStatusUpdate)
+                    .listen('.order-status-updated', handleStatusUpdate);
             }
         }
 
