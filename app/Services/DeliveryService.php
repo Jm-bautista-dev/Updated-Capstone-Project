@@ -349,6 +349,7 @@ class DeliveryService
 
             // If there's an existing rider being replaced, check if old rider has remaining active orders
             if ($delivery->rider_id && $delivery->rider_id !== $rider->id) {
+                /** @var Rider|null $oldRider */
                 $oldRider = Rider::find($delivery->rider_id);
                 if ($oldRider) {
                     // Count active deliveries minus this one
