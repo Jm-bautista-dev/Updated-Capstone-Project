@@ -31,7 +31,7 @@ class DeliveryService
     public function recommend(Branch $branch, ?float $distanceKm): array
     {
         $fee = $distanceKm ? $branch->calculateDeliveryFee($distanceKm) : (float) $branch->base_delivery_fee;
-        $availableCount = $branch->riders()->available()->count();
+        $availableCount = $branch->riders()->availableForAssignment()->count();
 
         if (!$branch->has_internal_riders) {
             return [
@@ -90,7 +90,7 @@ class DeliveryService
     public function findBestAvailableRider(Branch $branch): ?Rider
     {
         return $branch->riders()
-            ->available()
+            ->availableForAssignment()
             ->orderByRaw('COALESCE(last_active_at, created_at) ASC')
             ->orderBy('updated_at', 'ASC')
             ->first();
@@ -247,7 +247,7 @@ class DeliveryService
             if ($newStatus === Delivery::STATUS_DELIVERED && $delivery->rider_id) {
                 /** @var Rider|null $rider */
                 $rider = Rider::find($delivery->rider_id);
-                if ($rider) {
+                if ($rider && $rider->activeDeliveriesCount() === 0) {
                     $rider->markAvailable();
                 }
             }
@@ -340,9 +340,26 @@ class DeliveryService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // If there's an existing rider being replaced, free them up
+            // CRITICAL BUSINESS RULE: Rider cannot be assigned if they are OUT FOR DELIVERY (in_transit)
+            if ($rider->hasInTransitDelivery()) {
+                throw new \Exception(
+                    "Rider '{$rider->name}' is currently out for delivery and cannot be assigned additional orders."
+                );
+            }
+
+            // If there's an existing rider being replaced, check if old rider has remaining active orders
             if ($delivery->rider_id && $delivery->rider_id !== $rider->id) {
-                Rider::where('id', $delivery->rider_id)->update(['status' => 'available']);
+                $oldRider = Rider::find($delivery->rider_id);
+                if ($oldRider) {
+                    // Count active deliveries minus this one
+                    $remainingActive = $oldRider->deliveries()
+                        ->where('id', '!=', $delivery->id)
+                        ->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED])
+                        ->count();
+                    if ($remainingActive === 0) {
+                        $oldRider->markAvailable();
+                    }
+                }
             }
 
             // Update the Delivery record

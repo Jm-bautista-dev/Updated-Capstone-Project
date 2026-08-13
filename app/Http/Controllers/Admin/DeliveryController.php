@@ -122,21 +122,32 @@ class DeliveryController extends Controller
             return $delivery;
         });
 
-        // Get all active riders for manual assignment
+        // Get all active riders for manual assignment with out-for-delivery lock status
         $availableRiders = Rider::where('is_active', true)
             ->withCount([
-                'deliveries' => function ($q) {
+                'deliveries as active_deliveries_count' => function ($q) {
                     $q->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED]);
+                },
+                'deliveries as active_in_transit_count' => function ($q) {
+                    $q->where('status', Delivery::STATUS_OUT_FOR_DELIVERY);
+                },
+                'deliveries as active_pickup_count' => function ($q) {
+                    $q->whereIn('status', [Delivery::STATUS_ASSIGNED, Delivery::STATUS_PICKED_UP]);
                 }
             ])
             ->get()
             ->map(function ($rider) {
+                $isOutForDelivery = $rider->active_in_transit_count > 0;
                 return [
-                    'id'               => $rider->id,
-                    'name'             => $rider->name,
-                    'status'           => $rider->status,
-                    'branch_name'      => $rider->branch?->name ?? 'Global',
-                    'active_deliveries'=> $rider->deliveries_count,
+                    'id'                     => $rider->id,
+                    'name'                   => $rider->name,
+                    'status'                 => $isOutForDelivery ? 'busy' : $rider->status,
+                    'branch_name'            => $rider->branch?->name ?? 'Global',
+                    'active_deliveries'      => $rider->active_deliveries_count,
+                    'active_in_transit_count'=> $rider->active_in_transit_count,
+                    'active_pickup_count'    => $rider->active_pickup_count,
+                    'is_out_for_delivery'    => $isOutForDelivery,
+                    'can_be_assigned'        => !$isOutForDelivery && $rider->is_active && $rider->status !== 'offline',
                 ];
             });
 

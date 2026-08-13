@@ -61,46 +61,74 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                                 <p className="text-sm font-bold text-[#7D6B6E] dark:text-[#94A3B8]">No active riders found.</p>
                             </div>
                         ) : (
-                            riders.map((rider) => (
-                                <button
-                                    key={rider.id}
-                                    onClick={() => setSelectedId(rider.id)}
-                                    className={cn(
-                                        "w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left",
-                                        selectedId === rider.id
-                                            ? "border-[#E75480] dark:border-[#FF4F81] bg-[#FFF5F7] dark:bg-[#1C1C28] ring-1 ring-[#E75480]/20"
-                                            : "border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#F8C8DC] dark:hover:border-white/20 hover:bg-[#FFF5F7]/50 dark:hover:bg-[#1C1C28]/50"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn(
-                                            "size-12 rounded-xl flex items-center justify-center font-black text-lg",
-                                            selectedId === rider.id ? "bg-[#E75480] text-white" : "bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8]"
-                                        )}>
-                                            {rider.name.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{rider.name}</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0 px-2 h-4", riderStatusConfig[rider.status].color)}>
-                                                    <span className={cn("size-1.5 rounded-full mr-1", riderStatusConfig[rider.status].dot)} />
-                                                    {rider.status}
-                                                </Badge>
-                                                <span className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">• {rider.branch_name}</span>
+                            riders.map((rider) => {
+                                const isLocked = rider.is_out_for_delivery || rider.can_be_assigned === false;
+                                const isCollecting = (rider.active_pickup_count ?? 0) > 0 && !isLocked;
+
+                                return (
+                                    <button
+                                        key={rider.id}
+                                        disabled={isLocked}
+                                        onClick={() => !isLocked && setSelectedId(rider.id)}
+                                        className={cn(
+                                            "w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left",
+                                            isLocked
+                                                ? "opacity-60 bg-slate-50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800 cursor-not-allowed"
+                                                : selectedId === rider.id
+                                                    ? "border-[#E75480] dark:border-[#FF4F81] bg-[#FFF5F7] dark:bg-[#1C1C28] ring-1 ring-[#E75480]/20 cursor-pointer"
+                                                    : "border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#F8C8DC] dark:hover:border-white/20 hover:bg-[#FFF5F7]/50 dark:hover:bg-[#1C1C28]/50 cursor-pointer"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={cn(
+                                                "size-12 rounded-xl flex items-center justify-center font-black text-lg",
+                                                isLocked
+                                                    ? "bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
+                                                    : selectedId === rider.id
+                                                        ? "bg-[#E75480] text-white"
+                                                        : "bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8]"
+                                            )}>
+                                                {rider.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{rider.name}</p>
+                                                    {isLocked && (
+                                                        <span className="text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-200/60 dark:border-rose-900/40">
+                                                            Out for Delivery (Locked)
+                                                        </span>
+                                                    )}
+                                                    {isCollecting && (
+                                                        <span className="text-[9px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/40">
+                                                            Collecting ({rider.active_pickup_count})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0 px-2 h-4", isLocked ? "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200" : riderStatusConfig[rider.status]?.color || riderStatusConfig.available.color)}>
+                                                        <span className={cn("size-1.5 rounded-full mr-1", isLocked ? "bg-rose-500" : riderStatusConfig[rider.status]?.dot || riderStatusConfig.available.dot)} />
+                                                        {isLocked ? 'out for delivery' : rider.status}
+                                                    </Badge>
+                                                    <span className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">• {rider.branch_name}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] tracking-widest">Active Tasks</p>
-                                        <p className={cn(
-                                            "text-lg font-black font-mono tabular-nums",
-                                            rider.active_deliveries > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
-                                        )}>
-                                            {rider.active_deliveries}
-                                        </p>
-                                    </div>
-                                </button>
-                            ))
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] tracking-widest">Active Tasks</p>
+                                            <p className={cn(
+                                                "text-lg font-black font-mono tabular-nums",
+                                                isLocked
+                                                    ? "text-rose-600 dark:text-rose-400"
+                                                    : rider.active_deliveries > 0
+                                                        ? "text-amber-600 dark:text-amber-400"
+                                                        : "text-emerald-600 dark:text-emerald-400"
+                                            )}>
+                                                {rider.active_deliveries}
+                                            </p>
+                                        </div>
+                                    </button>
+                                );
+                            })
                         )}
                     </div>
                 </div>

@@ -107,6 +107,10 @@ export interface Rider {
     status: 'available' | 'busy' | 'offline';
     branch_name: string;
     active_deliveries: number;
+    active_in_transit_count?: number;
+    active_pickup_count?: number;
+    is_out_for_delivery?: boolean;
+    can_be_assigned?: boolean;
 }
 
 export const STATUS_GROUPS = [

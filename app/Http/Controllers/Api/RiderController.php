@@ -172,6 +172,14 @@ class RiderController extends Controller
             }
 
             return DB::transaction(function () use ($rider, $id) {
+                // Strict Business Rule: Rider cannot accept orders if they are currently OUT FOR DELIVERY (in_transit)
+                if ($rider->hasInTransitDelivery()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You are currently out for delivery on an active route and cannot accept additional orders until your delivery route is completed.',
+                    ], 422);
+                }
+
                 // Pessimistic lock — prevents two riders accepting the same order simultaneously
                 $delivery = Delivery::with('order')
                     ->whereNull('rider_id')
@@ -226,6 +234,14 @@ class RiderController extends Controller
             }
 
             return DB::transaction(function () use ($rider, $id) {
+                // Strict Business Rule: Rider cannot pick up orders if they are currently OUT FOR DELIVERY (in_transit)
+                if ($rider->hasInTransitDelivery()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You are currently out for delivery on an active route and cannot pick up additional orders.',
+                    ], 422);
+                }
+
                 $delivery = Delivery::with('order')
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
@@ -328,8 +344,12 @@ class RiderController extends Controller
 
                 $delivery->update($updateData);
 
-                // Free up the rider
-                $rider->update(['status' => 'available']);
+                // Free up the rider ONLY if all active deliveries are completed
+                if ($rider->activeDeliveriesCount() === 0) {
+                    $rider->update(['status' => 'available']);
+                } else {
+                    $rider->update(['status' => 'busy']);
+                }
 
                 // ── POST-DELIVERY HOOK ─────────────────────────────────────
                 // Triggers inventory deduction + sales recording.
