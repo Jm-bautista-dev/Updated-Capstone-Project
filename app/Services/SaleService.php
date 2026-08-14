@@ -52,16 +52,17 @@ class SaleService
                 ->whereIn('id', $itemIds)
                 ->where(function ($q) use ($branchId) {
                     $q->where('branch_id', $branchId)
+                      ->orWhereNull('branch_id')
                       ->orWhereHas('branches', function ($bq) use ($branchId) {
                           $bq->where('branches.id', $branchId);
                       });
                 });
 
-
             $products = $productsQuery->get()->keyBy('id');
 
             // Aggregate totals per ingredient and per product
             $ingredientRequirements = []; // [ingredient_id => total_quantity_needed]
+            $directRequirements = [];     // [product_id => total_quantity_needed]
             $costTotal   = 0;
             $saleProfit  = 0;
             $saleItemsData = [];
@@ -85,7 +86,7 @@ class SaleService
                             ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
                     }
                 } else {
-                    // Direct products do not deduct stock directly anymore
+                    $directRequirements[$product->id] = ($directRequirements[$product->id] ?? 0) + $qty;
                 }
 
                 $computedCost = $product->computeProductCost($branchId);
@@ -109,8 +110,13 @@ class SaleService
 
             // 2. ── VALIDATE BEFORE MUTATION ─────────────────────────────────────
             $force = $data['force'] ?? false;
-            if (!$force && !empty($ingredientRequirements)) {
-                $this->validateIngredientStock($ingredientRequirements, $branchId);
+            if (!$force) {
+                if (!empty($ingredientRequirements)) {
+                    $this->validateIngredientStock($ingredientRequirements, $branchId);
+                }
+                if (!empty($directRequirements)) {
+                    $this->validateDirectStock($directRequirements, $branchId, $products);
+                }
             }
 
             // 3. ── DEDUCT INGREDIENTS (branch-scoped, atomic) ───────────────────
@@ -212,6 +218,32 @@ class SaleService
                     "Ingredient '{$stockRow->ingredient->name}': " .
                     "need {$totalNeeded} {$stockRow->ingredient->unit}, " .
                     "have {$stockRow->stock} {$stockRow->ingredient->unit}."
+                );
+            }
+        }
+    }
+
+    /**
+     * Validate physical stock requirements for items with no recipe.
+     *
+     * @throws \Exception on insufficient physical stock
+     */
+    protected function validateDirectStock(array $requirements, int $branchId, $products): void
+    {
+        foreach ($requirements as $productId => $totalNeeded) {
+            $product = $products->get($productId) ?? Product::find($productId);
+            if (!$product) continue;
+
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $productId)
+                ->where('branch_id', $branchId)
+                ->first();
+            $available = $pivot ? (float) $pivot->stock : (float) ($product->stock ?? 0);
+
+            if ($available < $totalNeeded) {
+                throw new \Exception(
+                    "Insufficient physical stock for '{$product->name}' in this branch. " .
+                    "Available: {$available}, Required: {$totalNeeded}."
                 );
             }
         }

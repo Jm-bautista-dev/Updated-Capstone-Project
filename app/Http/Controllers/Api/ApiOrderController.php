@@ -110,35 +110,22 @@ class ApiOrderController extends Controller
                 }
             }
 
-            // --- 1. CRASH-PROOF STOCK VALIDATION ---
-            foreach ($validated['items'] as $itemData) {
-                $product = Product::find($itemData['product_id']);
-                
-                if (!$product instanceof Product) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Product not found: ID {$itemData['product_id']}"
-                    ], 422);
-                }
-
-                // PRODUCTION-LEVEL STOCK CHECK (Safe & Independent)
-                $stockResult = $product->simpleStockCheck($itemData['quantity'], $branchId);
-                
-                if (!$stockResult['success']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => $stockResult['message']
-                    ], 422);
-                }
+            // --- 1. STRICT BATCH STOCK & INGREDIENT VALIDATION ---
+            $batchStockCheck = Product::validateBatchStock($branchId, $validated['items']);
+            if (!$batchStockCheck['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $batchStockCheck['message']
+                ], 422);
             }
 
             // --- 2. BRANCH CONSISTENCY ---
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
-                if ($product && $product->branch_id && $product->branch_id != $branchId) {
+                if ($product && $product->branch_id && (int) $product->branch_id !== (int) $branchId) {
                     return response()->json([
                         'success' => false,
-                        'message' => "Product '{$product->name}' belongs to a different branch."
+                        'message' => "Product '{$product->name}' is not available in the selected branch."
                     ], 400);
                 }
             }

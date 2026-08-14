@@ -210,11 +210,11 @@ class Product extends Model
             }
 
             return [
-                'available'            => $stock,
-                'is_available'         => $stock > 0,
-                'max_servings'         => $stock,
-                'limiting_ingredient'  => $stock <= 0 ? 'Physical Stock' : null,
-                'blocking_ingredients' => [],
+                'available'            => max(0, $stock),
+                'is_available'         => $stock >= 1,
+                'max_servings'         => max(0, $stock),
+                'limiting_ingredient'  => $stock < 1 ? 'Physical Stock' : null,
+                'blocking_ingredients' => $stock < 1 ? ['Physical Stock'] : [],
                 'is_low_stock'         => $stock > 0 && $stock <= 5
             ];
         }
@@ -259,9 +259,9 @@ class Product extends Model
 
             return [
                 'available' => $finalAvailable,
-                'is_available' => $finalAvailable > 0,
+                'is_available' => $finalAvailable >= 1,
                 'max_servings' => $finalAvailable,
-                'limiting_ingredient' => $finalAvailable <= 0 ? ($limitingIngredient ?? 'Insufficient Stock') : $limitingIngredient,
+                'limiting_ingredient' => $finalAvailable < 1 ? ($limitingIngredient ?? 'Insufficient Stock') : $limitingIngredient,
                 'blocking_ingredients' => $blockingIngredients,
                 'is_low_stock' => $finalAvailable > 0 && $finalAvailable <= 5
             ];
@@ -288,7 +288,7 @@ class Product extends Model
             }
 
             $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
-            $availableInStock = $stockRow ? (float) $stockRow->stock : (float) ($ingredient->stock ?? 0);
+            $availableInStock = $stockRow ? (float) $stockRow->stock : 0.0;
             
             $unitsPossible = floor($availableInStock / $requiredPerUnit);
             
@@ -321,13 +321,13 @@ class Product extends Model
             }
         }
 
-        $available = $minPossible === PHP_FLOAT_MAX ? 0 : (float) $minPossible;
+        $available = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (float) $minPossible);
 
         return [
             'available' => $available,
-            'is_available' => $available > 0,
+            'is_available' => $available >= 1,
             'max_servings' => $available,
-            'limiting_ingredient' => $available <= 10 ? $limitingIngredient : null,
+            'limiting_ingredient' => $available < 1 ? ($limitingIngredient ?? 'Insufficient Stock') : ($available <= 10 ? $limitingIngredient : null),
             'blocking_ingredients' => $blockingIngredients,
             'is_low_stock' => $available > 0 && $available <= 5
         ];
@@ -336,8 +336,8 @@ class Product extends Model
     /**
      * PRODUCTION-LEVEL STOCK VALIDATION (Safe, Stable, Fail-safe)
      * 
-     * This method is ONLY for Order Checkout and Payment validation.
-     * It avoids complex math, division, and analytics.
+     * Validates whether a requested quantity of this product can be fulfilled
+     * based on branch-specific inventory stock.
      * 
      * @param float $requestedQuantity The quantity being ordered.
      * @param int $branchId The branch ID for stock scoping.
@@ -345,11 +345,20 @@ class Product extends Model
      */
     public function simpleStockCheck(float $requestedQuantity, int $branchId): array
     {
+        if ($requestedQuantity <= 0) {
+            return ['success' => false, 'message' => "Quantity must be greater than 0."];
+        }
+
         $ingredients = $this->ingredients;
 
-        // 1. Fallback for items with no recipe (direct stock)
+        // 1. Fallback for items with no recipe (direct physical stock)
         if ($ingredients->isEmpty()) {
-            $currentStock = (float) ($this->stock ?? 0);
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $this->id)
+                ->where('branch_id', $branchId)
+                ->first();
+            $currentStock = $pivot ? (float) $pivot->stock : (float) ($this->stock ?? 0);
+
             if ($currentStock < $requestedQuantity) {
                 return [
                     'success' => false,
@@ -362,11 +371,9 @@ class Product extends Model
         // 2. Recipe-based validation
         foreach ($ingredients as $ingredient) {
             try {
-                // Get requirement from pivot
                 $qtyPerUnit = (float) ($ingredient->pivot->quantity_required ?? 0);
                 $unitInput  = $ingredient->pivot->unit ?? $ingredient->unit;
 
-                // Normalize requirement to base unit (e.g. g, ml, pcs)
                 $requiredPerOrderUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
                     $qtyPerUnit,
                     $unitInput,
@@ -374,21 +381,18 @@ class Product extends Model
                     $ingredient->avg_weight_per_piece
                 );
 
-                // Total requirement for the order
                 $totalNeeded = $requiredPerOrderUnit * $requestedQuantity;
 
-                // Skip if no requirement (safety)
                 if ($totalNeeded <= 0) continue;
 
-                // Get branch stock (safe fallback to 0)
                 $stockRecord = $ingredient->stocks()->where('branch_id', $branchId)->first();
-                $availableStock = (float) ($stockRecord->stock ?? 0);
+                $availableStock = $stockRecord ? (float) $stockRecord->stock : 0.0;
 
-                // Validation Check (Simple comparison, no division)
                 if ($availableStock < $totalNeeded) {
+                    $unit = $ingredient->unit ?? 'unit(s)';
                     return [
                         'success' => false,
-                        'message' => "Insufficient ingredients for '{$this->name}': Missing '{$ingredient->name}'"
+                        'message' => "Unable to order '{$this->name}'. Ingredient '{$ingredient->name}' is insufficient in this branch (Available: {$availableStock} {$unit}, Required: {$totalNeeded} {$unit})."
                     ];
                 }
 
@@ -397,6 +401,114 @@ class Product extends Model
                 return [
                     'success' => false, 
                     'message' => "Stock system error during validation for '{$ingredient->name}'"
+                ];
+            }
+        }
+
+        return ['success' => true, 'message' => null];
+    }
+
+    /**
+     * Batch validate multi-product stock requirements across all items in an order.
+     * Prevents multi-product race conditions or cumulative stock over-allocation.
+     *
+     * @param int $branchId
+     * @param array $items Array of items with 'product_id' (or 'id') and 'quantity'
+     * @return array { success: bool, message: string|null }
+     */
+    public static function validateBatchStock(int $branchId, array $items): array
+    {
+        if (empty($items)) {
+            return ['success' => false, 'message' => 'No items provided for validation.'];
+        }
+
+        $productIds = [];
+        $quantitiesByProduct = [];
+
+        foreach ($items as $item) {
+            $pId = (int) ($item['product_id'] ?? $item['id'] ?? 0);
+            $qty = (float) ($item['quantity'] ?? 0);
+
+            if ($pId <= 0 || $qty <= 0) {
+                return ['success' => false, 'message' => 'Invalid product or quantity in order items.'];
+            }
+
+            $productIds[] = $pId;
+            $quantitiesByProduct[$pId] = ($quantitiesByProduct[$pId] ?? 0) + $qty;
+        }
+
+        $products = static::with(['ingredients'])->whereIn('id', array_unique($productIds))->get()->keyBy('id');
+
+        $ingredientRequirements = []; // [ingredient_id => ['name' => ..., 'unit' => ..., 'needed' => ...]]
+        $directProductRequirements = []; // [product_id => ['product' => ..., 'needed' => ...]]
+
+        foreach ($quantitiesByProduct as $pId => $qty) {
+            $product = $products->get($pId);
+            if (!$product) {
+                return ['success' => false, 'message' => "Product #{$pId} not found."];
+            }
+
+            if ($product->ingredients->isNotEmpty()) {
+                foreach ($product->ingredients as $ingredient) {
+                    $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);
+                    $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+
+                    $requiredPerUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                        $qtyInput,
+                        $unitInput,
+                        $ingredient->unit,
+                        $ingredient->avg_weight_per_piece
+                    );
+
+                    $totalNeeded = $requiredPerUnit * $qty;
+                    if ($totalNeeded <= 0) continue;
+
+                    if (!isset($ingredientRequirements[$ingredient->id])) {
+                        $ingredientRequirements[$ingredient->id] = [
+                            'name' => $ingredient->name,
+                            'unit' => $ingredient->unit ?? 'unit(s)',
+                            'needed' => 0.0,
+                        ];
+                    }
+                    $ingredientRequirements[$ingredient->id]['needed'] += $totalNeeded;
+                }
+            } else {
+                $directProductRequirements[$pId] = [
+                    'product' => $product,
+                    'needed' => $qty,
+                ];
+            }
+        }
+
+        // 1. Check cumulative ingredient requirements
+        foreach ($ingredientRequirements as $ingId => $req) {
+            $stockRow = \App\Models\IngredientStock::where('ingredient_id', $ingId)
+                ->where('branch_id', $branchId)
+                ->first();
+
+            $available = $stockRow ? (float) $stockRow->stock : 0.0;
+            if ($available < $req['needed']) {
+                return [
+                    'success' => false,
+                    'message' => "Insufficient stock in this branch for '{$req['name']}'. (Available: {$available} {$req['unit']}, Required: {$req['needed']} {$req['unit']})."
+                ];
+            }
+        }
+
+        // 2. Check direct products
+        foreach ($directProductRequirements as $pId => $req) {
+            /** @var Product $p */
+            $p = $req['product'];
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $pId)
+                ->where('branch_id', $branchId)
+                ->first();
+            $available = $pivot ? (float) $pivot->stock : (float) ($p->stock ?? 0);
+
+            if ($available < $req['needed']) {
+                return [
+                    'success' => false,
+                    'message' => "Insufficient physical stock for '{$p->name}'. (Available: {$available}, Required: {$req['needed']})."
                 ];
             }
         }
@@ -425,31 +537,60 @@ class Product extends Model
      * @param int|null $branchId
      * @return float
      */
-    public function computeProductCost(?int $branchId): float
+    public function computeProductCost(?int $branchId = null): float
     {
         $ingredients = $this->ingredients;
 
         if ($ingredients->isNotEmpty()) {
-            if (!$branchId) {
-                return (float) $this->cost_price;
-            }
-
             $totalCost = 0.0;
             foreach ($ingredients as $ingredient) {
                 $qtyInput = (float) $ingredient->pivot->quantity_required;
                 $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
-                $required = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient($qtyInput, $unitInput, $ingredient->unit, $ingredient->avg_weight_per_piece);
+                $required = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                    $qtyInput,
+                    $unitInput,
+                    $ingredient->unit,
+                    $ingredient->avg_weight_per_piece
+                );
                 
-                $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
-                $costPerUnit = $stockRow && $stockRow->cost_per_unit > 0 
-                                ? (float) $stockRow->cost_per_unit 
-                                : (float) $ingredient->cost_per_base_unit;
+                $costPerUnit = 0.0;
+                if ($branchId) {
+                    $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
+                    if ($stockRow && (float)$stockRow->cost_per_unit > 0) {
+                        $costPerUnit = (float) $stockRow->cost_per_unit;
+                    }
+                } else {
+                    // All branches: take average cost_per_unit of branches with positive cost
+                    $avgCost = (float) $ingredient->stocks()->where('cost_per_unit', '>', 0)->avg('cost_per_unit');
+                    if ($avgCost > 0) {
+                        $costPerUnit = $avgCost;
+                    }
+                }
+
+                // Fallback to ingredient master cost_per_base_unit if branch stock cost is 0
+                if ($costPerUnit <= 0 && (float)$ingredient->cost_per_base_unit > 0) {
+                    $costPerUnit = (float) $ingredient->cost_per_base_unit;
+                }
                 
                 $totalCost += ($required * $costPerUnit);
             }
-            return $totalCost;
+
+            if ($totalCost > 0) {
+                return $totalCost;
+            }
         }
 
-        return (float) $this->cost_price;
+        // Direct product fallback
+        if ($branchId) {
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $this->id)
+                ->where('branch_id', $branchId)
+                ->first();
+            if ($pivot && (float)($pivot->cost_price ?? 0) > 0) {
+                return (float) $pivot->cost_price;
+            }
+        }
+
+        return (float) ($this->cost_price ?? 0.0);
     }
 }

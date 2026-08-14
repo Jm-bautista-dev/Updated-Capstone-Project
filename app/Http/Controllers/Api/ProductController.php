@@ -205,6 +205,7 @@ class ProductController extends Controller
             'description'    => $product->description,
             'unit'           => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
             'stock'          => (float) $availability['available'],
+            'is_available'   => (bool) $availability['is_available'],
             'is_low_stock'   => $availability['is_low_stock'],
             'limiting_item'  => $availability['limiting_ingredient'],
             'average_rating' => $product->average_rating,

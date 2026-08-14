@@ -189,7 +189,7 @@ importMethod.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     importMethod.form = importMethodForm
 /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::restore
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:506
  * @route '/admin/sales-data/restore/{backup}'
  */
 export const restore = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -204,7 +204,7 @@ restore.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::restore
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:506
  * @route '/admin/sales-data/restore/{backup}'
  */
 restore.url = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -237,7 +237,7 @@ restore.url = (args: { backup: number | { id: number } } | [backup: number | { i
 
 /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::restore
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:506
  * @route '/admin/sales-data/restore/{backup}'
  */
 restore.post = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -247,7 +247,7 @@ restore.post = (args: { backup: number | { id: number } } | [backup: number | { 
 
     /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::restore
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:506
  * @route '/admin/sales-data/restore/{backup}'
  */
     const restoreForm = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -257,7 +257,7 @@ restore.post = (args: { backup: number | { id: number } } | [backup: number | { 
 
             /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::restore
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:495
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:506
  * @route '/admin/sales-data/restore/{backup}'
  */
         restoreForm.post = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -268,7 +268,7 @@ restore.post = (args: { backup: number | { id: number } } | [backup: number | { 
     restore.form = restoreForm
 /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::destroyBackup
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:554
  * @route '/admin/sales-data/backup/{backup}'
  */
 export const destroyBackup = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -283,7 +283,7 @@ destroyBackup.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::destroyBackup
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:554
  * @route '/admin/sales-data/backup/{backup}'
  */
 destroyBackup.url = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -316,7 +316,7 @@ destroyBackup.url = (args: { backup: number | { id: number } } | [backup: number
 
 /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::destroyBackup
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:554
  * @route '/admin/sales-data/backup/{backup}'
  */
 destroyBackup.delete = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -326,7 +326,7 @@ destroyBackup.delete = (args: { backup: number | { id: number } } | [backup: num
 
     /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::destroyBackup
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:554
  * @route '/admin/sales-data/backup/{backup}'
  */
     const destroyBackupForm = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -341,7 +341,7 @@ destroyBackup.delete = (args: { backup: number | { id: number } } | [backup: num
 
             /**
 * @see \App\Http\Controllers\Admin\SalesDataManagementController::destroyBackup
- * @see app/Http/Controllers/Admin/SalesDataManagementController.php:543
+ * @see app/Http/Controllers/Admin/SalesDataManagementController.php:554
  * @route '/admin/sales-data/backup/{backup}'
  */
         destroyBackupForm.delete = (args: { backup: number | { id: number } } | [backup: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

@@ -376,12 +376,19 @@ class SalesDataManagementController extends Controller
                             continue;
                         }
 
+                        $itemCost = (float) $product->computeProductCost($branchId);
+                        $costTotal = $itemCost * $qty;
+                        $profit = $total - $costTotal;
+
                         // Duplicate mode update
                         $existingSale->update([
                             'branch_id' => $branchId,
                             'user_id' => $cashierId,
                             'total' => $total,
-                            'created_at' => $createdAt,
+                            'cost_total' => $costTotal,
+                            'profit' => $profit,
+                            'paid_amount' => $total,
+                            'status' => 'completed',
                             'updated_at' => now(),
                         ]);
 
@@ -392,13 +399,17 @@ class SalesDataManagementController extends Controller
                             'product_id' => $product->id,
                             'quantity' => $qty,
                             'unit_price' => $price,
+                            'cost_price' => $itemCost,
                             'subtotal' => $total,
-                            'profit' => 0,
-                            'cost_price' => 0,
+                            'profit' => $profit,
                         ]);
 
                         $updatedCount++;
                     } else {
+                        $itemCost = (float) $product->computeProductCost($branchId);
+                        $costTotal = $itemCost * $qty;
+                        $profit = $total - $costTotal;
+
                         // Create new Sale
                         $newSale = Sale::create([
                             'order_number' => $orderNum,
@@ -410,8 +421,8 @@ class SalesDataManagementController extends Controller
                             'change_amount' => 0,
                             'payment_method' => 'cash',
                             'status' => 'completed',
-                            'cost_total' => 0,
-                            'profit' => 0,
+                            'cost_total' => $costTotal,
+                            'profit' => $profit,
                         ]);
 
                         // Update timestamps manually to match uploaded historical date
@@ -424,9 +435,9 @@ class SalesDataManagementController extends Controller
                             'product_id' => $product->id,
                             'quantity' => $qty,
                             'unit_price' => $price,
+                            'cost_price' => $itemCost,
                             'subtotal' => $total,
-                            'profit' => 0,
-                            'cost_price' => 0,
+                            'profit' => $profit,
                         ]);
 
                         $importedCount++;

@@ -8,7 +8,7 @@ use App\Models\Ingredient;
 use App\Models\IngredientStock;
 
 /**
- * @mixin \Illuminate\Database\Eloquent\Builder
+ * @mixin Builder
  */
 class Branch extends Model
 {
@@ -123,7 +123,7 @@ class Branch extends Model
      */
     public function isWithinRadius(float $distanceKm): bool
     {
-        return $distanceKm > 0 && $distanceKm <= (float) $this->delivery_radius_km;
+        return $distanceKm >= 0 && $distanceKm <= (float) $this->delivery_radius_km;
     }
 
     /**

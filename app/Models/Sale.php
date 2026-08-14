@@ -26,6 +26,8 @@ class Sale extends Model
         'change_amount',
         'payment_method',
         'status',
+        'created_at',
+        'updated_at',
     ];
 
     public function branch()

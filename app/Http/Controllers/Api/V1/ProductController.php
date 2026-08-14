@@ -20,31 +20,30 @@ class ProductController extends Controller
         $lat = $request->lat;
         $lng = $request->lng;
 
-        if (!$lat || !$lng) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Latitude and longitude are required',
-                'products' => []
-            ], 400);
-        }
-
         $branches = Branch::all();
-
         $nearestBranch = null;
         $minDistance = INF;
 
-        foreach ($branches as $branch) {
-            $distance = $this->haversine(
-                (float) $lat,
-                (float) $lng,
-                (float) $branch->latitude,
-                (float) $branch->longitude
-            );
+        if ($lat && $lng) {
+            foreach ($branches as $branch) {
+                $distance = $this->haversine(
+                    (float) $lat,
+                    (float) $lng,
+                    (float) $branch->latitude,
+                    (float) $branch->longitude
+                );
 
-            if ($distance <= (float) $branch->delivery_radius_km && $distance < $minDistance) {
-                $nearestBranch = $branch;
-                $minDistance = $distance;
+                if ($distance <= (float) $branch->delivery_radius_km && $distance < $minDistance) {
+                    $nearestBranch = $branch;
+                    $minDistance = $distance;
+                }
             }
+        } elseif ($request->filled('branch_id')) {
+            $nearestBranch = Branch::find($request->branch_id);
+            $minDistance = 0;
+        } else {
+            $nearestBranch = Branch::first();
+            $minDistance = 0;
         }
 
         if (!$nearestBranch) {
@@ -84,6 +83,7 @@ class ProductController extends Controller
                 'category'       => $product->category?->name ?? 'Uncategorized',
                 'unit'           => $product->unit_model?->abbreviation ?? ($product->unit ?? 'pcs'),
                 'stock'          => (float) $availability['available'],
+                'is_available'   => (bool) $availability['is_available'],
                 'is_low_stock'   => $availability['is_low_stock'],
                 'limiting_item'  => $availability['limiting_ingredient'],
                 'average_rating' => $product->average_rating,

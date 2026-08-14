@@ -51,7 +51,7 @@ class SyncTest extends TestCase
             'cost_price' => 60,
             'category_id' => $this->category->id,
             'branch_id' => $this->branch->id,
-            'type' => 'product',
+            'type' => 'solid',
             'stock' => 50,
             'barcode' => '888000000001',
         ]);
@@ -126,7 +126,7 @@ class SyncTest extends TestCase
             'cost_price' => 20,
             'category_id' => $this->category->id,
             'branch_id' => $this->branch->id,
-            'type' => 'product',
+            'type' => 'solid',
             'stock' => 0,
             'barcode' => '888000000002',
         ]);
@@ -190,7 +190,7 @@ class SyncTest extends TestCase
             'cost_price' => 20,
             'category_id' => $this->category->id,
             'branch_id' => $this->branch->id,
-            'type' => 'product',
+            'type' => 'solid',
             'stock' => 0,
             'barcode' => '888000000003',
         ]);

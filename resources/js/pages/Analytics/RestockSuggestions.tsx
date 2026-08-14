@@ -39,8 +39,12 @@ type Suggestion = {
   name: string;
   unit: string;
   current_stock: number;
+  incoming_stock?: number;
+  reserved_stock?: number;
+  inventory_position?: number;
   low_stock_level: number;
   predicted_usage: number;
+  safety_stock?: number;
   required_with_buffer: number;
   suggested_restock: number;
   estimated_cost: number;
@@ -53,6 +57,8 @@ type Suggestion = {
   days_of_data: number;
   predicted_usage_lower: number;
   predicted_usage_upper: number;
+  reason?: string;
+  citation?: string;
 };
 
 type ImpactSuggestion = {
@@ -533,8 +539,8 @@ export default function RestockSuggestions() {
                                 </td>
 
                                 {/* Restock Qty */}
-                                <td className="px-5 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
+                                <td className="px-5 text-right" title={s.reason || s.citation}>
+                                  <div className="flex items-center justify-end gap-1.5 cursor-help">
                                     <FiPlusCircle className="size-3.5 text-primary" />
                                     <span className="font-black text-primary font-mono text-xs">
                                       {s.suggested_restock} {s.unit}

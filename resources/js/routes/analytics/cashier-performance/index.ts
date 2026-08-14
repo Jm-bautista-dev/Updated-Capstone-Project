@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
 export const exportMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ exportMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
 exportMethod.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ exportMethod.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
 exportMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ exportMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
 exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
     const exportMethodForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
         exportMethodForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:352
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:317
  * @route '/analytics/cashier-performance/export'
  */
         exportMethodForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

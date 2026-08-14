@@ -120,6 +120,20 @@ class ReportController extends Controller
                 ->get();
 
             return $sales->map(function ($sale) {
+                $saleCogs = 0.0;
+                if ($sale->items->isNotEmpty()) {
+                    foreach ($sale->items as $item) {
+                        $itemCost = (float) $item->cost_price;
+                        if ($itemCost <= 0 && $item->product) {
+                            $itemCost = (float) $item->product->computeProductCost($sale->branch_id);
+                        }
+                        $saleCogs += ($itemCost * (float) $item->quantity);
+                    }
+                } elseif ((float) $sale->cost_total > 0) {
+                    $saleCogs = (float) $sale->cost_total;
+                }
+                $saleProfit = (float) $sale->total - $saleCogs;
+
                 return [
                     'order_number' => $sale->order_number,
                     'date' => $sale->created_at->format('M d, Y H:i'),
@@ -127,7 +141,7 @@ class ReportController extends Controller
                     'branch' => $sale->branch?->name ?? 'N/A',
                     'status' => ucfirst($sale->status),
                     'total' => '₱' . number_format($sale->total, 2),
-                    'profit' => '₱' . number_format($sale->profit, 2),
+                    'profit' => '₱' . number_format($saleProfit, 2),
                 ];
             })->toArray();
         } else {
@@ -208,31 +222,62 @@ class ReportController extends Controller
     {
         $dateFrom  = $request->date_from;
         $dateTo    = $request->date_to;
-        $fallback  = now()->subDays(14); // default window when no filter set
+        $fallback  = now()->subDays(14)->startOfDay(); // default window when no filter set
+
+        $metricsService = new \App\Services\FinancialMetricsService();
+        $startDate = $dateFrom ?: $fallback;
+        $endDate   = $dateTo ? Carbon::parse($dateTo)->endOfDay() : null;
+
+        $metrics = $metricsService->getSummaryMetrics($startDate, $endDate, $branchId);
 
         // ── 1. Daily revenue / profit trend ───────────────────────────────────
-        /** @var Collection $trendData */
-        $trendData = Sale::where('status', 'completed')
+        $salesQuery = Sale::with(['items.product.ingredients.stocks'])
+            ->where('status', 'completed')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
             ->when($dateTo,   fn($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback))
-            ->selectRaw('DATE(created_at) as sale_date,
-                         SUM(total)   as revenue,
-                         SUM(profit)  as profit,
-                         COUNT(*)     as orders')
-            ->groupBy('sale_date')
-            ->orderBy('sale_date')
-            ->get()
-            ->map(fn($r) => [
-                'date'    => Carbon::parse($r->sale_date)->format('M d'),
-                'Revenue' => (float) $r->revenue,
-                'Profit'  => (float) $r->profit,
-                'Orders'  => (int)   $r->orders,
+            ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback));
+
+        $sales = $salesQuery->get();
+        $dailyTrendMap = [];
+
+        foreach ($sales as $sale) {
+            $dateKey = $sale->created_at->toDateString();
+            if (!isset($dailyTrendMap[$dateKey])) {
+                $dailyTrendMap[$dateKey] = ['revenue' => 0.0, 'cogs' => 0.0, 'orders' => 0];
+            }
+            $dailyTrendMap[$dateKey]['revenue'] += (float) $sale->total;
+            $dailyTrendMap[$dateKey]['orders']++;
+
+            $saleCogs = 0.0;
+            if ($sale->items->isNotEmpty()) {
+                foreach ($sale->items as $item) {
+                    $itemCost = (float) $item->cost_price;
+                    if ($itemCost <= 0 && $item->product) {
+                        $itemCost = (float) $item->product->computeProductCost($sale->branch_id);
+                    }
+                    $saleCogs += ($itemCost * (float) $item->quantity);
+                }
+            } elseif ((float) $sale->cost_total > 0) {
+                $saleCogs = (float) $sale->cost_total;
+            }
+            $dailyTrendMap[$dateKey]['cogs'] += $saleCogs;
+        }
+
+        ksort($dailyTrendMap);
+        $trendData = collect();
+        foreach ($dailyTrendMap as $dateStr => $data) {
+            $rev = $data['revenue'];
+            $prof = max(0.0, $rev - $data['cogs']);
+            $trendData->push([
+                'date'    => Carbon::parse($dateStr)->format('M d'),
+                'Revenue' => round($rev, 2),
+                'Profit'  => round($prof, 2),
+                'Orders'  => (int) $data['orders'],
             ]);
+        }
 
         // ── 2. Top products by revenue (for pie chart) ────────────────────────
-        /** @var Collection $topProducts */
         $topProducts = DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales',    'sale_items.sale_id',    '=', 'sales.id')
@@ -261,46 +306,26 @@ class ReportController extends Controller
         // ── 3. Top performer & peak day ───────────────────────────────────────
         $topProduct = $topProducts->sortByDesc('total_sold')->first();
         $peakDay    = $trendData->sortByDesc('Revenue')->first();
-
-        // ── 4. KPI aggregates ─────────────────────────────────────────────────
-        [$totalRevenue, $totalProfit, $totalOrders] = $this->kpiAggregates($dateFrom, $dateTo, $fallback, $branchId);
-        $totalExpenses  = max(0, $totalRevenue - $totalProfit);
         $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
 
         return [
-            'trend_data'      => $trendData->values(),
-            'category_data'   => $categoryData->values(),
-            'top_product'     => $topProduct
+            'trend_data'         => $trendData->values(),
+            'category_data'      => $categoryData->values(),
+            'top_product'        => $topProduct
                 ? ['name' => $topProduct->name, 'units' => (int) $topProduct->total_sold]
                 : null,
-            'peak_day'        => $peakDay
+            'peak_day'           => $peakDay
                 ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']]
                 : null,
-            'total_revenue'   => $totalRevenue,
-            'total_expenses'  => $totalExpenses,
-            'total_profit'    => $totalProfit,
-            'total_orders'    => $totalOrders,
-            'cancelled_count' => $cancelledCount,
-        ];
-    }
-
-    /**
-     * Returns [total_revenue, total_profit, total_orders] for completed sales.
-     *
-     * @return array{float, float, int}
-     */
-    private function kpiAggregates(?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback, ?int $branchId = null): array
-    {
-        $base = Sale::where('status', 'completed')
-            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
-            ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo,   fn($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback));
-
-        return [
-            (float) (clone $base)->sum('total'),
-            (float) (clone $base)->sum('profit'),
-            (int)   (clone $base)->count(),
+            'total_revenue'      => $metrics['revenue'],
+            'cogs'               => $metrics['cogs'],
+            'operating_expenses' => $metrics['operating_expenses'],
+            'total_expenses'     => $metrics['total_expenses'],
+            'total_profit'       => $metrics['net_profit'],
+            'gross_profit'       => $metrics['gross_profit'],
+            'profit_margin'      => $metrics['net_margin'],
+            'total_orders'       => $metrics['total_orders'],
+            'cancelled_count'    => $cancelledCount,
         ];
     }
 

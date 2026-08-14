@@ -130,14 +130,8 @@ class AnalyticsController extends Controller
 
     private function getGlobalStats($startDate, ?int $branchId = null)
     {
-        $query = Sale::where('status', 'completed')->where('created_at', '>=', $startDate);
-        if ($branchId) {
-            $query->where('branch_id', $branchId);
-        }
-
-        $revenue  = (float) (clone $query)->sum('total');
-        $profit   = (float) (clone $query)->sum('profit');
-        $expenses = max(0, $revenue - $profit);
+        $metricsService = new \App\Services\FinancialMetricsService();
+        $metrics = $metricsService->getSummaryMetrics($startDate, null, $branchId);
 
         $stockQuery = IngredientStock::whereHas('ingredient');
         if ($branchId) {
@@ -145,18 +139,24 @@ class AnalyticsController extends Controller
         }
 
         return [
-            'total_revenue'   => $revenue,
-            'total_expenses'  => $expenses,
-            'total_profit'    => $profit,
-            'total_orders'    => (clone $query)->count(),
-            'low_stock_items' => $stockQuery->whereColumn('stock', '<=', 'low_stock_level')->count(),
+            'total_revenue'      => $metrics['revenue'],
+            'cogs'               => $metrics['cogs'],
+            'operating_expenses' => $metrics['operating_expenses'],
+            'total_expenses'     => $metrics['total_expenses'],
+            'total_profit'       => $metrics['net_profit'],
+            'profit_margin'      => $metrics['net_margin'],
+            'total_orders'       => $metrics['total_orders'],
+            'low_stock_items'    => $stockQuery->whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
     }
 
     private function getBranchStats($branches, $startDate, $today)
     {
-        return $branches->map(function (Branch $branch) use ($startDate, $today) {
-            $salesQuery = Sale::where('branch_id', $branch->id)->where('status', 'completed');
+        $metricsService = new \App\Services\FinancialMetricsService();
+        $branchFinancials = $metricsService->getBranchStats($branches, $startDate, null)->keyBy('id');
+
+        return $branches->map(function (Branch $branch) use ($branchFinancials) {
+            $financial = $branchFinancials->get($branch->id) ?? [];
 
             $lowStockIngredients = IngredientStock::with('ingredient')
                 ->whereHas('ingredient')
@@ -194,21 +194,17 @@ class AnalyticsController extends Controller
                     ];
                 });
 
-            $revenue  = (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('total');
-            $profit   = (float) (clone $salesQuery)->where('created_at', '>=', $startDate)->sum('profit');
-            $expenses = max(0, $revenue - $profit);
-            $margin   = $revenue > 0 ? round(($profit / $revenue) * 100, 1) : 0.0;
-
             return [
                 'id'                   => $branch->id,
                 'name'                 => $branch->name,
-                'total_revenue'        => $revenue,
-                'total_expenses'       => $expenses,
-                'total_profit'         => $profit,
-                'profit_margin'        => $margin,
-                'total_orders'         => (clone $salesQuery)->where('created_at', '>=', $startDate)->count(),
-                'orders_today'         => (clone $salesQuery)->whereDate('created_at', $today)->count(),
-                'revenue_today'        => (float) (clone $salesQuery)->whereDate('created_at', $today)->sum('total'),
+                'total_revenue'        => $financial['total_revenue'] ?? 0.0,
+                'cogs'                 => $financial['cogs'] ?? 0.0,
+                'total_expenses'       => $financial['total_expenses'] ?? 0.0,
+                'total_profit'         => $financial['total_profit'] ?? 0.0,
+                'profit_margin'        => $financial['profit_margin'] ?? 0.0,
+                'total_orders'         => $financial['total_orders'] ?? 0,
+                'orders_today'         => $financial['orders_today'] ?? 0,
+                'revenue_today'        => $financial['revenue_today'] ?? 0.0,
                 'inventory_count'      => IngredientStock::where('branch_id', $branch->id)->count(),
                 'low_stock_count'      => $lowStockIngredients->count(),
                 'low_stock_ingredients'=> $lowStockIngredients,
@@ -218,39 +214,8 @@ class AnalyticsController extends Controller
 
     private function getSalesOverTime($range, $startDate, ?int $branchId = null)
     {
-        $query = Sale::where('status', 'completed')
-            ->where('created_at', '>=', $startDate);
-
-        if ($branchId) {
-            $query->where('branch_id', $branchId);
-        }
-
-        $salesData = $query
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total) as revenue'), DB::raw('SUM(profit) as profit'))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->keyBy('date');
-
-        $salesOverTime = collect();
-        for ($i = $range; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i)->format('Y-m-d');
-            $data = $salesData->get($date);
-            
-            $revenue  = (float) ($data->revenue ?? 0);
-            $profit   = (float) ($data->profit ?? 0);
-            $expenses = max(0, $revenue - $profit);
-            $margin   = $revenue > 0 ? round(($profit / $revenue) * 100, 1) : 0.0;
-
-            $salesOverTime->push([
-                'date'       => Carbon::parse($date)->format('M d'),
-                'revenue'    => $revenue,
-                'expenses'   => $expenses,
-                'profit'     => $profit,
-                'margin_pct' => $margin,
-            ]);
-        }
-        return $salesOverTime;
+        $metricsService = new \App\Services\FinancialMetricsService();
+        return $metricsService->getDailySalesTrajectory($range, $branchId);
     }
 
     private function getTopProducts($startDate, ?int $branchId = null)

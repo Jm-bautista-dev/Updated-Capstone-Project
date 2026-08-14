@@ -3,7 +3,7 @@ import cashierPerformanceDb39e1 from './cashier-performance'
 import forecastBenchmarking7799b0 from './forecast-benchmarking'
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
 export const cashierPerformance = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ cashierPerformance.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
 cashierPerformance.url = (options?: RouteQueryOptions) => {
@@ -27,7 +27,7 @@ cashierPerformance.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
 cashierPerformance.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -36,7 +36,7 @@ cashierPerformance.get = (options?: RouteQueryOptions): RouteDefinition<'get'> =
 })
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
 cashierPerformance.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -46,7 +46,7 @@ cashierPerformance.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
     const cashierPerformanceForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -56,7 +56,7 @@ cashierPerformance.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
         cashierPerformanceForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +65,7 @@ cashierPerformance.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
         })
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::cashierPerformance
- * @see app/Http/Controllers/Admin/AnalyticsController.php:307
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:272
  * @route '/analytics/cashier-performance'
  */
         cashierPerformanceForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -81,7 +81,7 @@ cashierPerformance.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
     cashierPerformance.form = cashierPerformanceForm
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
 export const salesForecast = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -96,7 +96,7 @@ salesForecast.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
 salesForecast.url = (options?: RouteQueryOptions) => {
@@ -105,7 +105,7 @@ salesForecast.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
 salesForecast.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -114,7 +114,7 @@ salesForecast.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
 salesForecast.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -124,7 +124,7 @@ salesForecast.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
     const salesForecastForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -134,7 +134,7 @@ salesForecast.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
         salesForecastForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -143,7 +143,7 @@ salesForecast.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
         })
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::salesForecast
- * @see app/Http/Controllers/Admin/AnalyticsController.php:418
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:383
  * @route '/analytics/sales-forecast'
  */
         salesForecastForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -159,7 +159,7 @@ salesForecast.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
     salesForecast.form = salesForecastForm
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
 export const forecastBenchmarking = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -174,7 +174,7 @@ forecastBenchmarking.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
 forecastBenchmarking.url = (options?: RouteQueryOptions) => {
@@ -183,7 +183,7 @@ forecastBenchmarking.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
 forecastBenchmarking.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -192,7 +192,7 @@ forecastBenchmarking.get = (options?: RouteQueryOptions): RouteDefinition<'get'>
 })
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
 forecastBenchmarking.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -202,7 +202,7 @@ forecastBenchmarking.head = (options?: RouteQueryOptions): RouteDefinition<'head
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
     const forecastBenchmarkingForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -212,7 +212,7 @@ forecastBenchmarking.head = (options?: RouteQueryOptions): RouteDefinition<'head
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
         forecastBenchmarkingForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -221,7 +221,7 @@ forecastBenchmarking.head = (options?: RouteQueryOptions): RouteDefinition<'head
         })
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::forecastBenchmarking
- * @see app/Http/Controllers/Admin/AnalyticsController.php:447
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:412
  * @route '/analytics/forecast-benchmarking'
  */
         forecastBenchmarkingForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -237,7 +237,7 @@ forecastBenchmarking.head = (options?: RouteQueryOptions): RouteDefinition<'head
     forecastBenchmarking.form = forecastBenchmarkingForm
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
 export const restockSuggestions = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -252,7 +252,7 @@ restockSuggestions.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
 restockSuggestions.url = (options?: RouteQueryOptions) => {
@@ -261,7 +261,7 @@ restockSuggestions.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
 restockSuggestions.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -270,7 +270,7 @@ restockSuggestions.get = (options?: RouteQueryOptions): RouteDefinition<'get'> =
 })
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
 restockSuggestions.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -280,7 +280,7 @@ restockSuggestions.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
     const restockSuggestionsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -290,7 +290,7 @@ restockSuggestions.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
         restockSuggestionsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -299,7 +299,7 @@ restockSuggestions.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
         })
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::restockSuggestions
- * @see app/Http/Controllers/Admin/AnalyticsController.php:582
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:547
  * @route '/analytics/restock-suggestions'
  */
         restockSuggestionsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -64,13 +64,13 @@ class CartController extends Controller
             ]);
 
             $user = $request->user();
-            $product = Product::findOrFail($request->product_id);
+            $product = Product::with('ingredients')->findOrFail($request->product_id);
             $productBranchId = $product->branch_id;
 
             return DB::transaction(function () use ($user, $product, $productBranchId, $request) {
                 $cart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-                if ($cart->branch_id && $cart->branch_id !== $productBranchId) {
+                if ($cart->branch_id && $productBranchId && $cart->branch_id !== $productBranchId) {
                     if ($cart->items()->exists()) {
                         return response()->json([
                             'success' => false,
@@ -82,21 +82,34 @@ class CartController extends Controller
                     }
                 }
 
-                if (!$cart->branch_id) {
-                    $cart->update(['branch_id' => $productBranchId]);
+                $effectiveBranchId = $cart->branch_id ?? $productBranchId ?? $request->input('branch_id', 1);
+
+                if (!$cart->branch_id && $effectiveBranchId) {
+                    $cart->update(['branch_id' => $effectiveBranchId]);
                 }
 
                 $cartItem = $cart->items()->where('product_id', $product->id)->first();
+                $currentQty = $cartItem ? (float) $cartItem->quantity : 0;
+                $targetQty = $currentQty + (float) $request->quantity;
+
+                // Validate requested ingredient stock
+                $stockCheck = $product->simpleStockCheck($targetQty, (int) $effectiveBranchId);
+                if (!$stockCheck['success']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $stockCheck['message']
+                    ], 422);
+                }
 
                 if ($cartItem) {
                     $cartItem->update([
-                        'quantity' => $cartItem->quantity + $request->quantity
+                        'quantity' => $targetQty
                     ]);
                 } else {
                     $cart->items()->create([
                         'product_id' => $product->id,
                         'quantity' => $request->quantity,
-                        'branch_id' => $productBranchId
+                        'branch_id' => $effectiveBranchId
                     ]);
                 }
 
@@ -123,7 +136,20 @@ class CartController extends Controller
 
             $cartItem = CartItem::whereHas('cart', function($q) use ($request) {
                 $q->where('user_id', $request->user()->id);
-            })->findOrFail($itemId);
+            })->with(['cart', 'product.ingredients'])->findOrFail($itemId);
+
+            $branchId = (int) ($cartItem->cart->branch_id ?? $cartItem->branch_id ?? 1);
+            $product = $cartItem->product;
+
+            if ($product) {
+                $stockCheck = $product->simpleStockCheck((float) $request->quantity, $branchId);
+                if (!$stockCheck['success']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $stockCheck['message']
+                    ], 422);
+                }
+            }
 
             $cartItem->update(['quantity' => $request->quantity]);
 
@@ -194,27 +220,19 @@ class CartController extends Controller
                 ]);
             }
 
-            $branchId = $cart->branch_id;
+            $branchId = (int) ($cart->branch_id ?? 1);
+            $itemsPayload = $cart->items->map(fn($item) => [
+                'product_id' => $item->product_id,
+                'quantity'   => (float) $item->quantity,
+            ])->toArray();
 
-            foreach ($cart->items as $item) {
-                $product = Product::with('ingredients')->find($item->product_id);
-                
-                if (!$product instanceof Product) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Product not found: ID {$item->product_id}"
-                    ], 404);
-                }
+            $batchCheck = Product::validateBatchStock($branchId, $itemsPayload);
 
-                // PRODUCTION-LEVEL STOCK CHECK
-                $stockResult = $product->simpleStockCheck($item->quantity, $branchId);
-
-                if (!$stockResult['success']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => $stockResult['message']
-                    ], 422);
-                }
+            if (!$batchCheck['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $batchCheck['message']
+                ], 422);
             }
 
             return response()->json([
