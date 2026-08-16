@@ -364,4 +364,71 @@ class AutomaticProductCostAndStockTest extends TestCase
         $availability = $product->dynamicAvailability($this->branchSantaCruz->id);
         $this->assertEquals(25, $availability['available']);
     }
+
+    /**
+     * TEST SCENARIO: User's exact Egg scenario
+     * Inventory: Egg = 100 pcs, Cost = ₱5.00/pc (Total ₱500)
+     * Recipe: Egg = 1 pc
+     * Expected: Available stock = 100 products, Cost = ₱5.00
+     */
+    public function test_user_egg_scenario_100pcs_yields_100_producible_stock_and_cost_5()
+    {
+        $egg = Ingredient::create([
+            'name' => 'new egg',
+            'unit' => 'pcs',
+            'cost_per_base_unit' => 5.00,
+        ]);
+
+        $eggStock = IngredientStock::updateOrCreate(
+            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 100, 'cost_per_unit' => 5.00]
+        );
+
+        $product = Product::create([
+            'name' => 'Boiled Egg Bowl',
+            'sku' => 'SKU-BEB-1',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 50.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        $recipeRow = MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $egg->id,
+            'quantity_required' => 1,
+            'unit' => 'pcs',
+        ]);
+
+        // 1. Stock = 100 pcs, Recipe = 1 pc -> 100 products
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertTrue($avail['is_available']);
+        $this->assertEquals(100, $avail['available']);
+        $this->assertEquals(5.00, $product->computeProductCost($this->branchSantaCruz->id));
+
+        // 2. Change stock to 50 pcs -> 50 products
+        $eggStock->update(['stock' => 50]);
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(50, $avail['available']);
+
+        // 3. Change stock to 0 pcs -> 0 products (OUT OF STOCK)
+        $eggStock->update(['stock' => 0]);
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertFalse($avail['is_available']);
+        $this->assertEquals(0, $avail['available']);
+
+        // 4. Reset stock to 100 pcs, Recipe = 2 pcs -> 50 products
+        $eggStock->update(['stock' => 100]);
+        $recipeRow->update(['quantity_required' => 2]);
+        $product->unsetRelation('ingredients');
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(50, $avail['available']);
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+
+        // 5. Recipe = 101 pcs -> 0 products (Insufficient stock)
+        $recipeRow->update(['quantity_required' => 101]);
+        $product->unsetRelation('ingredients');
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(0, $avail['available']);
+    }
 }

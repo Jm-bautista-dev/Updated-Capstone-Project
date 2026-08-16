@@ -255,6 +255,7 @@ export default function ProductsIndex() {
                 producibleStock: null,
                 limitingIngredient: null,
                 missingCostIngredient: null,
+                missingRecordIngredient: null,
             };
         }
 
@@ -262,6 +263,9 @@ export default function ProductsIndex() {
         let minProducible = Infinity;
         let limitingIngName: string | null = null;
         let missingCostName: string | null = null;
+        let missingRecordName: string | null = null;
+
+        const targetBranchId = data.branch_id || currentBranchId;
 
         for (const item of data.recipe) {
             if (!item.ingredient_id) continue;
@@ -278,7 +282,42 @@ export default function ProductsIndex() {
                 (ing as unknown as { avg_weight_per_piece?: number }).avg_weight_per_piece
             );
 
-            const costPerBaseUnit = (ing as unknown as { cost_per_base_unit?: number }).cost_per_base_unit ?? 0;
+            // Extract branch stock & cost row
+            let availStock = 0;
+            let costPerBaseUnit = 0;
+            let hasStockRecord = true;
+
+            const stocksList = (ing as unknown as { stocks?: { branch_id: number | string; stock: number | string; cost_per_unit?: number | string }[] }).stocks;
+
+            if (targetBranchId && stocksList && Array.isArray(stocksList)) {
+                const stockRow = stocksList.find((s) => String(s.branch_id) === String(targetBranchId));
+                if (stockRow) {
+                    availStock = parseFloat(String(stockRow.stock));
+                    costPerBaseUnit = parseFloat(String(stockRow.cost_per_unit || 0));
+                } else if (stocksList.length > 0) {
+                    // Inventory relationship missing for this branch
+                    hasStockRecord = false;
+                    availStock = 0;
+                } else {
+                    availStock = parseFloat(String((ing as unknown as { stock?: number }).stock ?? 0));
+                }
+            } else if (stocksList && Array.isArray(stocksList) && stocksList.length > 0) {
+                // Aggregate stock if no specific branch filter is selected
+                availStock = stocksList.reduce((sum, s) => sum + parseFloat(String(s.stock || 0)), 0);
+                costPerBaseUnit = parseFloat(String(stocksList[0]?.cost_per_unit || 0));
+            } else {
+                availStock = parseFloat(String((ing as unknown as { stock?: number }).stock ?? 0));
+                costPerBaseUnit = parseFloat(String((ing as unknown as { cost_per_base_unit?: number }).cost_per_base_unit ?? 0));
+            }
+
+            // Fallback cost_per_base_unit from master ingredient
+            if (costPerBaseUnit <= 0 && (ing as unknown as { cost_per_base_unit?: number }).cost_per_base_unit) {
+                costPerBaseUnit = parseFloat(String((ing as unknown as { cost_per_base_unit?: number }).cost_per_base_unit));
+            }
+
+            if (!hasStockRecord) {
+                missingRecordName = ing.name;
+            }
 
             if (costPerBaseUnit <= 0) {
                 missingCostName = ing.name;
@@ -286,7 +325,6 @@ export default function ProductsIndex() {
                 totalCost += baseQty * costPerBaseUnit;
             }
 
-            const availStock = ing.stock ?? 0;
             const possible = baseQty > 0 ? Math.floor(availStock / baseQty) : 0;
             if (possible < minProducible) {
                 minProducible = possible;
@@ -299,8 +337,9 @@ export default function ProductsIndex() {
             producibleStock: minProducible === Infinity ? null : Math.max(0, minProducible),
             limitingIngredient: minProducible === Infinity ? null : limitingIngName,
             missingCostIngredient: missingCostName,
+            missingRecordIngredient: missingRecordName,
         };
-    }, [data.recipe, ingredients]);
+    }, [data.recipe, ingredients, data.branch_id, currentBranchId]);
 
     // Modal Handlers
     const openAddModal = () => {
@@ -709,6 +748,13 @@ export default function ProductsIndex() {
                                     </span>
                                 </div>
 
+                                {liveCalculation.missingRecordIngredient && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
+                                        <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>Inventory data unavailable for <strong>{liveCalculation.missingRecordIngredient}</strong> in selected branch.</span>
+                                    </div>
+                                )}
+
                                 {liveCalculation.missingCostIngredient && (
                                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
                                         <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -947,6 +993,13 @@ export default function ProductsIndex() {
                                         Automatic
                                     </span>
                                 </div>
+
+                                {liveCalculation.missingRecordIngredient && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
+                                        <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>Inventory data unavailable for <strong>{liveCalculation.missingRecordIngredient}</strong> in selected branch.</span>
+                                    </div>
+                                )}
 
                                 {liveCalculation.missingCostIngredient && (
                                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
