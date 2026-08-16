@@ -348,10 +348,7 @@ class ApiOrderController extends Controller
             $destinationLat = $delivery->latitude ? (float) $delivery->latitude : ($order->latitude ? (float) $order->latitude : null);
             $destinationLng = $delivery->longitude ? (float) $delivery->longitude : ($order->longitude ? (float) $order->longitude : null);
 
-            $proofOfDeliveryUrl = null;
-            if ($delivery->proof_of_delivery) {
-                $proofOfDeliveryUrl = asset('storage/' . $delivery->proof_of_delivery);
-            }
+            $proofOfDeliveryUrl = $delivery->proof_of_delivery_url;
 
             return response()->json([
                 'success' => true,

@@ -107,18 +107,60 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 }
 
 /** Zoomable proof-of-delivery image viewer */
+function getFormattedProofUrl(rawUrl: string): string {
+    if (!rawUrl) return '';
+    const trimmed = rawUrl.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
+        return trimmed;
+    }
+    if (trimmed.startsWith('storage/')) {
+        return `/${trimmed}`;
+    }
+    if (trimmed.includes('/')) {
+        return `/storage/${trimmed}`;
+    }
+    return `/storage/proof_of_delivery/${trimmed}`;
+}
+
 function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
     url: string;
     deliveredAt?: string | null;
     riderName?: string;
 }) {
     const [zoomed, setZoomed] = React.useState(false);
+    const [hasError, setHasError] = React.useState(false);
+    const [retryIndex, setRetryIndex] = React.useState(0);
+
+    const candidateUrls = React.useMemo(() => {
+        if (!url) return [];
+        const raw = url.trim();
+        const base = raw.replace(/^(\/?storage\/)?(proof_of_delivery\/|delivery-proofs\/)?/, '');
+        
+        const list = [
+            getFormattedProofUrl(raw),
+            `/storage/proof_of_delivery/${base}`,
+            `/storage/delivery-proofs/${base}`,
+            `/storage/${base}`,
+        ];
+
+        return Array.from(new Set(list));
+    }, [url]);
+
+    const currentUrl = candidateUrls[retryIndex] || candidateUrls[0] || '';
+
+    const handleImageError = () => {
+        if (retryIndex + 1 < candidateUrls.length) {
+            setRetryIndex(prev => prev + 1);
+        } else {
+            setHasError(true);
+        }
+    };
 
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
-                <div className="size-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                    <Image className="size-4 text-emerald-600" />
+                <div className="size-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
+                    <Image className="size-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
                     <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">Proof of Delivery</p>
@@ -129,22 +171,42 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
             </div>
 
             {/* Thumbnail — click to zoom */}
-            <button
-                onClick={() => setZoomed(true)}
-                className="w-full rounded-2xl overflow-hidden border-2 border-emerald-200 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md group relative"
-                aria-label="View proof of delivery photo"
-            >
-                <img
-                    src={url}
-                    alt="Proof of delivery"
-                    className="w-full object-cover max-h-48 group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 bg-(--ops-surface-raised)/90 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 flex items-center gap-1.5 transition-all">
-                        <ExternalLink className="size-3" /> Click to zoom
+            {!hasError ? (
+                <button
+                    onClick={() => setZoomed(true)}
+                    className="w-full rounded-2xl overflow-hidden border-2 border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md group relative bg-(--ops-surface-sunken)/20"
+                    aria-label="View proof of delivery photo"
+                >
+                    <img
+                        src={currentUrl}
+                        alt="Proof of delivery"
+                        onError={handleImageError}
+                        className="w-full object-cover max-h-48 group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 bg-(--ops-surface-raised)/90 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 flex items-center gap-1.5 transition-all shadow-md">
+                            <ExternalLink className="size-3" /> Click to zoom
+                        </div>
                     </div>
+                </button>
+            ) : (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        <Image className="size-4 shrink-0" />
+                        <span>Proof photo could not be loaded</span>
+                    </div>
+                    {currentUrl && (
+                        <a
+                            href={currentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                        >
+                            Open link <ExternalLink className="size-3" />
+                        </a>
+                    )}
                 </div>
-            </button>
+            )}
 
             {riderName && (
                 <p className="text-xs text-(--ops-text-muted) font-medium px-1">
@@ -162,9 +224,20 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                             {deliveredAt && <> • {formatDate(deliveredAt)} {formatTime(deliveredAt)}</>}
                         </DialogDescription>
                     </DialogHeader>
-                    <img src={url} alt="Proof of delivery full" className="w-full rounded-xl object-contain max-h-[70vh]" />
+                    {!hasError ? (
+                        <img 
+                            src={currentUrl} 
+                            alt="Proof of delivery full" 
+                            onError={handleImageError}
+                            className="w-full rounded-xl object-contain max-h-[70vh]" 
+                        />
+                    ) : (
+                        <div className="py-12 text-center text-xs text-amber-600 font-semibold">
+                            Image file not found on storage server.
+                        </div>
+                    )}
                     <div className="p-4 pt-2 flex justify-end">
-                        <a href={url} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary flex items-center gap-1.5 hover:underline">
+                        <a href={currentUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary flex items-center gap-1.5 hover:underline">
                             Open original <ExternalLink className="size-3" />
                         </a>
                     </div>
@@ -371,9 +444,9 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         )}
 
                         {/* Proof of Delivery — shown when delivered */}
-                        {delivery.proof_of_delivery_url ? (
+                        {(delivery.proof_of_delivery_url || delivery.proof_of_delivery) ? (
                             <ProofOfDeliveryViewer
-                                url={delivery.proof_of_delivery_url}
+                                url={delivery.proof_of_delivery_url || delivery.proof_of_delivery || ''}
                                 deliveredAt={delivery.delivered_at}
                                 riderName={delivery.rider?.name}
                             />

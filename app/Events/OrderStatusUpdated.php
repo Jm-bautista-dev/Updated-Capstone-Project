@@ -98,10 +98,7 @@ class OrderStatusUpdated implements ShouldBroadcastNow
             default               => ucfirst(str_replace('_', ' ', $this->delivery->status)),
         };
 
-        $proofOfDeliveryUrl = null;
-        if ($this->delivery->proof_of_delivery) {
-            $proofOfDeliveryUrl = asset('storage/' . $this->delivery->proof_of_delivery);
-        }
+        $proofOfDeliveryUrl = $this->delivery->proof_of_delivery_url;
 
         return [
             'event'                 => 'order-status-updated',

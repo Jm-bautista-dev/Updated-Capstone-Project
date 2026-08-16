@@ -227,10 +227,43 @@ class Delivery extends Model
             return null;
         }
 
+        $proof = trim($this->proof_of_delivery);
+
+        // If already a full URL
+        if (str_starts_with($proof, 'http://') || str_starts_with($proof, 'https://')) {
+            return $proof;
+        }
+
+        // If already starts with leading slash or /storage/
+        if (str_starts_with($proof, '/storage/')) {
+            return $proof;
+        }
+        if (str_starts_with($proof, 'storage/')) {
+            return '/' . $proof;
+        }
+
         /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = \Illuminate\Support\Facades\Storage::disk('public');
 
-        return $disk->url($this->proof_of_delivery);
+        if ($disk->exists($proof)) {
+            return $disk->url($proof);
+        }
+
+        if ($disk->exists('proof_of_delivery/' . $proof)) {
+            return $disk->url('proof_of_delivery/' . $proof);
+        }
+
+        if ($disk->exists('delivery-proofs/' . $proof)) {
+            return $disk->url('delivery-proofs/' . $proof);
+        }
+
+        // If path contains slashes (e.g. proof_of_delivery/filename.jpg)
+        if (str_contains($proof, '/')) {
+            return $disk->url($proof);
+        }
+
+        // Default fallback
+        return $disk->url('proof_of_delivery/' . $proof);
     }
 
     public function getStatusColor(): string

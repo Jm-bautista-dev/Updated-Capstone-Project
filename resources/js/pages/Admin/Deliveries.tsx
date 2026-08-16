@@ -120,6 +120,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                                 rider_id: e.rider_id !== undefined ? e.rider_id : item.rider_id,
                                 rider: e.rider_name ? ({ ...item.rider, id: e.rider_id, name: e.rider_name } as unknown as Rider) : item.rider,
                                 proof_of_delivery: e.proof_of_delivery_url || item.proof_of_delivery,
+                                proof_of_delivery_url: e.proof_of_delivery_url || item.proof_of_delivery_url,
                                 updated_at: e.timestamp || new Date().toISOString(),
                             };
                         }
