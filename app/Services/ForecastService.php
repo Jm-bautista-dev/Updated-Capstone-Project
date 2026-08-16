@@ -297,7 +297,7 @@ class ForecastService
         return array_fill(0, $horizon, $level);
     }
 
-    private function fitPredictHolt(array $train, int $horizon, float $alpha = 0.3, float $beta = 0.1): array
+    private function fitPredictHolt(array $train, int $horizon, float $alpha = 0.3, float $beta = 0.1, float $phi = 0.85): array
     {
         $history = array_column($train, 'total');
         $n = count($history);
@@ -305,32 +305,48 @@ class ForecastService
             $val = $n > 0 ? $history[0] : 0.0;
             return array_fill(0, $horizon, $val);
         }
+
+        $meanHistory = array_sum($history) / $n;
         $level = $history[0];
-        $trend = $history[1] - $history[0];
+        $trend = ($history[$n - 1] - $history[0]) / ($n - 1);
+
         for ($i = 1; $i < $n; $i++) {
             $lastLevel = $level;
-            $level = $alpha * $history[$i] + (1 - $alpha) * ($level + $trend);
-            $trend = $beta * ($level - $lastLevel) + (1 - $beta) * $trend;
+            $level = $alpha * $history[$i] + (1 - $alpha) * ($level + $phi * $trend);
+            $trend = $beta * ($level - $lastLevel) + (1 - $beta) * $phi * $trend;
+
+            $maxTrendDelta = $meanHistory * 0.05;
+            $trend = max(-$maxTrendDelta, min($maxTrendDelta, $trend));
         }
+
         $predictions = [];
+        $accumulatedPhi = 0.0;
+        $currentPhi = 1.0;
+
         for ($h = 1; $h <= $horizon; $h++) {
-            $predictions[] = max(0.0, $level + $h * $trend);
+            $currentPhi *= $phi;
+            $accumulatedPhi += $currentPhi;
+            $pred = $level + $accumulatedPhi * $trend;
+
+            $minFloor = $meanHistory * 0.15;
+            $predictions[] = max($minFloor, round($pred, 2));
         }
         return $predictions;
     }
 
-    private function fitPredictHoltWinters(array $train, int $horizon, float $alpha = 0.3, float $beta = 0.1, float $gamma = 0.2): array
+    private function fitPredictHoltWinters(array $train, int $horizon, float $alpha = 0.3, float $beta = 0.1, float $gamma = 0.2, float $phi = 0.85): array
     {
         $history = array_column($train, 'total');
         $n = count($history);
         $m = 7; // Weekly seasonality
         if ($n < $m * 2) {
-            return $this->fitPredictHolt($train, $horizon, $alpha, $beta);
+            return $this->fitPredictHolt($train, $horizon, $alpha, $beta, $phi);
         }
 
+        $meanHistory = array_sum($history) / $n;
         $level = array_sum(array_slice($history, 0, $m)) / $m;
         $trend = 0.0;
-        
+
         $seasonal = [];
         for ($i = 0; $i < $m; $i++) {
             $seasonal[$i] = $history[$i] - $level;
@@ -340,16 +356,27 @@ class ForecastService
             $lastLevel = $level;
             $y = $history[$i];
             $sIdx = $i % $m;
-            
-            $level = $alpha * ($y - $seasonal[$sIdx]) + (1 - $alpha) * ($level + $trend);
-            $trend = $beta * ($level - $lastLevel) + (1 - $beta) * $trend;
+
+            $level = $alpha * ($y - $seasonal[$sIdx]) + (1 - $alpha) * ($level + $phi * $trend);
+            $trend = $beta * ($level - $lastLevel) + (1 - $beta) * $phi * $trend;
             $seasonal[$sIdx] = $gamma * ($y - $level) + (1 - $gamma) * $seasonal[$sIdx];
+
+            $maxTrendDelta = $meanHistory * 0.05;
+            $trend = max(-$maxTrendDelta, min($maxTrendDelta, $trend));
         }
 
         $predictions = [];
+        $accumulatedPhi = 0.0;
+        $currentPhi = 1.0;
+
         for ($h = 1; $h <= $horizon; $h++) {
             $sIdx = ($n + $h - 1) % $m;
-            $predictions[] = max(0.0, $level + $h * $trend + $seasonal[$sIdx]);
+            $currentPhi *= $phi;
+            $accumulatedPhi += $currentPhi;
+            $pred = $level + $accumulatedPhi * $trend + $seasonal[$sIdx];
+
+            $minFloor = $meanHistory * 0.15;
+            $predictions[] = max($minFloor, round($pred, 2));
         }
         return $predictions;
     }
