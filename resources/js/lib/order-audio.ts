@@ -56,7 +56,11 @@ export function playOrderNotificationSound(): boolean {
     try {
         const ctx = getAudioContext();
 
-        if (ctx && ctx.state === 'running') {
+        if (ctx) {
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+
             const now = ctx.currentTime;
 
             // Tone 1: 523.25 Hz (C5)
@@ -64,7 +68,7 @@ export function playOrderNotificationSound(): boolean {
             const gain1 = ctx.createGain();
             osc1.type = 'sine';
             osc1.frequency.setValueAtTime(523.25, now);
-            gain1.gain.setValueAtTime(0.3, now);
+            gain1.gain.setValueAtTime(0.4, now);
             gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
             osc1.connect(gain1);
             gain1.connect(ctx.destination);
@@ -76,19 +80,17 @@ export function playOrderNotificationSound(): boolean {
             const gain2 = ctx.createGain();
             osc2.type = 'sine';
             osc2.frequency.setValueAtTime(659.25, now + 0.15);
-            gain2.gain.setValueAtTime(0.4, now + 0.15);
+            gain2.gain.setValueAtTime(0.5, now + 0.15);
             gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
             osc2.connect(gain2);
             gain2.connect(ctx.destination);
             osc2.start(now + 0.15);
             osc2.stop(now + 0.5);
-
-            return true;
         }
 
-        // Fallback: Audio element
+        // Always also trigger fallback audio element for maximum browser compatibility
         const fallbackAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        fallbackAudio.volume = 0.7;
+        fallbackAudio.volume = 0.8;
         const playPromise = fallbackAudio.play();
         if (playPromise !== undefined) {
             playPromise.catch(err => {

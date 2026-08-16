@@ -36,6 +36,7 @@ class OrderCreated implements ShouldBroadcastNow
         return [
             new PrivateChannel('admin.orders'),
             new PrivateChannel('branch.' . $this->order->branch_id . '.orders'),
+            new Channel('orders'),
         ];
     }
 

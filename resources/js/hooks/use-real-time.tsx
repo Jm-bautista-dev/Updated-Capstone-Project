@@ -65,7 +65,7 @@ export function useRealTime(branchId?: number | null) {
                 });
         }
 
-        // 3. Listen for Orders (Admin or Branch Specific)
+        // 3. Listen for Orders (Admin, Branch Specific, & Public Orders Channel)
         if (echo) {
             const handleOrderNotification = (e: RealTimeOrderEvent) => {
                 console.log('Real-time: New Order Event Received', e);
@@ -183,6 +183,13 @@ export function useRealTime(branchId?: number | null) {
                 });
             };
 
+            // Public Orders Channel fallback (guarantees delivery across all connections)
+            echo.channel('orders')
+                .listen('OrderCreated', handleOrderNotification)
+                .listen('.OrderCreated', handleOrderNotification)
+                .listen('App\\Events\\OrderCreated', handleOrderNotification)
+                .listen('.App\\Events\\OrderCreated', handleOrderNotification);
+
             const userRole = (auth?.user?.role || '').toLowerCase();
             const userBranchId = branchId || auth?.user?.branch_id;
 
@@ -190,6 +197,8 @@ export function useRealTime(branchId?: number | null) {
                 echo.private('admin.orders')
                     .listen('OrderCreated', handleOrderNotification)
                     .listen('.OrderCreated', handleOrderNotification)
+                    .listen('App\\Events\\OrderCreated', handleOrderNotification)
+                    .listen('.App\\Events\\OrderCreated', handleOrderNotification)
                     .listen('OrderStatusUpdated', handleStatusUpdate)
                     .listen('.order-status-updated', handleStatusUpdate);
             }
@@ -198,6 +207,8 @@ export function useRealTime(branchId?: number | null) {
                 echo.private(`branch.${userBranchId}.orders`)
                     .listen('OrderCreated', handleOrderNotification)
                     .listen('.OrderCreated', handleOrderNotification)
+                    .listen('App\\Events\\OrderCreated', handleOrderNotification)
+                    .listen('.App\\Events\\OrderCreated', handleOrderNotification)
                     .listen('OrderStatusUpdated', handleStatusUpdate)
                     .listen('.order-status-updated', handleStatusUpdate);
             }
@@ -206,6 +217,7 @@ export function useRealTime(branchId?: number | null) {
         return () => {
             if (echo) {
                 echo.leave('global');
+                echo.leave('orders');
                 const userBranchId = branchId || auth?.user?.branch_id;
                 if (userBranchId) {
                     echo.leave(`branch.${userBranchId}`);
