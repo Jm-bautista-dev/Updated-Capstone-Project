@@ -66,10 +66,12 @@ export default function SalesIndex() {
     const salesList: Sale[] = useMemo(() => paginatedSales.data || [], [paginatedSales]);
     const branchList: BranchInfo[] = useMemo(() => branches || [], [branches]);
 
-    // Filters & View States
-    const [search, setSearch] = useState(filters.search || '');
-    const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
-    const [branchFilter, setBranchFilter] = useState(filters.branch_id || 'all');
+    // Derived Filters from server props (Idiomatic Inertia.js pattern)
+    const search = filters.search || '';
+    const statusFilter = filters.status || 'all';
+    const branchFilter = filters.branch_id || 'all';
+
+    // View States
     const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
     const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
 
@@ -80,13 +82,6 @@ export default function SalesIndex() {
     const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState<number | null>(null);
-
-    // Keep React filter states in 100% sync with server props
-    useEffect(() => {
-        if (filters.search !== undefined) setSearch(filters.search || '');
-        if (filters.status !== undefined) setStatusFilter(filters.status || 'all');
-        if (filters.branch_id !== undefined) setBranchFilter(filters.branch_id || 'all');
-    }, [filters.search, filters.status, filters.branch_id]);
 
     // BroadcastChannel real-time sync
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-sync'), []);
@@ -122,17 +117,14 @@ export default function SalesIndex() {
     };
 
     const handleSearchChange = (val: string) => {
-        setSearch(val);
         applyFilters({ search: val });
     };
 
     const handleStatusChange = (val: string) => {
-        setStatusFilter(val);
         applyFilters({ status: val });
     };
 
     const handleBranchChange = (val: string) => {
-        setBranchFilter(val);
         applyFilters({ branch_id: val });
     };
 
