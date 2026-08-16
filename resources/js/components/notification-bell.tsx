@@ -1,10 +1,10 @@
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiBell } from 'react-icons/fi';
 import { toast } from 'sonner';
-import { NotificationDropdown } from '@/components/notification-dropdown';
+import { NotificationDropdown, type Notification } from '@/components/notification-dropdown';
 import { Badge } from '@/components/ui/badge';
 import {
     Popover,
@@ -21,7 +21,7 @@ interface AuthState {
     };
 }
 
-interface NotificationItem {
+export interface NotificationItem {
     id: string | number;
     order_id?: number;
     order_number?: string;
@@ -32,6 +32,11 @@ interface NotificationItem {
     branch_name?: string;
     is_unread?: boolean;
     type?: string;
+    remaining?: string;
+    source?: string;
+    created_at?: string;
+    time_ago?: string;
+    url?: string;
 }
 
 const alertedNotificationIds = new Set<string | number>();
@@ -113,7 +118,6 @@ export function NotificationBell() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [open, setOpen] = useState(false);
-    const isFirstRunRef = useRef(true);
 
     const processNotifications = useCallback((items: NotificationItem[]) => {
         setNotifications(items);
@@ -226,7 +230,7 @@ export function NotificationBell() {
             </PopoverTrigger>
             <PopoverContent className="w-80 p-0 mr-4" align="end">
                 <NotificationDropdown 
-                    notifications={notifications as any} 
+                    notifications={notifications as unknown as Notification[]} 
                     onMarkAllAsRead={handleMarkAsRead}
                 />
             </PopoverContent>

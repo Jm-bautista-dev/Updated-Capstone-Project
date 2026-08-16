@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { FiShoppingBag, FiPackage, FiSettings, FiCheckCircle, FiAlertTriangle, FiAlertOctagon, FiVolume2, FiVolumeX } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 
-interface Notification {
+export interface Notification {
     id: string | number;
     employee_name: string;
     action: 'Added' | 'Deducted' | 'Alert' | 'Order';
