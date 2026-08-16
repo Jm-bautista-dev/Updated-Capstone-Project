@@ -24,7 +24,7 @@ class InventoryService
             $quantityBase  = UnitConverter::convertToBaseQuantity($quantity, $unit);
             $normalizedUnit = UnitConverter::normalizeUnit($unit);
 
-            if ($type === 'ingredient') {
+            if ($type === 'ingredient' || $type === Ingredient::class) {
                 return $this->stockInIngredient($id, $quantity, $quantityBase, $unit, $normalizedUnit, $branchId, $purchasePrice, $userId);
             }
 

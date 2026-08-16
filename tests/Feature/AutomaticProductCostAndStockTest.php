@@ -470,4 +470,105 @@ class AutomaticProductCostAndStockTest extends TestCase
         $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
         $this->assertEquals(100, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
     }
+
+    /**
+     * PROMPT TEST 13:
+     * Restocking using Weighted Average Costing (WAC):
+     * Existing: 100 kg @ ₱10/kg (₱1,000 total).
+     * New Batch: 20 kg @ ₱15/kg (₱300 total).
+     * New WAC = ₱1,300 / 120 kg = ₱10.8333/kg = ₱0.0108333/g.
+     * Product recipe (1 kg) recalculates to ₱10.83.
+     */
+    public function test_prompt_test_13_wac_restocking_updates_cost_and_stock_correctly()
+    {
+        $inventoryService = app(\App\Services\InventoryService::class);
+
+        $tomato = Ingredient::create(['name' => 'WACTomato', 'unit' => 'kg', 'cost_per_base_unit' => 0.01]);
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $tomato->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 100000, 'cost_per_unit' => 0.01, 'total_stock_value' => 1000]
+        );
+
+        $product = Product::create([
+            'name' => 'WAC Salad',
+            'sku' => 'SKU-WAC-13',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 80.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create(['menu_item_id' => $product->id, 'ingredient_id' => $tomato->id, 'quantity_required' => 1, 'unit' => 'kg']);
+
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+
+        // Restock +20 kg @ ₱300 total purchase cost
+        $inventoryService->stockIn(
+            Ingredient::class,
+            $tomato->id,
+            20,
+            'kg',
+            $this->branchSantaCruz->id,
+            300,
+            $this->admin->id
+        );
+
+        $product->unsetRelation('ingredients');
+        $stockRow = IngredientStock::where('ingredient_id', $tomato->id)->where('branch_id', $this->branchSantaCruz->id)->firstOrFail();
+
+        // 120,000 grams total stock
+        $this->assertEquals(120000, (float) $stockRow->stock);
+        // ₱1,300 total value
+        $this->assertEquals(1300, (float) $stockRow->total_stock_value);
+        // ₱0.0108/g
+        $this->assertEquals(0.0108, round((float) $stockRow->cost_per_unit, 4));
+
+        // Recipe: 1 kg (1,000 g) * 0.0108/g = ₱10.80
+        $this->assertEquals(10.80, round($product->computeProductCost($this->branchSantaCruz->id), 2));
+        // Available stock: 120,000 / 1,000 = 120 products
+        $this->assertEquals(120, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 14:
+     * API Manipulation Resistance:
+     * Submitting manual cost_price = 999999 and stock = 888888 in POST /products is ignored and derived automatically.
+     */
+    public function test_prompt_test_14_api_manipulation_is_ignored_and_recalculated()
+    {
+        $egg = Ingredient::create(['name' => 'Secure Egg', 'unit' => 'pcs', 'cost_per_base_unit' => 10.00]);
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 100, 'cost_per_unit' => 10.00, 'total_stock_value' => 1000]
+        );
+
+        $response = $this->actingAs($this->admin)
+            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->post('/products', [
+                'name' => 'Hacked Product',
+                'sku' => 'SKU-HACK-14',
+                'category_id' => $this->testCategory->id,
+                'selling_price' => 100.00,
+                'cost_price' => 999999.99, // Attempted hack
+                'stock' => 888888,          // Attempted hack
+                'branch_option' => 'single',
+                'branch_id' => $this->branchSantaCruz->id,
+                'unit' => 'pcs',
+                'recipe' => [
+                    [
+                        'ingredient_id' => $egg->id,
+                        'quantity_required' => 1,
+                        'unit' => 'pcs',
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(302);
+
+        /** @var Product $product */
+        $product = Product::where('name', 'Hacked Product')->firstOrFail();
+        $this->assertEquals(10.00, (float) $product->cost_price);
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(100, $avail['available']);
+    }
 }
