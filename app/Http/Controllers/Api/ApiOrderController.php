@@ -134,7 +134,11 @@ class ApiOrderController extends Controller
             $records = DB::transaction(function () use ($validated, $branchId, $userId, $distanceKm, $deliveryFee) {
                 $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
 
+                $orderNumberService = new \App\Services\OrderNumberService();
+                $customerOrderNumber = $orderNumberService->allocateForBranch($branchId);
+
                 $order = Order::create([
+                    'order_number'   => $customerOrderNumber,
                     'user_id'        => $userId,
                     'branch_id'      => $branchId,
                     'customer_name'  => $validated['customer_name'],
@@ -187,9 +191,10 @@ class ApiOrderController extends Controller
             }
 
             return response()->json([
-                'success'  => true,
-                'message'  => 'Order placed successfully',
-                'order_id' => $records['order']->id
+                'success'      => true,
+                'message'      => 'Order placed successfully',
+                'order_id'     => $records['order']->id,
+                'order_number' => $records['order']->order_number,
             ], 201);
 
         } catch (\Throwable $e) {
