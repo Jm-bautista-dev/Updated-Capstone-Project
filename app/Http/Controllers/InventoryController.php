@@ -164,39 +164,40 @@ class InventoryController extends Controller
             'name.regex' => 'The ingredient name must only contain letters and spaces.',
         ]);
 
-        $normalizedUnit = UnitConverter::normalizeUnit($validated['unit']);
+        $normalizedUnit   = UnitConverter::normalizeUnit($validated['unit']);
         $conversionFactor = UnitConverter::convertToBaseQuantity(1, $validated['unit']);
         
-        $baseStock      = (float) ($validated['initial_stock'] ?? 0) * $conversionFactor;
-        $lowStockLevel  = (float) ($validated['low_stock_level'] ?? 5);
+        $baseStock        = (float) ($validated['initial_stock'] ?? 0) * $conversionFactor;
+        $lowStockLevel    = (float) ($validated['low_stock_level'] ?? 5);
 
-        // Normalize costs to base unit (Total batch cost / Total base units)
-        // Example 1: 100 pcs for 1,000 pesos => 1,000 / 100 = 10.00 per piece
-        // Example 2: 10kg onion for 500 pesos => 500 / 10,000g = 0.05 per gram
-        $normalizedGlobalCost = $baseStock > 0
-            ? (float) ($validated['cost_per_base_unit'] ?? 0) / $baseStock
-            : (isset($validated['cost_per_unit']) ? (float) $validated['cost_per_unit'] : 0);
+        // Canonical Cost Per Base Unit (Total batch cost / Total base stock)
+        // Tomato: 1,000 pesos for 100kg (100,000g) => 1,000 / 100,000 = 0.01 per gram
+        // Egg: 1,000 pesos for 100 pcs => 1,000 / 100 = 10.00 per piece
+        $rawCostInput = (float) ($validated['cost_per_base_unit'] ?? $validated['cost_per_unit'] ?? 0);
+        $totalCost = ($rawCostInput > 0 && isset($validated['cost_per_base_unit']) && (float)$validated['cost_per_base_unit'] >= $rawCostInput) 
+            ? (float) $validated['cost_per_base_unit']
+            : ($rawCostInput * (float)($validated['initial_stock'] ?? 1));
 
-        // Avoid double-division: cost_per_unit from frontend is already the per-unit cost
-        $normalizedBranchCost = (isset($validated['cost_per_unit']) && (float) $validated['cost_per_unit'] > 0)
-            ? (float) $validated['cost_per_unit']
-            : $normalizedGlobalCost;
+        $normalizedCostPerBaseUnit = UnitConverter::normalizeCostPerBaseUnit($totalCost, $baseStock);
+        if ($normalizedCostPerBaseUnit <= 0 && $rawCostInput > 0) {
+            $normalizedCostPerBaseUnit = $conversionFactor > 0 ? ($rawCostInput / $conversionFactor) : $rawCostInput;
+        }
 
         // Create ONE global ingredient (deduplicated by name)
         $ingredient = Ingredient::firstOrCreate(
             ['name' => $validated['name']],
             [
-                'unit' => $normalizedUnit,
+                'unit'                 => $normalizedUnit,
                 'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? null,
-                'cost_per_base_unit' => $normalizedGlobalCost
+                'cost_per_base_unit'   => $normalizedCostPerBaseUnit
             ]
         );
 
         // Update properties if they already existed
         $ingredient->update([
-            'unit' => $normalizedUnit,
+            'unit'                 => $normalizedUnit,
             'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
-            'cost_per_base_unit' => $normalizedGlobalCost
+            'cost_per_base_unit'   => $normalizedCostPerBaseUnit
         ]);
 
         // Determine which branches to create stock rows for
@@ -206,9 +207,10 @@ class InventoryController extends Controller
             IngredientStock::updateOrCreate(
                 ['ingredient_id' => $ingredient->id, 'branch_id' => $branchId],
                 [
-                    'stock'           => $baseStock,
-                    'low_stock_level' => $lowStockLevel,
-                    'cost_per_unit'   => $normalizedBranchCost,
+                    'stock'             => $baseStock,
+                    'low_stock_level'   => $lowStockLevel,
+                    'cost_per_unit'     => $normalizedCostPerBaseUnit,
+                    'total_stock_value' => round($baseStock * $normalizedCostPerBaseUnit, 4),
                 ]
             );
 

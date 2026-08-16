@@ -148,6 +148,19 @@ class UnitConverter
     }
 
     /**
+     * Calculate cost per canonical base unit from total purchase cost and base quantity.
+     * Formula: cost_per_base_unit = total_cost / quantity_in_base_units.
+     */
+    public static function normalizeCostPerBaseUnit(float $totalCost, float $baseQuantity): float
+    {
+        if ($baseQuantity <= 0 || $totalCost <= 0) {
+            return 0.0;
+        }
+
+        return round($totalCost / $baseQuantity, 6);
+    }
+
+    /**
      * Convert a quantity and unit to its canonical base unit equivalent (g, ml, pcs).
      */
     public static function convertToBaseQuantity(float $quantity, string $unit): float

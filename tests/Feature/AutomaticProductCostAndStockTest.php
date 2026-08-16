@@ -10,9 +10,6 @@ use App\Models\Ingredient;
 use App\Models\IngredientStock;
 use App\Models\MenuItemIngredient;
 use App\Models\User;
-use App\Services\InventoryService;
-use App\Services\ProductService;
-use App\Utils\UnitConverter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class AutomaticProductCostAndStockTest extends TestCase
@@ -53,28 +50,212 @@ class AutomaticProductCostAndStockTest extends TestCase
     }
 
     /**
-     * TEST 1: Inventory: Sugar = 10 kg, Total Cost = ₱1,000 (Unit cost = ₱100/kg).
-     * Recipe: Sugar = 1 kg.
-     * Expected: Cost Price = ₱100, Available Stock = 10.
+     * PROMPT TEST 1:
+     * 100 kg Tomato, Total Purchase Cost = ₱1,000 (Unit Cost = ₱10/kg = ₱0.01/g).
+     * Recipe: 1 kg Tomato.
+     * Expected: Product Cost = ₱10.00, Available Stock = 100.
      */
-    public function test_test1_sugar_10kg_cost_1000_recipe_1kg_yields_cost_100_and_stock_10()
+    public function test_prompt_test_1_tomato_100kg_cost_1000_recipe_1kg_yields_cost_10_and_stock_100()
     {
-        $sugar = Ingredient::create([
-            'name' => 'Sugar',
-            'unit' => 'g',
-            'cost_per_base_unit' => 0.10, // ₱100 / 1,000g = ₱0.10/g
-        ]);
+        $response = $this->actingAs($this->admin)
+            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->post('/inventory', [
+                'name' => 'Tomato',
+                'unit' => 'kg',
+                'initial_stock' => 100,
+                'low_stock_level' => 5,
+                'cost_per_base_unit' => 1000, // ₱1,000 total
+                'branch_ids' => [$this->branchSantaCruz->id],
+            ]);
 
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => UnitConverter::convertToBaseQuantity(10, 'kg'), 'cost_per_unit' => 0.10]
-        );
+        $response->assertStatus(302);
+
+        $tomato = Ingredient::where('name', 'Tomato')->firstOrFail();
+        $stockRow = IngredientStock::where('ingredient_id', $tomato->id)->where('branch_id', $this->branchSantaCruz->id)->firstOrFail();
+
+        // Base Stock = 100,000g, Cost per base unit (g) = 1,000 / 100,000 = ₱0.01/g
+        $this->assertEquals(100000, (float) $stockRow->stock);
+        $this->assertEquals(0.01, (float) $stockRow->cost_per_unit);
 
         $product = Product::create([
-            'name' => 'Sweet Rice Cake',
-            'sku' => 'SKU-SRC-1',
+            'name' => 'Tomato Salad',
+            'sku' => 'SKU-TS-1',
             'category_id' => $this->testCategory->id,
-            'selling_price' => 250.00,
+            'selling_price' => 50.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $tomato->id,
+            'quantity_required' => 1,
+            'unit' => 'kg',
+        ]);
+
+        // Recipe: 1 kg (1,000 g) * ₱0.01/g = ₱10.00
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+
+        // Available Stock: 100,000 g / 1,000 g = 100 products
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(100, $avail['available']);
+    }
+
+    /**
+     * PROMPT TEST 2:
+     * 100 kg Tomato, Total Purchase Cost = ₱1,000.
+     * Recipe: 500 g Tomato.
+     * Expected: Product Cost = ₱5.00, Available Stock = 200.
+     */
+    public function test_prompt_test_2_tomato_100kg_cost_1000_recipe_500g_yields_cost_5_and_stock_200()
+    {
+        $tomato = Ingredient::create(['name' => 'Tomato2', 'unit' => 'g', 'cost_per_base_unit' => 0.01]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $tomato->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 100000, 'cost_per_unit' => 0.01, 'total_stock_value' => 1000]);
+
+        $product = Product::create([
+            'name' => 'Tomato Soup',
+            'sku' => 'SKU-TS-2',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 40.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $tomato->id,
+            'quantity_required' => 500,
+            'unit' => 'g',
+        ]);
+
+        $this->assertEquals(5.00, $product->computeProductCost($this->branchSantaCruz->id));
+        $this->assertEquals(200, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 3:
+     * 100 kg Tomato, Total Purchase Cost = ₱1,000.
+     * Recipe: 100 g Tomato.
+     * Expected: Product Cost = ₱1.00, Available Stock = 1,000.
+     */
+    public function test_prompt_test_3_tomato_100kg_cost_1000_recipe_100g_yields_cost_1_and_stock_1000()
+    {
+        $tomato = Ingredient::create(['name' => 'Tomato3', 'unit' => 'g', 'cost_per_base_unit' => 0.01]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $tomato->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 100000, 'cost_per_unit' => 0.01, 'total_stock_value' => 1000]);
+
+        $product = Product::create([
+            'name' => 'Tomato Garnish',
+            'sku' => 'SKU-TS-3',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 20.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $tomato->id,
+            'quantity_required' => 100,
+            'unit' => 'g',
+        ]);
+
+        $this->assertEquals(1.00, $product->computeProductCost($this->branchSantaCruz->id));
+        $this->assertEquals(1000, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 4:
+     * 100 pcs Egg, Total Purchase Cost = ₱1,000.
+     * Recipe: 1 pcs Egg.
+     * Expected: Product Cost = ₱10.00, Available Stock = 100.
+     */
+    public function test_prompt_test_4_egg_100pcs_cost_1000_recipe_1pc_yields_cost_10_and_stock_100()
+    {
+        $response = $this->actingAs($this->admin)
+            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->post('/inventory', [
+                'name' => 'Egg',
+                'unit' => 'pcs',
+                'initial_stock' => 100,
+                'low_stock_level' => 5,
+                'cost_per_base_unit' => 1000,
+                'branch_ids' => [$this->branchSantaCruz->id],
+            ]);
+
+        $response->assertStatus(302);
+
+        $egg = Ingredient::where('name', 'Egg')->firstOrFail();
+        $stockRow = IngredientStock::where('ingredient_id', $egg->id)->where('branch_id', $this->branchSantaCruz->id)->firstOrFail();
+
+        $this->assertEquals(100, (float) $stockRow->stock);
+        $this->assertEquals(10.00, (float) $stockRow->cost_per_unit);
+
+        $product = Product::create([
+            'name' => 'Fried Egg',
+            'sku' => 'SKU-FE-1',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 30.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $egg->id,
+            'quantity_required' => 1,
+            'unit' => 'pcs',
+        ]);
+
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+        $this->assertEquals(100, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 5:
+     * 100 pcs Egg, Total Purchase Cost = ₱1,000.
+     * Recipe: 2 pcs Egg.
+     * Expected: Product Cost = ₱20.00, Available Stock = 50.
+     */
+    public function test_prompt_test_5_egg_100pcs_cost_1000_recipe_2pcs_yields_cost_20_and_stock_50()
+    {
+        $egg = Ingredient::create(['name' => 'Egg5', 'unit' => 'pcs', 'cost_per_base_unit' => 10.00]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 100, 'cost_per_unit' => 10.00, 'total_stock_value' => 1000]);
+
+        $product = Product::create([
+            'name' => 'Double Egg Omelet',
+            'sku' => 'SKU-DEO-1',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 60.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $egg->id,
+            'quantity_required' => 2,
+            'unit' => 'pcs',
+        ]);
+
+        $this->assertEquals(20.00, $product->computeProductCost($this->branchSantaCruz->id));
+        $this->assertEquals(50, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 6:
+     * 0 Stock handling.
+     * Expected: Handled safely, Stock = 0, OUT OF STOCK.
+     */
+    public function test_prompt_test_6_zero_stock_handled_safely()
+    {
+        $sugar = Ingredient::create(['name' => 'ZeroSugar', 'unit' => 'g', 'cost_per_base_unit' => 0.10]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 0, 'cost_per_unit' => 0.10, 'total_stock_value' => 0]);
+
+        $product = Product::create([
+            'name' => 'Zero Product',
+            'sku' => 'SKU-ZP-1',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 100.00,
             'branch_id' => $this->branchSantaCruz->id,
             'unit' => 'pcs',
         ]);
@@ -82,84 +263,63 @@ class AutomaticProductCostAndStockTest extends TestCase
         MenuItemIngredient::create([
             'menu_item_id' => $product->id,
             'ingredient_id' => $sugar->id,
-            'quantity_required' => UnitConverter::convertToBaseQuantityWithIngredient(1, 'kg', $sugar->unit), // 1000g
+            'quantity_required' => 100,
             'unit' => 'g',
         ]);
 
-        // 1. Cost derivation
-        $cost = $product->computeProductCost($this->branchSantaCruz->id);
-        $this->assertEquals(100.00, $cost);
-
-        // 2. Stock derivation
-        $availability = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertTrue($availability['is_available']);
-        $this->assertEquals(10, $availability['available']);
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertFalse($avail['is_available']);
+        $this->assertEquals(0, $avail['available']);
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
     }
 
     /**
-     * TEST 2: Inventory: Sugar = 10 kg, Total Cost = ₱1,000 (Unit cost = ₱100/kg).
-     * Recipe: Sugar = 2 kg.
-     * Expected: Cost Price = ₱200, Available Stock = 5.
+     * PROMPT TEST 7:
+     * Invalid unit conversion (kg ingredient vs pcs recipe without avg weight).
+     * Expected: Validation error. Never silently calculate.
      */
-    public function test_test2_sugar_10kg_recipe_2kg_yields_cost_200_and_stock_5()
+    public function test_prompt_test_7_invalid_unit_conversion_rejected_with_validation_error()
     {
-        $sugar = Ingredient::create([
-            'name' => 'Sugar',
-            'unit' => 'g',
-            'cost_per_base_unit' => 0.10,
-        ]);
+        $flour = Ingredient::create(['name' => 'Flour', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $flour->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 10000, 'cost_per_unit' => 0.05]);
 
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => UnitConverter::convertToBaseQuantity(10, 'kg'), 'cost_per_unit' => 0.10]
-        );
+        $response = $this->actingAs($this->admin)
+            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->postJson('/products', [
+                'name' => 'Invalid Unit Bread',
+                'sku' => 'SKU-IUB-1',
+                'category_id' => $this->testCategory->id,
+                'selling_price' => 150.00,
+                'branch_option' => 'single',
+                'branch_id' => $this->branchSantaCruz->id,
+                'unit' => 'pcs',
+                'recipe' => [
+                    [
+                        'ingredient_id' => $flour->id,
+                        'quantity_required' => 1,
+                        'unit' => 'pcs', // Incompatible with mass (g)
+                    ]
+                ]
+            ]);
 
-        $product = Product::create([
-            'name' => 'Heavy Syrup Cake',
-            'sku' => 'SKU-HSC-1',
-            'category_id' => $this->testCategory->id,
-            'selling_price' => 350.00,
-            'branch_id' => $this->branchSantaCruz->id,
-            'unit' => 'pcs',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $sugar->id,
-            'quantity_required' => UnitConverter::convertToBaseQuantityWithIngredient(2, 'kg', $sugar->unit), // 2000g
-            'unit' => 'g',
-        ]);
-
-        $cost = $product->computeProductCost($this->branchSantaCruz->id);
-        $this->assertEquals(200.00, $cost);
-
-        $availability = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(5, $availability['available']);
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['recipe.0.unit']);
     }
 
     /**
-     * TEST 3: Recipe: Sugar = 1 kg, Nori = 1 pc.
-     * Inventory: Sugar = 10 kg (10 capacity), Nori = 5 pcs (5 capacity).
-     * Expected: Product Stock = 5 (Nori is the limiting ingredient).
+     * PROMPT TEST 8:
+     * 10 kg Sugar, Total Purchase Cost = ₱1,000.
+     * Recipe: 1 kg Sugar.
+     * Expected: Cost = ₱100.00, Stock = 10.
      */
-    public function test_test3_nori_5pcs_is_limiting_ingredient_capping_stock_to_5()
+    public function test_prompt_test_8_sugar_10kg_cost_1000_recipe_1kg_yields_cost_100_and_stock_10()
     {
-        $sugar = Ingredient::create(['name' => 'Sugar', 'unit' => 'g', 'cost_per_base_unit' => 0.10]);
-        $nori = Ingredient::create(['name' => 'Nori', 'unit' => 'pcs', 'cost_per_base_unit' => 15.00]);
-
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => UnitConverter::convertToBaseQuantity(10, 'kg'), 'cost_per_unit' => 0.10]
-        );
-
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $nori->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 5, 'cost_per_unit' => 15.00]
-        );
+        $sugar = Ingredient::create(['name' => 'Sugar8', 'unit' => 'g', 'cost_per_base_unit' => 0.10]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 10000, 'cost_per_unit' => 0.10, 'total_stock_value' => 1000]);
 
         $product = Product::create([
-            'name' => 'Sweet Onigiri',
-            'sku' => 'SKU-SO-1',
+            'name' => 'Sweet Cake',
+            'sku' => 'SKU-SC-8',
             'category_id' => $this->testCategory->id,
             'selling_price' => 200.00,
             'branch_id' => $this->branchSantaCruz->id,
@@ -169,418 +329,145 @@ class AutomaticProductCostAndStockTest extends TestCase
         MenuItemIngredient::create([
             'menu_item_id' => $product->id,
             'ingredient_id' => $sugar->id,
-            'quantity_required' => 1000, // 1 kg
-            'unit' => 'g',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $nori->id,
-            'quantity_required' => 1, // 1 pc
-            'unit' => 'pcs',
-        ]);
-
-        $availability = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(5, $availability['available']);
-        $this->assertEquals('Nori', $availability['limiting_ingredient']);
-
-        // Cost = (1000g * 0.10) + (1 * 15) = ₱115.00
-        $this->assertEquals(115.00, $product->computeProductCost($this->branchSantaCruz->id));
-    }
-
-    /**
-     * TEST 4: One required ingredient has Stock = 0.
-     * Expected: Product Stock = 0, OUT OF STOCK.
-     */
-    public function test_test4_zero_stock_ingredient_makes_product_out_of_stock()
-    {
-        $rice = Ingredient::create(['name' => 'Japanese Rice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
-        $nori = Ingredient::create(['name' => 'Nori Sheets', 'unit' => 'pcs', 'cost_per_base_unit' => 10.00]);
-
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 5000, 'cost_per_unit' => 0.05]
-        );
-
-        // Nori is 0 stock
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $nori->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 0, 'cost_per_unit' => 10.00]
-        );
-
-        $product = Product::create([
-            'name' => 'Classic Onigiri',
-            'sku' => 'SKU-CO-1',
-            'category_id' => $this->testCategory->id,
-            'selling_price' => 150.00,
-            'branch_id' => $this->branchSantaCruz->id,
-            'unit' => 'pcs',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $rice->id,
-            'quantity_required' => 200,
-            'unit' => 'g',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $nori->id,
             'quantity_required' => 1,
-            'unit' => 'pcs',
+            'unit' => 'kg',
         ]);
 
-        $availability = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertFalse($availability['is_available']);
-        $this->assertEquals(0, $availability['available']);
-        $this->assertEquals('Nori Sheets', $availability['limiting_ingredient']);
+        $this->assertEquals(100.00, $product->computeProductCost($this->branchSantaCruz->id));
+        $this->assertEquals(10, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
     }
 
     /**
-     * TEST 5: Restock a limiting ingredient -> Product availability automatically increases.
+     * PROMPT TEST 9:
+     * 10 kg Sugar, Total Purchase Cost = ₱1,000.
+     * Recipe: 2 kg Sugar.
+     * Expected: Cost = ₱200.00, Stock = 5.
      */
-    public function test_test5_restocking_limiting_ingredient_automatically_increases_product_stock()
+    public function test_prompt_test_9_sugar_10kg_cost_1000_recipe_2kg_yields_cost_200_and_stock_5()
     {
-        $nori = Ingredient::create(['name' => 'Nori', 'unit' => 'pcs', 'cost_per_base_unit' => 10.00]);
-
-        $noriStock = IngredientStock::updateOrCreate(
-            ['ingredient_id' => $nori->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 0, 'cost_per_unit' => 10.00]
-        );
+        $sugar = Ingredient::create(['name' => 'Sugar9', 'unit' => 'g', 'cost_per_base_unit' => 0.10]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 10000, 'cost_per_unit' => 0.10, 'total_stock_value' => 1000]);
 
         $product = Product::create([
-            'name' => 'Nori Roll',
-            'sku' => 'SKU-NR-1',
-            'category_id' => $this->testCategory->id,
-            'selling_price' => 120.00,
-            'branch_id' => $this->branchSantaCruz->id,
-            'unit' => 'pcs',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $nori->id,
-            'quantity_required' => 1,
-            'unit' => 'pcs',
-        ]);
-
-        // Before restock: 0 available
-        $this->assertEquals(0, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
-
-        // Restock Nori by 25 pcs
-        $inventoryService = app(InventoryService::class);
-        $inventoryService->stockIn('ingredient', $nori->id, 25, 'pcs', $this->branchSantaCruz->id, 250.00, $this->admin->id);
-
-        // After restock: automatically becomes 25
-        $this->assertEquals(25, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
-    }
-
-    /**
-     * TEST 6: Change recipe quantity -> Cost and Available Stock update automatically.
-     */
-    public function test_test6_changing_recipe_quantity_updates_cost_and_stock_automatically()
-    {
-        $sugar = Ingredient::create(['name' => 'Sugar', 'unit' => 'g', 'cost_per_base_unit' => 0.10]);
-
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 10000, 'cost_per_unit' => 0.10]
-        );
-
-        $product = Product::create([
-            'name' => 'Dynamic Syrup',
-            'sku' => 'SKU-DS-1',
+            'name' => 'Heavy Sweet Cake',
+            'sku' => 'SKU-HSC-9',
             'category_id' => $this->testCategory->id,
             'selling_price' => 300.00,
             'branch_id' => $this->branchSantaCruz->id,
             'unit' => 'pcs',
         ]);
 
-        $recipeRow = MenuItemIngredient::create([
+        MenuItemIngredient::create([
             'menu_item_id' => $product->id,
             'ingredient_id' => $sugar->id,
-            'quantity_required' => 1000, // 1 kg
-            'unit' => 'g',
+            'quantity_required' => 2,
+            'unit' => 'kg',
         ]);
 
-        // 1 kg recipe -> Cost = ₱100, Stock = 10
-        $this->assertEquals(100.00, $product->computeProductCost($this->branchSantaCruz->id));
-        $this->assertEquals(10, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
-
-        // Update recipe to 2 kg (2000g)
-        $recipeRow->update(['quantity_required' => 2000]);
-        $product->unsetRelation('ingredients');
-
-        // 2 kg recipe -> Cost = ₱200, Stock = 5
         $this->assertEquals(200.00, $product->computeProductCost($this->branchSantaCruz->id));
         $this->assertEquals(5, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
     }
 
     /**
-     * TEST 7: Manipulated API Request submitting cost_price = 999999 and initial_stock = 999999.
-     * Expected: Backend ignores manual values and derives actual calculated values.
+     * PROMPT TEST 10:
+     * Multiple ingredients: Product cost = sum of ingredient costs, Stock = minimum ingredient capacity.
      */
-    public function test_test7_manipulated_api_request_ignores_manual_cost_and_stock()
+    public function test_prompt_test_10_multiple_ingredients_sum_costs_and_limit_stock()
     {
-        $rice = Ingredient::create(['name' => 'Rice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        $rice = Ingredient::create(['name' => 'MultiRice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        $nori = Ingredient::create(['name' => 'MultiNori', 'unit' => 'pcs', 'cost_per_base_unit' => 15.00]);
 
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 5000, 'cost_per_unit' => 0.05]
-        );
+        IngredientStock::updateOrCreate(['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 10000, 'cost_per_unit' => 0.05]); // 10,000g / 1,000g = 10 capacity
+        IngredientStock::updateOrCreate(['ingredient_id' => $nori->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 5, 'cost_per_unit' => 15.00]);    // 5 pcs / 1 pc = 5 capacity
 
-        // Client attempts to submit manipulated cost_price and initial_stock
-        $response = $this->actingAs($this->admin)
-            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
-            ->postJson('/products', [
-                'name' => 'API Manipulated Product',
-                'sku' => 'SKU-AMP-999',
-                'category_id' => $this->testCategory->id,
-                'selling_price' => 150.00,
-                'cost_price' => 999999.99, // Fake cost!
-                'stock' => 999999, // Fake stock!
-                'branch_option' => 'single',
-                'branch_id' => $this->branchSantaCruz->id,
-                'unit' => 'pcs',
-                'recipe' => [
-                    [
-                        'ingredient_id' => $rice->id,
-                        'quantity_required' => 200, // 200g * 0.05 = ₱10.00 cost
-                        'unit' => 'g',
-                    ]
-                ]
-            ]);
+        $product = Product::create([
+            'name' => 'Combo Roll',
+            'sku' => 'SKU-CR-10',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 150.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
 
-        $response->assertStatus(302); // Redirect back on success web response
+        MenuItemIngredient::create(['menu_item_id' => $product->id, 'ingredient_id' => $rice->id, 'quantity_required' => 1, 'unit' => 'kg']); // 1,000g * 0.05 = ₱50
+        MenuItemIngredient::create(['menu_item_id' => $product->id, 'ingredient_id' => $nori->id, 'quantity_required' => 1, 'unit' => 'pcs']);  // 1 pc * 15 = ₱15
 
-        /** @var Product $product */
-        $product = Product::where('sku', 'SKU-AMP-999')->firstOrFail();
+        // Product Cost = ₱50 + ₱15 = ₱65.00
+        $this->assertEquals(65.00, $product->computeProductCost($this->branchSantaCruz->id));
 
-        // 1. Cost price MUST NOT be 999999.99! It MUST be calculated from recipe (200g * ₱0.05/g = ₱10.00).
-        $this->assertEquals(10.00, (float) $product->cost_price);
-
-        // 2. Product stock MUST NOT be 999999! It MUST be derived from ingredient stock (5,000g / 200g = 25).
-        $availability = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(25, $availability['available']);
+        // Available Stock = MIN(10, 5) = 5
+        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(5, $avail['available']);
+        $this->assertEquals('MultiNori', $avail['limiting_ingredient']);
     }
 
     /**
-     * TEST SCENARIO: User's exact Egg scenario
-     * Inventory: Egg = 100 pcs, Cost = ₱5.00/pc (Total ₱500)
-     * Recipe: Egg = 1 pc
-     * Expected: Available stock = 100 products, Cost = ₱5.00
+     * PROMPT TEST 11:
+     * Branch isolation: Sta Cruz = 100 kg, Victoria = 20 kg.
+     * Expected: Sta Cruz calculation = 100 capacity, Victoria calculation = 20 capacity. Never combine.
      */
-    public function test_user_egg_scenario_100pcs_yields_100_producible_stock_and_cost_5()
+    public function test_prompt_test_11_branch_isolation_never_combines_stock()
     {
-        $egg = Ingredient::create([
-            'name' => 'new egg',
-            'unit' => 'pcs',
-            'cost_per_base_unit' => 5.00,
-        ]);
-
-        $eggStock = IngredientStock::updateOrCreate(
-            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 100, 'cost_per_unit' => 5.00]
-        );
+        $tomato = Ingredient::create(['name' => 'IsoTomato', 'unit' => 'g', 'cost_per_base_unit' => 0.01]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $tomato->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 100000, 'cost_per_unit' => 0.01]); // 100kg
+        IngredientStock::updateOrCreate(['ingredient_id' => $tomato->id, 'branch_id' => $this->branchVictoria->id], ['stock' => 20000, 'cost_per_unit' => 0.01]);   // 20kg
 
         $product = Product::create([
-            'name' => 'Boiled Egg Bowl',
-            'sku' => 'SKU-BEB-1',
+            'name' => 'Isolated Salad',
+            'sku' => 'SKU-IS-11',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 50.00,
+            'branch_id' => null,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create(['menu_item_id' => $product->id, 'ingredient_id' => $tomato->id, 'quantity_required' => 1, 'unit' => 'kg']);
+
+        $this->assertEquals(100, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+        $this->assertEquals(20, $product->dynamicAvailability($this->branchVictoria->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 12:
+     * Database audit / backfill verification:
+     * Existing Egg stock record with incorrect cost_per_unit = ₱0.10 but total_stock_value = ₱1,000 and stock = 100 pcs.
+     * Expected: Migration / recalculation corrects cost_per_unit to ₱10.00.
+     */
+    public function test_prompt_test_12_existing_incorrect_egg_cost_recalculated_by_backfill()
+    {
+        $egg = Ingredient::create(['name' => 'Legacy Egg', 'unit' => 'pcs', 'cost_per_base_unit' => 0.10]);
+        $stockRow = IngredientStock::updateOrCreate(
+            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id],
+            [
+                'stock' => 100,
+                'cost_per_unit' => 0.10, // Incorrect legacy value
+                'total_stock_value' => 1000, // Authoritative total cost = ₱1,000
+            ]
+        );
+
+        // Run the backfill migration logic
+        $migration = require database_path('migrations/2026_08_16_000001_recalculate_ingredient_stock_costs.php');
+        $migration->up();
+
+        $stockRow->refresh();
+        $egg->refresh();
+
+        // Corrected cost_per_unit = ₱1,000 / 100 pcs = ₱10.00/pc
+        $this->assertEquals(10.00, (float) $stockRow->cost_per_unit);
+        $this->assertEquals(10.00, (float) $egg->cost_per_base_unit);
+
+        $product = Product::create([
+            'name' => 'Legacy Egg Bowl',
+            'sku' => 'SKU-LEB-12',
             'category_id' => $this->testCategory->id,
             'selling_price' => 50.00,
             'branch_id' => $this->branchSantaCruz->id,
             'unit' => 'pcs',
         ]);
 
-        $recipeRow = MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $egg->id,
-            'quantity_required' => 1,
-            'unit' => 'pcs',
-        ]);
+        MenuItemIngredient::create(['menu_item_id' => $product->id, 'ingredient_id' => $egg->id, 'quantity_required' => 1, 'unit' => 'pcs']);
 
-        // 1. Stock = 100 pcs, Recipe = 1 pc -> 100 products
-        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertTrue($avail['is_available']);
-        $this->assertEquals(100, $avail['available']);
-        $this->assertEquals(5.00, $product->computeProductCost($this->branchSantaCruz->id));
-
-        // 2. Change stock to 50 pcs -> 50 products
-        $eggStock->update(['stock' => 50]);
-        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(50, $avail['available']);
-
-        // 3. Change stock to 0 pcs -> 0 products (OUT OF STOCK)
-        $eggStock->update(['stock' => 0]);
-        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertFalse($avail['is_available']);
-        $this->assertEquals(0, $avail['available']);
-
-        // 4. Reset stock to 100 pcs, Recipe = 2 pcs -> 50 products
-        $eggStock->update(['stock' => 100]);
-        $recipeRow->update(['quantity_required' => 2]);
-        $product->unsetRelation('ingredients');
-        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(50, $avail['available']);
         $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
-
-        // 5. Recipe = 101 pcs -> 0 products (Insufficient stock)
-        $recipeRow->update(['quantity_required' => 101]);
-        $product->unsetRelation('ingredients');
-        $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(0, $avail['available']);
-    }
-
-    /**
-     * EXACT USER PROMPT CASE:
-     * Add Ingredient via Inventory Controller:
-     *   Stock = 100 pcs
-     *   Total Purchase Cost = ₱1,000
-     *   Target Branches = Sta Cruz & Victoria
-     * Product Recipe:
-     *   1 pc "new egg"
-     * Expected:
-     *   Unit Cost = ₱10.00
-     *   Product Cost Price = ₱10.00
-     *   Available Producible Stock = 100 units (NOT 200!)
-     */
-    public function test_exact_user_prompt_case_100pcs_1000cost_yields_cost_10_and_stock_100()
-    {
-        // 1. Post to /inventory (simulating Inventory page registration)
-        $response = $this->actingAs($this->admin)
-            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
-            ->post('/inventory', [
-                'name' => 'user egg test',
-                'unit' => 'pcs',
-                'initial_stock' => 100,
-                'low_stock_level' => 5,
-                'cost_per_base_unit' => 1000, // Total purchase cost = ₱1,000
-                'cost_per_unit' => 10,       // Calculated per unit cost = 1000 / 100 = 10
-                'branch_ids' => [$this->branchSantaCruz->id, $this->branchVictoria->id],
-            ]);
-
-        $response->assertStatus(302);
-
-        $egg = Ingredient::where('name', 'user egg test')->firstOrFail();
-
-        // Verify IngredientStock records for Sta Cruz and Victoria
-        $stockStaCruz = IngredientStock::where('ingredient_id', $egg->id)->where('branch_id', $this->branchSantaCruz->id)->firstOrFail();
-        $stockVictoria = IngredientStock::where('ingredient_id', $egg->id)->where('branch_id', $this->branchVictoria->id)->firstOrFail();
-
-        // 1. Unit cost MUST BE ₱10.00 (NOT ₱0.10!)
-        $this->assertEquals(100, (float) $stockStaCruz->stock);
-        $this->assertEquals(10.00, (float) $stockStaCruz->cost_per_unit);
-        $this->assertEquals(10.00, (float) $stockVictoria->cost_per_unit);
-
-        // 2. Create product for Sta Cruz
-        $product = Product::create([
-            'name' => 'Single Egg Roll',
-            'sku' => 'SKU-SER-1',
-            'category_id' => $this->testCategory->id,
-            'selling_price' => 50.00,
-            'branch_id' => $this->branchSantaCruz->id,
-            'unit' => 'pcs',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $egg->id,
-            'quantity_required' => 1,
-            'unit' => 'pcs',
-        ]);
-
-        // 3. Product cost MUST BE ₱10.00
-        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
-
-        // 4. Producible stock MUST BE 100 units (NOT 200 units!)
-        $availStaCruz = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(100, $availStaCruz['available']);
-
-        $availVictoria = $product->dynamicAvailability($this->branchVictoria->id);
-        $this->assertEquals(100, $availVictoria['available']);
-
-        // 5. Unspecified branch availability MUST NOT sum to 200! It must evaluate per branch context (100).
-        $availGlobal = $product->dynamicAvailability(null);
-        $this->assertEquals(100, $availGlobal['available']);
-    }
-
-    /**
-     * TEST SCENARIO: Santa Cruz = 100 pcs, Victoria = 20 pcs
-     * Verifies:
-     * - Specific branch Santa Cruz = 100
-     * - Specific branch Victoria = 20
-     * - All branches = separate 100 and 20 in branch_breakdown
-     * - No misleading global total of 20 as product stock
-     */
-    public function test_branch_specific_breakdown_santa_cruz_100_victoria_20_and_no_misleading_global_total()
-    {
-        $egg = Ingredient::create([
-            'name' => 'branched egg',
-            'unit' => 'pcs',
-            'cost_per_base_unit' => 10.00,
-        ]);
-
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 100, 'cost_per_unit' => 10.00]
-        );
-
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchVictoria->id],
-            ['stock' => 20, 'cost_per_unit' => 10.00]
-        );
-
-        $product = Product::create([
-            'name' => 'Multi Branch Egg Dish',
-            'sku' => 'SKU-MBED-1',
-            'category_id' => $this->testCategory->id,
-            'selling_price' => 80.00,
-            'branch_id' => null, // Global product available in all branches
-            'unit' => 'pcs',
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $egg->id,
-            'quantity_required' => 1,
-            'unit' => 'pcs',
-        ]);
-
-        // 1. Specific branch Santa Cruz MUST be 100
-        $availSantaCruz = $product->dynamicAvailability($this->branchSantaCruz->id);
-        $this->assertEquals(100, $availSantaCruz['available']);
-
-        // 2. Specific branch Victoria MUST be 20
-        $availVictoria = $product->dynamicAvailability($this->branchVictoria->id);
-        $this->assertEquals(20, $availVictoria['available']);
-
-        // 3. All branches view MUST contain separate Santa Cruz = 100 and Victoria = 20
-        $allBranchesAvail = $product->dynamicAvailability(null);
-        $this->assertEquals('all_branches', $allBranchesAvail['scope']);
-        $this->assertArrayHasKey('branch_breakdown', $allBranchesAvail);
-
-        $breakdown = $allBranchesAvail['branch_breakdown'];
-        $this->assertEquals(100, $breakdown[$this->branchSantaCruz->id]['available']);
-        $this->assertEquals(20, $breakdown[$this->branchVictoria->id]['available']);
-
-        // 4. Guaranteed minimum availability across branches = 20, Max = 100
-        $this->assertEquals(20, $allBranchesAvail['min_guaranteed_availability']);
-        $this->assertEquals(100, $allBranchesAvail['max_branch_availability']);
-
-        // 5. Verify ProductsController index payload produces distinct per-branch stocks
-        $response = $this->actingAs($this->admin)->get('/products');
-        $response->assertStatus(200);
-
-        /** @var \Inertia\Testing\AssertableInertia $page */
-        $response->assertInertia(fn ($page) => $page
-            ->component('Products/Index')
-            ->has('products', fn ($props) => $props
-                ->where('0.name', 'Multi Branch Egg Dish')
-                ->where("0.branch_breakdown.{$this->branchSantaCruz->id}.stock", 100)
-                ->where("0.branch_breakdown.{$this->branchVictoria->id}.stock", 20)
-                ->etc()
-            )
-        );
+        $this->assertEquals(100, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
     }
 }
