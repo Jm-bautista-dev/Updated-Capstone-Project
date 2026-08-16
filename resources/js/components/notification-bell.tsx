@@ -113,6 +113,118 @@ const triggerToastAlert = (notif: NotificationItem) => {
     ), { duration: 15000, position: 'top-right' });
 };
 
+const alertedCancellationIds = new Set<string | number>();
+
+const triggerCancellationToast = (notif: NotificationItem) => {
+    // Use cancellation_request_id encoded in the notification id (format: "cancel_req_42")
+    const keyId = notif.id;
+    if (!keyId || alertedCancellationIds.has(keyId)) return;
+
+    alertedCancellationIds.add(keyId);
+    if (alertedCancellationIds.size > 200) {
+        const first = alertedCancellationIds.values().next().value;
+        if (first !== undefined) alertedCancellationIds.delete(first);
+    }
+
+    playOrderNotificationSound();
+
+    const displayOrderNum = notif.order_number || notif.ingredient_name || (notif.order_id ? `ORD-${notif.order_id}` : 'ORD');
+    const riderName = notif.employee_name || 'Rider';
+    const reason = notif.quantity_change || 'No reason provided';
+    const branchStr = notif.branch_name || 'Branch';
+
+    // Extract numeric cancellation_request_id from id like "cancel_req_42"
+    const cancellationRequestId = (() => {
+        const str = String(notif.id);
+        const match = str.match(/cancel_req_(\d+)/);
+        return match ? parseInt(match[1], 10) : null;
+    })();
+
+    toast.custom((t) => (
+        React.createElement('div', {
+            className: "flex flex-col gap-3 p-4.5 bg-white dark:bg-[#121218] border-2 border-amber-500/60 dark:border-amber-400/70 rounded-3xl shadow-[0_20px_40px_-15px_rgba(245,158,11,0.3)] backdrop-blur-2xl max-w-sm w-full font-['Outfit'] animate-in fade-in slide-in-from-top-4 duration-300 relative overflow-hidden"
+        }, [
+            React.createElement('div', { key: 'glow', className: "absolute -top-12 -right-12 size-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" }),
+            React.createElement('div', { key: 'header', className: "flex items-center gap-2.5 relative z-10" }, [
+                React.createElement('div', { key: 'icon', className: "size-8.5 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black text-sm shrink-0 border border-amber-500/30" }, "⚠️"),
+                React.createElement('div', { key: 'title-text', className: "min-w-0" }, [
+                    React.createElement('div', { key: 'badge-row', className: "flex items-center gap-1.5" }, [
+                        React.createElement('span', { key: 'badge', className: "text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block leading-tight" }, "CANCELLATION REQUEST"),
+                        React.createElement('span', { key: 'dot', className: "size-1.5 rounded-full bg-amber-500 animate-ping" })
+                    ]),
+                    React.createElement('h4', { key: 'heading', className: "text-base font-extrabold font-mono text-gray-900 dark:text-white leading-tight truncate" }, displayOrderNum)
+                ])
+            ]),
+            React.createElement('div', { key: 'body', className: "text-xs text-muted-foreground leading-snug space-y-1 relative z-10 bg-amber-500/5 p-3 rounded-2xl border border-amber-500/20" }, [
+                React.createElement('div', { key: 'rider-row', className: "flex items-center justify-between" }, [
+                    React.createElement('span', { key: 'lbl', className: "text-[11px] font-medium text-muted-foreground" }, "Rider:"),
+                    React.createElement('span', { key: 'val', className: "font-bold text-foreground text-xs" }, riderName)
+                ]),
+                React.createElement('div', { key: 'branch-row', className: "flex items-center justify-between" }, [
+                    React.createElement('span', { key: 'lbl2', className: "text-[11px] font-medium text-muted-foreground" }, "Branch:"),
+                    React.createElement('span', { key: 'val2', className: "font-semibold text-foreground text-xs" }, branchStr)
+                ]),
+                React.createElement('div', { key: 'reason-row', className: "mt-1 pt-1 border-t border-amber-500/10" }, [
+                    React.createElement('span', { key: 'lbl3', className: "text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 block" }, "Reason:"),
+                    React.createElement('span', { key: 'val3', className: "font-medium text-foreground text-xs block" }, reason)
+                ])
+            ]),
+            React.createElement('div', { key: 'actions', className: "flex items-center gap-2 pt-0.5 relative z-10" }, [
+                React.createElement('button', {
+                    key: 'reject',
+                    onClick: async () => {
+                        if (!cancellationRequestId) { toast.dismiss(t); return; }
+                        try {
+                            const res = await fetch(`/api/v1/cancellation-requests/${cancellationRequestId}/reject`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                                    'Accept': 'application/json',
+                                },
+                                body: JSON.stringify({ rejection_reason: 'Rejected by cashier' })
+                            });
+                            const data = await res.json();
+                            toast.dismiss(t);
+                            if (data.success !== false) {
+                                toast.success(`Cancellation REJECTED. Rider continues delivery for ${displayOrderNum}.`);
+                            } else {
+                                toast.error(data.message || 'Failed to reject cancellation request.');
+                            }
+                        } catch { toast.error('Network error.'); }
+                    },
+                    className: "flex-1 h-9 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                }, "REJECT"),
+                React.createElement('button', {
+                    key: 'accept',
+                    onClick: async () => {
+                        if (!cancellationRequestId) { toast.dismiss(t); return; }
+                        try {
+                            const res = await fetch(`/api/v1/cancellation-requests/${cancellationRequestId}/accept`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                                    'Accept': 'application/json',
+                                },
+                                body: JSON.stringify({})
+                            });
+                            const data = await res.json();
+                            toast.dismiss(t);
+                            if (data.success !== false) {
+                                toast.success(`Cancellation ACCEPTED. Order ${displayOrderNum} cancelled.`);
+                            } else {
+                                toast.error(data.message || 'Failed to accept cancellation request.');
+                            }
+                        } catch { toast.error('Network error.'); }
+                    },
+                    className: "flex-1 h-9 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                }, "ACCEPT")
+            ])
+        ])
+    ), { duration: 30000, position: 'top-right' });
+};
+
 export function NotificationBell() {
     const { auth } = usePage().props as unknown as { auth?: AuthState };
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -124,10 +236,14 @@ export function NotificationBell() {
         const unread = items.filter(i => i.is_unread).length;
         setUnreadCount(unread);
 
-        // Check for new unread order notifications to alert cashier
+        // Check for new unread notifications to alert cashier
         items.forEach(item => {
-            if (item.type === 'new_order' && item.is_unread) {
-                triggerToastAlert(item);
+            if (item.is_unread) {
+                if (item.type === 'new_order') {
+                    triggerToastAlert(item);
+                } else if (item.type === 'cancellation_request') {
+                    triggerCancellationToast(item);
+                }
             }
         });
     }, []);
