@@ -131,7 +131,7 @@ class ApiOrderController extends Controller
             }
 
             // --- 3. TRANSACTIONAL CREATION ---
-            return DB::transaction(function () use ($validated, $branchId, $userId, $distanceKm, $deliveryFee) {
+            $records = DB::transaction(function () use ($validated, $branchId, $userId, $distanceKm, $deliveryFee) {
                 $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
 
                 $order = Order::create([
@@ -171,19 +171,26 @@ class ApiOrderController extends Controller
                     'status'           => 'waiting_for_kitchen',
                 ]);
 
-                try {
-                    broadcast(new OrderCreated($order->load('branch')));
-                    broadcast(new \App\Events\OrderStatusUpdated($delivery->fresh(), 'customer', null));
-                } catch (\Throwable $e) {
-                    Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Order placed successfully',
-                    'order_id' => $order->id
-                ], 201);
+                return [
+                    'order'    => $order,
+                    'delivery' => $delivery,
+                ];
             });
+
+            // --- 4. POST-COMMIT REALTIME BROADCASTING ---
+            // Guaranteed to fire strictly AFTER database transaction has successfully committed
+            try {
+                broadcast(new OrderCreated($records['order']->load('branch')));
+                broadcast(new \App\Events\OrderStatusUpdated($records['delivery']->fresh(), 'customer', null));
+            } catch (\Throwable $e) {
+                Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Order placed successfully',
+                'order_id' => $records['order']->id
+            ], 201);
 
         } catch (\Throwable $e) {
             Log::error('Order API Critical Failure', [
