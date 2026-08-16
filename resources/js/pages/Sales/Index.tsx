@@ -174,37 +174,7 @@ export default function SalesIndex() {
         return b ? b.name : 'All Branches';
     }, [branchFilter, branchList]);
 
-    // Export Sales as CSV
-    const handleExportCSV = () => {
-        if (filteredSales.length === 0) return;
 
-        const headers = ['Order Number', 'Date', 'Branch', 'Cashier', 'Type', 'Payment Method', 'Total Amount (PHP)', 'Status', 'Line Items'];
-        const csvRows = [headers.join(',')];
-
-        filteredSales.forEach(s => {
-            const row = [
-                `"${s.order_number}"`,
-                `"${s.created_at || ''}"`,
-                `"${s.branch?.name || 'Main Branch'}"`,
-                `"${s.cashier?.name || 'Staff'}"`,
-                `"${s.type || 'In-Store'}"`,
-                `"${s.payment_method || 'Cash'}"`,
-                `"${s.total || 0}"`,
-                `"${s.status || ''}"`,
-                `"${s.items ? s.items.length : 0}"`
-            ];
-            csvRows.push(row.join(','));
-        });
-
-        const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `sales_report_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
 
     // Print Sales Summary Report
     const handlePrintReport = () => {
