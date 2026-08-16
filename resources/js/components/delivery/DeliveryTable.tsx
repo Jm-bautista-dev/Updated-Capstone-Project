@@ -68,7 +68,7 @@ const TableRow = React.memo(function TableRow({
                 <div className="flex items-center gap-1.5">
                     <TypeIcon className={cn("size-3.5 shrink-0", typeColor)} />
                     <span className="font-mono text-xs text-[#3D2C2E] dark:text-[#F8FAFC]">
-                        {delivery.sale?.order_number || delivery.tracking_number || `#${delivery.id}`}
+                        {delivery.sale?.order_number || delivery.order?.order_number || delivery.tracking_number || `#${delivery.id}`}
                     </span>
                 </div>
             </div>
@@ -322,7 +322,7 @@ export function DeliveryTable({
             let cmp = 0;
             switch (sortKey) {
                 case 'order':
-                    cmp = (a.sale?.order_number || '').localeCompare(b.sale?.order_number || '');
+                    cmp = (a.sale?.order_number || a.order?.order_number || '').localeCompare(b.sale?.order_number || b.order?.order_number || '');
                     break;
                 case 'customer':
                     cmp = a.customer_name.localeCompare(b.customer_name);

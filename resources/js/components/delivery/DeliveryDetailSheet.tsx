@@ -289,7 +289,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </Badge>
                     </div>
                     <SheetTitle className="text-xl font-black tracking-tight">
-                        {delivery.sale?.order_number || (delivery.order ? `Order #${delivery.order.id}` : 'Order Detail')}
+                        {delivery.sale?.order_number || delivery.order?.order_number || (delivery.order ? `Order #${delivery.order.id}` : 'Order Detail')}
                     </SheetTitle>
                     <SheetDescription>
                         {delivery.created_at 
@@ -528,7 +528,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         <div>
                             <p className="text-[8px] font-black uppercase text-gray-500">Tracking / Order ID</p>
                             <p className="text-xl font-black italic">
-                                {delivery.sale?.order_number || `#ORD-${delivery.id}`}
+                                {delivery.sale?.order_number || delivery.order?.order_number || `#ORD-${delivery.id}`}
                             </p>
                         </div>
                         <div className="text-right">
@@ -560,7 +560,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     {/* Footer / Barcode Placeholder */}
                     <div className="text-center pt-4 space-y-2">
                         <div className="h-12 bg-black w-full flex items-center justify-center">
-                           <span className="text-white font-mono text-xs tracking-[0.5em]">{delivery.sale?.order_number || delivery.id}</span>
+                           <span className="text-white font-mono text-xs tracking-[0.5em]">{delivery.sale?.order_number || delivery.order?.order_number || delivery.id}</span>
                         </div>
                         <p className="text-[8px] font-bold uppercase">Thank you for ordering at Maki Desu!</p>
                     </div>

@@ -158,7 +158,7 @@ class DeliveryController extends Controller
                     ->orWhere('tracking_number', 'like', "%{$search}%")
                     ->orWhere('landmark', 'like', "%{$search}%")
                     ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
-                    ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"))
+                    ->orWhereHas('order', fn($oq) => $oq->where('order_number', 'like', "%{$search}%")->orWhere('id', 'like', "%{$search}%"))
                     ->orWhereHas('rider', fn($rq) => $rq->where('name', 'like', "%{$search}%"));
             });
         }

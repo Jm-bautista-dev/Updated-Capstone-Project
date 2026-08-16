@@ -49,7 +49,7 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                         <DialogTitle className="text-xl font-black text-white">Assign Rider</DialogTitle>
                     </div>
                     <DialogDescription className="text-white/80 font-medium">
-                        Select a rider to handle delivery for order {delivery?.sale?.order_number || `#${delivery?.id}`}.
+                        Select a rider to handle delivery for order {delivery?.sale?.order_number || delivery?.order?.order_number || `#${delivery?.id}`}.
                     </DialogDescription>
                 </div>
 

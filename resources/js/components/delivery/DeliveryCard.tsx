@@ -51,7 +51,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                             </Badge>
                             <div className="min-w-0">
                                 <p className="font-black text-sm tracking-tight truncate text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                    {delivery.sale?.order_number || (delivery.order && `#ORD-${delivery.order.id}`)}
+                                    {delivery.sale?.order_number || delivery.order?.order_number || (delivery.order && `ORD-${delivery.order.id}`) || `#${delivery.id}`}
                                 </p>
                                 <div className="flex items-center gap-2 text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
                                     <span className="flex items-center gap-1">

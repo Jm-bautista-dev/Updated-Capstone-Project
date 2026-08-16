@@ -45,6 +45,7 @@ export interface Delivery {
     } | null;
     order?: {
         id: number;
+        order_number?: string;
         total_amount: number;
         status?: string;
         branch?: { name: string; latitude?: number; longitude?: number } | null;
