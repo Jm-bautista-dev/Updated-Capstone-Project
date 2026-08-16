@@ -228,18 +228,24 @@ export default function ForecastBenchmarking() {
         </div>
 
         {/* ── Sub Navigation Links Tabs ── */}
-        <div className="flex bg-(--ops-surface-sunken) border-b border-(--ops-border-subtle) px-6 sm:px-8 py-0 shrink-0">
+        <div className="flex bg-(--ops-surface-sunken) border-b border-(--ops-border-subtle) px-6 sm:px-8 py-0 shrink-0 overflow-x-auto">
           <Link
             href="/analytics/sales-forecast"
-            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground"
+            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground whitespace-nowrap"
           >
             Sales Forecasting
           </Link>
           <Link
             href="/analytics/forecast-benchmarking"
-            className="px-4 py-3 border-b-2 border-primary text-xs font-black uppercase tracking-wider text-primary"
+            className="px-4 py-3 border-b-2 border-primary text-xs font-black uppercase tracking-wider text-primary whitespace-nowrap"
           >
             Model Benchmarking
+          </Link>
+          <Link
+            href="/analytics/restock-suggestions"
+            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground whitespace-nowrap"
+          >
+            Restock Suggestions
           </Link>
         </div>
 

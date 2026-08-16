@@ -33,11 +33,9 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}?v=4">
-        <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}?v=4">
-        <link rel="icon" type="image/png" href="{{ asset('images/maki-desu-logo.png') }}?v=4">
-        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=4">
-        <link rel="apple-touch-icon" href="{{ asset('images/maki-desu-logo.png') }}?v=4">
+        <link rel="icon" type="image/png" href="{{ asset('images/maki-desu-logo.png') }}?v=5">
+        <link rel="shortcut icon" type="image/png" href="{{ asset('images/maki-desu-logo.png') }}?v=5">
+        <link rel="apple-touch-icon" href="{{ asset('images/maki-desu-logo.png') }}?v=5">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />

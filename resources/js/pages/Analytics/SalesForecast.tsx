@@ -255,18 +255,24 @@ export default function SalesForecast() {
         </div>
 
         {/* ── Sub Navigation Links Tabs ── */}
-        <div className="flex bg-(--ops-surface-sunken) border-b border-(--ops-border-subtle) px-6 sm:px-8 py-0 shrink-0">
+        <div className="flex bg-(--ops-surface-sunken) border-b border-(--ops-border-subtle) px-6 sm:px-8 py-0 shrink-0 overflow-x-auto">
           <Link
             href="/analytics/sales-forecast"
-            className="px-4 py-3 border-b-2 border-primary text-xs font-black uppercase tracking-wider text-primary"
+            className="px-4 py-3 border-b-2 border-primary text-xs font-black uppercase tracking-wider text-primary whitespace-nowrap"
           >
             Sales Forecasting
           </Link>
           <Link
             href="/analytics/forecast-benchmarking"
-            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground"
+            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground whitespace-nowrap"
           >
             Model Benchmarking
+          </Link>
+          <Link
+            href="/analytics/restock-suggestions"
+            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground whitespace-nowrap"
+          >
+            Restock Suggestions
           </Link>
         </div>
 
@@ -295,15 +301,15 @@ export default function SalesForecast() {
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
                   
                   {/* Tomorrow Prediction */}
-                  <Card className="bg-primary text-white border border-primary/20 rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
+                  <Card className="bg-linear-to-r! from-[#E75480]! to-[#FF4F81]! dark:from-[#E1062C]! dark:to-[#B90222]! text-white border border-[#E75480]/30 rounded-[14px] p-4.5 relative overflow-hidden group shadow-md shadow-[#E75480]/15 flex flex-col justify-between min-h-25">
                     <div className="absolute top-0 right-0 size-24 bg-white/10 rounded-full blur-2xl opacity-40" />
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/80">{nextDayDate}</p>
+                    <div className="flex items-center justify-between mb-2 relative z-10">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/90">{nextDayDate}</p>
                       <FiZap className="size-4 text-white" />
                     </div>
-                    <div>
+                    <div className="relative z-10">
                       <h3 className="text-2xl font-black text-white tabular-nums leading-none">{formatCurrency(prediction)}</h3>
-                      <p className="text-[8px] text-white/60 font-bold uppercase mt-1.5 tracking-widest">Expected Daily Revenue</p>
+                      <p className="text-[8px] text-white/80 font-bold uppercase mt-1.5 tracking-widest">Expected Daily Revenue</p>
                     </div>
                   </Card>
 

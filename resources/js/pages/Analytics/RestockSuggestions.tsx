@@ -1,4 +1,4 @@
-import { Head, usePage, router } from '@inertiajs/react';
+import { Head, usePage, router, Link } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useMemo } from 'react';
 import {
@@ -234,6 +234,28 @@ export default function RestockSuggestions() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* ── Sub Navigation Links Tabs ── */}
+        <div className="flex bg-(--ops-surface-sunken) border-b border-(--ops-border-subtle) px-6 sm:px-8 py-0 shrink-0 overflow-x-auto">
+          <Link
+            href="/analytics/sales-forecast"
+            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground whitespace-nowrap"
+          >
+            Sales Forecasting
+          </Link>
+          <Link
+            href="/analytics/forecast-benchmarking"
+            className="px-4 py-3 border-b-2 border-transparent text-xs font-black uppercase tracking-wider text-(--ops-text-muted) hover:text-foreground whitespace-nowrap"
+          >
+            Model Benchmarking
+          </Link>
+          <Link
+            href="/analytics/restock-suggestions"
+            className="px-4 py-3 border-b-2 border-primary text-xs font-black uppercase tracking-wider text-primary whitespace-nowrap"
+          >
+            Restock Suggestions
+          </Link>
         </div>
 
         {/* -- Content Layout -- */}
