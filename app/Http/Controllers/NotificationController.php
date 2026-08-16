@@ -19,103 +19,126 @@ class NotificationController extends Controller
     public function index()
     {
         $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'notifications' => [],
+                'unread_count'  => 0,
+            ]);
+        }
+
+        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
 
         // 1. Fetch Order Notifications (Scoped by Branch)
-        $orderQuery = Order::with('branch')->latest();
-        if (!$user->isAdmin()) {
-            $orderQuery->where('branch_id', $user->branch_id);
-        }
-
-        $orderNotifications = $orderQuery->limit(10)->get()->map(function ($order) use ($user) {
-            $orderNum = $order->order_number ?? ("ORD-" . $order->id);
-            return [
-                'id'              => 'order_' . $order->id,
-                'order_id'        => $order->id,
-                'order_number'    => $orderNum,
-                'employee_name'   => $order->customer_name,
-                'action'          => 'Order',
-                'ingredient_name' => $orderNum,
-                'quantity_change' => '₱' . number_format((float)$order->total_amount, 2),
-                'remaining'       => ucwords(str_replace('_', ' ', $order->status)),
-                'source'          => 'Customer Mobile Order',
-                'branch_name'     => $order->branch ? $order->branch->name : 'N/A',
-                'created_at'      => $order->created_at->toIso8601String(),
-                'time_ago'        => $order->created_at->diffForHumans(),
-                'is_unread'       => $user->last_notifications_read_at ? $order->created_at->gt($user->last_notifications_read_at) : true,
-                'type'            => 'new_order',
-                'url'             => '/deliveries',
-            ];
-        });
-
-        // 1.5 Fetch Pending Cancellation Requests (Scoped by Branch)
-        $cancellationReqQuery = \App\Models\OrderCancellationRequest::with(['order.branch', 'requestedByRider', 'branch'])
-            ->where('status', 'pending')
-            ->latest('requested_at');
-
-        if (!$user->isAdmin()) {
-            $cancellationReqQuery->where('branch_id', $user->branch_id);
-        }
-
-        $cancellationNotifications = $cancellationReqQuery->limit(10)->get()->map(function ($req) use ($user) {
-            $orderNum = $req->order?->order_number ?? ("ORD-" . $req->order_id);
-            return [
-                'id'                      => 'cancel_req_' . $req->id,
-                'cancellation_request_id' => $req->id,
-                'order_id'                => $req->order_id,
-                'order_number'            => $orderNum,
-                'employee_name'           => $req->requestedByRider?->name ?? 'Rider',
-                'action'                  => 'Alert',
-                'ingredient_name'         => "Cancellation Request #{$orderNum}",
-                'quantity_change'         => $req->reason,
-                'remaining'               => 'Pending Approval',
-                'source'                  => 'Rider Cancellation Request',
-                'branch_name'             => $req->branch?->name ?? $req->order?->branch?->name ?? 'N/A',
-                'created_at'              => $req->requested_at ? $req->requested_at->toIso8601String() : now()->toIso8601String(),
-                'time_ago'                => $req->requested_at ? $req->requested_at->diffForHumans() : 'Just now',
-                'is_unread'               => $user->last_notifications_read_at ? ($req->requested_at ? $req->requested_at->gt($user->last_notifications_read_at) : true) : true,
-                'type'                    => 'cancellation_request',
-                'url'                     => "/deliveries?order_id={$req->order_id}",
-            ];
-        });
-
-        // 2. Fetch Ingredient Log Notifications
-        $logQuery = IngredientLog::with(['ingredient', 'branch', 'user'])->latest();
-
-        // Strict branch isolation: cashiers only see logs for their branch
-        if (!$user->isAdmin()) {
-            $logQuery->where('branch_id', $user->branch_id);
-        }
-
-        $logs = $logQuery->limit(10)->get()->map(function ($log) use ($user) {
-            if (!$log->ingredient) return null;
-
-            $isAlert = str_contains($log->reason, 'Stock Alert');
-
-            // Find current stock for THIS branch
-            $currentStock = 0;
-            if ($log->branch_id) {
-                $stockRow = IngredientStock::where('ingredient_id', $log->ingredient_id)
-                    ->where('branch_id', $log->branch_id)
-                    ->first();
-                $currentStock = $stockRow ? $stockRow->stock : 0;
+        $orderNotifications = collect();
+        try {
+            $orderQuery = Order::with('branch')->latest();
+            if (!$isAdmin && isset($user->branch_id)) {
+                $orderQuery->where('branch_id', $user->branch_id);
             }
 
-            return [
-                'id'              => 'log_' . $log->id,
-                'employee_name'   => $log->user ? $log->user->name : 'System',
-                'action'          => $isAlert ? 'Alert' : ($log->change_qty > 0 ? 'Added' : 'Deducted'),
-                'ingredient_name' => $log->ingredient->name,
-                'quantity_change' => abs((float)$log->change_qty) . ' ' . $log->ingredient->unit,
-                'remaining'       => $currentStock . ' ' . $log->ingredient->unit,
-                'source'          => $log->reason,
-                'branch_name'     => $log->branch ? $log->branch->name : 'N/A',
-                'created_at'      => $log->created_at->toIso8601String(),
-                'time_ago'        => $log->created_at->diffForHumans(),
-                'is_unread'       => $user->last_notifications_read_at ? $log->created_at->gt($user->last_notifications_read_at) : true,
-                'type'            => str_contains($log->reason, 'Out of Stock') ? 'out_of_stock' : (str_contains($log->reason, 'Low Stock') ? 'low_stock' : 'activity'),
-                'url'             => '/inventory/activity',
-            ];
-        })->filter();
+            $orderNotifications = $orderQuery->limit(10)->get()->map(function ($order) use ($user) {
+                $orderNum = $order->order_number ?? ("ORD-" . $order->id);
+                return [
+                    'id'              => 'order_' . $order->id,
+                    'order_id'        => $order->id,
+                    'order_number'    => $orderNum,
+                    'employee_name'   => $order->customer_name,
+                    'action'          => 'Order',
+                    'ingredient_name' => $orderNum,
+                    'quantity_change' => '₱' . number_format((float)$order->total_amount, 2),
+                    'remaining'       => ucwords(str_replace('_', ' ', $order->status ?? '')),
+                    'source'          => 'Customer Mobile Order',
+                    'branch_name'     => $order->branch ? $order->branch->name : 'N/A',
+                    'created_at'      => $order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String(),
+                    'time_ago'        => $order->created_at ? $order->created_at->diffForHumans() : 'Just now',
+                    'is_unread'       => $user->last_notifications_read_at && $order->created_at ? $order->created_at->gt($user->last_notifications_read_at) : true,
+                    'type'            => 'new_order',
+                    'url'             => '/deliveries',
+                ];
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed fetching order notifications: ' . $e->getMessage());
+        }
+
+        // 1.5 Fetch Pending Cancellation Requests (Scoped by Branch)
+        $cancellationNotifications = collect();
+        try {
+            if (class_exists(\App\Models\OrderCancellationRequest::class)) {
+                $cancellationReqQuery = \App\Models\OrderCancellationRequest::with(['order.branch', 'requestedByRider', 'branch'])
+                    ->where('status', 'pending')
+                    ->latest('requested_at');
+
+                if (!$isAdmin && isset($user->branch_id)) {
+                    $cancellationReqQuery->where('branch_id', $user->branch_id);
+                }
+
+                $cancellationNotifications = $cancellationReqQuery->limit(10)->get()->map(function ($req) use ($user) {
+                    $orderNum = $req->order?->order_number ?? ("ORD-" . $req->order_id);
+                    return [
+                        'id'                      => 'cancel_req_' . $req->id,
+                        'cancellation_request_id' => $req->id,
+                        'order_id'                => $req->order_id,
+                        'order_number'            => $orderNum,
+                        'employee_name'           => $req->requestedByRider?->name ?? 'Rider',
+                        'action'                  => 'Alert',
+                        'ingredient_name'         => "Cancellation Request #{$orderNum}",
+                        'quantity_change'         => $req->reason,
+                        'remaining'               => 'Pending Approval',
+                        'source'                  => 'Rider Cancellation Request',
+                        'branch_name'             => $req->branch?->name ?? $req->order?->branch?->name ?? 'N/A',
+                        'created_at'              => $req->requested_at ? $req->requested_at->toIso8601String() : now()->toIso8601String(),
+                        'time_ago'                => $req->requested_at ? $req->requested_at->diffForHumans() : 'Just now',
+                        'is_unread'               => $user->last_notifications_read_at && $req->requested_at ? $req->requested_at->gt($user->last_notifications_read_at) : true,
+                        'type'                    => 'cancellation_request',
+                        'url'                     => "/deliveries?order_id={$req->order_id}",
+                    ];
+                });
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed fetching cancellation request notifications: ' . $e->getMessage());
+        }
+
+        // 2. Fetch Ingredient Log Notifications
+        $logs = collect();
+        try {
+            $logQuery = IngredientLog::with(['ingredient', 'branch', 'user'])->latest();
+
+            if (!$isAdmin && isset($user->branch_id)) {
+                $logQuery->where('branch_id', $user->branch_id);
+            }
+
+            $logs = $logQuery->limit(10)->get()->map(function ($log) use ($user) {
+                if (!$log->ingredient) return null;
+
+                $isAlert = str_contains($log->reason ?? '', 'Stock Alert');
+
+                $currentStock = 0;
+                if ($log->branch_id) {
+                    $stockRow = IngredientStock::where('ingredient_id', $log->ingredient_id)
+                        ->where('branch_id', $log->branch_id)
+                        ->first();
+                    $currentStock = $stockRow ? $stockRow->stock : 0;
+                }
+
+                return [
+                    'id'              => 'log_' . $log->id,
+                    'employee_name'   => $log->user ? $log->user->name : 'System',
+                    'action'          => $isAlert ? 'Alert' : ($log->change_qty > 0 ? 'Added' : 'Deducted'),
+                    'ingredient_name' => $log->ingredient->name,
+                    'quantity_change' => abs((float)$log->change_qty) . ' ' . $log->ingredient->unit,
+                    'remaining'       => $currentStock . ' ' . $log->ingredient->unit,
+                    'source'          => $log->reason,
+                    'branch_name'     => $log->branch ? $log->branch->name : 'N/A',
+                    'created_at'      => $log->created_at ? $log->created_at->toIso8601String() : now()->toIso8601String(),
+                    'time_ago'        => $log->created_at ? $log->created_at->diffForHumans() : 'Just now',
+                    'is_unread'       => $user->last_notifications_read_at && $log->created_at ? $log->created_at->gt($user->last_notifications_read_at) : true,
+                    'type'            => str_contains($log->reason ?? '', 'Out of Stock') ? 'out_of_stock' : (str_contains($log->reason ?? '', 'Low Stock') ? 'low_stock' : 'activity'),
+                    'url'             => '/inventory/activity',
+                ];
+            })->filter();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed fetching ingredient log notifications: ' . $e->getMessage());
+        }
 
         // Combine and sort notifications by created_at descending
         $allNotifications = $orderNotifications->concat($cancellationNotifications)->concat($logs)
@@ -127,7 +150,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'notifications' => $allNotifications,
-            'unread_count' => $unreadCount,
+            'unread_count'  => $unreadCount,
         ]);
     }
 
