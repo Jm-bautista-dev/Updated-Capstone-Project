@@ -6,66 +6,74 @@ $app = require_once __DIR__ . '/../bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-function fitPredictHoltDamped(array $train, int $horizon, float $alpha = 0.3, float $beta = 0.1, float $phi = 0.85): array
-{
-    $history = array_column($train, 'total');
-    $n = count($history);
-    if ($n < 2) {
-        $val = $n > 0 ? $history[0] : 0.0;
-        return array_fill(0, $horizon, $val);
-    }
-    
-    $meanHistory = array_sum($history) / $n;
-    $level = $history[0];
-    
-    // Calculate initial trend across whole series rather than 1 day difference
-    $trend = ($history[$n - 1] - $history[0]) / ($n - 1);
-
-    for ($i = 1; $i < $n; $i++) {
-        $lastLevel = $level;
-        $level = $alpha * $history[$i] + (1 - $alpha) * ($level + $phi * $trend);
-        $trend = $beta * ($level - $lastLevel) + (1 - $beta) * $phi * $trend;
-        
-        // Damp trend extreme spikes
-        $maxTrendDelta = $meanHistory * 0.05;
-        $trend = max(-$maxTrendDelta, min($maxTrendDelta, $trend));
-    }
-
-    $predictions = [];
-    $accumulatedPhi = 0.0;
-    $currentPhi = 1.0;
-    
-    for ($h = 1; $h <= $horizon; $h++) {
-        $currentPhi *= $phi;
-        $accumulatedPhi += $currentPhi;
-        $pred = $level + $accumulatedPhi * $trend;
-        
-        // Ensure forecast never drops below 15% of historical average baseline
-        $minFloor = $meanHistory * 0.15;
-        $predictions[] = max($minFloor, round($pred, 2));
-    }
-    return $predictions;
-}
-
-$trainData = [
-    ['date' => '2026-08-01', 'total' => 2500],
-    ['date' => '2026-08-02', 'total' => 1800],
-    ['date' => '2026-08-03', 'total' => 2200],
-    ['date' => '2026-08-04', 'total' => 2100],
-    ['date' => '2026-08-05', 'total' => 1900],
-    ['date' => '2026-08-06', 'total' => 2300],
-    ['date' => '2026-08-07', 'total' => 2700],
-    ['date' => '2026-08-08', 'total' => 2400],
-    ['date' => '2026-08-09', 'total' => 1700],
-    ['date' => '2026-08-10', 'total' => 2000],
-    ['date' => '2026-08-11', 'total' => 1850],
-    ['date' => '2026-08-12', 'total' => 1600],
-    ['date' => '2026-08-13', 'total' => 1500],
-    ['date' => '2026-08-14', 'total' => 1400],
+$valSet = [
+    ['date' => '2026-08-10', 'total' => 0],
+    ['date' => '2026-08-11', 'total' => 500],
+    ['date' => '2026-08-12', 'total' => 0],
+    ['date' => '2026-08-13', 'total' => 4500],
+    ['date' => '2026-08-14', 'total' => 0],
+    ['date' => '2026-08-15', 'total' => 2200],
+    ['date' => '2026-08-16', 'total' => 1000],
 ];
 
-$horizon = 7;
-$dampedHoltPreds = fitPredictHoltDamped($trainData, $horizon);
+function calculateMetricsFixed(array $actuals, array $preds): array
+{
+    $n = count($actuals);
+    $sumAbsErr = 0.0;
+    $sumSqErr = 0.0;
+    $sumMapeErr = 0.0;
+    $sumSmapeErr = 0.0;
+    $sumActual = 0.0;
 
-echo "Damped Holt Linear Trend Predictions:\n";
-print_r($dampedHoltPreds);
+    $actualValues = array_column($actuals, 'total');
+    $meanActual = $n > 0 ? array_sum($actualValues) / $n : 1.0;
+    // Minimum non-zero denominator baseline (10% of series average or 1.0)
+    $minDenom = max(1.0, $meanActual * 0.1);
+
+    for ($i = 0; $i < $n; $i++) {
+        $act = $actuals[$i]['total'];
+        $pred = $preds[$i] ?? 0.0;
+
+        $err = $act - $pred;
+        $absErr = abs($err);
+
+        $sumAbsErr += $absErr;
+        $sumSqErr += $err * $err;
+        $sumActual += $act;
+
+        // Use series baseline for zero-sales days so non-zero models aren't artifically penalized
+        $denom = max($minDenom, $act);
+        $sumMapeErr += $absErr / $denom;
+
+        // sMAPE
+        $sDenom = ($act + $pred) / 2;
+        $sumSmapeErr += $sDenom > 0 ? $absErr / $sDenom : 0.0;
+    }
+
+    $mae = $n > 0 ? $sumAbsErr / $n : 0.0;
+    $rmse = $n > 0 ? sqrt($sumSqErr / $n) : 0.0;
+    $mape = $n > 0 ? ($sumMapeErr / $n) * 100 : 0.0;
+    $smape = $n > 0 ? ($sumSmapeErr / $n) * 100 : 0.0;
+    $wape = $sumActual > 0 ? ($sumAbsErr / $sumActual) * 100 : 0.0;
+
+    return [
+        'mae' => round($mae, 2),
+        'rmse' => round($rmse, 2),
+        'mape' => round($mape, 2),
+        'smape' => round($smape, 2),
+        'wape' => round($wape, 2),
+        'accuracy' => round(max(0.0, 100 - $wape), 1)
+    ];
+}
+
+$flatZeroPreds = [0, 0, 0, 0, 0, 0, 0];
+$dampedHoltPreds = [300, 500, 450, 600, 500, 700, 600];
+
+$metricsZero = calculateMetricsFixed($valSet, $flatZeroPreds);
+$metricsHolt = calculateMetricsFixed($valSet, $dampedHoltPreds);
+
+echo "Fixed Metrics - Flat Zero Model:\n";
+print_r($metricsZero);
+
+echo "\nFixed Metrics - Damped Holt Model:\n";
+print_r($metricsHolt);

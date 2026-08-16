@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { SalesCardGrid } from '@/components/sales/SalesCardGrid';
 import { SalesDrawer } from '@/components/sales/SalesDrawer';
+import { SalesExportModal } from '@/components/sales/SalesExportModal';
 import { SalesFilterToolbar } from '@/components/sales/SalesFilterToolbar';
 import { SalesHero, type Sale } from '@/components/sales/SalesHero';
 import { SalesTable } from '@/components/sales/SalesTable';
@@ -76,6 +77,7 @@ export default function SalesIndex() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [saleToVoid, setSaleToVoid] = useState<Sale | null>(null);
     const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState<number | null>(null);
 
     // BroadcastChannel real-time sync
@@ -236,7 +238,7 @@ export default function SalesIndex() {
                     onDensityChange={setDensity}
                     branches={branchList}
                     isAdmin={isAdmin}
-                    onExportSales={handleExportCSV}
+                    onExportSales={() => setIsExportModalOpen(true)}
                     onPrintReport={handlePrintReport}
                 />
 
@@ -316,6 +318,17 @@ export default function SalesIndex() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Sales Export Configuration Modal */}
+            <SalesExportModal
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                activeStatus={statusFilter}
+                activeBranch={branchFilter}
+                activeSearch={search}
+                branches={branchList}
+                isAdmin={isAdmin}
+            />
 
         </AppLayout>
     );

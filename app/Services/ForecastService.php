@@ -101,15 +101,23 @@ class ForecastService
             $rankings[] = array_merge(['model' => $name], $metrics);
         }
 
-        // Sort rankings by lowest MAPE
-        usort($rankings, fn($a, $b) => $a['mape'] <=> $b['mape']);
+        // Sort rankings by lowest WAPE (Weighted Absolute Percentage Error) then MAE
+        usort($rankings, function ($a, $b) {
+            if ($a['wape'] != $b['wape']) {
+                return $a['wape'] <=> $b['wape'];
+            }
+            if ($a['mae'] != $b['mae']) {
+                return $a['mae'] <=> $b['mae'];
+            }
+            return $a['mape'] <=> $b['mape'];
+        });
 
         // Set Rank indexes
         foreach ($rankings as $idx => &$item) {
             $item['rank'] = $idx + 1;
-            // Performance scorestars
-            $mape = $item['mape'];
-            $item['score'] = $mape < 5 ? 5 : ($mape < 10 ? 4 : ($mape < 15 ? 3 : ($mape < 25 ? 2 : 1)));
+            // Performance score stars based on WAPE
+            $wape = $item['wape'];
+            $item['score'] = $wape < 15 ? 5 : ($wape < 25 ? 4 : ($wape < 35 ? 3 : ($wape < 50 ? 2 : 1)));
         }
 
         $bestModel = $rankings[0];
@@ -467,6 +475,10 @@ class ForecastService
         $sumSmapeErr = 0.0;
         $sumActual = 0.0;
 
+        $actualValues = array_column($actuals, 'total');
+        $meanActual = $n > 0 ? array_sum($actualValues) / $n : 1.0;
+        $minDenom = max(1.0, $meanActual * 0.1);
+
         for ($i = 0; $i < $n; $i++) {
             $act = $actuals[$i]['total'];
             $pred = $preds[$i] ?? 0.0;
@@ -476,15 +488,15 @@ class ForecastService
 
             $sumAbsErr += $absErr;
             $sumSqErr += $err * $err;
-            
             $sumActual += $act;
 
-            // MAPE safety denominator
-            $sumMapeErr += $absErr / max(1.0, $act);
+            // Use series baseline for zero-sales days so non-zero models aren't artificially penalized
+            $denom = max($minDenom, $act);
+            $sumMapeErr += $absErr / $denom;
 
             // sMAPE
-            $denom = ($act + $pred) / 2;
-            $sumSmapeErr += $denom > 0 ? $absErr / $denom : 0.0;
+            $sDenom = ($act + $pred) / 2;
+            $sumSmapeErr += $sDenom > 0 ? $absErr / $sDenom : 0.0;
         }
 
         $mae = $n > 0 ? $sumAbsErr / $n : 0.0;
@@ -493,13 +505,16 @@ class ForecastService
         $smape = $n > 0 ? ($sumSmapeErr / $n) * 100 : 0.0;
         $wape = $sumActual > 0 ? ($sumAbsErr / $sumActual) * 100 : 0.0;
 
+        // Accuracy is calculated relative to Weighted Absolute Percentage Error (WAPE)
+        $accuracy = round(max(0.0, 100 - $wape), 1);
+
         return [
             'mae' => round($mae, 2),
             'rmse' => round($rmse, 2),
             'mape' => round($mape, 2),
             'smape' => round($smape, 2),
             'wape' => round($wape, 2),
-            'accuracy' => round(max(0.0, 100 - $mape), 1)
+            'accuracy' => $accuracy
         ];
     }
 

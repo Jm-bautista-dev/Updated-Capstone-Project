@@ -169,6 +169,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Sales
             Route::get('sales', [App\Http\Controllers\SalesController::class, 'index'])->name('sales.index');
+            Route::get('sales/export/summary', [App\Http\Controllers\SalesController::class, 'exportSummary'])->name('sales.export.summary');
+            Route::get('sales/export', [App\Http\Controllers\SalesController::class, 'exportCsv'])->name('sales.export');
             Route::match(['put', 'patch'], 'sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
             // Deliveries
