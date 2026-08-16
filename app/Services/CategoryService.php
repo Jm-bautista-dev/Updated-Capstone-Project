@@ -68,9 +68,13 @@ class CategoryService
         if (!$imagePath) return;
         $source = storage_path('app/public/' . $imagePath);
         $dest = public_path('storage/' . $imagePath);
-        if (file_exists($source) && !is_link(public_path('storage'))) {
-            @mkdir(dirname($dest), 0755, true);
-            @copy($source, $dest);
+        if (file_exists($source)) {
+            if (!is_dir(dirname($dest))) {
+                @mkdir(dirname($dest), 0755, true);
+            }
+            if ($source !== $dest && !file_exists($dest)) {
+                @copy($source, $dest);
+            }
         }
     }
 }

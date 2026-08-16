@@ -47,6 +47,14 @@ export interface ActiveRiderData {
     } | null;
 }
 
+export interface ActiveRouteSummary {
+    distance_text: string;
+    duration_text: string;
+    is_fallback: boolean;
+    is_stale?: boolean;
+    provider?: string;
+}
+
 interface StatsSummary {
     total_active: number;
     live: number;
@@ -97,6 +105,24 @@ const createRiderDivIcon = (rider: ActiveRiderData, isSelected: boolean) => {
     });
 };
 
+const createDestinationDivIcon = () => {
+    const html = `
+        <div class="relative flex items-center justify-center size-9 sm:size-10 rounded-2xl bg-[#1E293B] dark:bg-white text-emerald-400 dark:text-emerald-600 border-2 border-emerald-500 shadow-2xl scale-100">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+        </div>
+    `;
+    return L.divIcon({
+        html,
+        className: 'custom-dest-leaflet-marker',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -20],
+    });
+};
+
 const createHQDivIcon = () => {
     const html = `
         <div class="relative flex items-center justify-center size-9 sm:size-10 rounded-2xl bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white border-2 border-white shadow-xl">
@@ -128,9 +154,14 @@ export function LiveRiderMap({
     const mapInstanceRef = useRef<L.Map | null>(null);
     const markersRef = useRef<{ [key: number]: L.Marker }>({});
     const hqMarkerRef = useRef<L.Marker | null>(null);
+    const destinationMarkerRef = useRef<L.Marker | null>(null);
+    const routePolylineRef = useRef<L.Polyline | null>(null);
+    const routeGlowPolylineRef = useRef<L.Polyline | null>(null);
+    const lastRoutedLocationRef = useRef<{ [key: number]: { lat: number; lng: number; time: number } }>({});
 
     const [riders, setRiders] = useState<ActiveRiderData[]>(initialRiders);
     const [selectedRiderId, setSelectedRiderId] = useState<number | null>(null);
+    const [activeRouteInfo, setActiveRouteInfo] = useState<ActiveRouteSummary | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
     const [stats, setStats] = useState<StatsSummary>({
@@ -328,6 +359,150 @@ export function LiveRiderMap({
         map.invalidateSize();
     }, [riders, selectedRiderId]);
 
+    // Fetch road route for active delivery
+    const fetchRoadRoute = useCallback(async (deliveryId: number) => {
+        try {
+            const response = await fetch(`/deliveries/${deliveryId}/route`, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (data.success && data.route && Array.isArray(data.route.coordinates)) {
+                return data.route;
+            }
+        } catch (e) {
+            console.warn('Road route fetch failed:', e);
+        }
+        return null;
+    }, []);
+
+    // Handle Road-Network Route Drawing for Selected Rider
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+
+        const selectedRider = riders.find((r) => r.id === selectedRiderId);
+
+        // If no rider selected or selected rider has no delivery with coords, clear route layers
+        if (
+            !selectedRider ||
+            !selectedRider.delivery ||
+            !selectedRider.delivery.latitude ||
+            !selectedRider.delivery.longitude
+        ) {
+            if (routePolylineRef.current) {
+                routePolylineRef.current.remove();
+                routePolylineRef.current = null;
+            }
+            if (routeGlowPolylineRef.current) {
+                routeGlowPolylineRef.current.remove();
+                routeGlowPolylineRef.current = null;
+            }
+            if (destinationMarkerRef.current) {
+                destinationMarkerRef.current.remove();
+                destinationMarkerRef.current = null;
+            }
+            setActiveRouteInfo(null);
+            return;
+        }
+
+        const delivery = selectedRider.delivery;
+        const destLat = delivery.latitude;
+        const destLng = delivery.longitude;
+
+        if (destLat === null || destLng === null) {
+            return;
+        }
+
+        // Plot or update destination marker
+        const destIcon = createDestinationDivIcon();
+        const destPopup = `
+            <div style="font-family: 'Outfit', sans-serif; width: 100%; max-width: 190px; padding: 2px; box-sizing: border-box;">
+                <div style="font-weight: 800; font-size: 12px; color: #10B981;">📍 Delivery Destination</div>
+                <div style="font-weight: 700; font-size: 11px; color: #1E293B; margin-top: 2px;">${delivery.customer_name}</div>
+                <div style="font-size: 10px; color: #64748B; word-break: break-word;">${delivery.customer_address || 'Customer Location'}</div>
+                <div style="font-size: 9px; font-weight: 800; color: #E75480; margin-top: 3px;">Order #${delivery.order_number}</div>
+            </div>
+        `;
+
+        if (!destinationMarkerRef.current) {
+            const destMarker = L.marker([destLat, destLng], { icon: destIcon }).addTo(map);
+            destMarker.bindPopup(destPopup, { maxWidth: 200 });
+            destinationMarkerRef.current = destMarker;
+        } else {
+            destinationMarkerRef.current.setLatLng([destLat, destLng]);
+            destinationMarkerRef.current.setIcon(destIcon);
+            destinationMarkerRef.current.setPopupContent(destPopup);
+        }
+
+        // Check if we need to query the routing engine (moved > 50m or > 30s elapsed)
+        const lastRoute = lastRoutedLocationRef.current[selectedRider.id];
+        const now = Date.now();
+        const distMoved = lastRoute
+            ? Math.hypot(selectedRider.latitude - lastRoute.lat, selectedRider.longitude - lastRoute.lng) * 111000
+            : 999;
+        const timeElapsed = lastRoute ? now - lastRoute.time : 99999;
+
+        if (!lastRoute || distMoved > 50 || timeElapsed > 30000) {
+            const requestTime = now;
+            fetchRoadRoute(delivery.id).then((route) => {
+                if (!mapInstanceRef.current) return;
+
+                // If fetch failed or coordinates invalid, DO NOT wipe out existing road polyline!
+                if (!route || !Array.isArray(route.coordinates) || route.coordinates.length < 2) {
+                    setActiveRouteInfo((prev) => prev ? { ...prev, is_stale: true } : null);
+                    return;
+                }
+
+                const latLngs: [number, number][] = route.coordinates;
+
+                // Update glow outline layer
+                if (routeGlowPolylineRef.current) {
+                    routeGlowPolylineRef.current.setLatLngs(latLngs);
+                } else {
+                    routeGlowPolylineRef.current = L.polyline(latLngs, {
+                        color: '#FF4F81',
+                        weight: 8,
+                        opacity: 0.35,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                    }).addTo(mapInstanceRef.current);
+                }
+
+                // Update main road polyline
+                if (routePolylineRef.current) {
+                    routePolylineRef.current.setLatLngs(latLngs);
+                } else {
+                    routePolylineRef.current = L.polyline(latLngs, {
+                        color: '#E75480',
+                        weight: 4.5,
+                        opacity: 0.9,
+                        dashArray: route.is_fallback ? '6, 8' : undefined,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                    }).addTo(mapInstanceRef.current);
+                }
+
+                lastRoutedLocationRef.current[selectedRider.id] = {
+                    lat: selectedRider.latitude,
+                    lng: selectedRider.longitude,
+                    time: requestTime,
+                };
+
+                setActiveRouteInfo({
+                    distance_text: route.summary?.distance_text || `${route.distance_km} km`,
+                    duration_text: route.summary?.duration_text || `${route.duration_minutes} mins`,
+                    is_fallback: !!route.is_fallback,
+                    is_stale: !!route.is_stale,
+                    provider: route.provider,
+                });
+            });
+        }
+    }, [selectedRiderId, riders, fetchRoadRoute]);
+
     // Handle focusing/selecting a rider
     const handleSelectRider = (rider: ActiveRiderData) => {
         setSelectedRiderId(rider.id);
@@ -414,6 +589,29 @@ export function LiveRiderMap({
                 {/* Map Viewport */}
                 <div className="lg:col-span-3 relative h-72 sm:h-96 lg:h-112 rounded-2xl sm:rounded-3xl overflow-hidden border border-[#F8C8DC]/60 dark:border-white/10 shadow-inner group w-full min-w-0">
                     <div ref={mapContainerRef} className="size-full z-0" />
+
+                    {/* Floating Road Route Telemetry Overlay */}
+                    {activeRouteInfo && (
+                        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-xl pointer-events-none">
+                            <div className="size-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                                <Navigation className="size-4" />
+                            </div>
+                            <div className="min-w-0 pr-1">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-black text-slate-800 dark:text-slate-100">
+                                        {activeRouteInfo.distance_text}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-bold">•</span>
+                                    <span className="text-xs font-black text-[#E75480] dark:text-[#FF4F81]">
+                                        ~{activeRouteInfo.duration_text}
+                                    </span>
+                                </div>
+                                <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                                    <span>{activeRouteInfo.is_stale ? '🟡 Route update delayed' : activeRouteInfo.is_fallback ? '⚠️ Direct estimate' : '🛣️ Road Route'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Custom Map Controls Overlay */}
                     <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 flex flex-col gap-2">

@@ -39,4 +39,13 @@ return [
         'key' => env('GOOGLE_VISION_API_KEY'),
     ],
 
+    'openrouteservice' => [
+        'key'      => env('OPENROUTESERVICE_API_KEY'),
+        'base_url' => env('OPENROUTESERVICE_BASE_URL', 'https://api.openrouteservice.org/v2/directions/driving-car'),
+    ],
+
+    'osrm' => [
+        'base_url' => env('OSRM_BASE_URL', 'https://router.project-osrm.org/route/v1/driving'),
+    ],
+
 ];

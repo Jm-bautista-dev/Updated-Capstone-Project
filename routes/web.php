@@ -37,6 +37,41 @@ Route::get('/menu', function () {
     return Inertia::render('Customer/Menu');
 })->name('menu');
 
+// Public asset & proof of delivery storage fallback handler
+Route::get('/storage/{path}', function ($path) {
+    // 1. Direct path in storage/app/public
+    $fullPath = storage_path('app/public/' . $path);
+    if (file_exists($fullPath) && is_file($fullPath)) {
+        return response()->file($fullPath);
+    }
+
+    // 2. Subfolder fallback: proof_of_delivery
+    $proofPath = storage_path('app/public/proof_of_delivery/' . $path);
+    if (file_exists($proofPath) && is_file($proofPath)) {
+        return response()->file($proofPath);
+    }
+
+    // 3. Subfolder fallback: delivery-proofs
+    $deliveryProofPath = storage_path('app/public/delivery-proofs/' . $path);
+    if (file_exists($deliveryProofPath) && is_file($deliveryProofPath)) {
+        return response()->file($deliveryProofPath);
+    }
+
+    // 4. Subfolder fallback: products
+    $productPath = storage_path('app/public/products/' . $path);
+    if (file_exists($productPath) && is_file($productPath)) {
+        return response()->file($productPath);
+    }
+
+    // 5. Direct path in public/storage
+    $publicPath = public_path('storage/' . $path);
+    if (file_exists($publicPath) && is_file($publicPath)) {
+        return response()->file($publicPath);
+    }
+
+    abort(404);
+})->where('path', '.*')->name('storage.fallback');
+
 Route::middleware(['auth', 'verified'])->group(function () {
 
     // ── Change Password (accessible even before password is changed) ──
@@ -139,6 +174,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Deliveries
             Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
             Route::get('deliveries/live-riders', [DeliveryController::class, 'getLiveRiderLocations'])->name('deliveries.live-riders');
+            Route::get('deliveries/{delivery}/route', [DeliveryController::class, 'getRoute'])->name('deliveries.route');
             Route::post('deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
             Route::put('deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
             Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');

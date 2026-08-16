@@ -81,12 +81,15 @@ Route::prefix('v1')->group(function () {
         // Deliveries Live Tracking
         Route::get('deliveries/live-riders', [App\Http\Controllers\Admin\DeliveryController::class, 'getLiveRiderLocations']);
 
-        // Orders & Cart & Live Tracking
+        // Orders & Cart & Live Tracking & Road Routing
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);
         Route::get('orders/{id}', [ApiOrderController::class, 'show']);
         Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
         Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
+        Route::get('orders/{id}/route', [ApiOrderController::class, 'route']);
+        Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route']);
+        Route::get('deliveries/{id}/route', [App\Http\Controllers\Admin\DeliveryController::class, 'getRoute']);
         Route::get('cart', [CartController::class, 'index']);
         Route::post('cart/add', [CartController::class, 'addItem']);
         Route::delete('cart/clear', [CartController::class, 'clear']);

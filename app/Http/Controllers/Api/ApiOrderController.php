@@ -350,6 +350,16 @@ class ApiOrderController extends Controller
 
             $proofOfDeliveryUrl = $delivery->proof_of_delivery_url;
 
+            $routeData = null;
+            if ($isTrackingAvailable && $rider && $rider->latitude && $rider->longitude && $destinationLat && $destinationLng) {
+                $routeData = app(\App\Services\RoutingService::class)->getRoute(
+                    (float) $rider->latitude,
+                    (float) $rider->longitude,
+                    (float) $destinationLat,
+                    (float) $destinationLng
+                );
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -377,6 +387,7 @@ class ApiOrderController extends Controller
                         'latitude'  => $order->branch?->latitude ? (float) $order->branch->latitude : null,
                         'longitude' => $order->branch?->longitude ? (float) $order->branch->longitude : null,
                     ],
+                    'route'                 => $routeData,
                     'realtime' => [
                         'channel'      => 'private-customer.order.' . $order->id,
                         'event'        => 'rider.location.updated',
@@ -397,6 +408,95 @@ class ApiOrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => app()->environment('local') ? $e->getMessage() : 'Error retrieving order tracking.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Customer-Safe Road Route Calculation endpoint.
+     * GET /api/v1/customer/orders/{id}/route
+     * GET /api/v1/orders/{id}/route
+     */
+    public function route(Request $request, $id, \App\Services\RoutingService $routingService)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+            }
+
+            /** @var Order|null $order */
+            $order = Order::with(['delivery.rider', 'branch'])->find($id);
+
+            if (!$order) {
+                return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+            }
+
+            // Strict Customer Authorization: Only the owner of the order or Admin can view route
+            $isOwner = (int) $order->user_id === (int) $user->id;
+            $isAdmin = method_exists($user, 'isAdmin') && $user->isAdmin();
+
+            if (!$isOwner && !$isAdmin) {
+                return response()->json(['success' => false, 'message' => 'You are not authorized to access this route.'], 403);
+            }
+
+            $delivery = $order->delivery;
+            if (!$delivery) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No active delivery for this order.',
+                ], 404);
+            }
+
+            $rider = $delivery->rider;
+            $branch = $order->branch ?? $rider?->branch;
+
+            // Determine origin coordinates (Rider GPS or Branch origin fallback)
+            $originLat = $rider?->latitude ? (float) $rider->latitude : ($branch?->latitude ? (float) $branch->latitude : 14.229371);
+            $originLng = $rider?->longitude ? (float) $rider->longitude : ($branch?->longitude ? (float) $branch->longitude : 121.328383);
+
+            // Determine destination coordinates
+            $destLat = $delivery->latitude ? (float) $delivery->latitude : ($order->latitude ? (float) $order->latitude : null);
+            $destLng = $delivery->longitude ? (float) $delivery->longitude : ($order->longitude ? (float) $order->longitude : null);
+
+            if (!$destLat || !$destLng) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Destination coordinates are not set for this delivery.',
+                ], 422);
+            }
+
+            $routeResult = $routingService->getRoute($originLat, $originLng, $destLat, $destLng);
+
+            return response()->json([
+                'success'      => true,
+                'order_id'     => $order->id,
+                'order_number' => $order->order_number ?? "ORD-{$order->id}",
+                'status'       => $delivery->status,
+                'rider'        => [
+                    'id'        => $rider?->id,
+                    'name'      => $rider?->name ?? 'Assigned Rider',
+                    'latitude'  => $originLat,
+                    'longitude' => $originLng,
+                ],
+                'destination'  => [
+                    'customer_name'    => $delivery->customer_name ?? $order->customer_name,
+                    'customer_address' => $delivery->customer_address ?? $order->address,
+                    'latitude'         => $destLat,
+                    'longitude'        => $destLng,
+                ],
+                'route'        => $routeResult,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Order API Route Calculation Failure', [
+                'message'  => $e->getMessage(),
+                'order_id' => $id,
+                'trace'    => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => app()->environment('local') ? $e->getMessage() : 'Error calculating route.'
             ], 500);
         }
     }

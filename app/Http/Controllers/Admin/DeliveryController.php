@@ -475,4 +475,68 @@ class DeliveryController extends Controller
             'riders' => $activeRiders,
         ]);
     }
+
+    /**
+     * Get real road-network route between assigned rider and delivery destination.
+     * GET /deliveries/{id}/route
+     * GET /api/v1/deliveries/{id}/route
+     */
+    public function getRoute(Request $request, $id, \App\Services\RoutingService $routingService)
+    {
+        $user = Auth::user();
+
+        /** @var Delivery|null $delivery */
+        $delivery = Delivery::with(['rider.branch', 'order.branch', 'sale.branch'])->find($id);
+
+        if (!$delivery) {
+            return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+        }
+
+        // Branch Isolation: Cashier only for own branch
+        if ($user && method_exists($user, 'isAdmin') && !$user->isAdmin()) {
+            $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+            if ($branchId && (int) $user->branch_id !== (int) $branchId) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized branch access.'], 403);
+            }
+        }
+
+        $rider = $delivery->rider;
+        $branch = $delivery->order?->branch ?? $delivery->sale?->branch ?? $rider?->branch;
+
+        // Determine origin coordinates (Rider GPS or Branch origin fallback)
+        $originLat = $rider?->latitude ? (float) $rider->latitude : ($branch?->latitude ? (float) $branch->latitude : 14.229371);
+        $originLng = $rider?->longitude ? (float) $rider->longitude : ($branch?->longitude ? (float) $branch->longitude : 121.328383);
+
+        // Determine destination coordinates
+        $destLat = $delivery->latitude ? (float) $delivery->latitude : ($delivery->order?->latitude ? (float) $delivery->order->latitude : null);
+        $destLng = $delivery->longitude ? (float) $delivery->longitude : ($delivery->order?->longitude ? (float) $delivery->order->longitude : null);
+
+        if (!$destLat || !$destLng) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery destination coordinates are not available.',
+            ], 422);
+        }
+
+        $routeResult = $routingService->getRoute($originLat, $originLng, $destLat, $destLng);
+
+        return response()->json([
+            'success'     => true,
+            'delivery_id' => $delivery->id,
+            'status'      => $delivery->status,
+            'rider'       => [
+                'id'        => $rider?->id,
+                'name'      => $rider?->name ?? 'Assigned Rider',
+                'latitude'  => $originLat,
+                'longitude' => $originLng,
+            ],
+            'destination' => [
+                'customer_name'    => $delivery->customer_name,
+                'customer_address' => $delivery->customer_address,
+                'latitude'         => $destLat,
+                'longitude'        => $destLng,
+            ],
+            'route'       => $routeResult,
+        ]);
+    }
 }
