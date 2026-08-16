@@ -19,6 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 
 interface BranchInfo {
     id: number;
@@ -80,6 +81,13 @@ export default function SalesIndex() {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState<number | null>(null);
 
+    // Keep React filter states in 100% sync with server props
+    useEffect(() => {
+        if (filters.search !== undefined) setSearch(filters.search || '');
+        if (filters.status !== undefined) setStatusFilter(filters.status || 'all');
+        if (filters.branch_id !== undefined) setBranchFilter(filters.branch_id || 'all');
+    }, [filters.search, filters.status, filters.branch_id]);
+
     // BroadcastChannel real-time sync
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-sync'), []);
 
@@ -99,20 +107,33 @@ export default function SalesIndex() {
         };
     }, [stateChannel]);
 
-    // Handlers
+    // Standardized filter dispatch with page reset
+    const applyFilters = (override: { search?: string; status?: string; branch_id?: string }) => {
+        const s = override.search !== undefined ? override.search : search;
+        const st = override.status !== undefined ? override.status : statusFilter;
+        const b = override.branch_id !== undefined ? override.branch_id : branchFilter;
+
+        const query: Record<string, string | number> = { page: 1 };
+        if (s) query.search = s;
+        if (st && st !== 'all') query.status = st;
+        if (b && b !== 'all') query.branch_id = b;
+
+        router.get('/sales', query, { preserveState: true, preserveScroll: true });
+    };
+
     const handleSearchChange = (val: string) => {
         setSearch(val);
-        router.get('/sales', { search: val, status: statusFilter === 'all' ? '' : statusFilter, branch_id: branchFilter === 'all' ? '' : branchFilter }, { preserveState: true, preserveScroll: true });
+        applyFilters({ search: val });
     };
 
     const handleStatusChange = (val: string) => {
         setStatusFilter(val);
-        router.get('/sales', { search, status: val === 'all' ? '' : val, branch_id: branchFilter === 'all' ? '' : branchFilter }, { preserveState: true, preserveScroll: true });
+        applyFilters({ status: val });
     };
 
     const handleBranchChange = (val: string) => {
         setBranchFilter(val);
-        router.get('/sales', { search, status: statusFilter === 'all' ? '' : statusFilter, branch_id: val === 'all' ? '' : val }, { preserveState: true, preserveScroll: true });
+        applyFilters({ branch_id: val });
     };
 
     const updateStatus = (id: number, status: string) => {
@@ -151,30 +172,12 @@ export default function SalesIndex() {
         setIsVoidModalOpen(true);
     };
 
-    // Filtered Local View Data
-    const filteredSales = useMemo(() => {
-        return salesList.filter(s => {
-            const matchesSearch = 
-                s.order_number.toLowerCase().includes(search.toLowerCase()) ||
-                (s.cashier?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-                (s.branch?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-                (s.payment_method ?? '').toLowerCase().includes(search.toLowerCase());
-
-            const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-            const saleBranchId = s.branch_id ?? s.branch?.id;
-            const matchesBranch = !branchFilter || branchFilter === 'all' || (saleBranchId !== undefined && String(saleBranchId) === String(branchFilter));
-            return matchesSearch && matchesStatus && matchesBranch;
-        });
-    }, [salesList, search, statusFilter, branchFilter]);
-
     // Active Branch Name
     const activeBranchName = useMemo(() => {
         if (!branchFilter || branchFilter === 'all') return 'All Branches';
         const b = branchList.find(item => String(item.id) === String(branchFilter));
         return b ? b.name : 'All Branches';
     }, [branchFilter, branchList]);
-
-
 
     // Print Sales Summary Report
     const handlePrintReport = () => {
@@ -216,7 +219,7 @@ export default function SalesIndex() {
                 <div className="space-y-8">
                     {viewMode === 'table' ? (
                         <SalesTable
-                            sales={filteredSales}
+                            sales={salesList}
                             isAdmin={isAdmin}
                             density={density}
                             onSelectSale={openDrawer}
@@ -224,11 +227,38 @@ export default function SalesIndex() {
                         />
                     ) : (
                         <SalesCardGrid
-                            sales={filteredSales}
+                            sales={salesList}
                             isAdmin={isAdmin}
                             onSelectSale={openDrawer}
                             onOpenVoidModal={openVoidModal}
                         />
+                    )}
+
+                    {/* Pagination Navigation Controls */}
+                    {paginatedSales.links && paginatedSales.links.length > 3 && (
+                        <div className="p-4 border border-[#F8C8DC]/60 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 bg-white/80 dark:bg-[#121218]/80 backdrop-blur-2xl rounded-3xl shadow-sm">
+                            <span className="text-xs font-semibold text-[#7D6B6E] dark:text-[#94A3B8]">
+                                Showing {paginatedSales.from || 0} to {paginatedSales.to || 0} of {paginatedSales.total || 0} sales transactions
+                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {paginatedSales.links.map((link, i) => (
+                                    <Button
+                                        key={i}
+                                        variant={link.active ? 'default' : 'outline'}
+                                        size="sm"
+                                        disabled={!link.url}
+                                        onClick={() => link.url && router.get(link.url, {}, { preserveState: true, preserveScroll: true })}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                        className={cn(
+                                            'h-8 text-xs font-bold rounded-xl border-[#F8C8DC]/60 dark:border-white/10',
+                                            link.active
+                                                ? 'bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent'
+                                                : 'bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]'
+                                        )}
+                                    />
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {/* ── ZONE 4: TRANSACTION TIMELINE FEED ── */}

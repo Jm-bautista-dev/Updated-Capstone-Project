@@ -16,10 +16,11 @@ class SalesController extends Controller
         $branches = Branch::orderBy('name')->get();
         $status   = $request->input('status', 'all');
         $search   = $request->input('search', '');
-        $branchId = $request->input('branch_id');
+        $rawBranchId = $request->input('branch_id');
+        $branchId = ($rawBranchId === '' || $rawBranchId === 'all' || $rawBranchId === null) ? null : $rawBranchId;
 
         $query = Sale::with(['items.product', 'cashier', 'branch'])
-            ->when($status !== 'all', function ($q) use ($status) {
+            ->when($status && $status !== 'all', function ($q) use ($status) {
                 return $q->where('status', $status);
             })
             ->when($search, function ($q) use ($search) {
@@ -36,7 +37,7 @@ class SalesController extends Controller
                               ->where('branch_id', $user->branch_id);
         } else {
             // Admin: sees ALL, optional branch filter
-            if ($branchId && $branchId !== 'all') {
+            if ($branchId) {
                 $query->where('branch_id', (int) $branchId);
                 $statsScope = Sale::where('branch_id', (int) $branchId);
             } else {
@@ -50,7 +51,7 @@ class SalesController extends Controller
             'filters'  => [
                 'status'    => $status,
                 'search'    => $search,
-                'branch_id' => $branchId,
+                'branch_id' => $branchId ? (string) $branchId : 'all',
             ],
             'isAdmin'  => $user->isAdmin(),
             'stats'    => [
