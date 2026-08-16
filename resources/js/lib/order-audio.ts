@@ -2,47 +2,96 @@
  * Professional Real-Time Order Sound System
  * Features:
  * - Web Audio API synthesized dual-tone POS chime (0.5s duration)
- * - HTML5 Audio fallback
- * - Autoplay policy unlocker on first user interaction
+ * - Autoplay policy safe: AudioContext is only created after first user gesture
  * - Mute setting persistence via localStorage ('order_notification_sound')
  * - Safe non-blocking execution with try-catch
+ * - No eager AudioContext creation, no HTML5 Audio fallback (avoids autoplay errors)
  */
 
 let audioCtx: AudioContext | null = null;
+let userHasInteracted = false;
 
-// Initialize & auto-resume AudioContext on first user interaction
+// Queue sounds requested before first interaction so they play right after unlock
+let pendingSoundCount = 0;
+
+/**
+ * Returns the AudioContext only if the user has already interacted with the page.
+ * Returns null otherwise to silently skip playback.
+ */
 const getAudioContext = (): AudioContext | null => {
     if (typeof window === 'undefined') return null;
+    if (!userHasInteracted) return null;
 
     if (!audioCtx) {
-        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (AudioContextClass) {
-            audioCtx = new AudioContextClass();
+        try {
+            const AudioContextClass =
+                window.AudioContext ||
+                (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            if (AudioContextClass) {
+                audioCtx = new AudioContextClass();
+            }
+        } catch {
+            return null;
         }
     }
 
     if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {
-            // Suspended until user gesture
-        });
+        audioCtx.resume().catch(() => {});
     }
 
     return audioCtx;
 };
 
-// Setup user gesture listener to unlock Web Audio API on page click/tap/keypress
+/** Play the two-tone POS chime using the given context. */
+const playSynthChime = (ctx: AudioContext): void => {
+    const now = ctx.currentTime;
+
+    // Tone 1: C5 (523.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(523.25, now);
+    gain1.gain.setValueAtTime(0.4, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.25);
+
+    // Tone 2: E5 (659.25 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(659.25, now + 0.15);
+    gain2.gain.setValueAtTime(0.5, now + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.15);
+    osc2.stop(now + 0.5);
+};
+
+// One-time user gesture listener — unlocks Web Audio API and drains pending sounds
 if (typeof window !== 'undefined') {
     const unlockAudio = () => {
-        if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-        } else if (!audioCtx) {
-            getAudioContext();
+        if (userHasInteracted) return;
+        userHasInteracted = true;
+
+        // Create context now that we have a user gesture
+        const ctx = getAudioContext();
+
+        // Play any sounds that were requested before interaction
+        if (ctx && pendingSoundCount > 0 && isSoundEnabled()) {
+            // Play one chime to represent the queued notification(s)
+            playSynthChime(ctx);
         }
+        pendingSoundCount = 0;
     };
 
-    window.addEventListener('click', unlockAudio, { capture: true, once: false });
-    window.addEventListener('keydown', unlockAudio, { capture: true, once: false });
-    window.addEventListener('touchstart', unlockAudio, { capture: true, once: false });
+    window.addEventListener('click', unlockAudio, { capture: true });
+    window.addEventListener('keydown', unlockAudio, { capture: true });
+    window.addEventListener('touchstart', unlockAudio, { capture: true });
+    window.addEventListener('pointerdown', unlockAudio, { capture: true });
 }
 
 export function isSoundEnabled(): boolean {
@@ -50,56 +99,39 @@ export function isSoundEnabled(): boolean {
     return localStorage.getItem('order_notification_sound') !== 'disabled';
 }
 
+/**
+ * Play the notification chime.
+ * - If the user has already interacted with the page, plays immediately.
+ * - If not yet interacted, queues the sound to play on the next gesture.
+ * - Never throws or logs autoplay errors.
+ */
 export function playOrderNotificationSound(): boolean {
     if (!isSoundEnabled()) return false;
 
     try {
         const ctx = getAudioContext();
 
-        if (ctx) {
-            if (ctx.state === 'suspended') {
-                ctx.resume().catch(() => {});
-            }
-
-            const now = ctx.currentTime;
-
-            // Tone 1: 523.25 Hz (C5)
-            const osc1 = ctx.createOscillator();
-            const gain1 = ctx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(523.25, now);
-            gain1.gain.setValueAtTime(0.4, now);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-            osc1.connect(gain1);
-            gain1.connect(ctx.destination);
-            osc1.start(now);
-            osc1.stop(now + 0.25);
-
-            // Tone 2: 659.25 Hz (E5)
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(659.25, now + 0.15);
-            gain2.gain.setValueAtTime(0.5, now + 0.15);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.start(now + 0.15);
-            osc2.stop(now + 0.5);
+        if (ctx && ctx.state !== 'suspended') {
+            playSynthChime(ctx);
+            return true;
         }
 
-        // Always also trigger fallback audio element for maximum browser compatibility
-        const fallbackAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        fallbackAudio.volume = 0.8;
-        const playPromise = fallbackAudio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(err => {
-                console.warn('[Audio Autoplay] Sound playback prevented by browser interaction policy:', err);
-            });
+        // AudioContext locked or not yet created — queue for after first gesture
+        if (!userHasInteracted) {
+            pendingSoundCount++;
+            return false;
         }
-        return true;
-    } catch (err) {
-        console.warn('[Audio System] Unable to play order notification sound:', err);
+
+        // Context suspended, try to resume and play
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().then(() => {
+                playSynthChime(ctx);
+            }).catch(() => {});
+        }
+
+        return false;
+    } catch {
+        // Silently fail — never spam the console with autoplay errors
         return false;
     }
 }
