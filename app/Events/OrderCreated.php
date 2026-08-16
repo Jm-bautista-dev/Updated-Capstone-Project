@@ -55,13 +55,17 @@ class OrderCreated implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         $orderNum = $this->order->order_number ?? ("ORD-" . $this->order->id);
+        $itemsCount = $this->order->relationLoaded('items') 
+            ? $this->order->items->count() 
+            : $this->order->items()->count();
 
         return [
             'order_id'      => $this->order->id,
             'order_number'  => $orderNum,
             'branch_id'     => $this->order->branch_id,
-            'customer_name' => $this->order->customer_name,
-            'total_amount'  => $this->order->total_amount,
+            'customer_name' => $this->order->customer_name ?? 'Customer',
+            'total_amount'  => (float) $this->order->total_amount,
+            'items_count'   => $itemsCount,
             'branch_name'   => $this->order->branch?->name ?? 'Unknown Branch',
             'timestamp'     => now()->toDateTimeString(),
             'message'       => "New Order #{$orderNum} received!",

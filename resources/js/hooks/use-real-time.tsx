@@ -2,14 +2,18 @@ import { router, usePage } from '@inertiajs/react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import echo from '@/echo';
+import { playOrderNotificationSound } from '@/lib/order-audio';
 
 interface RealTimeOrderEvent {
     order_id?: number;
+    order_number?: string;
     branch_id?: number;
     branch_name?: string;
     customer_name?: string;
     total_amount?: number;
+    items_count?: number;
     message?: string;
+    timestamp?: string;
 }
 
 interface AuthState {
@@ -20,28 +24,8 @@ interface AuthState {
     };
 }
 
-const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-
 // Deduplication tracking to prevent duplicate alerts/sounds for the same order ID
 const notifiedOrderIds = new Set<number>();
-
-const playNotificationSound = () => {
-    try {
-        const soundEnabled = localStorage.getItem('order_notification_sound') !== 'disabled';
-        if (!soundEnabled) return;
-
-        const audio = new Audio(NOTIFICATION_SOUND);
-        audio.volume = 0.8;
-        const promise = audio.play();
-        if (promise !== undefined) {
-            promise.catch(err => {
-                console.warn('[Audio Autoplay] Sound playback prevented by browser interaction policy:', err);
-            });
-        }
-    } catch (err) {
-        console.warn('[Audio Error] Unable to initialize notification sound:', err);
-    }
-};
 
 export function useRealTime(branchId?: number | null) {
     const { auth } = usePage().props as unknown as { auth: AuthState };
@@ -101,56 +85,85 @@ export function useRealTime(branchId?: number | null) {
                     }
                 }
 
-                // LAYER 2: Play audio notification chime
-                playNotificationSound();
+                // LAYER 2: Play audio notification chime (Web Audio API / Fallback)
+                playOrderNotificationSound();
 
-                // LAYER 1: Prominent, non-blocking custom visual alert card using React.createElement
+                // Dispatch event so NotificationBell updates immediately
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('new-order-received', { detail: e }));
+                }
+
+                // Customer-facing Order Number
+                const displayOrderNum = e.order_number || (e.order_id ? `ORD-${e.order_id}` : 'ORD-NEW');
                 const formattedPrice = typeof e.total_amount === 'number' 
                     ? `₱${e.total_amount.toFixed(2)}` 
                     : e.total_amount 
                         ? `₱${e.total_amount}` 
                         : '';
+                const itemDetails = e.items_count ? `${e.items_count} item${e.items_count > 1 ? 's' : ''}` : '';
+                const branchStr = e.branch_name || 'Branch';
 
+                // LAYER 1: Prominent High-Priority Alert Toast (Stacked on top-right)
                 toast.custom((t) => (
                     React.createElement('div', {
-                        className: "flex flex-col gap-2.5 p-4 bg-white dark:bg-[#1C1C28] border-2 border-emerald-500/40 dark:border-emerald-500/50 rounded-2xl shadow-2xl backdrop-blur-xl max-w-sm w-full font-['Outfit'] animate-in fade-in slide-in-from-top-4 duration-300"
+                        className: "flex flex-col gap-3 p-4.5 bg-white dark:bg-[#121218] border-2 border-emerald-500/50 dark:border-emerald-400/60 rounded-3xl shadow-[0_20px_40px_-15px_rgba(16,185,129,0.3)] backdrop-blur-2xl max-w-sm w-full font-['Outfit'] animate-in fade-in slide-in-from-top-4 duration-300 relative overflow-hidden"
                     }, [
-                        React.createElement('div', { key: 'header', className: "flex items-center justify-between gap-2" }, [
+                        // Decorative ambient glow
+                        React.createElement('div', { key: 'glow', className: "absolute -top-12 -right-12 size-32 rounded-full bg-emerald-500/10 dark:from-emerald-500/20 blur-2xl pointer-events-none" }),
+                        
+                        // Header bar: Badge + Price
+                        React.createElement('div', { key: 'header', className: "flex items-center justify-between gap-2 relative z-10" }, [
                             React.createElement('div', { key: 'title-group', className: "flex items-center gap-2.5" }, [
-                                React.createElement('div', { key: 'icon', className: "size-8 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0" }, "🛒"),
+                                React.createElement('div', { key: 'icon', className: "size-8.5 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-sm shrink-0 border border-emerald-500/30" }, "🔔"),
                                 React.createElement('div', { key: 'title-text', className: "min-w-0" }, [
-                                    React.createElement('span', { key: 'badge', className: "text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block leading-tight" }, "NEW CUSTOMER ORDER"),
-                                    React.createElement('h4', { key: 'heading', className: "text-sm font-bold text-gray-900 dark:text-white leading-tight truncate" }, `Order #${e.order_id || 'New'}`)
+                                    React.createElement('div', { key: 'badge-row', className: "flex items-center gap-1.5" }, [
+                                        React.createElement('span', { key: 'badge', className: "text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block leading-tight" }, "NEW ONLINE ORDER"),
+                                        React.createElement('span', { key: 'dot', className: "size-1.5 rounded-full bg-emerald-500 animate-ping" })
+                                    ]),
+                                    React.createElement('h4', { key: 'heading', className: "text-base font-extrabold font-mono text-gray-900 dark:text-white leading-tight truncate" }, displayOrderNum)
                                 ])
                             ]),
-                            formattedPrice ? React.createElement('span', { key: 'price', className: "text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/40 shrink-0" }, formattedPrice) : null
+                            formattedPrice ? React.createElement('span', { key: 'price', className: "text-xs font-mono font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-300 dark:border-emerald-800/60 shrink-0" }, formattedPrice) : null
                         ]),
-                        React.createElement('p', { key: 'body', className: "text-xs text-muted-foreground leading-snug" }, [
-                            "Customer ",
-                            React.createElement('span', { key: 'cust', className: "font-semibold text-foreground" }, e.customer_name || 'Customer'),
-                            " placed an order at ",
-                            React.createElement('span', { key: 'branch', className: "font-semibold text-foreground" }, e.branch_name || 'Branch'),
-                            "."
+
+                        // Details: Customer Name, Branch, Items
+                        React.createElement('div', { key: 'body', className: "text-xs text-muted-foreground leading-snug space-y-0.5 relative z-10 bg-muted/30 dark:bg-white/5 p-2.5 rounded-2xl border border-border/50" }, [
+                            React.createElement('div', { key: 'cust-row', className: "flex items-center justify-between" }, [
+                                React.createElement('span', { key: 'lbl', className: "text-[11px] font-medium text-muted-foreground" }, "Customer:"),
+                                React.createElement('span', { key: 'val', className: "font-bold text-foreground text-xs" }, e.customer_name || 'Mobile Customer')
+                            ]),
+                            React.createElement('div', { key: 'branch-row', className: "flex items-center justify-between" }, [
+                                React.createElement('span', { key: 'lbl2', className: "text-[11px] font-medium text-muted-foreground" }, "Branch & Items:"),
+                                React.createElement('span', { key: 'val2', className: "font-semibold text-foreground text-xs" }, `${branchStr}${itemDetails ? ` • ${itemDetails}` : ''}`)
+                            ])
                         ]),
-                        React.createElement('div', { key: 'actions', className: "flex items-center gap-2 pt-1" }, [
+
+                        // Action Buttons
+                        React.createElement('div', { key: 'actions', className: "flex items-center gap-2 pt-0.5 relative z-10" }, [
                             React.createElement('button', {
                                 key: 'view',
                                 onClick: () => {
                                     toast.dismiss(t);
-                                    router.visit('/deliveries');
+                                    const targetUrl = e.order_id 
+                                        ? `/deliveries?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}` 
+                                        : '/deliveries';
+                                    router.visit(targetUrl);
                                 },
-                                className: "flex-1 h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center"
-                            }, "View Order"),
+                                className: "flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                            }, [
+                                React.createElement('span', { key: 'icon-v' }, "👁️"),
+                                React.createElement('span', { key: 'txt-v' }, "VIEW ORDER")
+                            ]),
                             React.createElement('button', {
                                 key: 'dismiss',
                                 onClick: () => toast.dismiss(t),
-                                className: "px-3 h-8 text-xs font-bold text-muted-foreground hover:bg-muted/50 rounded-xl transition-colors cursor-pointer"
-                            }, "Dismiss")
+                                className: "px-3.5 h-9 text-xs font-bold text-muted-foreground hover:bg-muted/60 dark:hover:bg-white/10 rounded-2xl transition-all cursor-pointer active:scale-95"
+                            }, "DISMISS")
                         ])
                     ])
-                ), { duration: 12000, position: 'top-right' });
+                ), { duration: 15000, position: 'top-right' });
 
-                // LAYER 3: Refresh page props to update deliveries navigation & notification bell
+                // LAYER 3: In-place page prop reload to update deliveries navigation & counters
                 router.reload({ 
                     only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats'],
                 });

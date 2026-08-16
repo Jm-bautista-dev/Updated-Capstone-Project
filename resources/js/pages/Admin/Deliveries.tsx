@@ -146,6 +146,25 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
         };
     }, []);
 
+    // Auto-select delivery sheet if navigated from high-priority order toast
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetOrderId = urlParams.get('order_id');
+            const targetOrderNum = urlParams.get('order_number');
+
+            if (targetOrderId || targetOrderNum) {
+                const match = accumulatedDeliveries.find(d => 
+                    (targetOrderId && String(d.order_id || d.order?.id) === String(targetOrderId)) ||
+                    (targetOrderNum && (d.order?.order_number === targetOrderNum || d.sale?.order_number === targetOrderNum))
+                );
+                if (match) {
+                    setSelectedDelivery(match);
+                }
+            }
+        }
+    }, [accumulatedDeliveries]);
+
     // ---- Callbacks ----
 
     const handleViewModeChange = useCallback((mode: ViewMode) => {

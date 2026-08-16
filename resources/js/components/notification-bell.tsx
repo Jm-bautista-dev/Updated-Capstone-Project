@@ -61,10 +61,16 @@ export function NotificationBell() {
         const timer = setTimeout(loadNotifications, 0);
         const interval = setInterval(loadNotifications, 5000);
 
+        const handleNewOrder = () => {
+            loadNotifications();
+        };
+        window.addEventListener('new-order-received', handleNewOrder);
+
         return () => {
             active = false;
             clearTimeout(timer);
             clearInterval(interval);
+            window.removeEventListener('new-order-received', handleNewOrder);
         };
     }, [auth?.user]);
 
