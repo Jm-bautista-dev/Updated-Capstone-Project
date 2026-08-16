@@ -1,122 +1,79 @@
-# REALTIME ORDER INTEGRATION SUMMARY
+# Real-Time Order Synchronization Summary (New Orders & Cancellations)
 
-## 1. Existing Order Creation Flow
-When a mobile customer places an order:
-1. Customer Mobile App sends `POST /api/v1/orders` request with order items and delivery details.
-2. `ApiOrderController::store` creates the `Order` record and `Delivery` record within a `DB::transaction` block.
-3. **Post-Commit Real-Time Dispatch**: Immediately after the transaction successfully commits to MySQL, the backend dispatches `OrderCreated` and `OrderStatusUpdated` real-time WebSocket events.
+This document describes the **Real-Time Order Lifecycle Architecture** covering both **Live New Orders** and **Live Order Cancellations** from the Mobile App to the Web Dashboard.
 
 ---
 
-## 2. Real-Time Technology Used
-- **Backend**: Laravel Broadcasting (`ShouldBroadcastNow`), Pusher / Laravel Reverb.
-- **Frontend**: Laravel Echo (`resources/js/echo.ts`) with `pusher-js`.
+## 1. System Architecture & Flow
 
----
-
-## 3. Exact Event Name
-- Event Class: `App\Events\OrderCreated`
-- Broadcast Event Name (`broadcastAs`): `OrderCreated` / `.OrderCreated`
-- Status Update Event Class: `App\Events\OrderStatusUpdated` (`order-status-updated` / `.order-status-updated`)
-
----
-
-## 4. Exact Channel Structure
-- **Admin Users**: `private-admin.orders`
-- **Branch Staff / Cashiers**: `private-branch.{branchId}.orders`
-
----
-
-## 5. Channel Authorization (`routes/channels.php`)
-```php
-// Admin-wide order channel
-Broadcast::channel('admin.orders', function ($user) {
-    return $user->isAdmin();
-});
-
-// Branch-specific order channel
-Broadcast::channel('branch.{id}.orders', function ($user, $id) {
-    if ($user->isAdmin()) return true;
-    return (int) $user->branch_id === (int) $id;
-});
+```
+MOBILE APP                          BACKEND                              WEB DASHBOARD
+  │                                    │                                      │
+  ├─── POST /api/v1/orders ───────────►│ (Validate & DB::transaction)         │
+  │                                    ├── DB::commit()                       │
+  │                                    └── broadcast(OrderCreated) ──────────►│ (Live Order Appears)
+  │                                    │                                      │
+  └─── POST /.../orders/{id}/cancel ──►│ (Validate Ownership & State)         │
+                                       ├── Restore Stock & DB::commit()       │
+                                       └── broadcast(OrderStatusUpdated) ────►│ (Order Updates to CANCELLED)
 ```
 
 ---
 
-## 6. Event Payload
+## 2. Event Contracts & Channels
+
+### A. New Order Created (`OrderCreated`)
+- **Channels**: `admin.orders` (Private), `branch.{branch_id}.orders` (Private)
+- **Event Name**: `OrderCreated` / `.OrderCreated`
+- **Payload**:
 ```json
 {
   "order_id": 1042,
+  "order_number": "ORD-2",
   "branch_id": 1,
   "customer_name": "Jane Doe",
-  "total_amount": 500.00,
+  "total_amount": 300.00,
   "branch_name": "MAKI DESU STA CRUZ",
-  "timestamp": "2026-08-17 01:08:40",
-  "message": "New Order #1042 received!"
+  "timestamp": "2026-08-17 01:30:00",
+  "message": "New Order #ORD-2 received!"
+}
+```
+
+### B. Order Status Updated / Cancelled (`OrderStatusUpdated`)
+- **Channels**: `deliveries` (Public), `orders` (Public), `admin.orders` (Private), `branch.{branch_id}.orders` (Private), `customer.order.{order_id}` (Private)
+- **Event Name**: `order-status-updated` / `OrderStatusUpdated`
+- **Payload**:
+```json
+{
+  "event": "order-status-updated",
+  "delivery_id": 85,
+  "order_id": 1042,
+  "order_number": "ORD-2",
+  "status": "cancelled",
+  "status_label": "Cancelled",
+  "previous_status": "pending",
+  "rider_id": null,
+  "branch_id": 1,
+  "branch_name": "MAKI DESU STA CRUZ",
+  "timestamp": "2026-08-17 01:53:00"
 }
 ```
 
 ---
 
-## 7. Website Listeners (`resources/js/hooks/use-real-time.tsx`)
-The shared `useRealTime` hook is included in `AppSidebarLayout` wrapping all website pages:
-- Subscribes to `private-admin.orders` (for Admins) or `private-branch.{userBranchId}.orders` (for Branch Cashiers).
-- Triggers non-blocking Sonner toast alerts with custom UI (`Order #...`, `Customer Name`, `Branch`, and a "View Order" button navigating to `/deliveries`).
+## 3. Web Dashboard Listener Implementation
+
+In `Deliveries.tsx` & `use-real-time.tsx`:
+- Subscribes to Echo channels `deliveries`, `admin.orders`, and `branch.{branch_id}.orders`.
+- Listens for `.order-status-updated` and `OrderStatusUpdated`.
+- Instantly updates React state (`setAccumulatedDeliveries`) for 0ms visual update, and triggers Inertia `router.reload({ only: ['deliveries', 'stats'], preserveScroll: true, preserveState: true })`.
 
 ---
 
-## 8. Notification & State Integration
-- **Deduplication**: `notifiedOrderIds` Set tracks processed `order_id`s to prevent duplicate sounds, alerts, or state refreshes.
-- **Audio Chime**: `playNotificationSound()` plays audio chime (`/notification.mp3`).
-- **Partial Inertia Prop Update**: Executes `router.reload({ only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats'] })` to update UI state without a full page refresh (`window.location.reload()`).
+## 4. Mobile App Integration Status
 
----
+### **MOBILE APP CHANGE NOT REQUIRED**
 
-## 9. Branch Authorization Security
-- **Branch Isolation**: Orders for Branch A (`MAKI DESU STA CRUZ`) are broadcast ONLY on `private-branch.1.orders`. Cashiers assigned to Branch B (`MAKI DESU VICTORIA`) never receive Branch A orders.
-
----
-
-## 10. Reconnection Behavior
-- `echo.ts` auto-reconnects with activity/pong timeouts.
-- Duplicate alerts upon reconnect are blocked by `notifiedOrderIds` set.
-
----
-
-## 11. Fallback Behavior
-- If WebSockets are unavailable or disconnected, `router.reload` on user navigation or tab focus synchronizes state from the backend.
-
----
-
-## 12. Files Changed
-- [`app/Http/Controllers/Api/ApiOrderController.php`](file:///c:/xampp/htdocs/Capstone-Project/app/Http/Controllers/Api/ApiOrderController.php)
-- [`app/Events/OrderCreated.php`](file:///c:/xampp/htdocs/Capstone-Project/app/Events/OrderCreated.php)
-- [`resources/js/hooks/use-real-time.tsx`](file:///c:/xampp/htdocs/Capstone-Project/resources/js/hooks/use-real-time.tsx)
-- [`tests/Feature/RealTimeMobileOrderSyncTest.php`](file:///c:/xampp/htdocs/Capstone-Project/tests/Feature/RealTimeMobileOrderSyncTest.php)
-
----
-
-## 13. Dependencies Changed
-- None (reused existing `laravel-echo` and `pusher-js` dependencies).
-
----
-
-## 14. Environment Variables / Configuration
-- `VITE_PUSHER_APP_KEY`, `VITE_PUSHER_APP_CLUSTER`, `PUSHER_APP_KEY`, `PUSHER_APP_SECRET`.
-
----
-
-## 15. Testing Performed
-- `php artisan test tests/Feature/RealTimeMobileOrderSyncTest.php` $\rightarrow$ **3/3 passed (15 assertions)**.
-- `php artisan test tests/Feature/CustomerOrderCancellationTest.php` $\rightarrow$ **3/3 passed (13 assertions)**.
-- `php artisan test tests/Feature/AutomaticProductCostAndStockTest.php` $\rightarrow$ **16/16 passed (51 assertions)**.
-- `npx tsc --noEmit` $\rightarrow$ **0 errors**.
-- `npm run build` $\rightarrow$ **Clean build in 8.61s**.
-
----
-
-## MOBILE APP CHANGE STATUS
-
-**MOBILE APP CHANGE NOT REQUIRED**
-
-*The customer mobile app already creates orders via `POST /api/v1/orders`. The backend automatically broadcasts the real-time `OrderCreated` event post-commit to authorized website channels without requiring any changes to the mobile app.*
+- The Customer Mobile App calls the existing endpoint `POST /api/v1/customer/orders/{orderId}/cancel`.
+- The backend handles validation, stock restoration, database commit, and broadcasting automatically.
+- No changes to mobile app code or WebSocket logic are required for cancellation synchronization.

@@ -99,7 +99,7 @@ class CustomerOrderController extends Controller
 
             // 4. Real-Time WebSocket Broadcast
             try {
-                broadcast(new OrderStatusUpdated($delivery->fresh(), 'customer', $previousStatus));
+                broadcast(new OrderStatusUpdated($delivery->fresh(['order', 'sale', 'rider']), 'customer', $previousStatus));
             } catch (\Throwable $e) {
                 Log::warning('OrderStatusUpdated broadcast warning: ' . $e->getMessage());
             }

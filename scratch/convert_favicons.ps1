@@ -21,17 +21,26 @@ function Save-ResizedImage($src, $targetSize, $outPath) {
     $g.Dispose()
 
     $bmp.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
-    $bmp.Dispose()
     Write-Host "Saved: $outPath ($targetSize x $targetSize)"
+    return $bmp
 }
 
-Save-ResizedImage $srcImg 16 "C:\xampp\htdocs\Capstone-Project\public\favicon-16x16.png"
-Save-ResizedImage $srcImg 32 "C:\xampp\htdocs\Capstone-Project\public\favicon-32x32.png"
-Save-ResizedImage $srcImg 64 "C:\xampp\htdocs\Capstone-Project\public\favicon.png"
-Save-ResizedImage $srcImg 180 "C:\xampp\htdocs\Capstone-Project\public\apple-touch-icon.png"
+$bmp16 = Save-ResizedImage $srcImg 16 "C:\xampp\htdocs\Capstone-Project\public\favicon-16x16.png"
+$bmp32 = Save-ResizedImage $srcImg 32 "C:\xampp\htdocs\Capstone-Project\public\favicon-32x32.png"
+$bmp64 = Save-ResizedImage $srcImg 64 "C:\xampp\htdocs\Capstone-Project\public\favicon.png"
+$bmp180 = Save-ResizedImage $srcImg 180 "C:\xampp\htdocs\Capstone-Project\public\apple-touch-icon.png"
 
-# Save 32x32 as favicon.ico
-Copy-Item "C:\xampp\htdocs\Capstone-Project\public\favicon-32x32.png" "C:\xampp\htdocs\Capstone-Project\public\favicon.ico" -Force
-Write-Host "Updated public/favicon.ico"
+# Save a real windows icon handle to favicon.ico
+$hIcon = $bmp32.GetHicon()
+$icon = [System.Drawing.Icon]::FromHandle($hIcon)
+$stream = [System.IO.File]::Create("C:\xampp\htdocs\Capstone-Project\public\favicon.ico")
+$icon.Save($stream)
+$stream.Close()
+$icon.Dispose()
+Write-Host "Updated real binary public/favicon.ico"
 
+$bmp16.Dispose()
+$bmp32.Dispose()
+$bmp64.Dispose()
+$bmp180.Dispose()
 $srcImg.Dispose()

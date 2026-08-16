@@ -38,9 +38,14 @@ class OrderStatusUpdated implements ShouldBroadcastNow
      */
     public function broadcastOn(): array
     {
+        if (!$this->delivery->relationLoaded('order') || !$this->delivery->relationLoaded('sale')) {
+            $this->delivery->load(['order', 'sale', 'rider']);
+        }
+
         $channels = [
             new Channel('deliveries'),
             new Channel('orders'),
+            new PrivateChannel('admin.orders'),
         ];
 
         $branchId = $this->delivery->sale?->branch_id ?? $this->delivery->order?->branch_id;

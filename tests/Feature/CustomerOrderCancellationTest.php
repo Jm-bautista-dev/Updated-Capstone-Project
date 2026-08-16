@@ -182,4 +182,41 @@ class CustomerOrderCancellationTest extends TestCase
                 'message' => 'Order not found or unauthorized.',
             ]);
     }
+
+    /**
+     * Test cancellation dispatches OrderStatusUpdated event targeting admin.orders and branch.orders channels.
+     */
+    public function test_cancellation_broadcasts_event_with_admin_and_branch_channels()
+    {
+        Event::fake([OrderStatusUpdated::class]);
+
+        $order = Order::create([
+            'user_id' => $this->testCustomer->id,
+            'branch_id' => $this->testBranch->id,
+            'order_number' => 'ORD-19',
+            'customer_name' => 'Jane Doe',
+            'total_amount' => 150.00,
+            'status' => 'pending',
+        ]);
+
+        $delivery = Delivery::create([
+            'order_id' => $order->id,
+            'customer_name' => 'Jane Doe',
+            'customer_address' => '123 Main Street',
+            'delivery_type' => 'internal',
+            'status' => 'waiting_for_kitchen',
+        ]);
+
+        $this->actingAs($this->testCustomer, 'sanctum')
+            ->postJson("/api/v1/customer/orders/{$order->id}/cancel");
+
+        Event::assertDispatched(OrderStatusUpdated::class, function ($event) use ($order) {
+            $channels = collect($event->broadcastOn())->map(fn($c) => $c->name)->toArray();
+            return in_array('deliveries', $channels) &&
+                   in_array('private-admin.orders', $channels) &&
+                   in_array("private-branch.{$this->testBranch->id}.orders", $channels) &&
+                   $event->delivery->order_id === $order->id &&
+                   $event->delivery->status === 'cancelled';
+        });
+    }
 }
