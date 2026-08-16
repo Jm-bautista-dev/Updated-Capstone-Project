@@ -17,6 +17,7 @@ import {
 import { BranchPerformanceTable } from '@/components/dashboard/BranchPerformanceTable';
 import { DashboardHero } from '@/components/dashboard/DashboardHero';
 import { ForecastIntelCard } from '@/components/dashboard/ForecastIntelCard';
+import { IngredientCostTrendCard, type IngredientCostTrendItem } from '@/components/dashboard/IngredientCostTrendCard';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { PrescriptiveActionsCard } from '@/components/dashboard/PrescriptiveActionsCard';
 import { QuickActionCard } from '@/components/dashboard/QuickActionCard';
@@ -100,6 +101,7 @@ interface DashboardProps {
     salesPerProduct?: SalesPerProductItem[];
     topProductCosts?: TopProductCostItem[];
     salesByPaymentMethod?: PaymentMethodItem[];
+    ingredientCostTrends?: IngredientCostTrendItem[];
     range: number;
     branches?: BranchItem[];
     filters?: { branch_id?: string; range?: number };
@@ -116,6 +118,7 @@ export default function Dashboard({
     salesPerProduct,
     topProductCosts = [],
     salesByPaymentMethod,
+    ingredientCostTrends = [],
     range,
     branches = [],
     filters = {},
@@ -243,6 +246,12 @@ export default function Dashboard({
                         {/* Top Product Costs Horizontal Bar Chart */}
                         <TopProductCostsChart 
                             topProductCosts={topProductCosts}
+                            activeBranchName={activeBranchName}
+                        />
+
+                        {/* Ingredient Unit Cost Analytics Card */}
+                        <IngredientCostTrendCard 
+                            ingredientCostTrends={ingredientCostTrends}
                             activeBranchName={activeBranchName}
                         />
 

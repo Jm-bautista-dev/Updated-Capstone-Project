@@ -35,6 +35,7 @@ class AnalyticsController extends Controller
             'salesPerProduct'      => $this->getTopProducts($startDate, $branchId),
             'topProductCosts'      => $this->getTopProductCosts($branchId),
             'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $branchId),
+            'ingredientCostTrends' => $this->getIngredientCostTrends($branchId),
             'range'                => $range,
             'branches'             => $branches,
             'filters'              => ['branch_id' => $branchId ? (string)$branchId : 'all', 'range' => $range],
@@ -277,6 +278,52 @@ class AnalyticsController extends Controller
         ->toArray();
 
         return $ranked;
+    }
+
+    private function getIngredientCostTrends(?int $branchId = null): array
+    {
+        $ingredients = Ingredient::with(['stocks' => function($q) use ($branchId) {
+            if ($branchId) {
+                $q->where('branch_id', $branchId);
+            }
+        }])->get();
+
+        return $ingredients->map(function ($ing) use ($branchId) {
+            $stock = $branchId ? $ing->stocks->firstWhere('branch_id', $branchId) : null;
+            $unit = $ing->unit ?? 'pcs';
+
+            $costPerUnit = 0.0;
+            if ($stock && (float)$stock->cost_per_unit > 0) {
+                $costPerUnit = (float) $stock->cost_per_unit;
+            } elseif ($ing->stocks->isNotEmpty()) {
+                $costPerUnit = (float) $ing->stocks->where('cost_per_unit', '>', 0)->avg('cost_per_unit');
+            }
+
+            $displayUnit = $unit;
+            $displayCost = $costPerUnit;
+
+            if ($unit === 'g' || $unit === 'ml') {
+                $displayUnit = $unit === 'g' ? 'kg' : 'L';
+                $displayCost = $costPerUnit * 1000;
+            }
+
+            $currentStock = $stock ? (float)$stock->stock : (float)$ing->stocks->sum('stock');
+            if ($unit === 'g' && $currentStock >= 1000) {
+                $currentStock = $currentStock / 1000;
+            } elseif ($unit === 'ml' && $currentStock >= 1000) {
+                $currentStock = $currentStock / 1000;
+            }
+
+            return [
+                'id'                 => $ing->id,
+                'name'               => $ing->name,
+                'unit'               => $displayUnit,
+                'base_unit'          => $unit,
+                'cost_per_unit'      => round($displayCost, 2),
+                'cost_per_base_unit' => round($costPerUnit, 4),
+                'stock'              => round($currentStock, 2),
+            ];
+        })->sortBy('name')->values()->toArray();
     }
 
     private function getSalesByPayment($startDate, ?int $branchId = null)

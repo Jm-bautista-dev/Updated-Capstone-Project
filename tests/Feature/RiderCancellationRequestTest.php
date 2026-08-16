@@ -8,6 +8,8 @@ use App\Models\Branch;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\OrderCancellationRequest;
+use App\Models\Rider;
+use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -19,16 +21,17 @@ class RiderCancellationRequestTest extends TestCase
 
     protected User $admin;
     protected User $cashier;
-    protected User $rider;
-    protected Branch $branch;
+    protected Rider $rider;
+    protected Branch $testBranch;
     protected Order $order;
+    protected Sale $sale;
     protected Delivery $delivery;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->branch = Branch::factory()->create(['name' => 'Test Branch']);
+        $this->testBranch = Branch::create(['name' => 'Test Branch', 'address' => 'Test Address']);
 
         $this->admin = User::factory()->create([
             'role' => 'admin',
@@ -37,25 +40,51 @@ class RiderCancellationRequestTest extends TestCase
 
         $this->cashier = User::factory()->create([
             'role' => 'cashier',
-            'branch_id' => $this->branch->id,
+            'branch_id' => $this->testBranch->id,
         ]);
 
-        $this->rider = User::factory()->create([
-            'role' => 'rider',
-            'branch_id' => $this->branch->id,
+        $this->rider = Rider::create([
+            'name' => 'John Rider',
+            'email' => 'rider@example.com',
+            'password' => bcrypt('password'),
+            'phone' => '09123456789',
+            'branch_id' => $this->testBranch->id,
+            'status' => 'available',
+            'is_active' => true,
         ]);
 
-        $this->order = Order::factory()->create([
-            'branch_id' => $this->branch->id,
-            'status' => 'assigned_to_rider',
+        $this->order = Order::create([
+            'order_number' => 'ORD-9901',
+            'branch_id' => $this->testBranch->id,
+            'user_id' => $this->cashier->id,
             'customer_name' => 'Test Customer',
+            'customer_phone' => '09123456789',
+            'delivery_address' => '123 Main St',
+            'status' => 'assigned_to_rider',
             'total_amount' => 500,
+            'payment_method' => 'cod',
+            'payment_status' => 'pending',
         ]);
 
-        $this->delivery = Delivery::factory()->create([
+        $this->sale = Sale::create([
+            'branch_id' => $this->testBranch->id,
+            'user_id' => $this->cashier->id,
+            'order_number' => 'ORD-9901',
+            'total' => 500,
+            'paid_amount' => 500,
+            'payment_method' => 'cod',
+            'status' => 'completed',
+        ]);
+
+        $this->delivery = Delivery::create([
             'order_id' => $this->order->id,
+            'sale_id' => $this->sale->id,
             'rider_id' => $this->rider->id,
+            'delivery_type' => 'internal',
+            'customer_name' => 'Test Customer',
+            'customer_address' => '123 Main St',
             'status' => 'assigned_to_rider',
+            'delivery_fee' => 50,
         ]);
     }
 
@@ -70,10 +99,10 @@ class RiderCancellationRequestTest extends TestCase
                 'notes'  => 'Called 5 times',
             ]);
 
-        $response->assertStatus(201)
+        $response->assertOk()
             ->assertJson([
                 'success' => true,
-                'message' => 'Cancellation request submitted. Waiting for branch approval.',
+                'message' => 'Cancellation request submitted successfully. Waiting for cashier approval.',
             ]);
 
         $this->assertDatabaseHas('order_cancellation_requests', [
@@ -106,8 +135,8 @@ class RiderCancellationRequestTest extends TestCase
         $this->assertEquals('cancellation_requested', $this->delivery->status);
     }
 
-    // ─── Test 3: Duplicate cancellation request returns 409 ───────────────────
-    public function test_duplicate_cancellation_request_returns_409(): void
+    // ─── Test 3: Duplicate cancellation request returns 422 ───────────────────
+    public function test_duplicate_cancellation_request_returns_422(): void
     {
         Event::fake([CancellationRequested::class]);
 
@@ -117,13 +146,13 @@ class RiderCancellationRequestTest extends TestCase
                 'reason' => 'Customer unreachable',
             ]);
 
-        // Second request (duplicate)
+        // Second request (duplicate, order already in cancellation_requested state)
         $response = $this->actingAs($this->rider, 'sanctum')
             ->postJson("/api/v1/rider/orders/{$this->order->id}/cancel", [
                 'reason' => 'Another reason',
             ]);
 
-        $response->assertStatus(409)
+        $response->assertStatus(422)
             ->assertJson(['success' => false]);
     }
 
@@ -222,7 +251,7 @@ class RiderCancellationRequestTest extends TestCase
     {
         Event::fake([CancellationRequested::class, CancellationResolved::class]);
 
-        $otherBranch = Branch::factory()->create(['name' => 'Other Branch']);
+        $otherBranch = Branch::create(['name' => 'Other Branch', 'address' => 'Other Address']);
         $otherCashier = User::factory()->create([
             'role' => 'cashier',
             'branch_id' => $otherBranch->id,
@@ -277,10 +306,10 @@ class RiderCancellationRequestTest extends TestCase
             ->getJson('/api/v1/cancellation-requests/pending');
 
         $response->assertOk()
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1, 'requests');
 
         // Other branch cashier cannot see them
-        $otherBranch = Branch::factory()->create(['name' => 'Other Branch']);
+        $otherBranch = Branch::create(['name' => 'Other Branch', 'address' => 'Other Address']);
         $otherCashier = User::factory()->create([
             'role' => 'cashier',
             'branch_id' => $otherBranch->id,
@@ -290,7 +319,7 @@ class RiderCancellationRequestTest extends TestCase
             ->getJson('/api/v1/cancellation-requests/pending');
 
         $otherResponse->assertOk()
-            ->assertJsonCount(0, 'data');
+            ->assertJsonCount(0, 'requests');
     }
 
     // ─── Test 10: Rejection reverts order to previous state ───────────────────

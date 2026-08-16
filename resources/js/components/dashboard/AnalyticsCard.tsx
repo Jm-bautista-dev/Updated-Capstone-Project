@@ -22,6 +22,7 @@ const formatCurrency = (amount: number) =>
 interface SalesOverTimeItem {
     date: string;
     revenue: number;
+    cogs?: number;
     expenses?: number;
     profit: number;
     margin_pct?: number;
@@ -45,6 +46,7 @@ const PIE_COLORS = ['#E75480', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4
 
 export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesOverTimeItem[] }) {
     const totalRev = React.useMemo(() => salesOverTime.reduce((sum, item) => sum + (item.revenue || 0), 0), [salesOverTime]);
+    const totalCogs = React.useMemo(() => salesOverTime.reduce((sum, item) => sum + (item.cogs || 0), 0), [salesOverTime]);
     const totalProf = React.useMemo(() => salesOverTime.reduce((sum, item) => sum + (item.profit || 0), 0), [salesOverTime]);
     const avgMargin = totalRev > 0 ? (totalProf / totalRev) * 100 : 0;
 
@@ -66,15 +68,19 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                         </h2>
                     </div>
                     <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
-                        Comparative historical gross revenue against net profit percentage margin.
+                        Comparative gross revenue, COGS / ingredient cost, and net profit margin.
                     </p>
                 </div>
 
                 {/* Summary Badges */}
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                     <div className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-right">
                         <span className="text-[9px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">Total Revenue</span>
                         <span className="text-xs font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(totalRev)}</span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-right">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">COGS / Ingredient Cost</span>
+                        <span className="text-xs font-mono font-extrabold text-amber-600 dark:text-amber-400">{formatCurrency(totalCogs)}</span>
                     </div>
                     <div className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-right">
                         <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Avg Margin</span>
@@ -91,6 +97,10 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                                 <stop offset="5%" stopColor="#E75480" stopOpacity={0.4} />
                                 <stop offset="95%" stopColor="#E75480" stopOpacity={0} />
                             </linearGradient>
+                            <linearGradient id="colorCogs" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                            </linearGradient>
                             <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
                                 <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
@@ -105,14 +115,19 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                                 if (active && payload && payload.length) {
                                     const data = payload[0].payload as SalesOverTimeItem;
                                     const rev = data.revenue || 0;
-                                    const prof = data.profit || 0;
+                                    const cogs = data.cogs || 0;
+                                    const prof = data.profit ?? (rev - cogs);
                                     const margin = data.margin_pct ?? (rev > 0 ? (prof / rev) * 100 : 0);
                                     return (
-                                        <div className="p-3.5 rounded-2xl bg-white/95 dark:bg-[#1C1C28]/95 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xl backdrop-blur-md text-xs font-['Outfit'] space-y-1.5 min-w-40">
+                                        <div className="p-3.5 rounded-2xl bg-white/95 dark:bg-[#1C1C28]/95 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xl backdrop-blur-md text-xs font-['Outfit'] space-y-1.5 min-w-44">
                                             <p className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] border-b border-[#F8C8DC]/40 dark:border-white/10 pb-1">{label}</p>
                                             <div className="flex items-center justify-between gap-3 text-rose-600 dark:text-rose-400 font-semibold">
                                                 <span>Revenue:</span>
                                                 <span className="font-mono font-extrabold">{formatCurrency(rev)}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-3 text-amber-600 dark:text-amber-400 font-semibold">
+                                                <span>COGS / Ingredient Cost:</span>
+                                                <span className="font-mono font-extrabold">{formatCurrency(cogs)}</span>
                                             </div>
                                             <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400 font-semibold">
                                                 <span>Net Profit:</span>
@@ -129,6 +144,7 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                             }}
                         />
                         <Area yAxisId="left" type="monotone" dataKey="revenue" name="Operational Revenue (₱)" stroke="#E75480" strokeWidth={3} fill="url(#colorRevenue)" />
+                        <Area yAxisId="left" type="monotone" dataKey="cogs" name="COGS / Ingredient Cost (₱)" stroke="#f59e0b" strokeWidth={2.5} strokeDasharray="4 4" fill="url(#colorCogs)" />
                         <Area yAxisId="right" type="monotone" dataKey="margin_pct" name="Profit Margin (%)" stroke="#10b981" strokeWidth={3} fill="url(#colorProfit)" />
                     </AreaChart>
                 </ResponsiveContainer>
