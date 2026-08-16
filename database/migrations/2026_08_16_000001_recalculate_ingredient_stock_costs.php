@@ -22,17 +22,35 @@ return new class extends Migration
             $ingredient = DB::table('ingredients')->where('id', $stock->ingredient_id)->first();
             if (!$ingredient) continue;
 
-            $stockQty = (float) $stock->stock;
+            $stockQty   = (float) $stock->stock;
             $totalValue = (float) ($stock->total_stock_value ?? 0);
+            $storedCost = (float) ($stock->cost_per_unit ?? 0);
+            $unit       = strtolower(trim($ingredient->unit));
+
+            $correctCostPerBaseUnit = 0.0;
+            $correctTotalValue      = 0.0;
 
             if ($stockQty > 0 && $totalValue > 0) {
-                // Canonical Cost Per Base Unit = Total Stock Value / Base Stock Quantity
+                // Case 1: Total purchase value is known
                 $correctCostPerBaseUnit = round($totalValue / $stockQty, 6);
+                $correctTotalValue      = $totalValue;
+            } elseif ($stockQty > 0 && $storedCost > 0) {
+                // Case 2: Derive from stored cost_per_unit
+                // If stored cost is in per-input-unit (e.g. 10 pesos/kg while stock is in grams)
+                if (($unit === 'g' || $unit === 'ml') && $stockQty >= 1000 && $storedCost >= 0.5) {
+                    $correctCostPerBaseUnit = round($storedCost / 1000, 6);
+                } else {
+                    $correctCostPerBaseUnit = $storedCost;
+                }
+                $correctTotalValue = round($stockQty * $correctCostPerBaseUnit, 4);
+            }
 
+            if ($correctCostPerBaseUnit > 0) {
                 DB::table('ingredient_stocks')
                     ->where('id', $stock->id)
                     ->update([
-                        'cost_per_unit' => $correctCostPerBaseUnit,
+                        'cost_per_unit'     => $correctCostPerBaseUnit,
+                        'total_stock_value' => $correctTotalValue,
                     ]);
 
                 DB::table('ingredients')
