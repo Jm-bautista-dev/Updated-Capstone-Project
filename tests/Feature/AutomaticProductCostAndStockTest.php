@@ -211,6 +211,89 @@ class AutomaticProductCostAndStockTest extends TestCase
     }
 
     /**
+     * PROMPT TEST 4b:
+     * 100 g Tomato registered in Inventory, Total Purchase Cost = ₱1,000 (Unit Cost = ₱10/g).
+     * Recipe: 1 g Tomato.
+     * Expected: Product Cost = ₱10.00, Available Stock = 100.
+     */
+    public function test_prompt_test_4b_100g_tomato_cost_1000_recipe_1g_yields_cost_10_and_stock_100()
+    {
+        $response = $this->actingAs($this->admin)
+            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->post('/inventory', [
+                'name' => 'GramTomato',
+                'unit' => 'g',
+                'initial_stock' => 100,
+                'low_stock_level' => 5,
+                'cost_per_base_unit' => 1000, // ₱1,000 total => ₱10/g
+                'branch_ids' => [$this->branchSantaCruz->id],
+            ]);
+
+        $response->assertStatus(302);
+
+        $tomato = Ingredient::where('name', 'GramTomato')->firstOrFail();
+        $stockRow = IngredientStock::where('ingredient_id', $tomato->id)->where('branch_id', $this->branchSantaCruz->id)->firstOrFail();
+
+        // 100g stock, ₱10/g cost_per_unit
+        $this->assertEquals(100, (float) $stockRow->stock);
+        $this->assertEquals(10.00, (float) $stockRow->cost_per_unit);
+
+        $product = Product::create([
+            'name' => 'Gram Tomato Salad',
+            'sku' => 'SKU-GTS-4B',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 50.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $tomato->id,
+            'quantity_required' => 1,
+            'unit' => 'g',
+        ]);
+
+        // Recipe: 1 g * ₱10/g = ₱10.00
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+        // Available Stock: 100 g / 1 g = 100 products
+        $this->assertEquals(100, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
+     * PROMPT TEST 6b:
+     * 100 kg Tomato registered in Inventory, Total Purchase Cost = ₱1,000.
+     * Recipe: 1,000 g Tomato.
+     * Expected: Product Cost = ₱10.00, Available Stock = 100 (MUST match Test 1 1kg recipe exactly).
+     */
+    public function test_prompt_test_6b_100kg_tomato_cost_1000_recipe_1000g_equals_test_1()
+    {
+        $tomato = Ingredient::create(['name' => 'EqTomato', 'unit' => 'kg', 'cost_per_base_unit' => 0.01]);
+        IngredientStock::updateOrCreate(['ingredient_id' => $tomato->id, 'branch_id' => $this->branchSantaCruz->id], ['stock' => 100000, 'cost_per_unit' => 0.01, 'total_stock_value' => 1000]);
+
+        $product = Product::create([
+            'name' => '1000g Tomato Bowl',
+            'sku' => 'SKU-TB-6B',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 100.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $tomato->id,
+            'quantity_required' => 1000,
+            'unit' => 'g',
+        ]);
+
+        // 1,000 g * ₱0.01/g = ₱10.00 (EXACTLY EQUALS 1 kg recipe in Test 1)
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+        // 100,000 g / 1,000 g = 100 products
+        $this->assertEquals(100, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
+    }
+
+    /**
      * PROMPT TEST 5:
      * 100 pcs Egg, Total Purchase Cost = ₱1,000.
      * Recipe: 2 pcs Egg.

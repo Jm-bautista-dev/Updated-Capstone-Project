@@ -825,7 +825,7 @@ export default function InventoryIndex() {
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between ml-1">
                                     <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8]">Total Cost (PHP)</label>
-                                    <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">Unit: ₱{costPerUnitPreview}</span>
+                                    <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">Unit Cost: ₱{costPerUnitPreview}/{data.unit || 'unit'}</span>
                                 </div>
                                 <Input type="number" step="0.0001" required value={data.cost_per_base_unit} onChange={(e) => setData('cost_per_base_unit', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                                 <InputError message={localErrors.cost_per_base_unit} />
