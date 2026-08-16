@@ -15,6 +15,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { getCompatibleUnits } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
 interface InventoryRow {
@@ -358,23 +359,13 @@ export function MassRestockModal({ open, onOpenChange, branchName, branchId, inv
                                 value={formItem?.unit || item.unit}
                                 onChange={(e) => handleUnitChange(item.id, e.target.value)}
                                 className={cn(
-                                  "h-11 w-full bg-muted/40 border-none ring-1 transition-all font-black text-center uppercase rounded-xl text-xs",
+                                  "h-11 w-full bg-muted/40 border-none ring-1 transition-all font-black text-center uppercase rounded-xl text-xs cursor-pointer",
                                   Number(formItem?.quantity) > 0 ? "ring-primary/50 bg-primary/5 shadow-inner text-primary" : "ring-border/50 text-muted-foreground hover:ring-border"
                                 )}
                               >
-                                {item.unit === 'g' || item.unit === 'kg' ? (
-                                  <>
-                                    <option value="g">g</option>
-                                    <option value="kg">kg</option>
-                                  </>
-                                ) : item.unit === 'ml' || item.unit === 'L' ? (
-                                  <>
-                                    <option value="ml">ml</option>
-                                    <option value="L">L</option>
-                                  </>
-                                ) : (
-                                  <option value={item.unit}>{item.unit}</option>
-                                )}
+                                {getCompatibleUnits(item.unit).map((u) => (
+                                  <option key={u} value={u}>{u}</option>
+                                ))}
                               </select>
                             </div>
                             <div className="w-24 shrink-0">

@@ -6,7 +6,9 @@ import {
     Trash2,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Layers,
+    Info
 } from 'lucide-react';
 import React, { useState, useMemo, useEffect } from 'react';
 
@@ -36,6 +38,7 @@ import {
     SelectValue
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { getCompatibleUnits, getDefaultRecipeUnit, convertToBaseQuantityWithIngredient } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
 type Category = {
@@ -244,6 +247,61 @@ export default function ProductsIndex() {
         return filteredData.slice(start, start + itemsPerPage);
     }, [filteredData, currentPage, itemsPerPage, totalPages]);
 
+    // Live Recipe Calculation Preview
+    const liveCalculation = useMemo(() => {
+        if (!data.recipe || data.recipe.length === 0) {
+            return {
+                costPrice: null,
+                producibleStock: null,
+                limitingIngredient: null,
+                missingCostIngredient: null,
+            };
+        }
+
+        let totalCost = 0;
+        let minProducible = Infinity;
+        let limitingIngName: string | null = null;
+        let missingCostName: string | null = null;
+
+        for (const item of data.recipe) {
+            if (!item.ingredient_id) continue;
+            const ing = ingredients.find((i) => String(i.id) === String(item.ingredient_id));
+            if (!ing) continue;
+
+            const qty = parseFloat(item.quantity_required);
+            if (isNaN(qty) || qty <= 0) continue;
+
+            const baseQty = convertToBaseQuantityWithIngredient(
+                qty,
+                item.unit,
+                ing.unit,
+                (ing as unknown as { avg_weight_per_piece?: number }).avg_weight_per_piece
+            );
+
+            const costPerBaseUnit = (ing as unknown as { cost_per_base_unit?: number }).cost_per_base_unit ?? 0;
+
+            if (costPerBaseUnit <= 0) {
+                missingCostName = ing.name;
+            } else {
+                totalCost += baseQty * costPerBaseUnit;
+            }
+
+            const availStock = ing.stock ?? 0;
+            const possible = baseQty > 0 ? Math.floor(availStock / baseQty) : 0;
+            if (possible < minProducible) {
+                minProducible = possible;
+                limitingIngName = ing.name;
+            }
+        }
+
+        return {
+            costPrice: totalCost > 0 ? totalCost : (missingCostName ? null : 0),
+            producibleStock: minProducible === Infinity ? null : Math.max(0, minProducible),
+            limitingIngredient: minProducible === Infinity ? null : limitingIngName,
+            missingCostIngredient: missingCostName,
+        };
+    }, [data.recipe, ingredients]);
+
     // Modal Handlers
     const openAddModal = () => {
         reset();
@@ -353,7 +411,7 @@ export default function ProductsIndex() {
     };
 
     const addRecipeItem = () => {
-        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1', unit: 'pcs' }]);
+        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1', unit: 'g' }]);
     };
 
     const removeRecipeItem = (index: number) => {
@@ -364,7 +422,13 @@ export default function ProductsIndex() {
 
     const updateRecipeItem = (index: number, field: string, value: string) => {
         const newRecipe = [...data.recipe];
-        newRecipe[index] = { ...newRecipe[index], [field]: value };
+        if (field === 'ingredient_id') {
+            const selectedIng = ingredients.find(ing => String(ing.id) === value);
+            const defaultUnit = selectedIng ? getDefaultRecipeUnit(selectedIng.unit) : 'pcs';
+            newRecipe[index] = { ...newRecipe[index], ingredient_id: value, unit: defaultUnit };
+        } else {
+            newRecipe[index] = { ...newRecipe[index], [field]: value };
+        }
         setData('recipe', newRecipe);
     };
 
@@ -610,11 +674,6 @@ export default function ProductsIndex() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Cost Price (PHP)</label>
-                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
-                            </div>
-
-                            <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Selling Price (PHP)</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                             </div>
@@ -633,9 +692,55 @@ export default function ProductsIndex() {
                                 </select>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Initial Stock</label>
-                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} placeholder="0" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                            {/* Automatic Product Calculation Summary Card */}
+                            <div className="col-span-2 bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="size-7 rounded-lg bg-[#E75480]/10 dark:bg-[#E1062C]/20 flex items-center justify-center text-[#E75480] dark:text-[#FF4F81]">
+                                            <Layers className="size-4" />
+                                        </div>
+                                        <div>
+                                            <h5 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Automatic Product Calculation</h5>
+                                            <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Derived from recipe ingredients & branch inventory</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#E75480]/15 dark:bg-[#FF4F81]/20 text-[#E75480] dark:text-[#FF4F81]">
+                                        Automatic
+                                    </span>
+                                </div>
+
+                                {liveCalculation.missingCostIngredient && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
+                                        <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>Unable to calculate product cost because <strong>{liveCalculation.missingCostIngredient}</strong> has no valid cost.</span>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
+                                        <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {data.recipe.length === 0 ? (
+                                                <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
+                                            ) : (
+                                                <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Available Producible Stock</span>
+                                        <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {data.recipe.length === 0 ? (
+                                                <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
+                                            ) : liveCalculation.producibleStock === 0 ? (
+                                                <span className="text-xs font-bold text-rose-600 dark:text-rose-400">0 (OUT OF STOCK - {liveCalculation.limitingIngredient})</span>
+                                            ) : (
+                                                <span>{liveCalculation.producibleStock} units {liveCalculation.limitingIngredient && <span className="text-[10px] text-[#7D6B6E] font-normal">(Limiting: {liveCalculation.limitingIngredient})</span>}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Branch Visibility Tags Selection */}
@@ -704,6 +809,7 @@ export default function ProductsIndex() {
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {data.recipe.map((item, idx) => {
                                         const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
+                                        const compatibleUnits = selectedIng ? getCompatibleUnits(selectedIng.unit) : ['g', 'kg', 'mg', 'ml', 'L', 'pcs'];
                                         return (
                                             <div key={idx} className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
                                                 <select
@@ -726,7 +832,16 @@ export default function ProductsIndex() {
                                                     className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
                                                     placeholder="Qty"
                                                 />
-                                                <span className="text-[10px] font-mono text-[#9E8B8E] dark:text-[#64748B] w-8">{selectedIng?.unit || '-'}</span>
+                                                <select
+                                                    required
+                                                    value={item.unit}
+                                                    onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                    className="w-18 h-9 px-1.5 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-mono font-bold cursor-pointer"
+                                                >
+                                                    {compatibleUnits.map((u) => (
+                                                        <option key={u} value={u}>{u}</option>
+                                                    ))}
+                                                </select>
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
                                                     <Trash2 className="size-3.5" />
                                                 </Button>
@@ -797,12 +912,6 @@ export default function ProductsIndex() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Cost Price</label>
-                                <Input type="number" step="0.01" required value={data.cost_price} onChange={(e) => setData('cost_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
-                                {editErrors.cost_price && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.cost_price}</p>}
-                            </div>
-
-                            <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Selling Price</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                                 {editErrors.selling_price && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.selling_price}</p>}
@@ -822,9 +931,55 @@ export default function ProductsIndex() {
                                 </select>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Current Stock</label>
-                                <Input type="number" step="0.0001" value={data.stock} onChange={(e) => setData('stock', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                            {/* Automatic Product Calculation Summary Card */}
+                            <div className="col-span-2 bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="size-7 rounded-lg bg-[#E75480]/10 dark:bg-[#E1062C]/20 flex items-center justify-center text-[#E75480] dark:text-[#FF4F81]">
+                                            <Layers className="size-4" />
+                                        </div>
+                                        <div>
+                                            <h5 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Automatic Product Calculation</h5>
+                                            <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Derived from recipe ingredients & branch inventory</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#E75480]/15 dark:bg-[#FF4F81]/20 text-[#E75480] dark:text-[#FF4F81]">
+                                        Automatic
+                                    </span>
+                                </div>
+
+                                {liveCalculation.missingCostIngredient && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
+                                        <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>Unable to calculate product cost because <strong>{liveCalculation.missingCostIngredient}</strong> has no valid cost.</span>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
+                                        <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {data.recipe.length === 0 ? (
+                                                <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
+                                            ) : (
+                                                <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Available Producible Stock</span>
+                                        <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {data.recipe.length === 0 ? (
+                                                <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
+                                            ) : liveCalculation.producibleStock === 0 ? (
+                                                <span className="text-xs font-bold text-rose-600 dark:text-rose-400">0 (OUT OF STOCK - {liveCalculation.limitingIngredient})</span>
+                                            ) : (
+                                                <span>{liveCalculation.producibleStock} units {liveCalculation.limitingIngredient && <span className="text-[10px] text-[#7D6B6E] font-normal">(Limiting: {liveCalculation.limitingIngredient})</span>}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Branch Visibility Tags Selection */}
@@ -893,6 +1048,7 @@ export default function ProductsIndex() {
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {data.recipe.map((item, idx) => {
                                         const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
+                                        const compatibleUnits = selectedIng ? getCompatibleUnits(selectedIng.unit) : ['g', 'kg', 'mg', 'ml', 'L', 'pcs'];
                                         return (
                                             <div key={idx} className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
                                                 <select
@@ -915,7 +1071,16 @@ export default function ProductsIndex() {
                                                     className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
                                                     placeholder="Qty"
                                                 />
-                                                <span className="text-[10px] font-mono text-[#9E8B8E] dark:text-[#64748B] w-8">{selectedIng?.unit || '-'}</span>
+                                                <select
+                                                    required
+                                                    value={item.unit}
+                                                    onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                    className="w-18 h-9 px-1.5 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-mono font-bold cursor-pointer"
+                                                >
+                                                    {compatibleUnits.map((u) => (
+                                                        <option key={u} value={u}>{u}</option>
+                                                    ))}
+                                                </select>
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
                                                     <Trash2 className="size-3.5" />
                                                 </Button>

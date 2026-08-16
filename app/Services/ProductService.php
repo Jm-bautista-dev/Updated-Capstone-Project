@@ -30,12 +30,12 @@ class ProductService
                 'sku'           => $this->generateSku($validated['sku'] ?? null),
                 'category_id'   => $validated['category_id'],
                 'description'   => $validated['description'] ?? null,
-                'cost_price'    => $validated['cost_price'] ?? 0,
+                'cost_price'    => 0, // Automatically calculated from recipe
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
                 'branch_id'     => $targetBranchId ?? $validated['branch_id'],
                 'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? 'pcs'),
-                'stock'         => 0,
+                'stock'         => 0, // Derived dynamically from branch ingredient stock
             ]);
 
             // Create recipe (Optional)
@@ -44,8 +44,9 @@ class ProductService
                     $ingredient = \App\Models\Ingredient::find($item['ingredient_id']);
                     if ($ingredient) {
                         $inputUnit = $item['unit'] ?? $ingredient->unit;
+                        $baseUnit = UnitConverter::normalizeUnit($ingredient->unit);
                         $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
-                            $item['quantity_required'],
+                            (float) $item['quantity_required'],
                             $inputUnit,
                             $ingredient->unit,
                             $ingredient->avg_weight_per_piece
@@ -55,7 +56,7 @@ class ProductService
                             'menu_item_id'      => $product->id,
                             'ingredient_id'     => $item['ingredient_id'],
                             'quantity_required' => $baseQty,
-                            'unit'              => $ingredient->unit, // Always use base unit
+                            'unit'              => $baseUnit, // Always use canonical base unit
                         ]);
                     }
                 }
@@ -92,7 +93,6 @@ class ProductService
                 'sku'           => $validated['sku'] ?? $product->sku,
                 'category_id'   => $validated['category_id'],
                 'description'   => $validated['description'] ?? null,
-                'cost_price'    => $validated['cost_price'] ?? 0,
                 'selling_price' => $validated['selling_price'],
                 'image_path'    => $imagePath,
                 'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? $product->unit ?? 'pcs'),
@@ -105,8 +105,9 @@ class ProductService
                     $ingredient = \App\Models\Ingredient::find($item['ingredient_id']);
                     if ($ingredient) {
                         $inputUnit = $item['unit'] ?? $ingredient->unit;
+                        $baseUnit = UnitConverter::normalizeUnit($ingredient->unit);
                         $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
-                            $item['quantity_required'],
+                            (float) $item['quantity_required'],
                             $inputUnit,
                             $ingredient->unit,
                             $ingredient->avg_weight_per_piece
@@ -116,7 +117,7 @@ class ProductService
                             'menu_item_id'      => $product->id,
                             'ingredient_id'     => $item['ingredient_id'],
                             'quantity_required' => $baseQty,
-                            'unit'              => $ingredient->unit, // Always use base unit
+                            'unit'              => $baseUnit, // Always use canonical base unit
                         ]);
                     }
                 }

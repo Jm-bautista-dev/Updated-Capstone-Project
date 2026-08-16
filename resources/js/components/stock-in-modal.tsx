@@ -1,12 +1,11 @@
 import { useForm, usePage } from '@inertiajs/react';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { FiPackage, FiTruck, FiArrowRight } from 'react-icons/fi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogDescription,
     DialogFooter
@@ -19,21 +18,42 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
+import { getCompatibleUnits, convertToBaseQuantity, normalizeUnit } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 import inventory from '@/routes/inventory';
+
+interface StockInItem {
+    id: number;
+    name: string;
+    stock: number;
+    unit?: string;
+    branch_id?: number | string;
+    type?: string;
+}
+
+interface Branch {
+    id: number | string;
+    name: string;
+}
+
+interface StockInPageProps extends Record<string, unknown> {
+    isAdmin?: boolean;
+    branches?: Branch[];
+    currentBranchId?: number | string;
+}
 
 interface StockInModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    item: any;
+    item: StockInItem | null;
     type: 'ingredient' | 'product';
 }
 
 export function StockInModal({ open, onOpenChange, item, type }: StockInModalProps) {
-    const { isAdmin, branches, currentBranchId } = usePage().props as any;
+    const { isAdmin, branches, currentBranchId } = usePage<StockInPageProps>().props;
     
     // Default to user's branch if not admin, or first available branch
-    const defaultBranchId = isAdmin ? (currentBranchId ? String(currentBranchId) : String(branches?.[0]?.id)) : String(currentBranchId);
+    const defaultBranchId = isAdmin ? (currentBranchId ? String(currentBranchId) : String(branches?.[0]?.id ?? '')) : String(currentBranchId ?? '');
 
     const { data, setData, post, processing, reset, errors } = useForm({
         type: type,
@@ -56,14 +76,12 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                 purchase_price: '',
             });
         }
-    }, [open, item, type, defaultBranchId]);
+    }, [open, item, type, defaultBranchId, setData]);
 
     // Units options based on type
     const units = useMemo(() => {
         if (type === 'product') return ['pcs'];
-        // For ingredients, we support mass or volume
-        const isLiquid = (item as any)?.type === 'liquid';
-        return isLiquid ? ['L', 'ml'] : ['kg', 'g', 'pcs'];
+        return getCompatibleUnits(item?.unit || 'g');
     }, [type, item]);
 
     // Conversion preview
@@ -71,16 +89,8 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
         const qty = parseFloat(data.quantity);
         if (isNaN(qty) || qty <= 0) return null;
 
-        let baseQty = qty;
-        let baseUnit = data.unit;
-
-        if (data.unit === 'kg') {
-            baseQty = qty * 1000;
-            baseUnit = 'g';
-        } else if (data.unit === 'L') {
-            baseQty = qty * 1000;
-            baseUnit = 'ml';
-        }
+        const baseQty = convertToBaseQuantity(qty, data.unit);
+        const baseUnit = normalizeUnit(data.unit);
 
         return { baseQty: baseQty.toFixed(2), baseUnit };
     }, [data.quantity, data.unit]);
@@ -97,9 +107,11 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
 
     if (!item) return null;
 
+    const errorRecord = errors as Record<string, string>;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[450px] overflow-hidden rounded-[1.5rem] p-0">
+            <DialogContent className="sm:max-w-112.5 overflow-hidden rounded-3xl p-0">
                 <div className="bg-primary/5 p-6 pb-4 border-b">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -116,7 +128,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                     <div className="flex items-center justify-between bg-muted/30 p-3 rounded-2xl border border-dashed border-muted-foreground/20">
                         <div className="flex flex-col">
                             <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Item Identifying</span>
-                            <span className="font-bold text-sm truncate max-w-[200px]">{item.name}</span>
+                            <span className="font-bold text-sm truncate max-w-50">{item.name}</span>
                         </div>
                         <Badge variant="outline" className="bg-background font-mono text-[10px] py-1 border-primary/20 text-primary">
                             CURRENT: {item.stock} {item.unit || 'units'}
@@ -132,7 +144,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                                         <SelectValue placeholder="Select Branch" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
-                                        {branches?.map((b: any) => (
+                                        {branches?.map((b: Branch) => (
                                             <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -209,14 +221,14 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                         </div>
                     )}
 
-                    {(errors as any).error && (
+                    {errorRecord.error && (
                         <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-xs font-bold ring-1 ring-destructive/20 animate-in shake-in duration-300">
-                            ⚠ {(errors as any).error}
+                            ⚠ {errorRecord.error}
                         </div>
                     )}
 
                     {/* Catch-all for other validation errors (id, type, etc) */}
-                    {Object.keys(errors).length > 0 && !(errors as any).error && (
+                    {Object.keys(errors).length > 0 && !errorRecord.error && (
                         <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-[10px] font-bold ring-1 ring-destructive/20">
                             <p className="mb-1 text-xs uppercase tracking-tight">Requirement Failures:</p>
                             <ul className="list-disc list-inside opacity-70">

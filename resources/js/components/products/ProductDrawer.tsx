@@ -31,6 +31,7 @@ export interface Ingredient {
     stock: number;
     pivot: {
         quantity_required: string;
+        unit?: string;
     };
 }
 
@@ -214,7 +215,7 @@ export function ProductDrawer({
                                     <div key={ing.id} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/30 dark:border-white/10 text-xs">
                                         <span className="font-semibold text-[#3D2C2E] dark:text-[#F8FAFC]">{ing.name}</span>
                                         <span className="font-bold text-[#E75480] dark:text-[#FF4F81] font-mono">
-                                            {ing.pivot?.quantity_required} {ing.unit}
+                                            {ing.pivot?.quantity_required} {ing.pivot?.unit || ing.unit}
                                         </span>
                                     </div>
                                 ))}

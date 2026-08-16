@@ -175,7 +175,6 @@ class ProductsController extends Controller
                     }
                 ],
                 'category_id'                => 'required|exists:categories,id',
-                'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                => 'nullable|string',
@@ -188,6 +187,9 @@ class ProductsController extends Controller
                 'branch_id'                  => 'required_if:branch_option,single|nullable|exists:branches,id',
             ]);
 
+            // Strip manual cost_price/stock if sent in request
+            unset($validated['cost_price'], $validated['stock']);
+
             // ✅ Prevent Duplicate Ingredients in Recipe
             $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
             if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
@@ -197,7 +199,6 @@ class ProductsController extends Controller
             }
 
             // ✅ Strict Recipe and Cost Consistency Validations
-            $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
             foreach ($validated['recipe'] as $idx => $item) {
                 if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -211,22 +212,13 @@ class ProductsController extends Controller
 
                 $usedUnit = strtolower(trim($item['unit']));
                 $baseUnit = strtolower(trim($ing->unit));
-                $normUsed = UnitConverter::normalizeUnit($usedUnit);
-                $normBase = UnitConverter::normalizeUnit($baseUnit);
 
-                // If cross-converting (e.g., pcs to g/ml) without avg_weight_per_piece
-                if (in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
-                    if (!$ing->avg_weight_per_piece || $ing->avg_weight_per_piece <= 0) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "recipe" => "Piece-based ingredient '{$ing->name}' requires an average weight per piece to compute cost accurately."
-                        ]);
-                    }
-                } elseif (!in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
-                    if ($normUsed !== $normBase) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "recipe" => "Invalid unit conversion: Cannot convert '{$usedUnit}' to base unit '{$baseUnit}' for ingredient '{$ing->name}'."
-                        ]);
-                    }
+                if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
+                    $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
+                    $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "recipe.{$idx}.unit" => "Invalid unit '{$item['unit']}' for ingredient '{$ing->name}'. Please select a {$family} unit ({$validUnits})."
+                    ]);
                 }
 
                 // Verify base cost exists
@@ -302,7 +294,6 @@ class ProductsController extends Controller
             ],
             'description'                => 'nullable|string',
             'category_id'                => 'required|exists:categories,id',
-            'cost_price'                 => 'nullable|numeric|min:0|max:999999.99',
             'selling_price'              => 'required|numeric|min:0|max:999999.99',
             'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
             'recipe'                     => 'nullable|array',
@@ -311,6 +302,9 @@ class ProductsController extends Controller
             'recipe.*.unit'              => 'nullable|string',
             'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
         ]);
+
+        // Strip manual cost_price/stock if sent in request
+        unset($validated['cost_price'], $validated['stock']);
 
         // Infer missing recipe unit from ingredient base unit
         if (!empty($validated['recipe'])) {
@@ -332,7 +326,6 @@ class ProductsController extends Controller
             }
 
             // ✅ Strict Recipe and Cost Consistency Validations
-            $pieceUnits = ['pcs', 'pc', 'pieces', 'piece', 'cloves', 'clove', 'half', 'whole'];
             foreach ($validated['recipe'] as $idx => $item) {
                 if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -346,22 +339,13 @@ class ProductsController extends Controller
 
                 $usedUnit = strtolower(trim($item['unit']));
                 $baseUnit = strtolower(trim($ing->unit));
-                $normUsed = UnitConverter::normalizeUnit($usedUnit);
-                $normBase = UnitConverter::normalizeUnit($baseUnit);
 
-                // If cross-converting (e.g., pcs to g/ml) without avg_weight_per_piece
-                if (in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
-                    if (!$ing->avg_weight_per_piece || $ing->avg_weight_per_piece <= 0) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "recipe" => "Piece-based ingredient '{$ing->name}' requires an average weight per piece to compute cost accurately."
-                        ]);
-                    }
-                } elseif (!in_array($usedUnit, $pieceUnits) && !in_array($baseUnit, $pieceUnits)) {
-                    if ($normUsed !== $normBase) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "recipe" => "Invalid unit conversion: Cannot convert '{$usedUnit}' to base unit '{$baseUnit}' for ingredient '{$ing->name}'."
-                        ]);
-                    }
+                if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
+                    $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
+                    $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "recipe.{$idx}.unit" => "Invalid unit '{$item['unit']}' for ingredient '{$ing->name}'. Please select a {$family} unit ({$validUnits})."
+                    ]);
                 }
 
                 // Verify base cost exists
