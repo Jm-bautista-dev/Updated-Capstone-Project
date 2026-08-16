@@ -27,12 +27,14 @@ class NotificationController extends Controller
         }
 
         $orderNotifications = $orderQuery->limit(10)->get()->map(function ($order) use ($user) {
+            $orderNum = $order->order_number ?? ("ORD-" . $order->id);
             return [
                 'id'              => 'order_' . $order->id,
                 'order_id'        => $order->id,
+                'order_number'    => $orderNum,
                 'employee_name'   => $order->customer_name,
                 'action'          => 'Order',
-                'ingredient_name' => "New Mobile Order #{$order->id}",
+                'ingredient_name' => $orderNum,
                 'quantity_change' => '₱' . number_format((float)$order->total_amount, 2),
                 'remaining'       => ucwords(str_replace('_', ' ', $order->status)),
                 'source'          => 'Customer Mobile Order',
