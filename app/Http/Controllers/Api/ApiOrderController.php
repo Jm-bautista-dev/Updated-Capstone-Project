@@ -250,4 +250,157 @@ class ApiOrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Customer-Safe Real-time Delivery Tracking endpoint.
+     * GET /api/v1/customer/orders/{id}/tracking
+     * GET /api/v1/orders/{id}/tracking
+     */
+    public function tracking(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+            }
+
+            /** @var Order|null $order */
+            $order = Order::with(['delivery.rider', 'branch', 'items.product'])->find($id);
+
+            if (!$order) {
+                return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+            }
+
+            // Strict Customer Authorization: Only the owner of the order or Admin can track
+            $isOwner = (int) $order->user_id === (int) $user->id;
+            $isAdmin = method_exists($user, 'isAdmin') && $user->isAdmin();
+
+            if (!$isOwner && !$isAdmin) {
+                return response()->json(['success' => false, 'message' => 'You are not authorized to track this order.'], 403);
+            }
+
+            $delivery = $order->delivery;
+            if (!$delivery) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'order_id'              => $order->id,
+                        'order_number'          => $order->order_number ?? "ORD-{$order->id}",
+                        'order_status'          => $order->status,
+                        'delivery_id'           => null,
+                        'delivery_status'       => null,
+                        'delivery_status_label' => 'No Delivery',
+                        'is_tracking_available' => false,
+                        'tracking_state'        => 'no_delivery',
+                        'message'               => 'No delivery record has been initiated for this order.',
+                    ]
+                ]);
+            }
+
+            // Determine tracking state
+            $deliveryStatus = $delivery->status;
+            $isDelivered = in_array($deliveryStatus, [Delivery::STATUS_DELIVERED]);
+            $isCancelled = in_array($deliveryStatus, [Delivery::STATUS_CANCELLED, Delivery::STATUS_FAILED]) || $order->status === 'cancelled';
+            $isActiveTransit = in_array($deliveryStatus, [Delivery::STATUS_PICKED_UP, Delivery::STATUS_OUT_FOR_DELIVERY]) && !$isDelivered && !$isCancelled;
+            $isRiderAssigned = in_array($deliveryStatus, [Delivery::STATUS_ASSIGNED]) && !$isDelivered && !$isCancelled;
+
+            $trackingState = match (true) {
+                $isDelivered     => 'delivered',
+                $isCancelled     => 'cancelled',
+                $isActiveTransit => 'active',
+                $isRiderAssigned => 'assigned',
+                default          => 'waiting',
+            };
+
+            $isTrackingAvailable = $isActiveTransit;
+
+            $rider = $delivery->rider;
+            $riderData = null;
+
+            if ($rider) {
+                $lastUpdated = $rider->location_updated_at ?? $rider->last_active_at;
+                $secondsAgo = $lastUpdated ? (int) now()->diffInSeconds($lastUpdated) : 9999;
+
+                if ($secondsAgo < 30) {
+                    $signalStatus = 'live';
+                } elseif ($secondsAgo <= 120) {
+                    $signalStatus = 'signal_delayed';
+                } else {
+                    $signalStatus = 'offline';
+                }
+
+                $riderData = [
+                    'id'                 => $rider->id,
+                    'name'               => $rider->name,
+                    'phone'              => $rider->phone,
+                    'latitude'           => $isTrackingAvailable ? ($rider->latitude ? (float) $rider->latitude : null) : null,
+                    'longitude'          => $isTrackingAvailable ? ($rider->longitude ? (float) $rider->longitude : null) : null,
+                    'accuracy'           => $isTrackingAvailable ? (float) ($rider->accuracy ?? 10) : null,
+                    'speed'              => $isTrackingAvailable ? (float) ($rider->speed ?? 0) : null,
+                    'heading'            => $isTrackingAvailable ? (float) ($rider->heading ?? 0) : null,
+                    'signal_status'      => $isTrackingAvailable ? $signalStatus : null,
+                    'seconds_ago'        => $isTrackingAvailable ? $secondsAgo : null,
+                    'last_updated_at'    => $isTrackingAvailable && $lastUpdated ? $lastUpdated->toIso8601String() : null,
+                    'last_updated_human' => $isTrackingAvailable && $lastUpdated ? $lastUpdated->diffForHumans() : null,
+                ];
+            }
+
+            $destinationLat = $delivery->latitude ? (float) $delivery->latitude : ($order->latitude ? (float) $order->latitude : null);
+            $destinationLng = $delivery->longitude ? (float) $delivery->longitude : ($order->longitude ? (float) $order->longitude : null);
+
+            $proofOfDeliveryUrl = null;
+            if ($delivery->proof_of_delivery) {
+                $proofOfDeliveryUrl = asset('storage/' . $delivery->proof_of_delivery);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'order_id'              => $order->id,
+                    'order_number'          => $order->order_number ?? "ORD-{$order->id}",
+                    'order_status'          => $order->status,
+                    'delivery_id'           => $delivery->id,
+                    'delivery_status'       => $delivery->status,
+                    'delivery_status_label' => $delivery->getStatusLabel(),
+                    'delivery_type'         => $delivery->delivery_type,
+                    'is_tracking_available' => $isTrackingAvailable,
+                    'tracking_state'        => $trackingState,
+                    'rider'                 => $riderData,
+                    'destination' => [
+                        'customer_name'    => $delivery->customer_name ?? $order->customer_name,
+                        'customer_phone'   => $delivery->customer_phone ?? $order->contact_number,
+                        'customer_address' => $delivery->customer_address ?? $order->address,
+                        'latitude'         => $destinationLat,
+                        'longitude'        => $destinationLng,
+                        'landmark'         => $delivery->landmark ?? $order->landmark,
+                    ],
+                    'branch' => [
+                        'id'        => $order->branch?->id,
+                        'name'      => $order->branch?->name,
+                        'latitude'  => $order->branch?->latitude ? (float) $order->branch->latitude : null,
+                        'longitude' => $order->branch?->longitude ? (float) $order->branch->longitude : null,
+                    ],
+                    'realtime' => [
+                        'channel'      => 'private-customer.order.' . $order->id,
+                        'event'        => 'rider.location.updated',
+                        'status_event' => 'order-status-updated',
+                    ],
+                    'proof_of_delivery_url' => $proofOfDeliveryUrl,
+                    'created_at'            => $order->created_at?->toIso8601String(),
+                    'updated_at'            => $order->updated_at?->toIso8601String(),
+                ]
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Order API Tracking Failure', [
+                'message'  => $e->getMessage(),
+                'order_id' => $id,
+                'trace'    => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => app()->environment('local') ? $e->getMessage() : 'Error retrieving order tracking.'
+            ], 500);
+        }
+    }
 }

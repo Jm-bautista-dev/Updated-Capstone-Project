@@ -34,7 +34,7 @@ class OrderStatusUpdated implements ShouldBroadcastNow
      * Broadcasts to both public and authorization-protected channels
      * so Web and Mobile clients can subscribe seamlessly.
      *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
+     * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
@@ -51,6 +51,10 @@ class OrderStatusUpdated implements ShouldBroadcastNow
         $userId = $this->delivery->order?->user_id;
         if ($userId) {
             $channels[] = new PrivateChannel('user.' . $userId);
+        }
+
+        if ($this->delivery->order_id) {
+            $channels[] = new PrivateChannel('customer.order.' . $this->delivery->order_id);
         }
 
         if ($this->delivery->rider_id) {

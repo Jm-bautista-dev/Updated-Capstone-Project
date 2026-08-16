@@ -508,7 +508,10 @@ class RiderController extends Controller
 
             // Find active delivery for this rider
             $delivery = Delivery::where('rider_id', $rider->id)
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit']))
+                ->where(function ($q) {
+                    $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit'])
+                      ->orWhereHas('order', fn($oq) => $oq->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit']));
+                })
                 ->latest()
                 ->first();
 

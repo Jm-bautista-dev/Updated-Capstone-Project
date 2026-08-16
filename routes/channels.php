@@ -25,3 +25,16 @@ Broadcast::channel('branch.{id}', function ($user, $id) {
     // Cashiers only their own branch
     return (int) $user->branch_id === (int) $id;
 });
+
+// Customer-scoped private order tracking channel
+Broadcast::channel('customer.order.{orderId}', function ($user, $orderId) {
+    if (!$user) {
+        return false;
+    }
+    if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+        return true;
+    }
+
+    $order = \App\Models\Order::find($orderId);
+    return $order && (int) $order->user_id === (int) $user->id;
+});
