@@ -62,37 +62,20 @@ class InventoryController extends Controller
                     continue;
                 }
 
-                $displayUnit  = $ingredient->unit;
-                $displayStock = (float) $stockRow->stock;
+                $displayUnit  = strtolower(trim($ingredient->unit));
+                $canonicalQty = (float) $stockRow->stock;
+
+                // Convert canonical stock to ingredient's display unit quantity
+                $displayStock = UnitConverter::convertFromBaseQuantity($canonicalQty, $displayUnit);
 
                 // Price: prefer the branch-level cost, fall back to global cost
                 $baseUnitPrice = (float) $stockRow->cost_per_unit > 0
                     ? (float) $stockRow->cost_per_unit
                     : (float) $ingredient->cost_per_base_unit;
 
-                $displayPrice = $baseUnitPrice;
-
-                if ($ingredient->unit === 'g') {
-                    if ($stockRow->stock >= 1000) {
-                        $displayUnit  = 'kg';
-                        $displayStock = (float) $stockRow->stock / 1000;
-                        $displayPrice = $baseUnitPrice * 1000;
-                    } else {
-                        $displayUnit  = 'g';
-                        $displayStock = (float) $stockRow->stock;
-                        $displayPrice = $baseUnitPrice;
-                    }
-                } elseif ($ingredient->unit === 'ml') {
-                    if ($stockRow->stock >= 1000) {
-                        $displayUnit  = 'L';
-                        $displayStock = (float) $stockRow->stock / 1000;
-                        $displayPrice = $baseUnitPrice * 1000;
-                    } else {
-                        $displayUnit  = 'ml';
-                        $displayStock = (float) $stockRow->stock;
-                        $displayPrice = $baseUnitPrice;
-                    }
-                }
+                // Convert cost per canonical unit to cost per display unit
+                $conversionFactor = UnitConverter::convertToBaseQuantity(1, $displayUnit);
+                $displayPrice     = round($baseUnitPrice * $conversionFactor, 4);
 
                 $inventory[] = [
                     'id'                   => $ingredient->id,
@@ -183,11 +166,13 @@ class InventoryController extends Controller
             $normalizedCostPerBaseUnit = $conversionFactor > 0 ? ($rawCostInput / $conversionFactor) : $rawCostInput;
         }
 
+        $displayUnit = strtolower(trim($validated['unit']));
+
         // Create ONE global ingredient (deduplicated by name)
         $ingredient = Ingredient::firstOrCreate(
             ['name' => $validated['name']],
             [
-                'unit'                 => $normalizedUnit,
+                'unit'                 => $displayUnit,
                 'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? null,
                 'cost_per_base_unit'   => $normalizedCostPerBaseUnit
             ]
@@ -195,7 +180,7 @@ class InventoryController extends Controller
 
         // Update properties if they already existed
         $ingredient->update([
-            'unit'                 => $normalizedUnit,
+            'unit'                 => $displayUnit,
             'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
             'cost_per_base_unit'   => $normalizedCostPerBaseUnit
         ]);

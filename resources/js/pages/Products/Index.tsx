@@ -38,7 +38,7 @@ import {
     SelectValue
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { getCompatibleUnits, getDefaultRecipeUnit, convertToBaseQuantityWithIngredient } from '@/lib/unit-converter';
+import { getCompatibleUnits, convertToBaseQuantityWithIngredient } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
 type Category = {
@@ -451,7 +451,7 @@ export default function ProductsIndex() {
     };
 
     const addRecipeItem = () => {
-        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1', unit: 'g' }]);
+        setData('recipe', [...data.recipe, { ingredient_id: '', quantity_required: '1', unit: 'pcs' }]);
     };
 
     const removeRecipeItem = (index: number) => {
@@ -464,7 +464,7 @@ export default function ProductsIndex() {
         const newRecipe = [...data.recipe];
         if (field === 'ingredient_id') {
             const selectedIng = ingredients.find(ing => String(ing.id) === value);
-            const defaultUnit = selectedIng ? getDefaultRecipeUnit(selectedIng.unit) : 'pcs';
+            const defaultUnit = selectedIng ? (selectedIng.unit || 'pcs') : 'pcs';
             newRecipe[index] = { ...newRecipe[index], ingredient_id: value, unit: defaultUnit };
         } else {
             newRecipe[index] = { ...newRecipe[index], [field]: value };
