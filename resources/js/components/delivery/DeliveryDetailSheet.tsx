@@ -299,6 +299,97 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                 </SheetHeader>
 
                 <div className="px-6 space-y-6">
+                    {/* Cancellation Request Alert Banner */}
+                    {((delivery.status === 'cancellation_requested' || delivery.order?.status === 'cancellation_requested') || delivery.cancellation_request || delivery.order?.cancellation_request) && (
+                        <div className="p-4 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 dark:text-amber-300 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="size-5 text-amber-600 animate-pulse" />
+                                    <span className="font-extrabold text-xs uppercase tracking-wide">Cancellation Requested</span>
+                                </div>
+                                <Badge className="bg-amber-500 text-white font-black text-[10px]">PENDING DECISION</Badge>
+                            </div>
+
+                            <div className="text-xs space-y-1 bg-white/70 dark:bg-black/40 p-3 rounded-2xl border border-amber-500/20">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground font-medium">Rider:</span>
+                                    <span className="font-bold text-foreground">
+                                        {delivery.cancellation_request?.requested_by_rider?.name || delivery.order?.cancellation_request?.requested_by_rider?.name || delivery.rider?.name || 'Assigned Rider'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground font-medium">Reason:</span>
+                                    <span className="font-bold text-amber-700 dark:text-amber-400">
+                                        {delivery.cancellation_request?.reason || delivery.order?.cancellation_request?.reason || 'Rider requested cancellation'}
+                                    </span>
+                                </div>
+                                {(delivery.cancellation_request?.notes || delivery.order?.cancellation_request?.notes) && (
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground font-medium">Notes:</span>
+                                        <span className="font-medium text-foreground">
+                                            {delivery.cancellation_request?.notes || delivery.order?.cancellation_request?.notes}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={async () => {
+                                        const reqId = delivery.cancellation_request?.id || delivery.order?.cancellation_request?.id;
+                                        if (!reqId) return;
+                                        try {
+                                            const res = await fetch(`/api/v1/cancellation-requests/${reqId}/reject`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                                                    'Accept': 'application/json',
+                                                },
+                                                body: JSON.stringify({ rejection_reason: 'Rejected by cashier' })
+                                            });
+                                            const data = await res.json();
+                                            if (res.ok && data.success) {
+                                                onClose();
+                                                router.reload();
+                                            }
+                                        } catch { /* rejected silently */ }
+                                    }}
+                                    className="flex-1 h-9 rounded-2xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200"
+                                >
+                                    REJECT
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={async () => {
+                                        const reqId = delivery.cancellation_request?.id || delivery.order?.cancellation_request?.id;
+                                        if (!reqId) return;
+                                        try {
+                                            const res = await fetch(`/api/v1/cancellation-requests/${reqId}/accept`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                                                    'Accept': 'application/json',
+                                                },
+                                            });
+                                            const data = await res.json();
+                                            if (res.ok && data.success) {
+                                                onClose();
+                                                router.reload();
+                                            }
+                                        } catch { /* accepted silently */ }
+                                    }}
+                                    className="flex-1 h-9 rounded-2xl text-xs font-black bg-rose-600 hover:bg-rose-700 text-white"
+                                >
+                                    ACCEPT CANCELLATION
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Status Timeline */}
                     <StatusTimeline currentStatus={delivery.status} />
 

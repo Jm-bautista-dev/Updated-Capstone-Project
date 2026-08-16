@@ -43,12 +43,28 @@ export interface Delivery {
             subtotal: number;
         }>;
     } | null;
+    cancellation_request?: {
+        id: number;
+        reason: string;
+        notes?: string | null;
+        status: string;
+        requested_at?: string | null;
+        requested_by_rider?: { name: string } | null;
+    } | null;
     order?: {
         id: number;
         order_number?: string;
         total_amount: number;
         status?: string;
         branch?: { name: string; latitude?: number; longitude?: number } | null;
+        cancellation_request?: {
+            id: number;
+            reason: string;
+            notes?: string | null;
+            status: string;
+            requested_at?: string | null;
+            requested_by_rider?: { name: string } | null;
+        } | null;
         items?: Array<{
             id: number;
             product: { name: string; image_url?: string };

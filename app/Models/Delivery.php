@@ -57,9 +57,10 @@ class Delivery extends Model
     const STATUS_ASSIGNED          = 'assigned_to_rider';
     const STATUS_PICKED_UP         = 'picked_up';
     const STATUS_OUT_FOR_DELIVERY  = 'in_transit';       // renamed from out_for_delivery
-    const STATUS_DELIVERED         = 'delivered';
-    const STATUS_CANCELLED         = 'cancelled';
-    const STATUS_FAILED            = 'failed_delivery';  // rider failed, requires reassign
+    const STATUS_DELIVERED            = 'delivered';
+    const STATUS_CANCELLED            = 'cancelled';
+    const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
+    const STATUS_FAILED               = 'failed_delivery';  // rider failed, requires reassign
 
     // External delivery flow
     const STATUS_BOOKED   = 'booked';
@@ -284,8 +285,14 @@ class Delivery extends Model
             self::STATUS_BOOKED                         => 'bg-sky-100 text-sky-700',
             self::STATUS_DELIVERED                      => 'bg-emerald-100 text-emerald-700',
             self::STATUS_CANCELLED                      => 'bg-rose-100 text-rose-700',
+            self::STATUS_CANCELLATION_REQUESTED         => 'bg-amber-500 text-white font-bold animate-pulse',
             self::STATUS_FAILED                         => 'bg-red-100 text-red-800',
             default                                     => 'bg-gray-100 text-gray-600',
         };
+    }
+
+    public function cancellationRequest()
+    {
+        return $this->hasOne(OrderCancellationRequest::class)->latestOfMany();
     }
 }

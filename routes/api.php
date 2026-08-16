@@ -76,8 +76,14 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']); // in_transit
             Route::post('orders/{id}/deliver', [RiderController::class, 'deliverOrder']); // delivered + proof upload
             Route::post('orders/{id}/reject',  [RiderController::class, 'rejectOrder']);  // back to ready_for_pickup
-            Route::post('orders/{id}/cancel',  [RiderController::class, 'cancelOrder']);  // fully cancelled
+            Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);  // rider cancellation request
+            Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);  // alias for rider cancellation request
         });
+
+        // Cancellation Requests (Cashier/Admin Approval)
+        Route::get('cancellation-requests/pending', [App\Http\Controllers\Api\CancellationRequestController::class, 'pending']);
+        Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept']);
+        Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject']);
 
         // Deliveries Live Tracking
         Route::get('deliveries/live-riders', [App\Http\Controllers\Admin\DeliveryController::class, 'getLiveRiderLocations']);

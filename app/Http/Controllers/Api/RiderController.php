@@ -9,7 +9,9 @@ use App\Models\Delivery;
 use App\Models\RiderLocationLog;
 use App\Services\OrderFulfillmentService;
 use App\Services\InventoryService;
+use App\Models\OrderCancellationRequest;
 use App\Events\OrderStatusUpdated;
+use App\Events\CancellationRequested;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -379,7 +381,7 @@ class RiderController extends Controller
 
     /**
      * POST /api/v1/rider/orders/{id}/cancel
-     * Rider cancels the entire delivery transaction.
+     * Rider submits a cancellation request (does NOT directly cancel).
      */
     public function cancelOrder(Request $request, $id): JsonResponse
     {
@@ -391,51 +393,83 @@ class RiderController extends Controller
 
             $request->validate([
                 'reason' => 'required|string|max:255',
+                'notes'  => 'nullable|string|max:500',
             ]);
 
             return DB::transaction(function () use ($rider, $id, $request) {
-                $delivery = Delivery::with('order')
+                $delivery = Delivery::with(['order.branch', 'order'])
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
                     ->findOrFail($id);
 
                 if ($delivery->isDelivered()) {
-                    return response()->json(['success' => false, 'message' => 'Cannot cancel a delivered order.'], 422);
+                    return response()->json(['success' => false, 'message' => 'Cannot request cancellation for a delivered order.'], 422);
+                }
+
+                if ($delivery->status === 'cancelled') {
+                    return response()->json(['success' => false, 'message' => 'Order is already cancelled.'], 422);
                 }
 
                 $order = $delivery->order;
-                
-                // Update Order Status
-                if ($order) {
-                    $order->transitionTo('cancelled', $request->reason, null, $rider->id);
-                    
-                    // Restore inventory
-                    app(InventoryService::class)->restoreForOrder($order);
+                if (!$order) {
+                    return response()->json(['success' => false, 'message' => 'Order not found for this delivery.'], 404);
                 }
 
-                // Update Delivery Status
-                $delivery->update([
-                    'status' => 'cancelled',
-                    'cancellation_reason' => $request->reason,
-                    'cancelled_by' => $rider->id,
-                    'cancelled_at' => now(),
+                // Check for existing pending cancellation request
+                $existingRequest = OrderCancellationRequest::where('order_id', $order->id)
+                    ->where('status', 'pending')
+                    ->first();
+
+                if ($existingRequest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A cancellation request is already pending for this order.',
+                        'status'  => 'cancellation_requested',
+                        'request' => $existingRequest,
+                    ], 422);
+                }
+
+                $prevOrderStatus = $order->status;
+                $prevDeliveryStatus = $delivery->status;
+
+                // Update Order & Delivery status to 'cancellation_requested'
+                $order->update(['status' => 'cancellation_requested']);
+                $delivery->update(['status' => 'cancellation_requested']);
+
+                // Create Cancellation Request Record
+                $cancellationRequest = OrderCancellationRequest::create([
+                    'order_id'                 => $order->id,
+                    'delivery_id'              => $delivery->id,
+                    'requested_by_rider_id'    => $rider->id,
+                    'branch_id'                => $order->branch_id,
+                    'reason'                   => $request->reason,
+                    'notes'                    => $request->input('notes'),
+                    'previous_order_status'    => $prevOrderStatus,
+                    'previous_delivery_status' => $prevDeliveryStatus,
+                    'status'                   => 'pending',
+                    'requested_at'             => now(),
                 ]);
 
-                // Free up the rider
-                $rider->update(['status' => 'available']);
-
-                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                // Real-Time Broadcasts
+                try {
+                    broadcast(new CancellationRequested($cancellationRequest->fresh()));
+                    broadcast(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                } catch (\Throwable $e) {
+                    Log::warning('Broadcast failed for CancellationRequested: ' . $e->getMessage());
+                }
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Delivery cancelled and inventory restored.',
+                    'message' => 'Cancellation request submitted successfully. Waiting for cashier approval.',
+                    'status'  => 'cancellation_requested',
+                    'request' => $cancellationRequest->fresh(),
                 ]);
             });
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             Log::error('Rider::cancelOrder failed', ['error' => $e->getMessage(), 'id' => $id]);
-            return response()->json(['success' => false, 'message' => 'Failed to cancel order'], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to submit cancellation request'], 500);
         }
     }
 

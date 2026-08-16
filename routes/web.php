@@ -182,6 +182,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
             Route::post('deliveries/{delivery}/fail', [DeliveryController::class, 'failDelivery'])->name('deliveries.fail');
             Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
+            Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept'])->name('cancellation-requests.accept');
+            Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject'])->name('cancellation-requests.reject');
 
             Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
 

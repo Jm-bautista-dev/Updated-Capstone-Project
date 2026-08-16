@@ -36,6 +36,8 @@ class DeliveryController extends Controller
             'sale.items.product',
             'order.items.product',
             'order.branch',
+            'order.cancellationRequest.requestedByRider',
+            'cancellationRequest.requestedByRider',
             'rider',
             'creator',
             'cancelledBy'
@@ -57,6 +59,7 @@ class DeliveryController extends Controller
             'assigned_to_rider',
             'picked_up',
             'in_transit',
+            'cancellation_requested',
             'failed_delivery',
         ];
 

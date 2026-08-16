@@ -56,21 +56,23 @@ class Order extends Model
         'assigned_to_rider',
         'picked_up',
         'in_transit',
+        'cancellation_requested',
         'delivered',
         'cancelled',
     ];
 
     /** Allowed forward transitions (from → [allowed next states]) */
     const TRANSITIONS = [
-        'pending'           => ['confirmed', 'cancelled'],
-        'confirmed'         => ['preparing', 'cancelled'],
-        'preparing'         => ['ready_for_pickup', 'cancelled'],
-        'ready_for_pickup'  => ['assigned_to_rider', 'cancelled'],
-        'assigned_to_rider' => ['picked_up', 'cancelled'],
-        'picked_up'         => ['in_transit', 'cancelled'],
-        'in_transit'        => ['delivered', 'cancelled'],
-        'delivered'         => [],
-        'cancelled'         => [],
+        'pending'                => ['confirmed', 'cancelled'],
+        'confirmed'              => ['preparing', 'cancelled'],
+        'preparing'              => ['ready_for_pickup', 'cancelled'],
+        'ready_for_pickup'       => ['assigned_to_rider', 'cancelled'],
+        'assigned_to_rider'      => ['picked_up', 'cancelled', 'cancellation_requested'],
+        'picked_up'              => ['in_transit', 'cancelled', 'cancellation_requested'],
+        'in_transit'             => ['delivered', 'cancelled', 'cancellation_requested'],
+        'cancellation_requested' => ['cancelled', 'assigned_to_rider', 'picked_up', 'in_transit'],
+        'delivered'              => [],
+        'cancelled'              => [],
     ];
 
     /**
@@ -154,5 +156,10 @@ class Order extends Model
     public function auditLogs()
     {
         return $this->hasMany(OrderAuditLog::class);
+    }
+
+    public function cancellationRequest()
+    {
+        return $this->hasOne(OrderCancellationRequest::class)->latestOfMany();
     }
 }
