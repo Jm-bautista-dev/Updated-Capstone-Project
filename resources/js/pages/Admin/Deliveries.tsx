@@ -159,7 +159,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                     (targetOrderNum && (d.order?.order_number === targetOrderNum || d.sale?.order_number === targetOrderNum))
                 );
                 if (match) {
-                    setSelectedDelivery(match);
+                    const timer = setTimeout(() => setSelectedDelivery(match), 0);
+                    return () => clearTimeout(timer);
                 }
             }
         }
