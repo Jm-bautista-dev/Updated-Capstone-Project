@@ -166,7 +166,7 @@ export function SalesExportModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px] bg-white dark:bg-[#0f0f10] border border-rose-100 dark:border-rose-950/40 text-foreground rounded-2xl p-6 shadow-2xl space-y-5">
+      <DialogContent className="sm:max-w-125 bg-white dark:bg-[#0f0f10] border border-rose-100 dark:border-rose-950/40 text-foreground rounded-2xl p-6 shadow-2xl space-y-5">
         
         <DialogHeader className="space-y-1.5 text-left">
           <div className="flex items-center gap-2 text-[#E75480] dark:text-[#FF4F81]">
