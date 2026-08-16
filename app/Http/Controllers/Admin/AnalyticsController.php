@@ -33,6 +33,7 @@ class AnalyticsController extends Controller
             'branchStats'          => $this->getBranchStats($branches, $startDate, $today),
             'salesOverTime'        => $this->getSalesOverTime($range, $startDate, $branchId),
             'salesPerProduct'      => $this->getTopProducts($startDate, $branchId),
+            'topProductCosts'      => $this->getTopProductCosts($branchId),
             'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $branchId),
             'range'                => $range,
             'branches'             => $branches,
@@ -240,6 +241,42 @@ class AnalyticsController extends Controller
                 $item->revenue = (float) $item->revenue;
                 return $item;
             });
+    }
+
+    private function getTopProductCosts(?int $branchId = null): array
+    {
+        $query = Product::with(['ingredients.stocks', 'branches']);
+
+        if ($branchId) {
+            $query->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id')
+                  ->orWhereHas('branches', function ($bq) use ($branchId) {
+                      $bq->where('branches.id', $branchId);
+                  });
+            });
+        }
+
+        $products = $query->get();
+
+        $ranked = $products->map(function (Product $product) use ($branchId) {
+            $cost = (float) $product->computeProductCost($branchId);
+            return [
+                'id'            => $product->id,
+                'name'          => $product->name,
+                'sku'           => $product->sku,
+                'cost'          => round($cost, 2),
+                'selling_price' => (float) $product->selling_price,
+                'has_recipe'    => $product->ingredients->isNotEmpty(),
+            ];
+        })
+        ->filter(fn($item) => $item['cost'] > 0)
+        ->sortByDesc('cost')
+        ->values()
+        ->take(8)
+        ->toArray();
+
+        return $ranked;
     }
 
     private function getSalesByPayment($startDate, ?int $branchId = null)

@@ -21,6 +21,7 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { PrescriptiveActionsCard } from '@/components/dashboard/PrescriptiveActionsCard';
 import { QuickActionCard } from '@/components/dashboard/QuickActionCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { TopProductCostsChart, type TopProductCostItem } from '@/components/dashboard/TopProductCostsChart';
 import AppLayout from '@/layouts/app-layout';
 
 const formatCurrency = (amount: number) =>
@@ -97,6 +98,7 @@ interface DashboardProps {
     branchStats?: BranchStat[];
     salesOverTime?: SalesOverTimeItem[];
     salesPerProduct?: SalesPerProductItem[];
+    topProductCosts?: TopProductCostItem[];
     salesByPaymentMethod?: PaymentMethodItem[];
     range: number;
     branches?: BranchItem[];
@@ -112,6 +114,7 @@ export default function Dashboard({
     branchStats,
     salesOverTime,
     salesPerProduct,
+    topProductCosts = [],
     salesByPaymentMethod,
     range,
     branches = [],
@@ -145,6 +148,10 @@ export default function Dashboard({
         setSelectedBranch(value);
         navigateDashboard({ range: range.toString(), branch_id: value });
     };
+
+    const activeBranchName = selectedBranch === 'all' 
+        ? 'All Branches' 
+        : (branches.find(b => String(b.id) === String(selectedBranch))?.name || 'Selected Branch');
 
     return (
         <AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
@@ -232,6 +239,12 @@ export default function Dashboard({
                     <div className="xl:col-span-8 space-y-8">
                         {/* Operational Revenue/Profit Trajectory */}
                         <TrajectoryChart salesOverTime={salesOverTime} />
+
+                        {/* Top Product Costs Horizontal Bar Chart */}
+                        <TopProductCostsChart 
+                            topProductCosts={topProductCosts}
+                            activeBranchName={activeBranchName}
+                        />
 
                         {/* Top Products & Payment Channel Charts */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

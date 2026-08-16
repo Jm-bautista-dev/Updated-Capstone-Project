@@ -304,21 +304,23 @@ class SaleService
     public function voidSale(Sale $sale): void
     {
         DB::transaction(function () use ($sale) {
-            // Only allow voiding if not already cancelled
-            if ($sale->status === 'cancelled') {
+            // Lock the sale row to prevent concurrent race condition voiding
+            /** @var Sale|null $freshSale */
+            $freshSale = Sale::where('id', $sale->id)->lockForUpdate()->first();
+            if (!$freshSale || $freshSale->status === 'cancelled') {
                 return;
             }
 
-            $branchId = $sale->branch_id;
+            $branchId = $freshSale->branch_id;
             
             // Loop through sale items and restore stock
-            foreach ($sale->items as $item) {
-                $product = $item->product()->with('ingredients')->first();
+            foreach ($freshSale->items()->with('product.ingredients')->get() as $item) {
+                $product = $item->product;
                 if (!$product) continue;
 
                 if ($product->ingredients->isNotEmpty()) {
                     foreach ($product->ingredients as $ingredient) {
-                        $qtyInput = (float) $ingredient->pivot->quantity_required;
+                        $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);
                         $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
                         
                         $baseRestoringPerProduct = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
@@ -328,7 +330,7 @@ class SaleService
                             $ingredient->avg_weight_per_piece
                         );
                         
-                        $restoringTotal = $baseRestoringPerProduct * $item->quantity;
+                        $restoringTotal = $baseRestoringPerProduct * (float) $item->quantity;
 
                         // Restore to the branch's specific stock row
                         $stockRow = IngredientStock::where('ingredient_id', $ingredient->id)
@@ -352,7 +354,7 @@ class SaleService
                                 'unit'           => $ingredient->unit,
                                 'previous_stock' => $previousStock,
                                 'new_stock'      => (float) $stockRow->stock,
-                                'reference'      => "Void Sale: {$sale->order_number}",
+                                'reference'      => "Void Sale: {$freshSale->order_number}",
                             ]);
                         }
                     }
@@ -360,7 +362,8 @@ class SaleService
             }
 
             // Update status
-            $sale->update(['status' => 'cancelled']);
+            $freshSale->update(['status' => 'cancelled']);
+            $sale->status = 'cancelled';
             
             // 🔥 BROADCAST: Inventory restored
             broadcast(new StockUpdated($branchId, null, null))->toOthers();

@@ -1,6 +1,7 @@
 import { Head, usePage, router } from '@inertiajs/react';
 import { ShieldAlert } from 'lucide-react';
 import React, { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 
 import { SalesCardGrid } from '@/components/sales/SalesCardGrid';
 import { SalesDrawer } from '@/components/sales/SalesDrawer';
@@ -75,9 +76,10 @@ export default function SalesIndex() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [saleToVoid, setSaleToVoid] = useState<Sale | null>(null);
     const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState<number | null>(null);
 
     // BroadcastChannel real-time sync
-    const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
+    const stateChannel = useMemo(() => new BroadcastChannel('app-state-sync'), []);
 
     useEffect(() => {
         const handleMessage = (e: MessageEvent) => {
@@ -112,10 +114,27 @@ export default function SalesIndex() {
     };
 
     const updateStatus = (id: number, status: string) => {
-        router.patch(`/sales/${id}/status`, { status }, {
+        setIsUpdatingStatus(id);
+        router.put(`/sales/${id}/status`, { status }, {
+            preserveScroll: true,
             onSuccess: () => {
+                setIsUpdatingStatus(null);
+                setIsVoidModalOpen(false);
                 stateChannel.postMessage({ type: 'sales-updated' });
+                stateChannel.postMessage({ type: 'inventory-updated' });
                 router.reload();
+                toast.success(status === 'cancelled' 
+                    ? 'Transaction voided and stock restored successfully.' 
+                    : `Order status updated to ${status}.`
+                );
+            },
+            onError: (errs) => {
+                setIsUpdatingStatus(null);
+                const errMsg = errs.error || Object.values(errs)[0] || 'Failed to update order status.';
+                toast.error(String(errMsg));
+            },
+            onFinish: () => {
+                setIsUpdatingStatus(null);
             }
         });
     };
@@ -276,6 +295,7 @@ export default function SalesIndex() {
                     <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
                         <Button
                             variant="outline"
+                            disabled={isUpdatingStatus === saleToVoid?.id}
                             onClick={() => setIsVoidModalOpen(false)}
                             className="rounded-xl text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]"
                         >
@@ -283,15 +303,15 @@ export default function SalesIndex() {
                         </Button>
                         <Button
                             variant="destructive"
+                            disabled={isUpdatingStatus === saleToVoid?.id}
                             onClick={() => {
                                 if (saleToVoid) {
                                     updateStatus(saleToVoid.id, 'cancelled');
-                                    setIsVoidModalOpen(false);
                                 }
                             }}
                             className="rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
                         >
-                            Confirm Void
+                            {isUpdatingStatus === saleToVoid?.id ? 'Voiding...' : 'Confirm Void'}
                         </Button>
                     </div>
                 </DialogContent>

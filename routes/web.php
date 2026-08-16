@@ -134,7 +134,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Sales
             Route::get('sales', [App\Http\Controllers\SalesController::class, 'index'])->name('sales.index');
-            Route::put('sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
+            Route::match(['put', 'patch'], 'sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
             // Deliveries
             Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');

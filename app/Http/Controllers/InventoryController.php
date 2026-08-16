@@ -266,26 +266,24 @@ class InventoryController extends Controller
         $normalizedUnit = UnitConverter::normalizeUnit($validated['unit']);
         $conversionFactor = UnitConverter::convertToBaseQuantity(1, $validated['unit']);
 
-        // Normalize updated global cost
-        $normalizedGlobalCost = $conversionFactor > 0 
-            ? (float) ($validated['cost_per_base_unit'] ?? $ingredient->cost_per_base_unit) / $conversionFactor
-            : (float) ($validated['cost_per_base_unit'] ?? $ingredient->cost_per_base_unit);
+        // Normalize updated cost per base unit (e.g. ₱24/kg -> ₱0.024/g)
+        $normalizedInputCost = isset($validated['cost_per_unit'])
+            ? ($conversionFactor > 0 ? (float) $validated['cost_per_unit'] / $conversionFactor : (float) $validated['cost_per_unit'])
+            : (isset($validated['cost_per_base_unit'])
+                ? ($conversionFactor > 0 ? (float) $validated['cost_per_base_unit'] / $conversionFactor : (float) $validated['cost_per_base_unit'])
+                : (float) $ingredient->cost_per_base_unit);
 
         $ingredient->update([
-            'name' => $validated['name'],
-            'unit' => $normalizedUnit,
+            'name'                 => $validated['name'],
+            'unit'                 => $normalizedUnit,
             'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
-            'cost_per_base_unit' => $normalizedGlobalCost,
+            'cost_per_base_unit'   => $normalizedInputCost > 0 ? $normalizedInputCost : (float) $ingredient->cost_per_base_unit,
         ]);
 
         // If branch_id and stock provided, update that branch's stock row
         if (!empty($validated['branch_id']) && isset($validated['stock'])) {
             $baseStock = (float) $validated['stock'] * $conversionFactor;
-            
-            // Normalize updated cost (Total value / Total base units)
-            $normalizedBranchCost = $baseStock > 0
-                ? (float) ($validated['cost_per_unit'] ?? 0) / $baseStock
-                : 0;
+            $normalizedBranchCost = $normalizedInputCost;
 
             $stockRow = IngredientStock::firstOrCreate(
                 ['ingredient_id' => $ingredient->id, 'branch_id' => $validated['branch_id']],
@@ -294,9 +292,10 @@ class InventoryController extends Controller
 
             $oldStock = (float) $stockRow->stock;
             $stockRow->update([
-                'stock'           => $baseStock,
-                'low_stock_level' => $validated['low_stock_level'] ?? $stockRow->low_stock_level,
-                'cost_per_unit'   => $normalizedBranchCost,
+                'stock'             => $baseStock,
+                'low_stock_level'   => $validated['low_stock_level'] ?? $stockRow->low_stock_level,
+                'cost_per_unit'     => $normalizedBranchCost,
+                'total_stock_value' => $baseStock * $normalizedBranchCost,
             ]);
 
             if ($baseStock != $oldStock) {
@@ -310,7 +309,7 @@ class InventoryController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'Ingredient updated.');
+        return redirect()->back()->with('success', 'Ingredient updated successfully.');
     }
 
     /**

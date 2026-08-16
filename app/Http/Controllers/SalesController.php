@@ -64,10 +64,16 @@ class SalesController extends Controller
     public function updateStatus(Request $request, Sale $sale)
     {
         $user = Auth::user();
+        if (!$user) {
+            abort(401, 'Unauthenticated.');
+        }
         
-        // Authorization check: Admin can update anything, Cashier only their own
-        if (!$user->isAdmin() && $sale->user_id !== $user->id) {
-            abort(403, 'Unauthorized access to this sale record.');
+        // Authorization check: Admin can update any, Cashier only their branch or own sales
+        if (!$user->isAdmin() && $sale->user_id !== $user->id && $sale->branch_id !== $user->branch_id) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => 'You are not authorized to modify this sale record.'], 403);
+            }
+            return back()->with('error', 'You are not authorized to modify this sale record.');
         }
 
         $validated = $request->validate([
@@ -75,30 +81,51 @@ class SalesController extends Controller
         ]);
 
         $saleService = app(\App\Services\SaleService::class);
-
         $oldStatus = $sale->status;
 
-        if ($validated['status'] === 'cancelled' && $sale->status !== 'cancelled') {
-            $saleService->voidSale($sale);
-        } else {
-            $sale->update($validated);
-        }
+        try {
+            if ($validated['status'] === 'cancelled' && $sale->status !== 'cancelled') {
+                $saleService->voidSale($sale);
+            } else {
+                $sale->update($validated);
+            }
 
-        // Sync linked Delivery status if present & broadcast real-time event
-        /** @var \App\Models\Delivery|null $delivery */
-        $delivery = \App\Models\Delivery::where('sale_id', $sale->id)->first();
-        if ($delivery) {
-            $mappedDeliveryStatus = match ($validated['status']) {
-                'pending'   => 'pending',
-                'preparing' => 'preparing',
-                'completed' => 'delivered',
-                'cancelled' => 'cancelled',
-                default     => $validated['status'],
-            };
-            $delivery->update(['status' => $mappedDeliveryStatus]);
-            event(new \App\Events\OrderStatusUpdated($delivery->fresh(), 'cashier', $oldStatus));
-        }
+            // Sync linked Delivery status if present & broadcast real-time event
+            /** @var \App\Models\Delivery|null $delivery */
+            $delivery = \App\Models\Delivery::where('sale_id', $sale->id)->first();
+            if ($delivery) {
+                $mappedDeliveryStatus = match ($validated['status']) {
+                    'pending'   => 'pending',
+                    'preparing' => 'preparing',
+                    'completed' => 'delivered',
+                    'cancelled' => 'cancelled',
+                    default     => $validated['status'],
+                };
+                $delivery->update(['status' => $mappedDeliveryStatus]);
+                event(new \App\Events\OrderStatusUpdated($delivery->fresh(), 'cashier', $oldStatus));
+            }
 
-        return back()->with('success', "Order #{$sale->order_number} status updated to {$validated['status']}");
+            $actionMessage = $validated['status'] === 'cancelled' 
+                ? "Order #{$sale->order_number} has been voided and inventory restored."
+                : "Order #{$sale->order_number} status updated to {$validated['status']}.";
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'message' => $actionMessage, 'sale' => $sale->fresh()]);
+            }
+
+            return back()->with('success', $actionMessage);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('SalesController updateStatus error', [
+                'sale_id' => $sale->id,
+                'status'  => $validated['status'],
+                'message' => $e->getMessage(),
+            ]);
+
+            if ($request->wantsJson()) {
+                return response()->json(['error' => 'Failed to update order status: ' . $e->getMessage()], 422);
+            }
+
+            return back()->with('error', 'Failed to update order status: ' . $e->getMessage());
+        }
     }
 }

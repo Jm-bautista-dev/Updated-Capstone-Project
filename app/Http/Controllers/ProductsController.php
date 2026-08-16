@@ -85,6 +85,11 @@ class ProductsController extends Controller
                 $product->stock = $totalStock > 0 ? $totalStock : (float) $availability['available'];
             }
 
+            $costPrice = $product->computeProductCost($branchId);
+            $product->cost_price = $costPrice;
+            $product->cost = $costPrice;
+            $product->has_cost = $costPrice > 0;
+
             $product->branch_breakdown = $branchBreakdown;
             $product->max_servings = $availability['max_servings'];
             $product->is_available = $product->stock > 0;

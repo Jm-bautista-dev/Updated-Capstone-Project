@@ -150,7 +150,11 @@ export function ProductTable({
                                         <td className="p-4 px-6 align-middle hidden sm:table-cell">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B] font-bold uppercase">
-                                                    Cost: {formatCurrency(product.cost_price)}
+                                                    Cost: {product.cost_price && Number(product.cost_price) > 0 ? (
+                                                        <span className="font-mono text-[#5D4A4D] dark:text-[#CBD5E1]">{formatCurrency(product.cost_price)}</span>
+                                                    ) : (
+                                                        <span className="text-amber-600 dark:text-amber-400 font-semibold normal-case">Cost unavailable</span>
+                                                    )}
                                                 </span>
                                                 <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
                                                     Sell: {formatCurrency(product.selling_price)}

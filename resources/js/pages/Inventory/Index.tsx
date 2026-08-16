@@ -7,7 +7,10 @@ import {
     Trash2,
 } from 'lucide-react';
 import React, { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 
+import AlertError from '@/components/alert-error';
+import InputError from '@/components/input-error';
 import { InventoryDrawer, type ActivityLog } from '@/components/inventory/InventoryDrawer';
 import { InventoryFilterToolbar } from '@/components/inventory/InventoryFilterToolbar';
 import { InventoryHero, type InventoryRow } from '@/components/inventory/InventoryHero';
@@ -222,15 +225,18 @@ export default function InventoryIndex() {
     });
 
     const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+    const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+    const [isAddSubmitting, setIsAddSubmitting] = useState(false);
 
     const validateField = (name: string, value: unknown) => {
         let error = '';
 
         switch (name) {
             case 'name':
-                if (!value || String(value).trim().length === 0) error = 'Item name is required';
-                else if (String(value).trim().length < 2) error = 'Item name must be at least 2 characters';
-                else if (/^\d+$/.test(String(value).trim())) error = 'Invalid item name (cannot be only numbers)';
+                if (!value || String(value).trim().length === 0) error = 'Ingredient name is required';
+                else if (String(value).trim().length < 2) error = 'Ingredient name must be at least 2 characters';
+                else if (String(value).trim().length > 50) error = 'Ingredient name cannot exceed 50 characters';
+                else if (!/^[A-Za-z\s]+$/.test(String(value).trim())) error = 'Ingredient name must only contain letters and spaces';
                 break;
             case 'unit':
                 if (!value) error = 'Please select a unit';
@@ -249,6 +255,11 @@ export default function InventoryIndex() {
                 if (value === '' || value === undefined) error = 'Total cost is required';
                 else if (isNaN(Number(value))) error = 'Invalid amount';
                 else if (Number(value) <= 0) error = 'Must be greater than 0';
+                break;
+            case 'cost_per_unit':
+                if (value === '' || value === undefined) error = 'Cost per unit is required';
+                else if (isNaN(Number(value))) error = 'Invalid cost amount';
+                else if (Number(value) < 0) error = 'Cost cannot be negative';
                 break;
             case 'branch_ids':
                 if (!isEditModalOpen && Array.isArray(value) && value.length === 0 && isAdmin) {
@@ -298,10 +309,10 @@ export default function InventoryIndex() {
                     item.name.toLowerCase().includes(search.toLowerCase()) ||
                     skuString.toLowerCase().includes(search.toLowerCase()) ||
                     (item.branch_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-                    item.unit.toLowerCase().includes(search.toLowerCase());
+                    (item.display_unit ?? item.unit).toLowerCase().includes(search.toLowerCase());
 
                 const matchesUnit = filterUnit === 'all' || item.unit === filterUnit;
-
+                
                 let matchesStatus = true;
                 if (filterStatus === 'optimal') {
                     matchesStatus = !item.is_low_stock && !item.is_out_of_stock;
@@ -310,25 +321,26 @@ export default function InventoryIndex() {
                 } else if (filterStatus === 'out') {
                     matchesStatus = item.is_out_of_stock;
                 } else if (filterStatus === 'overstocked') {
-                    matchesStatus = item.stock > item.low_stock_level * 4;
+                    matchesStatus = item.stock > (item.low_stock_level || 5) * 4;
                 }
-
+                
                 let matchesQuick = true;
-                const key = `${item.id}-${item.branch_id}`;
-                const lastLog = lastUpdatedMap[key];
-
-                if (quickFilter === 'low') {
-                    matchesQuick = item.is_low_stock || item.is_out_of_stock;
-                } else if (quickFilter === 'out') {
-                    matchesQuick = item.is_out_of_stock;
-                } else if (quickFilter === 'updated') {
-                    matchesQuick = !!lastLog;
-                } else if (quickFilter === 'restocked') {
-                    if (lastLog) {
-                        const logDate = new Date(String(lastLog.created_at));
-                        const isToday = logDate.toDateString() === new Date().toDateString();
-                        const isPositive = Number(lastLog.change_qty) > 0;
-                        matchesQuick = isToday && isPositive;
+                if (quickFilter === 'low') matchesQuick = item.is_low_stock;
+                else if (quickFilter === 'out') matchesQuick = item.is_out_of_stock;
+                else if (quickFilter === 'updated') {
+                    const log = lastUpdatedMap[`${item.id}-${item.branch_id}`];
+                    if (log) {
+                        const logDate = new Date(String(log.created_at));
+                        matchesQuick = logDate.toDateString() === new Date().toDateString();
+                    } else {
+                        matchesQuick = false;
+                    }
+                }
+                else if (quickFilter === 'restocked') {
+                    const log = lastUpdatedMap[`${item.id}-${item.branch_id}`];
+                    if (log && log.action_type === 'stock_in') {
+                        const logDate = new Date(String(log.created_at));
+                        matchesQuick = logDate.toDateString() === new Date().toDateString();
                     } else {
                         matchesQuick = false;
                     }
@@ -337,32 +349,27 @@ export default function InventoryIndex() {
                 return matchesSearch && matchesUnit && matchesStatus && matchesQuick;
             })
             .sort((a, b) => {
-                let valA: unknown = a[sortBy as keyof InventoryRow];
-                let valB: unknown = b[sortBy as keyof InventoryRow];
-
-                if (sortBy === 'last_updated') {
+                let comp = 0;
+                if (sortBy === 'name') comp = a.name.localeCompare(b.name);
+                else if (sortBy === 'stock') comp = a.stock - b.stock;
+                else if (sortBy === 'price') comp = (a.display_price ?? a.cost_per_unit) - (b.display_price ?? b.cost_per_unit);
+                else if (sortBy === 'updated') {
                     const logA = lastUpdatedMap[`${a.id}-${a.branch_id}`];
                     const logB = lastUpdatedMap[`${b.id}-${b.branch_id}`];
-                    const timeA = logA ? new Date(String(logA.created_at)).getTime() : 0;
-                    const timeB = logB ? new Date(String(logB.created_at)).getTime() : 0;
-                    return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+                    const dateA = logA ? new Date(String(logA.created_at)).getTime() : 0;
+                    const dateB = logB ? new Date(String(logB.created_at)).getTime() : 0;
+                    comp = dateA - dateB;
                 }
-
-                if (typeof valA === 'string') valA = valA.toLowerCase();
-                if (typeof valB === 'string') valB = valB.toLowerCase();
-                if ((valA as string) < (valB as string)) return sortOrder === 'asc' ? -1 : 1;
-                if ((valA as string) > (valB as string)) return sortOrder === 'asc' ? 1 : -1;
-                return 0;
+                return sortOrder === 'asc' ? comp : -comp;
             });
     }, [inventory, search, filterUnit, filterStatus, quickFilter, sortBy, sortOrder, lastUpdatedMap]);
 
     // Pagination
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const paginatedData = useMemo(() => {
-        const validPage = Math.max(1, Math.min(currentPage, totalPages));
-        const start = (validPage - 1) * itemsPerPage;
+        const start = (currentPage - 1) * itemsPerPage;
         return filteredData.slice(start, start + itemsPerPage);
-    }, [filteredData, currentPage, itemsPerPage, totalPages]);
+    }, [filteredData, currentPage, itemsPerPage]);
 
     const handleSearchChange = (val: string) => {
         setSearch(val);
@@ -385,18 +392,23 @@ export default function InventoryIndex() {
     };
 
     // Handlers
-    const handleAdd = () => { reset(); setIsAddModalOpen(true); };
+    const handleAdd = () => {
+        reset();
+        setLocalErrors({});
+        setIsAddModalOpen(true);
+    };
 
     const handleEdit = (row: InventoryRow) => {
         setSelectedRow(row);
+        setLocalErrors({});
         setData({
             name: row.name,
-            unit: row.unit,
-            stock: String(row.stock),
+            unit: row.display_unit || row.unit,
+            stock: String(row.display_stock ?? row.stock),
             low_stock_level: String(row.low_stock_level ?? 5),
             avg_weight_per_piece: row.avg_weight_per_piece ? String(row.avg_weight_per_piece) : '',
-            cost_per_base_unit: String(row.cost_per_unit ?? 0),
-            cost_per_unit: String(row.cost_per_unit ?? 0),
+            cost_per_base_unit: String(row.display_price ?? row.cost_per_unit ?? 0),
+            cost_per_unit: String(row.display_price ?? row.cost_per_unit ?? 0),
             branch_id: row.branch_id ? String(row.branch_id) : '',
             branch_ids: [],
         });
@@ -417,11 +429,16 @@ export default function InventoryIndex() {
             if (err) hasError = true;
         });
 
-        if (hasError) return;
+        if (hasError) {
+            toast.error('Please resolve the validation errors before registering.');
+            return;
+        }
 
         const calculatedCostPerUnit = Number(data.stock) > 0 
             ? Number(data.cost_per_base_unit) / Number(data.stock)
             : Number(data.cost_per_base_unit);
+
+        setIsAddSubmitting(true);
 
         router.post('/inventory', {
             name: data.name,
@@ -435,17 +452,20 @@ export default function InventoryIndex() {
             branch_ids: data.branch_ids.map(Number),
         } as Record<string, string | number | number[] | undefined>, {
             onSuccess: () => {
+                setIsAddSubmitting(false);
                 setIsAddModalOpen(false);
                 reset();
                 setLocalErrors({});
                 stateChannel.postMessage({ type: 'inventory-updated' });
                 router.reload({ only: ['inventory', 'stats'] });
                 fetchActivityLogs();
-                setResultModal({ type: 'success', title: 'Ingredient Added', message: 'The global ingredient and its branch stock have been created.' });
-                setIsResultModalOpen(true);
+                toast.success('Ingredient added successfully.');
             },
             onError: (errs) => {
+                setIsAddSubmitting(false);
                 setLocalErrors(prev => ({ ...prev, ...errs }));
+                const firstErr = Object.values(errs)[0] || 'Unable to register ingredient.';
+                toast.error(String(firstErr));
             }
         });
     };
@@ -462,7 +482,12 @@ export default function InventoryIndex() {
             if (err) hasError = true;
         });
 
-        if (hasError) return;
+        if (hasError) {
+            toast.error('Please resolve the validation errors before pushing updates.');
+            return;
+        }
+
+        setIsEditSubmitting(true);
 
         router.put(`/inventory/${selectedRow?.id}`, {
             name: data.name,
@@ -474,6 +499,7 @@ export default function InventoryIndex() {
             cost_per_unit: Number(data.cost_per_unit),
         } as Record<string, string | number | undefined>, {
             onSuccess: () => {
+                setIsEditSubmitting(false);
                 setIsEditModalOpen(false);
                 setIsDrawerOpen(false);
                 reset();
@@ -481,11 +507,13 @@ export default function InventoryIndex() {
                 stateChannel.postMessage({ type: 'inventory-updated' });
                 router.reload({ only: ['inventory', 'stats'] });
                 fetchActivityLogs();
-                setResultModal({ type: 'success', title: 'Ingredient Updated', message: 'Ingredient and stock record have been updated.' });
-                setIsResultModalOpen(true);
+                toast.success(`Ingredient "${data.name}" updated successfully.`);
             },
             onError: (errs) => {
+                setIsEditSubmitting(false);
                 setLocalErrors(prev => ({ ...prev, ...errs }));
+                const firstErr = Object.values(errs)[0] || 'Unable to update ingredient specs.';
+                toast.error(String(firstErr));
             }
         });
     };
@@ -754,11 +782,15 @@ export default function InventoryIndex() {
                     </DialogHeader>
 
                     <form onSubmit={submitAdd} className="space-y-4 pt-2">
+                        {(localErrors.general || localErrors.message || localErrors.error) && (
+                            <AlertError errors={[localErrors.general || localErrors.message || localErrors.error]} />
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Ingredient Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="e.g. Premium White Rice" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
-                                {localErrors.name && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold ml-1">{localErrors.name}</p>}
+                                <InputError message={localErrors.name} />
                             </div>
 
                             <div className="space-y-1.5">
@@ -775,16 +807,19 @@ export default function InventoryIndex() {
                                     <option value="liters">Liters (L)</option>
                                     <option value="ml">Milliliters (ml)</option>
                                 </select>
+                                <InputError message={localErrors.unit} />
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Initial Stock</label>
                                 <Input type="number" step="0.0001" required value={data.stock} onChange={(e) => setData('stock', e.target.value)} placeholder="0" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
+                                <InputError message={localErrors.stock} />
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Low Stock Mark</label>
                                 <Input type="number" step="0.0001" required value={data.low_stock_level} onChange={(e) => setData('low_stock_level', e.target.value)} placeholder="5" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                                <InputError message={localErrors.low_stock_level} />
                             </div>
 
                             <div className="space-y-1.5">
@@ -793,12 +828,14 @@ export default function InventoryIndex() {
                                     <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">Unit: ₱{costPerUnitPreview}</span>
                                 </div>
                                 <Input type="number" step="0.0001" required value={data.cost_per_base_unit} onChange={(e) => setData('cost_per_base_unit', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
+                                <InputError message={localErrors.cost_per_base_unit} />
                             </div>
 
                             {data.unit === 'pcs' && (
                                 <div className="col-span-2 space-y-1.5">
                                     <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Avg Weight / Piece (Grams)</label>
                                     <Input type="number" step="0.0001" value={data.avg_weight_per_piece} onChange={(e) => setData('avg_weight_per_piece', e.target.value)} placeholder="e.g. 50" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                                    <InputError message={localErrors.avg_weight_per_piece} />
                                 </div>
                             )}
 
@@ -841,14 +878,15 @@ export default function InventoryIndex() {
                                             </button>
                                         )}
                                     </div>
+                                    <InputError message={localErrors.branch_ids} />
                                 </div>
                             )}
                         </div>
 
                         <DialogFooter className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
                             <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
-                            <Button type="submit" disabled={processing} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
-                                {processing ? 'Registering...' : 'Confirm Registration'}
+                            <Button type="submit" disabled={processing || isAddSubmitting} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
+                                {isAddSubmitting ? 'Registering...' : 'Confirm Registration'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -866,10 +904,15 @@ export default function InventoryIndex() {
                     </DialogHeader>
 
                     <form onSubmit={submitEdit} className="space-y-4 pt-2">
+                        {(localErrors.general || localErrors.message || localErrors.error) && (
+                            <AlertError errors={[localErrors.general || localErrors.message || localErrors.error]} />
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Ingredient Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
+                                <InputError message={localErrors.name} />
                             </div>
 
                             <div className="space-y-1.5">
@@ -886,35 +929,40 @@ export default function InventoryIndex() {
                                     <option value="liters">Liters (L)</option>
                                     <option value="ml">Milliliters (ml)</option>
                                 </select>
+                                <InputError message={localErrors.unit} />
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Current Stock</label>
                                 <Input type="number" step="0.0001" required value={data.stock} onChange={(e) => setData('stock', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono font-bold" />
+                                <InputError message={localErrors.stock} />
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Low Stock Mark</label>
                                 <Input type="number" step="0.0001" required value={data.low_stock_level} onChange={(e) => setData('low_stock_level', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                                <InputError message={localErrors.low_stock_level} />
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Cost Per Base Unit (PHP)</label>
                                 <Input type="number" step="0.0001" required value={data.cost_per_unit} onChange={(e) => setData('cost_per_unit', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
+                                <InputError message={localErrors.cost_per_unit} />
                             </div>
 
                             {data.unit === 'pcs' && (
                                 <div className="col-span-2 space-y-1.5">
                                     <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Avg Weight / Piece (Grams)</label>
                                     <Input type="number" step="0.0001" value={data.avg_weight_per_piece} onChange={(e) => setData('avg_weight_per_piece', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                                    <InputError message={localErrors.avg_weight_per_piece} />
                                 </div>
                             )}
                         </div>
 
                         <DialogFooter className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10">
                             <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="rounded-xl h-11 text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0]">Cancel</Button>
-                            <Button type="submit" disabled={processing} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
-                                {processing ? 'Updating...' : 'Push Updates'}
+                            <Button type="submit" disabled={processing || isEditSubmitting} className="rounded-xl h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold cursor-pointer">
+                                {isEditSubmitting ? 'Updating...' : 'Push Updates'}
                             </Button>
                         </DialogFooter>
                     </form>

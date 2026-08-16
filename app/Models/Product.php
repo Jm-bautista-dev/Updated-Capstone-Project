@@ -532,19 +532,19 @@ class Product extends Model
 
     /**
      * Compute the cost of this product based on its ingredients and their branch-specific cost.
-     * If branch_id is not provided or the product has no ingredients, falls back to legacy cost_price.
+     * If branch_id is not provided or the product has no ingredients, falls back to direct cost_price.
      *
      * @param int|null $branchId
      * @return float
      */
     public function computeProductCost(?int $branchId = null): float
     {
-        $ingredients = $this->ingredients;
+        $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
 
         if ($ingredients->isNotEmpty()) {
             $totalCost = 0.0;
             foreach ($ingredients as $ingredient) {
-                $qtyInput = (float) $ingredient->pivot->quantity_required;
+                $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);
                 $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
                 $required = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
                     $qtyInput,
@@ -552,16 +552,25 @@ class Product extends Model
                     $ingredient->unit,
                     $ingredient->avg_weight_per_piece
                 );
-                
+
                 $costPerUnit = 0.0;
                 if ($branchId) {
-                    $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
+                    $stockRow = $ingredient->relationLoaded('stocks')
+                        ? $ingredient->stocks->firstWhere('branch_id', $branchId)
+                        : $ingredient->stocks()->where('branch_id', $branchId)->first();
+
                     if ($stockRow && (float)$stockRow->cost_per_unit > 0) {
                         $costPerUnit = (float) $stockRow->cost_per_unit;
                     }
                 } else {
                     // All branches: take average cost_per_unit of branches with positive cost
-                    $avgCost = (float) $ingredient->stocks()->where('cost_per_unit', '>', 0)->avg('cost_per_unit');
+                    if ($ingredient->relationLoaded('stocks')) {
+                        $positiveStocks = $ingredient->stocks->where('cost_per_unit', '>', 0);
+                        $avgCost = $positiveStocks->isNotEmpty() ? (float) $positiveStocks->avg('cost_per_unit') : 0.0;
+                    } else {
+                        $avgCost = (float) $ingredient->stocks()->where('cost_per_unit', '>', 0)->avg('cost_per_unit');
+                    }
+
                     if ($avgCost > 0) {
                         $costPerUnit = $avgCost;
                     }
@@ -571,12 +580,12 @@ class Product extends Model
                 if ($costPerUnit <= 0 && (float)$ingredient->cost_per_base_unit > 0) {
                     $costPerUnit = (float) $ingredient->cost_per_base_unit;
                 }
-                
+
                 $totalCost += ($required * $costPerUnit);
             }
 
             if ($totalCost > 0) {
-                return $totalCost;
+                return round($totalCost, 4);
             }
         }
 
@@ -587,10 +596,10 @@ class Product extends Model
                 ->where('branch_id', $branchId)
                 ->first();
             if ($pivot && (float)($pivot->cost_price ?? 0) > 0) {
-                return (float) $pivot->cost_price;
+                return round((float) $pivot->cost_price, 4);
             }
         }
 
-        return (float) ($this->cost_price ?? 0.0);
+        return round((float) ($this->cost_price ?? 0.0), 4);
     }
 }
