@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Api\DeliveryFeeController;
 use App\Http\Controllers\Api\TopPickController;
+use App\Http\Controllers\Api\CustomerOrderController;
 
 // Direct Top-Picks API endpoint
 Route::get('top-picks', [TopPickController::class, 'index']);
@@ -89,6 +90,8 @@ Route::prefix('v1')->group(function () {
         Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
         Route::get('orders/{id}/route', [ApiOrderController::class, 'route']);
         Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route']);
+        Route::post('orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
+        Route::post('customer/orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
         Route::get('deliveries/{id}/route', [App\Http\Controllers\Admin\DeliveryController::class, 'getRoute']);
         Route::get('cart', [CartController::class, 'index']);
         Route::post('cart/add', [CartController::class, 'addItem']);
