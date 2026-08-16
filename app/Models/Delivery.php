@@ -34,11 +34,17 @@ class Delivery extends Model
         'external_notes',
         'proof_of_delivery',
         'status',
+        'delivered_at',
         'cancellation_reason',
         'cancelled_by',
         'cancelled_at',
         'created_by',
         'updated_by',
+    ];
+
+    protected $casts = [
+        'delivered_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     /* ── Status Constants ──────────────────────────── */

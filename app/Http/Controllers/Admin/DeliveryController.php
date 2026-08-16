@@ -28,6 +28,7 @@ class DeliveryController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $view = $request->input('view', 'today');
 
         $query = Delivery::with([
             'sale.cashier',
@@ -48,8 +49,6 @@ class DeliveryController extends Controller
             });
         }
 
-        // ── Queue-first ordering: active states by age, then completed ──────
-        // Active queue states sorted oldest-first (FIFO by wait time)
         $activeStatuses = [
             'waiting_for_kitchen',
             'pending',
@@ -61,12 +60,80 @@ class DeliveryController extends Controller
             'failed_delivery',
         ];
 
-        $query->orderByRaw(
-            "CASE WHEN status IN ('" . implode("','",$activeStatuses) . "') THEN 0 ELSE 1 END ASC"
-        )->orderBy('created_at', 'asc');
+        // ── View-specific Scoping ───────────────────────────────────────────
+        if ($view === 'today') {
+            // Default Operational View: Active deliveries OR deliveries completed/cancelled TODAY
+            $query->where(function ($q) use ($activeStatuses) {
+                $q->whereIn('status', $activeStatuses)
+                  ->orWhere(function ($subQ) {
+                      $subQ->whereIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED])
+                           ->where(function ($dateQ) {
+                               $dateQ->whereDate('delivered_at', today())
+                                     ->orWhere(function ($fallbackQ) {
+                                         $fallbackQ->whereNull('delivered_at')
+                                                   ->whereDate('created_at', today());
+                                     });
+                           });
+                  });
+            });
 
-        // ── Filters ────────────────────────────────────────────────────────
-        if ($request->filled('status') && $request->status !== 'all') {
+            $query->orderByRaw(
+                "CASE WHEN status IN ('" . implode("','", $activeStatuses) . "') THEN 0 ELSE 1 END ASC"
+            )->orderBy('created_at', 'asc');
+        } else {
+            // Archive View: Historical completed/terminal deliveries
+            if ($request->filled('status') && $request->status !== 'all') {
+                $query->where('status', $request->status);
+            } else {
+                $query->whereIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED, Delivery::STATUS_FAILED]);
+            }
+
+            // Rider Filter
+            if ($request->filled('rider_id') && $request->rider_id !== 'all') {
+                $query->where('rider_id', $request->rider_id);
+            }
+
+            // Date Preset & Custom Range Filtering
+            $datePreset = $request->input('date_preset', 'all');
+            $dateColumn = 'delivered_at';
+
+            if ($datePreset === 'today') {
+                $query->where(function ($dq) {
+                    $dq->whereDate('delivered_at', today())
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
+                });
+            } elseif ($datePreset === 'yesterday') {
+                $yesterday = today()->subDay();
+                $query->where(function ($dq) use ($yesterday) {
+                    $dq->whereDate('delivered_at', $yesterday)
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', $yesterday));
+                });
+            } elseif ($datePreset === 'last_7_days') {
+                $sevenDaysAgo = today()->subDays(7);
+                $query->where(function ($dq) use ($sevenDaysAgo) {
+                    $dq->where('delivered_at', '>=', $sevenDaysAgo)
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->where('created_at', '>=', $sevenDaysAgo));
+                });
+            } elseif ($datePreset === 'this_month') {
+                $query->where(function ($dq) {
+                    $dq->whereMonth('delivered_at', today()->month)
+                       ->whereYear('delivered_at', today()->year)
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereMonth('created_at', today()->month)->whereYear('created_at', today()->year));
+                });
+            } elseif ($datePreset === 'custom' && $request->filled('start_date')) {
+                $startDate = $request->start_date;
+                $endDate = $request->input('end_date', $startDate);
+                $query->where(function ($dq) use ($startDate, $endDate) {
+                    $dq->whereBetween('delivered_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']));
+                });
+            }
+
+            $query->orderBy('created_at', 'desc');
+        }
+
+        // ── Common Filters ──────────────────────────────────────────────────
+        if ($view !== 'archive' && $request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
@@ -91,7 +158,8 @@ class DeliveryController extends Controller
                     ->orWhere('tracking_number', 'like', "%{$search}%")
                     ->orWhere('landmark', 'like', "%{$search}%")
                     ->orWhereHas('sale', fn($sq) => $sq->where('order_number', 'like', "%{$search}%"))
-                    ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"));
+                    ->orWhereHas('order', fn($oq) => $oq->where('id', 'like', "%{$search}%"))
+                    ->orWhereHas('rider', fn($rq) => $rq->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -122,7 +190,7 @@ class DeliveryController extends Controller
             return $delivery;
         });
 
-        // Get all active riders for manual assignment with out-for-delivery lock status
+        // Get all active riders for manual assignment
         $availableRiders = Rider::where('is_active', true)
             ->withCount([
                 'deliveries as active_deliveries_count' => function ($q) {
@@ -151,7 +219,10 @@ class DeliveryController extends Controller
                 ];
             });
 
-        // ── Accurate stats across all queue states ─────────────────────────
+        // Get all riders for archive filtering
+        $allRiders = Rider::orderBy('name')->get(['id', 'name']);
+
+        // ── Accurate stats across operational and historical states ────────
         $baseQuery = Delivery::query();
         if (!$user->isAdmin()) {
             $baseQuery->where(function ($q) use ($user) {
@@ -161,26 +232,41 @@ class DeliveryController extends Controller
         }
 
         $stats = [
-            'waiting'    => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
-            'preparing'  => (clone $baseQuery)->where('status', 'preparing')->count(),
-            'ready'      => (clone $baseQuery)->where('status', 'ready_for_pickup')->count(),
-            'assigned'   => (clone $baseQuery)->where('status', 'assigned_to_rider')->count(),
-            'in_transit' => (clone $baseQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
-            'delivered'  => (clone $baseQuery)->where('status', 'delivered')->whereDate('created_at', today())->count(),
-            'failed'     => (clone $baseQuery)->where('status', 'failed_delivery')->count(),
-            'delayed'    => (clone $baseQuery)
+            'waiting'          => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
+            'preparing'        => (clone $baseQuery)->where('status', 'preparing')->count(),
+            'ready'            => (clone $baseQuery)->where('status', 'ready_for_pickup')->count(),
+            'assigned'         => (clone $baseQuery)->where('status', 'assigned_to_rider')->count(),
+            'in_transit'       => (clone $baseQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
+            'delivered'        => (clone $baseQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
+            'delivered_today'  => (clone $baseQuery)->where('status', 'delivered')->where(function ($dq) {
+                                      $dq->whereDate('delivered_at', today())
+                                         ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
+                                  })->count(),
+            'total_historical' => (clone $baseQuery)->whereIn('status', ['delivered', 'cancelled', 'failed_delivery'])->count(),
+            'failed'           => (clone $baseQuery)->where('status', 'failed_delivery')->count(),
+            'delayed'          => (clone $baseQuery)
                 ->whereNotIn('status', ['delivered', 'cancelled', 'failed_delivery'])
                 ->where('created_at', '<', now()->subMinutes(45))
                 ->count(),
-            // Legacy aliases for backward compatibility
-            'pending'    => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
-            'active'     => (clone $baseQuery)->whereNotIn('status', ['pending', 'waiting_for_kitchen', 'delivered', 'cancelled'])->count(),
+            'pending'          => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
+            'active'           => (clone $baseQuery)->whereNotIn('status', ['pending', 'waiting_for_kitchen', 'delivered', 'cancelled'])->count(),
         ];
 
         return Inertia::render('Admin/Deliveries', [
             'deliveries'     => $deliveries,
             'availableRiders'=> $availableRiders,
-            'filters'        => $request->only(['status', 'type', 'branch_id', 'search']),
+            'allRiders'      => $allRiders,
+            'filters'        => array_merge([
+                'view'        => $view,
+                'status'      => 'all',
+                'type'        => 'all',
+                'branch_id'   => 'all',
+                'rider_id'    => 'all',
+                'search'      => '',
+                'date_preset' => 'all',
+                'start_date'  => '',
+                'end_date'    => '',
+            ], array_filter($request->only(['view', 'status', 'type', 'branch_id', 'rider_id', 'search', 'date_preset', 'start_date', 'end_date']))),
             'branches'       => Branch::orderBy('name')->get(['id', 'name']),
             'stats'          => $stats,
         ]);

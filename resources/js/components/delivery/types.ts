@@ -75,10 +75,15 @@ export interface DeliveryPagination {
 }
 
 export interface DeliveryFilters {
+    view?: 'today' | 'archive';
     status?: string;
     type?: string;
     branch_id?: string;
+    rider_id?: string;
     search?: string;
+    date_preset?: 'all' | 'today' | 'yesterday' | 'last_7_days' | 'this_month' | 'custom';
+    start_date?: string;
+    end_date?: string;
 }
 
 export interface DeliveryStatsData {
@@ -88,6 +93,8 @@ export interface DeliveryStatsData {
     assigned?: number;
     in_transit?: number;
     delivered: number;
+    delivered_today?: number;
+    total_historical?: number;
     failed?: number;
     delayed: number;
     pending: number;

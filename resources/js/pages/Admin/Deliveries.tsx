@@ -27,12 +27,13 @@ import AppLayout from '@/layouts/app-layout';
 interface Props {
     deliveries: DeliveryPagination;
     availableRiders: Rider[];
+    allRiders?: Array<{ id: number; name: string }>;
     branches: Branch[];
     filters: FilterType;
     stats: DeliveryStatsData;
 }
 
-export default function DeliveryIndex({ deliveries, availableRiders, branches, filters, stats }: Props) {
+export default function DeliveryIndex({ deliveries, availableRiders, allRiders = [], branches, filters, stats }: Props) {
     const [assigningDelivery, setAssigningDelivery] = useState<Delivery | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
 
@@ -274,6 +275,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, branches, f
                 <DeliveryFilters
                     filters={filters}
                     branches={branches}
+                    allRiders={allRiders}
                     viewMode={viewMode}
                     onFilterChange={handleFilterChange}
                     onViewModeChange={handleViewModeChange}

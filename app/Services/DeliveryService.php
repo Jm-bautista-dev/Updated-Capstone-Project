@@ -189,10 +189,14 @@ class DeliveryService
         return DB::transaction(function () use ($delivery, $nextStatuses) {
             $previousStatus = $delivery->status;
             $newStatus = $nextStatuses[0];
-            $delivery->update([
+            $updatePayload = [
                 'status'     => $newStatus,
                 'updated_by' => Auth::id(),
-            ]);
+            ];
+            if ($newStatus === Delivery::STATUS_DELIVERED && !$delivery->delivered_at) {
+                $updatePayload['delivered_at'] = now();
+            }
+            $delivery->update($updatePayload);
 
             // Map Delivery vocabulary → Order state machine vocabulary
             // Must match the Order::TRANSITIONS constants exactly
