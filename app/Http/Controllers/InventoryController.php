@@ -171,14 +171,16 @@ class InventoryController extends Controller
         $lowStockLevel  = (float) ($validated['low_stock_level'] ?? 5);
 
         // Normalize costs to base unit (Total batch cost / Total base units)
-        // Rule: 10kg onion for 500 pesos => 500 / 10,000g = 0.05 per gram
-        $normalizedGlobalCost = $baseStock > 0 
+        // Example 1: 100 pcs for 1,000 pesos => 1,000 / 100 = 10.00 per piece
+        // Example 2: 10kg onion for 500 pesos => 500 / 10,000g = 0.05 per gram
+        $normalizedGlobalCost = $baseStock > 0
             ? (float) ($validated['cost_per_base_unit'] ?? 0) / $baseStock
-            : 0;
-            
-        $normalizedBranchCost = $baseStock > 0
-            ? (float) ($validated['cost_per_unit'] ?? 0) / $baseStock
-            : 0;
+            : (isset($validated['cost_per_unit']) ? (float) $validated['cost_per_unit'] : 0);
+
+        // Avoid double-division: cost_per_unit from frontend is already the per-unit cost
+        $normalizedBranchCost = (isset($validated['cost_per_unit']) && (float) $validated['cost_per_unit'] > 0)
+            ? (float) $validated['cost_per_unit']
+            : $normalizedGlobalCost;
 
         // Create ONE global ingredient (deduplicated by name)
         $ingredient = Ingredient::firstOrCreate(

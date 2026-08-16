@@ -220,50 +220,45 @@ class Product extends Model
         }
 
         if (!$branchId) {
-            // Aggregate stock across all branches for "All Branches" view
-            $minPossible = PHP_FLOAT_MAX;
-            $limitingIngredient = null;
-            $blockingIngredients = [];
+            $allBranches = \App\Models\Branch::all();
+            $branchBreakdown = [];
+            $minBranchStock = PHP_FLOAT_MAX;
+            $maxBranchStock = 0;
+            $hasAnyStock = false;
 
-            foreach ($ingredients as $ingredient) {
-                $qtyInput = (float) $ingredient->pivot->quantity_required;
-                $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
-
-                $requiredPerUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
-                    $qtyInput,
-                    $unitInput,
-                    $ingredient->unit,
-                    $ingredient->avg_weight_per_piece
-                );
-
-                if ($requiredPerUnit <= 0) {
-                    continue;
+            foreach ($allBranches as $branch) {
+                $bAvail = $this->dynamicAvailability($branch->id);
+                $availCount = (float) $bAvail['available'];
+                $branchBreakdown[$branch->id] = [
+                    'branch_id'    => $branch->id,
+                    'branch_name'  => $branch->name,
+                    'available'    => $availCount,
+                    'is_available' => $bAvail['is_available'],
+                ];
+                if ($availCount < $minBranchStock) {
+                    $minBranchStock = $availCount;
                 }
-
-                // Sum stock across ALL branches
-                $availableInStock = (float) $ingredient->stocks()->sum('stock');
-
-                $unitsPossible = floor($availableInStock / $requiredPerUnit);
-
-                if ($unitsPossible < $minPossible) {
-                    $minPossible = $unitsPossible;
-                    $limitingIngredient = $ingredient->name;
+                if ($availCount > $maxBranchStock) {
+                    $maxBranchStock = $availCount;
                 }
-
-                if ($availableInStock < $requiredPerUnit) {
-                    $blockingIngredients[] = $ingredient->name;
+                if ($bAvail['is_available']) {
+                    $hasAnyStock = true;
                 }
             }
 
-            $finalAvailable = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (int) $minPossible);
+            $guaranteedMin = ($minBranchStock === PHP_FLOAT_MAX) ? 0 : max(0, (int) $minBranchStock);
 
             return [
-                'available' => $finalAvailable,
-                'is_available' => $finalAvailable >= 1,
-                'max_servings' => $finalAvailable,
-                'limiting_ingredient' => $finalAvailable < 1 ? ($limitingIngredient ?? 'Insufficient Stock') : $limitingIngredient,
-                'blocking_ingredients' => $blockingIngredients,
-                'is_low_stock' => $finalAvailable > 0 && $finalAvailable <= 5
+                'available'                   => $guaranteedMin, // Minimum guaranteed per-branch availability
+                'min_guaranteed_availability' => $guaranteedMin,
+                'max_branch_availability'     => $maxBranchStock,
+                'branch_breakdown'            => $branchBreakdown,
+                'is_available'                => $hasAnyStock,
+                'max_servings'                => $maxBranchStock,
+                'limiting_ingredient'         => !$hasAnyStock ? 'Insufficient Branch Stock' : null,
+                'blocking_ingredients'        => [],
+                'is_low_stock'                => $guaranteedMin > 0 && $guaranteedMin <= 5,
+                'scope'                       => 'all_branches',
             ];
         }
 

@@ -431,4 +431,156 @@ class AutomaticProductCostAndStockTest extends TestCase
         $avail = $product->dynamicAvailability($this->branchSantaCruz->id);
         $this->assertEquals(0, $avail['available']);
     }
+
+    /**
+     * EXACT USER PROMPT CASE:
+     * Add Ingredient via Inventory Controller:
+     *   Stock = 100 pcs
+     *   Total Purchase Cost = ₱1,000
+     *   Target Branches = Sta Cruz & Victoria
+     * Product Recipe:
+     *   1 pc "new egg"
+     * Expected:
+     *   Unit Cost = ₱10.00
+     *   Product Cost Price = ₱10.00
+     *   Available Producible Stock = 100 units (NOT 200!)
+     */
+    public function test_exact_user_prompt_case_100pcs_1000cost_yields_cost_10_and_stock_100()
+    {
+        // 1. Post to /inventory (simulating Inventory page registration)
+        $response = $this->actingAs($this->admin)
+            ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->post('/inventory', [
+                'name' => 'user egg test',
+                'unit' => 'pcs',
+                'initial_stock' => 100,
+                'low_stock_level' => 5,
+                'cost_per_base_unit' => 1000, // Total purchase cost = ₱1,000
+                'cost_per_unit' => 10,       // Calculated per unit cost = 1000 / 100 = 10
+                'branch_ids' => [$this->branchSantaCruz->id, $this->branchVictoria->id],
+            ]);
+
+        $response->assertStatus(302);
+
+        $egg = Ingredient::where('name', 'user egg test')->firstOrFail();
+
+        // Verify IngredientStock records for Sta Cruz and Victoria
+        $stockStaCruz = IngredientStock::where('ingredient_id', $egg->id)->where('branch_id', $this->branchSantaCruz->id)->firstOrFail();
+        $stockVictoria = IngredientStock::where('ingredient_id', $egg->id)->where('branch_id', $this->branchVictoria->id)->firstOrFail();
+
+        // 1. Unit cost MUST BE ₱10.00 (NOT ₱0.10!)
+        $this->assertEquals(100, (float) $stockStaCruz->stock);
+        $this->assertEquals(10.00, (float) $stockStaCruz->cost_per_unit);
+        $this->assertEquals(10.00, (float) $stockVictoria->cost_per_unit);
+
+        // 2. Create product for Sta Cruz
+        $product = Product::create([
+            'name' => 'Single Egg Roll',
+            'sku' => 'SKU-SER-1',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 50.00,
+            'branch_id' => $this->branchSantaCruz->id,
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $egg->id,
+            'quantity_required' => 1,
+            'unit' => 'pcs',
+        ]);
+
+        // 3. Product cost MUST BE ₱10.00
+        $this->assertEquals(10.00, $product->computeProductCost($this->branchSantaCruz->id));
+
+        // 4. Producible stock MUST BE 100 units (NOT 200 units!)
+        $availStaCruz = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(100, $availStaCruz['available']);
+
+        $availVictoria = $product->dynamicAvailability($this->branchVictoria->id);
+        $this->assertEquals(100, $availVictoria['available']);
+
+        // 5. Unspecified branch availability MUST NOT sum to 200! It must evaluate per branch context (100).
+        $availGlobal = $product->dynamicAvailability(null);
+        $this->assertEquals(100, $availGlobal['available']);
+    }
+
+    /**
+     * TEST SCENARIO: Santa Cruz = 100 pcs, Victoria = 20 pcs
+     * Verifies:
+     * - Specific branch Santa Cruz = 100
+     * - Specific branch Victoria = 20
+     * - All branches = separate 100 and 20 in branch_breakdown
+     * - No misleading global total of 20 as product stock
+     */
+    public function test_branch_specific_breakdown_santa_cruz_100_victoria_20_and_no_misleading_global_total()
+    {
+        $egg = Ingredient::create([
+            'name' => 'branched egg',
+            'unit' => 'pcs',
+            'cost_per_base_unit' => 10.00,
+        ]);
+
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 100, 'cost_per_unit' => 10.00]
+        );
+
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $egg->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 20, 'cost_per_unit' => 10.00]
+        );
+
+        $product = Product::create([
+            'name' => 'Multi Branch Egg Dish',
+            'sku' => 'SKU-MBED-1',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 80.00,
+            'branch_id' => null, // Global product available in all branches
+            'unit' => 'pcs',
+        ]);
+
+        MenuItemIngredient::create([
+            'menu_item_id' => $product->id,
+            'ingredient_id' => $egg->id,
+            'quantity_required' => 1,
+            'unit' => 'pcs',
+        ]);
+
+        // 1. Specific branch Santa Cruz MUST be 100
+        $availSantaCruz = $product->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertEquals(100, $availSantaCruz['available']);
+
+        // 2. Specific branch Victoria MUST be 20
+        $availVictoria = $product->dynamicAvailability($this->branchVictoria->id);
+        $this->assertEquals(20, $availVictoria['available']);
+
+        // 3. All branches view MUST contain separate Santa Cruz = 100 and Victoria = 20
+        $allBranchesAvail = $product->dynamicAvailability(null);
+        $this->assertEquals('all_branches', $allBranchesAvail['scope']);
+        $this->assertArrayHasKey('branch_breakdown', $allBranchesAvail);
+
+        $breakdown = $allBranchesAvail['branch_breakdown'];
+        $this->assertEquals(100, $breakdown[$this->branchSantaCruz->id]['available']);
+        $this->assertEquals(20, $breakdown[$this->branchVictoria->id]['available']);
+
+        // 4. Guaranteed minimum availability across branches = 20, Max = 100
+        $this->assertEquals(20, $allBranchesAvail['min_guaranteed_availability']);
+        $this->assertEquals(100, $allBranchesAvail['max_branch_availability']);
+
+        // 5. Verify ProductsController index payload produces distinct per-branch stocks
+        $response = $this->actingAs($this->admin)->get('/products');
+        $response->assertStatus(200);
+
+        /** @var \Inertia\Testing\AssertableInertia $page */
+        $response->assertInertia(fn ($page) => $page
+            ->component('Products/Index')
+            ->has('products', fn ($props) => $props
+                ->where('0.name', 'Multi Branch Egg Dish')
+                ->where("0.branch_breakdown.{$this->branchSantaCruz->id}.stock", 100)
+                ->where("0.branch_breakdown.{$this->branchVictoria->id}.stock", 20)
+                ->etc()
+            )
+        );
+    }
 }

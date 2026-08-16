@@ -265,8 +265,6 @@ export default function ProductsIndex() {
         let missingCostName: string | null = null;
         let missingRecordName: string | null = null;
 
-        const targetBranchId = data.branch_id || currentBranchId;
-
         for (const item of data.recipe) {
             if (!item.ingredient_id) continue;
             const ing = ingredients.find((i) => String(i.id) === String(item.ingredient_id));
@@ -289,22 +287,25 @@ export default function ProductsIndex() {
 
             const stocksList = (ing as unknown as { stocks?: { branch_id: number | string; stock: number | string; cost_per_unit?: number | string }[] }).stocks;
 
-            if (targetBranchId && stocksList && Array.isArray(stocksList)) {
-                const stockRow = stocksList.find((s) => String(s.branch_id) === String(targetBranchId));
+            const selectedBranch = data.branch_id || (data.branch_ids && data.branch_ids.length > 0 ? data.branch_ids[0] : (currentBranchId !== 'all' ? currentBranchId : null));
+
+            if (selectedBranch && stocksList && Array.isArray(stocksList)) {
+                const stockRow = stocksList.find((s) => String(s.branch_id) === String(selectedBranch));
                 if (stockRow) {
                     availStock = parseFloat(String(stockRow.stock));
                     costPerBaseUnit = parseFloat(String(stockRow.cost_per_unit || 0));
                 } else if (stocksList.length > 0) {
-                    // Inventory relationship missing for this branch
                     hasStockRecord = false;
                     availStock = 0;
                 } else {
                     availStock = parseFloat(String((ing as unknown as { stock?: number }).stock ?? 0));
                 }
             } else if (stocksList && Array.isArray(stocksList) && stocksList.length > 0) {
-                // Aggregate stock if no specific branch filter is selected
-                availStock = stocksList.reduce((sum, s) => sum + parseFloat(String(s.stock || 0)), 0);
-                costPerBaseUnit = parseFloat(String(stocksList[0]?.cost_per_unit || 0));
+                // Do NOT sum stock across physical branch locations. Take minimum branch stock capacity.
+                const branchStocks = stocksList.map((s) => parseFloat(String(s.stock || 0)));
+                availStock = Math.min(...branchStocks);
+                const positiveCostRow = stocksList.find((s) => parseFloat(String(s.cost_per_unit || 0)) > 0);
+                costPerBaseUnit = positiveCostRow ? parseFloat(String(positiveCostRow.cost_per_unit)) : 0;
             } else {
                 availStock = parseFloat(String((ing as unknown as { stock?: number }).stock ?? 0));
                 costPerBaseUnit = parseFloat(String((ing as unknown as { cost_per_base_unit?: number }).cost_per_base_unit ?? 0));
@@ -339,7 +340,7 @@ export default function ProductsIndex() {
             missingCostIngredient: missingCostName,
             missingRecordIngredient: missingRecordName,
         };
-    }, [data.recipe, ingredients, data.branch_id, currentBranchId]);
+    }, [data.recipe, ingredients, data.branch_id, data.branch_ids, currentBranchId]);
 
     // Modal Handlers
     const openAddModal = () => {
