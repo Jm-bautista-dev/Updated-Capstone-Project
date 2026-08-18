@@ -1,6 +1,8 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
-$app = require_once __DIR__ . '/bootstrap/app.php';
+$autoload = file_exists(__DIR__ . '/vendor/autoload.php') ? __DIR__ . '/vendor/autoload.php' : __DIR__ . '/../vendor/autoload.php';
+$bootstrap = file_exists(__DIR__ . '/bootstrap/app.php') ? __DIR__ . '/bootstrap/app.php' : __DIR__ . '/../bootstrap/app.php';
+require $autoload;
+$app = require_once $bootstrap;
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 echo "=== RIDERS ===\n";
