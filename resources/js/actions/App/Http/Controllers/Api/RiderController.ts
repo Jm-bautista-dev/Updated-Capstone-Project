@@ -4,12 +4,12 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
  * @see app/Http/Controllers/Api/RiderController.php:42
  * @route '/api/v1/rider/change-password'
  */
-export const changePassword = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: changePassword.url(options),
+const changePasswordd664abf82b4e52501df3815d357f497e = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: changePasswordd664abf82b4e52501df3815d357f497e.url(options),
     method: 'post',
 })
 
-changePassword.definition = {
+changePasswordd664abf82b4e52501df3815d357f497e.definition = {
     methods: ["post"],
     url: '/api/v1/rider/change-password',
 } satisfies RouteDefinition<["post"]>
@@ -19,8 +19,8 @@ changePassword.definition = {
  * @see app/Http/Controllers/Api/RiderController.php:42
  * @route '/api/v1/rider/change-password'
  */
-changePassword.url = (options?: RouteQueryOptions) => {
-    return changePassword.definition.url + queryParams(options)
+changePasswordd664abf82b4e52501df3815d357f497e.url = (options?: RouteQueryOptions) => {
+    return changePasswordd664abf82b4e52501df3815d357f497e.definition.url + queryParams(options)
 }
 
 /**
@@ -28,8 +28,8 @@ changePassword.url = (options?: RouteQueryOptions) => {
  * @see app/Http/Controllers/Api/RiderController.php:42
  * @route '/api/v1/rider/change-password'
  */
-changePassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: changePassword.url(options),
+changePasswordd664abf82b4e52501df3815d357f497e.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: changePasswordd664abf82b4e52501df3815d357f497e.url(options),
     method: 'post',
 })
 
@@ -38,8 +38,8 @@ changePassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
  * @see app/Http/Controllers/Api/RiderController.php:42
  * @route '/api/v1/rider/change-password'
  */
-    const changePasswordForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: changePassword.url(options),
+    const changePasswordd664abf82b4e52501df3815d357f497eForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: changePasswordd664abf82b4e52501df3815d357f497e.url(options),
         method: 'post',
     })
 
@@ -48,53 +48,114 @@ changePassword.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => 
  * @see app/Http/Controllers/Api/RiderController.php:42
  * @route '/api/v1/rider/change-password'
  */
-        changePasswordForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: changePassword.url(options),
+        changePasswordd664abf82b4e52501df3815d357f497eForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: changePasswordd664abf82b4e52501df3815d357f497e.url(options),
             method: 'post',
         })
     
-    changePassword.form = changePasswordForm
+    changePasswordd664abf82b4e52501df3815d357f497e.form = changePasswordd664abf82b4e52501df3815d357f497eForm
+    /**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:42
+ * @route '/api/rider/change-password'
+ */
+const changePassword22e3d18a20d4abd9ed81726c917d0390 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: changePassword22e3d18a20d4abd9ed81726c917d0390.url(options),
+    method: 'post',
+})
+
+changePassword22e3d18a20d4abd9ed81726c917d0390.definition = {
+    methods: ["post"],
+    url: '/api/rider/change-password',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:42
+ * @route '/api/rider/change-password'
+ */
+changePassword22e3d18a20d4abd9ed81726c917d0390.url = (options?: RouteQueryOptions) => {
+    return changePassword22e3d18a20d4abd9ed81726c917d0390.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:42
+ * @route '/api/rider/change-password'
+ */
+changePassword22e3d18a20d4abd9ed81726c917d0390.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: changePassword22e3d18a20d4abd9ed81726c917d0390.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:42
+ * @route '/api/rider/change-password'
+ */
+    const changePassword22e3d18a20d4abd9ed81726c917d0390Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: changePassword22e3d18a20d4abd9ed81726c917d0390.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::changePassword
+ * @see app/Http/Controllers/Api/RiderController.php:42
+ * @route '/api/rider/change-password'
+ */
+        changePassword22e3d18a20d4abd9ed81726c917d0390Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: changePassword22e3d18a20d4abd9ed81726c917d0390.url(options),
+            method: 'post',
+        })
+    
+    changePassword22e3d18a20d4abd9ed81726c917d0390.form = changePassword22e3d18a20d4abd9ed81726c917d0390Form
+
+export const changePassword = {
+    '/api/v1/rider/change-password': changePasswordd664abf82b4e52501df3815d357f497e,
+    '/api/rider/change-password': changePassword22e3d18a20d4abd9ed81726c917d0390,
+}
+
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:662
+ * @see app/Http/Controllers/Api/RiderController.php:806
  * @route '/api/v1/rider/status'
  */
-export const updateStatus = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
-    url: updateStatus.url(options),
+const updateStatusb250b8d54533bfaaf6c4fcf102ae8d86 = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+    url: updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.url(options),
     method: 'patch',
 })
 
-updateStatus.definition = {
+updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.definition = {
     methods: ["patch"],
     url: '/api/v1/rider/status',
 } satisfies RouteDefinition<["patch"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:662
+ * @see app/Http/Controllers/Api/RiderController.php:806
  * @route '/api/v1/rider/status'
  */
-updateStatus.url = (options?: RouteQueryOptions) => {
-    return updateStatus.definition.url + queryParams(options)
+updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.url = (options?: RouteQueryOptions) => {
+    return updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:662
+ * @see app/Http/Controllers/Api/RiderController.php:806
  * @route '/api/v1/rider/status'
  */
-updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
-    url: updateStatus.url(options),
+updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+    url: updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.url(options),
     method: 'patch',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:662
+ * @see app/Http/Controllers/Api/RiderController.php:806
  * @route '/api/v1/rider/status'
  */
-    const updateStatusForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: updateStatus.url({
+    const updateStatusb250b8d54533bfaaf6c4fcf102ae8d86Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.url({
                     [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                         _method: 'PATCH',
                         ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -105,11 +166,11 @@ updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => 
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::updateStatus
- * @see app/Http/Controllers/Api/RiderController.php:662
+ * @see app/Http/Controllers/Api/RiderController.php:806
  * @route '/api/v1/rider/status'
  */
-        updateStatusForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: updateStatus.url({
+        updateStatusb250b8d54533bfaaf6c4fcf102ae8d86Form.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.url({
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'PATCH',
                             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -118,131 +179,263 @@ updateStatus.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => 
             method: 'post',
         })
     
-    updateStatus.form = updateStatusForm
+    updateStatusb250b8d54533bfaaf6c4fcf102ae8d86.form = updateStatusb250b8d54533bfaaf6c4fcf102ae8d86Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::updateStatus
+ * @see app/Http/Controllers/Api/RiderController.php:806
+ * @route '/api/rider/status'
+ */
+const updateStatus3b94d099329ad87ff350831df94a1c27 = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+    url: updateStatus3b94d099329ad87ff350831df94a1c27.url(options),
+    method: 'patch',
+})
+
+updateStatus3b94d099329ad87ff350831df94a1c27.definition = {
+    methods: ["patch"],
+    url: '/api/rider/status',
+} satisfies RouteDefinition<["patch"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::updateStatus
+ * @see app/Http/Controllers/Api/RiderController.php:806
+ * @route '/api/rider/status'
+ */
+updateStatus3b94d099329ad87ff350831df94a1c27.url = (options?: RouteQueryOptions) => {
+    return updateStatus3b94d099329ad87ff350831df94a1c27.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::updateStatus
+ * @see app/Http/Controllers/Api/RiderController.php:806
+ * @route '/api/rider/status'
+ */
+updateStatus3b94d099329ad87ff350831df94a1c27.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+    url: updateStatus3b94d099329ad87ff350831df94a1c27.url(options),
+    method: 'patch',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::updateStatus
+ * @see app/Http/Controllers/Api/RiderController.php:806
+ * @route '/api/rider/status'
+ */
+    const updateStatus3b94d099329ad87ff350831df94a1c27Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: updateStatus3b94d099329ad87ff350831df94a1c27.url({
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'PATCH',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::updateStatus
+ * @see app/Http/Controllers/Api/RiderController.php:806
+ * @route '/api/rider/status'
+ */
+        updateStatus3b94d099329ad87ff350831df94a1c27Form.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: updateStatus3b94d099329ad87ff350831df94a1c27.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'PATCH',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    updateStatus3b94d099329ad87ff350831df94a1c27.form = updateStatus3b94d099329ad87ff350831df94a1c27Form
+
+export const updateStatus = {
+    '/api/v1/rider/status': updateStatusb250b8d54533bfaaf6c4fcf102ae8d86,
+    '/api/rider/status': updateStatus3b94d099329ad87ff350831df94a1c27,
+}
+
 /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:728
+ * @see app/Http/Controllers/Api/RiderController.php:872
  * @route '/api/v1/rider/ping'
  */
-export const ping = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: ping.url(options),
+const ping0d82d1f20b0ecfb6c97d8d26ab824f79 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: ping0d82d1f20b0ecfb6c97d8d26ab824f79.url(options),
     method: 'post',
 })
 
-ping.definition = {
+ping0d82d1f20b0ecfb6c97d8d26ab824f79.definition = {
     methods: ["post"],
     url: '/api/v1/rider/ping',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:728
+ * @see app/Http/Controllers/Api/RiderController.php:872
  * @route '/api/v1/rider/ping'
  */
-ping.url = (options?: RouteQueryOptions) => {
-    return ping.definition.url + queryParams(options)
+ping0d82d1f20b0ecfb6c97d8d26ab824f79.url = (options?: RouteQueryOptions) => {
+    return ping0d82d1f20b0ecfb6c97d8d26ab824f79.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:728
+ * @see app/Http/Controllers/Api/RiderController.php:872
  * @route '/api/v1/rider/ping'
  */
-ping.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: ping.url(options),
+ping0d82d1f20b0ecfb6c97d8d26ab824f79.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: ping0d82d1f20b0ecfb6c97d8d26ab824f79.url(options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:728
+ * @see app/Http/Controllers/Api/RiderController.php:872
  * @route '/api/v1/rider/ping'
  */
-    const pingForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: ping.url(options),
+    const ping0d82d1f20b0ecfb6c97d8d26ab824f79Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: ping0d82d1f20b0ecfb6c97d8d26ab824f79.url(options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::ping
- * @see app/Http/Controllers/Api/RiderController.php:728
+ * @see app/Http/Controllers/Api/RiderController.php:872
  * @route '/api/v1/rider/ping'
  */
-        pingForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: ping.url(options),
+        ping0d82d1f20b0ecfb6c97d8d26ab824f79Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: ping0d82d1f20b0ecfb6c97d8d26ab824f79.url(options),
             method: 'post',
         })
     
-    ping.form = pingForm
+    ping0d82d1f20b0ecfb6c97d8d26ab824f79.form = ping0d82d1f20b0ecfb6c97d8d26ab824f79Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::ping
+ * @see app/Http/Controllers/Api/RiderController.php:872
+ * @route '/api/rider/ping'
+ */
+const ping031fd5af02d93de1361ef37f3653ad91 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: ping031fd5af02d93de1361ef37f3653ad91.url(options),
+    method: 'post',
+})
+
+ping031fd5af02d93de1361ef37f3653ad91.definition = {
+    methods: ["post"],
+    url: '/api/rider/ping',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::ping
+ * @see app/Http/Controllers/Api/RiderController.php:872
+ * @route '/api/rider/ping'
+ */
+ping031fd5af02d93de1361ef37f3653ad91.url = (options?: RouteQueryOptions) => {
+    return ping031fd5af02d93de1361ef37f3653ad91.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::ping
+ * @see app/Http/Controllers/Api/RiderController.php:872
+ * @route '/api/rider/ping'
+ */
+ping031fd5af02d93de1361ef37f3653ad91.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: ping031fd5af02d93de1361ef37f3653ad91.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::ping
+ * @see app/Http/Controllers/Api/RiderController.php:872
+ * @route '/api/rider/ping'
+ */
+    const ping031fd5af02d93de1361ef37f3653ad91Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: ping031fd5af02d93de1361ef37f3653ad91.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::ping
+ * @see app/Http/Controllers/Api/RiderController.php:872
+ * @route '/api/rider/ping'
+ */
+        ping031fd5af02d93de1361ef37f3653ad91Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: ping031fd5af02d93de1361ef37f3653ad91.url(options),
+            method: 'post',
+        })
+    
+    ping031fd5af02d93de1361ef37f3653ad91.form = ping031fd5af02d93de1361ef37f3653ad91Form
+
+export const ping = {
+    '/api/v1/rider/ping': ping0d82d1f20b0ecfb6c97d8d26ab824f79,
+    '/api/rider/ping': ping031fd5af02d93de1361ef37f3653ad91,
+}
+
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-export const getStats = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: getStats.url(options),
+const getStatsb4b7a936b4dbf8c412ae7f146e59c3c6 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url(options),
     method: 'get',
 })
 
-getStats.definition = {
+getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.definition = {
     methods: ["get","head"],
     url: '/api/v1/rider/stats',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-getStats.url = (options?: RouteQueryOptions) => {
-    return getStats.definition.url + queryParams(options)
+getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url = (options?: RouteQueryOptions) => {
+    return getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-getStats.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: getStats.url(options),
+getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url(options),
     method: 'get',
 })
 /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: getStats.url(options),
+getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url(options),
     method: 'head',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-    const getStatsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: getStats.url(options),
+    const getStatsb4b7a936b4dbf8c412ae7f146e59c3c6Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url(options),
         method: 'get',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-        getStatsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: getStats.url(options),
+        getStatsb4b7a936b4dbf8c412ae7f146e59c3c6Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url(options),
             method: 'get',
         })
             /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
- * @see app/Http/Controllers/Api/RiderController.php:690
+ * @see app/Http/Controllers/Api/RiderController.php:834
  * @route '/api/v1/rider/stats'
  */
-        getStatsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: getStats.url({
+        getStatsb4b7a936b4dbf8c412ae7f146e59c3c6Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.url({
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'HEAD',
                             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -251,62 +444,207 @@ getStats.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
     
-    getStats.form = getStatsForm
+    getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.form = getStatsb4b7a936b4dbf8c412ae7f146e59c3c6Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+const getStats7c3d39de8ff6ff150c545ad605884ca4 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getStats7c3d39de8ff6ff150c545ad605884ca4.url(options),
+    method: 'get',
+})
+
+getStats7c3d39de8ff6ff150c545ad605884ca4.definition = {
+    methods: ["get","head"],
+    url: '/api/rider/stats',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+getStats7c3d39de8ff6ff150c545ad605884ca4.url = (options?: RouteQueryOptions) => {
+    return getStats7c3d39de8ff6ff150c545ad605884ca4.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+getStats7c3d39de8ff6ff150c545ad605884ca4.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getStats7c3d39de8ff6ff150c545ad605884ca4.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+getStats7c3d39de8ff6ff150c545ad605884ca4.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getStats7c3d39de8ff6ff150c545ad605884ca4.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+    const getStats7c3d39de8ff6ff150c545ad605884ca4Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getStats7c3d39de8ff6ff150c545ad605884ca4.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+        getStats7c3d39de8ff6ff150c545ad605884ca4Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getStats7c3d39de8ff6ff150c545ad605884ca4.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:834
+ * @route '/api/rider/stats'
+ */
+        getStats7c3d39de8ff6ff150c545ad605884ca4Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getStats7c3d39de8ff6ff150c545ad605884ca4.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getStats7c3d39de8ff6ff150c545ad605884ca4.form = getStats7c3d39de8ff6ff150c545ad605884ca4Form
+
+export const getStats = {
+    '/api/v1/rider/stats': getStatsb4b7a936b4dbf8c412ae7f146e59c3c6,
+    '/api/rider/stats': getStats7c3d39de8ff6ff150c545ad605884ca4,
+}
+
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateLocation
- * @see app/Http/Controllers/Api/RiderController.php:581
+ * @see app/Http/Controllers/Api/RiderController.php:725
  * @route '/api/v1/rider/location'
  */
-export const updateLocation = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: updateLocation.url(options),
+const updateLocationfe7f85dad518befc9d281389c65bfaaf = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: updateLocationfe7f85dad518befc9d281389c65bfaaf.url(options),
     method: 'post',
 })
 
-updateLocation.definition = {
+updateLocationfe7f85dad518befc9d281389c65bfaaf.definition = {
     methods: ["post"],
     url: '/api/v1/rider/location',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateLocation
- * @see app/Http/Controllers/Api/RiderController.php:581
+ * @see app/Http/Controllers/Api/RiderController.php:725
  * @route '/api/v1/rider/location'
  */
-updateLocation.url = (options?: RouteQueryOptions) => {
-    return updateLocation.definition.url + queryParams(options)
+updateLocationfe7f85dad518befc9d281389c65bfaaf.url = (options?: RouteQueryOptions) => {
+    return updateLocationfe7f85dad518befc9d281389c65bfaaf.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::updateLocation
- * @see app/Http/Controllers/Api/RiderController.php:581
+ * @see app/Http/Controllers/Api/RiderController.php:725
  * @route '/api/v1/rider/location'
  */
-updateLocation.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: updateLocation.url(options),
+updateLocationfe7f85dad518befc9d281389c65bfaaf.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: updateLocationfe7f85dad518befc9d281389c65bfaaf.url(options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::updateLocation
- * @see app/Http/Controllers/Api/RiderController.php:581
+ * @see app/Http/Controllers/Api/RiderController.php:725
  * @route '/api/v1/rider/location'
  */
-    const updateLocationForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: updateLocation.url(options),
+    const updateLocationfe7f85dad518befc9d281389c65bfaafForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: updateLocationfe7f85dad518befc9d281389c65bfaaf.url(options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::updateLocation
- * @see app/Http/Controllers/Api/RiderController.php:581
+ * @see app/Http/Controllers/Api/RiderController.php:725
  * @route '/api/v1/rider/location'
  */
-        updateLocationForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: updateLocation.url(options),
+        updateLocationfe7f85dad518befc9d281389c65bfaafForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: updateLocationfe7f85dad518befc9d281389c65bfaaf.url(options),
             method: 'post',
         })
     
-    updateLocation.form = updateLocationForm
+    updateLocationfe7f85dad518befc9d281389c65bfaaf.form = updateLocationfe7f85dad518befc9d281389c65bfaafForm
+    /**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:725
+ * @route '/api/rider/location'
+ */
+const updateLocationecfcde48da7bfe0b038a0aafe97388b5 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: updateLocationecfcde48da7bfe0b038a0aafe97388b5.url(options),
+    method: 'post',
+})
+
+updateLocationecfcde48da7bfe0b038a0aafe97388b5.definition = {
+    methods: ["post"],
+    url: '/api/rider/location',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:725
+ * @route '/api/rider/location'
+ */
+updateLocationecfcde48da7bfe0b038a0aafe97388b5.url = (options?: RouteQueryOptions) => {
+    return updateLocationecfcde48da7bfe0b038a0aafe97388b5.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:725
+ * @route '/api/rider/location'
+ */
+updateLocationecfcde48da7bfe0b038a0aafe97388b5.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: updateLocationecfcde48da7bfe0b038a0aafe97388b5.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:725
+ * @route '/api/rider/location'
+ */
+    const updateLocationecfcde48da7bfe0b038a0aafe97388b5Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: updateLocationecfcde48da7bfe0b038a0aafe97388b5.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::updateLocation
+ * @see app/Http/Controllers/Api/RiderController.php:725
+ * @route '/api/rider/location'
+ */
+        updateLocationecfcde48da7bfe0b038a0aafe97388b5Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: updateLocationecfcde48da7bfe0b038a0aafe97388b5.url(options),
+            method: 'post',
+        })
+    
+    updateLocationecfcde48da7bfe0b038a0aafe97388b5.form = updateLocationecfcde48da7bfe0b038a0aafe97388b5Form
+
+export const updateLocation = {
+    '/api/v1/rider/location': updateLocationfe7f85dad518befc9d281389c65bfaaf,
+    '/api/rider/location': updateLocationecfcde48da7bfe0b038a0aafe97388b5,
+}
+
 /**
 * @see \App\Http\Controllers\Api\RiderController::getOrders
  * @see app/Http/Controllers/Api/RiderController.php:74
@@ -633,7 +971,7 @@ export const getMyOrders = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
 const getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -648,7 +986,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
 getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.url = (options?: RouteQueryOptions) => {
@@ -657,7 +995,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.url = (options?: RouteQueryOp
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
 getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -666,7 +1004,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.get = (options?: RouteQueryOp
 })
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
 getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -676,7 +1014,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.head = (options?: RouteQueryO
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
     const getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603fForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -686,7 +1024,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.head = (options?: RouteQueryO
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
         getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603fForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -695,7 +1033,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.head = (options?: RouteQueryO
         })
             /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/v1/rider/completed-orders'
  */
         getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603fForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -711,7 +1049,7 @@ getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.head = (options?: RouteQueryO
     getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f.form = getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603fForm
     /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
 const getCompletedOrders805dad15d371e329367cc660ba824f6b = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -726,7 +1064,7 @@ getCompletedOrders805dad15d371e329367cc660ba824f6b.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
 getCompletedOrders805dad15d371e329367cc660ba824f6b.url = (options?: RouteQueryOptions) => {
@@ -735,7 +1073,7 @@ getCompletedOrders805dad15d371e329367cc660ba824f6b.url = (options?: RouteQueryOp
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
 getCompletedOrders805dad15d371e329367cc660ba824f6b.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -744,7 +1082,7 @@ getCompletedOrders805dad15d371e329367cc660ba824f6b.get = (options?: RouteQueryOp
 })
 /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
 getCompletedOrders805dad15d371e329367cc660ba824f6b.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -754,7 +1092,7 @@ getCompletedOrders805dad15d371e329367cc660ba824f6b.head = (options?: RouteQueryO
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
     const getCompletedOrders805dad15d371e329367cc660ba824f6bForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -764,7 +1102,7 @@ getCompletedOrders805dad15d371e329367cc660ba824f6b.head = (options?: RouteQueryO
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
         getCompletedOrders805dad15d371e329367cc660ba824f6bForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -773,7 +1111,7 @@ getCompletedOrders805dad15d371e329367cc660ba824f6b.head = (options?: RouteQueryO
         })
             /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
- * @see app/Http/Controllers/Api/RiderController.php:136
+ * @see app/Http/Controllers/Api/RiderController.php:169
  * @route '/api/rider/completed-orders'
  */
         getCompletedOrders805dad15d371e329367cc660ba824f6bForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -795,25 +1133,25 @@ export const getCompletedOrders = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::acceptOrder
- * @see app/Http/Controllers/Api/RiderController.php:183
+ * @see app/Http/Controllers/Api/RiderController.php:216
  * @route '/api/v1/rider/orders/{id}/accept'
  */
-export const acceptOrder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: acceptOrder.url(args, options),
+const acceptOrder335d52fdc7997e576629d6c57b57d171 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: acceptOrder335d52fdc7997e576629d6c57b57d171.url(args, options),
     method: 'post',
 })
 
-acceptOrder.definition = {
+acceptOrder335d52fdc7997e576629d6c57b57d171.definition = {
     methods: ["post"],
     url: '/api/v1/rider/orders/{id}/accept',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::acceptOrder
- * @see app/Http/Controllers/Api/RiderController.php:183
+ * @see app/Http/Controllers/Api/RiderController.php:216
  * @route '/api/v1/rider/orders/{id}/accept'
  */
-acceptOrder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+acceptOrder335d52fdc7997e576629d6c57b57d171.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -831,63 +1169,143 @@ acceptOrder.url = (args: { id: string | number } | [id: string | number ] | stri
                         id: args.id,
                 }
 
-    return acceptOrder.definition.url
+    return acceptOrder335d52fdc7997e576629d6c57b57d171.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::acceptOrder
- * @see app/Http/Controllers/Api/RiderController.php:183
+ * @see app/Http/Controllers/Api/RiderController.php:216
  * @route '/api/v1/rider/orders/{id}/accept'
  */
-acceptOrder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: acceptOrder.url(args, options),
+acceptOrder335d52fdc7997e576629d6c57b57d171.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: acceptOrder335d52fdc7997e576629d6c57b57d171.url(args, options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::acceptOrder
- * @see app/Http/Controllers/Api/RiderController.php:183
+ * @see app/Http/Controllers/Api/RiderController.php:216
  * @route '/api/v1/rider/orders/{id}/accept'
  */
-    const acceptOrderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: acceptOrder.url(args, options),
+    const acceptOrder335d52fdc7997e576629d6c57b57d171Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: acceptOrder335d52fdc7997e576629d6c57b57d171.url(args, options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::acceptOrder
- * @see app/Http/Controllers/Api/RiderController.php:183
+ * @see app/Http/Controllers/Api/RiderController.php:216
  * @route '/api/v1/rider/orders/{id}/accept'
  */
-        acceptOrderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: acceptOrder.url(args, options),
+        acceptOrder335d52fdc7997e576629d6c57b57d171Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: acceptOrder335d52fdc7997e576629d6c57b57d171.url(args, options),
             method: 'post',
         })
     
-    acceptOrder.form = acceptOrderForm
-/**
-* @see \App\Http\Controllers\Api\RiderController::pickupOrder
- * @see app/Http/Controllers/Api/RiderController.php:245
- * @route '/api/v1/rider/orders/{id}/pickup'
+    acceptOrder335d52fdc7997e576629d6c57b57d171.form = acceptOrder335d52fdc7997e576629d6c57b57d171Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::acceptOrder
+ * @see app/Http/Controllers/Api/RiderController.php:216
+ * @route '/api/rider/orders/{id}/accept'
  */
-export const pickupOrder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: pickupOrder.url(args, options),
+const acceptOrder1158b7621232e7382f240cf789aeabb9 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: acceptOrder1158b7621232e7382f240cf789aeabb9.url(args, options),
     method: 'post',
 })
 
-pickupOrder.definition = {
+acceptOrder1158b7621232e7382f240cf789aeabb9.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/accept',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::acceptOrder
+ * @see app/Http/Controllers/Api/RiderController.php:216
+ * @route '/api/rider/orders/{id}/accept'
+ */
+acceptOrder1158b7621232e7382f240cf789aeabb9.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return acceptOrder1158b7621232e7382f240cf789aeabb9.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::acceptOrder
+ * @see app/Http/Controllers/Api/RiderController.php:216
+ * @route '/api/rider/orders/{id}/accept'
+ */
+acceptOrder1158b7621232e7382f240cf789aeabb9.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: acceptOrder1158b7621232e7382f240cf789aeabb9.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::acceptOrder
+ * @see app/Http/Controllers/Api/RiderController.php:216
+ * @route '/api/rider/orders/{id}/accept'
+ */
+    const acceptOrder1158b7621232e7382f240cf789aeabb9Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: acceptOrder1158b7621232e7382f240cf789aeabb9.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::acceptOrder
+ * @see app/Http/Controllers/Api/RiderController.php:216
+ * @route '/api/rider/orders/{id}/accept'
+ */
+        acceptOrder1158b7621232e7382f240cf789aeabb9Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: acceptOrder1158b7621232e7382f240cf789aeabb9.url(args, options),
+            method: 'post',
+        })
+    
+    acceptOrder1158b7621232e7382f240cf789aeabb9.form = acceptOrder1158b7621232e7382f240cf789aeabb9Form
+
+export const acceptOrder = {
+    '/api/v1/rider/orders/{id}/accept': acceptOrder335d52fdc7997e576629d6c57b57d171,
+    '/api/rider/orders/{id}/accept': acceptOrder1158b7621232e7382f240cf789aeabb9,
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:301
+ * @route '/api/v1/rider/orders/{id}/pickup'
+ */
+const pickupOrder67b05245dea2301f5bbd857bf4c6aa6d = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.url(args, options),
+    method: 'post',
+})
+
+pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.definition = {
     methods: ["post"],
     url: '/api/v1/rider/orders/{id}/pickup',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::pickupOrder
- * @see app/Http/Controllers/Api/RiderController.php:245
+ * @see app/Http/Controllers/Api/RiderController.php:301
  * @route '/api/v1/rider/orders/{id}/pickup'
  */
-pickupOrder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -905,63 +1323,143 @@ pickupOrder.url = (args: { id: string | number } | [id: string | number ] | stri
                         id: args.id,
                 }
 
-    return pickupOrder.definition.url
+    return pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::pickupOrder
- * @see app/Http/Controllers/Api/RiderController.php:245
+ * @see app/Http/Controllers/Api/RiderController.php:301
  * @route '/api/v1/rider/orders/{id}/pickup'
  */
-pickupOrder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: pickupOrder.url(args, options),
+pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.url(args, options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::pickupOrder
- * @see app/Http/Controllers/Api/RiderController.php:245
+ * @see app/Http/Controllers/Api/RiderController.php:301
  * @route '/api/v1/rider/orders/{id}/pickup'
  */
-    const pickupOrderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: pickupOrder.url(args, options),
+    const pickupOrder67b05245dea2301f5bbd857bf4c6aa6dForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.url(args, options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::pickupOrder
- * @see app/Http/Controllers/Api/RiderController.php:245
+ * @see app/Http/Controllers/Api/RiderController.php:301
  * @route '/api/v1/rider/orders/{id}/pickup'
  */
-        pickupOrderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: pickupOrder.url(args, options),
+        pickupOrder67b05245dea2301f5bbd857bf4c6aa6dForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.url(args, options),
             method: 'post',
         })
     
-    pickupOrder.form = pickupOrderForm
-/**
-* @see \App\Http\Controllers\Api\RiderController::startTransit
- * @see app/Http/Controllers/Api/RiderController.php:293
- * @route '/api/v1/rider/orders/{id}/transit'
+    pickupOrder67b05245dea2301f5bbd857bf4c6aa6d.form = pickupOrder67b05245dea2301f5bbd857bf4c6aa6dForm
+    /**
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:301
+ * @route '/api/rider/orders/{id}/pickup'
  */
-export const startTransit = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: startTransit.url(args, options),
+const pickupOrder579a910ac119fd5fb65e16116828f5c1 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pickupOrder579a910ac119fd5fb65e16116828f5c1.url(args, options),
     method: 'post',
 })
 
-startTransit.definition = {
+pickupOrder579a910ac119fd5fb65e16116828f5c1.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/pickup',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:301
+ * @route '/api/rider/orders/{id}/pickup'
+ */
+pickupOrder579a910ac119fd5fb65e16116828f5c1.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return pickupOrder579a910ac119fd5fb65e16116828f5c1.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:301
+ * @route '/api/rider/orders/{id}/pickup'
+ */
+pickupOrder579a910ac119fd5fb65e16116828f5c1.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: pickupOrder579a910ac119fd5fb65e16116828f5c1.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:301
+ * @route '/api/rider/orders/{id}/pickup'
+ */
+    const pickupOrder579a910ac119fd5fb65e16116828f5c1Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: pickupOrder579a910ac119fd5fb65e16116828f5c1.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::pickupOrder
+ * @see app/Http/Controllers/Api/RiderController.php:301
+ * @route '/api/rider/orders/{id}/pickup'
+ */
+        pickupOrder579a910ac119fd5fb65e16116828f5c1Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: pickupOrder579a910ac119fd5fb65e16116828f5c1.url(args, options),
+            method: 'post',
+        })
+    
+    pickupOrder579a910ac119fd5fb65e16116828f5c1.form = pickupOrder579a910ac119fd5fb65e16116828f5c1Form
+
+export const pickupOrder = {
+    '/api/v1/rider/orders/{id}/pickup': pickupOrder67b05245dea2301f5bbd857bf4c6aa6d,
+    '/api/rider/orders/{id}/pickup': pickupOrder579a910ac119fd5fb65e16116828f5c1,
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:376
+ * @route '/api/v1/rider/orders/{id}/transit'
+ */
+const startTransit30258da9f6003769dffda8523c718911 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: startTransit30258da9f6003769dffda8523c718911.url(args, options),
+    method: 'post',
+})
+
+startTransit30258da9f6003769dffda8523c718911.definition = {
     methods: ["post"],
     url: '/api/v1/rider/orders/{id}/transit',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::startTransit
- * @see app/Http/Controllers/Api/RiderController.php:293
+ * @see app/Http/Controllers/Api/RiderController.php:376
  * @route '/api/v1/rider/orders/{id}/transit'
  */
-startTransit.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+startTransit30258da9f6003769dffda8523c718911.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -979,63 +1477,143 @@ startTransit.url = (args: { id: string | number } | [id: string | number ] | str
                         id: args.id,
                 }
 
-    return startTransit.definition.url
+    return startTransit30258da9f6003769dffda8523c718911.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::startTransit
- * @see app/Http/Controllers/Api/RiderController.php:293
+ * @see app/Http/Controllers/Api/RiderController.php:376
  * @route '/api/v1/rider/orders/{id}/transit'
  */
-startTransit.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: startTransit.url(args, options),
+startTransit30258da9f6003769dffda8523c718911.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: startTransit30258da9f6003769dffda8523c718911.url(args, options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::startTransit
- * @see app/Http/Controllers/Api/RiderController.php:293
+ * @see app/Http/Controllers/Api/RiderController.php:376
  * @route '/api/v1/rider/orders/{id}/transit'
  */
-    const startTransitForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: startTransit.url(args, options),
+    const startTransit30258da9f6003769dffda8523c718911Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: startTransit30258da9f6003769dffda8523c718911.url(args, options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::startTransit
- * @see app/Http/Controllers/Api/RiderController.php:293
+ * @see app/Http/Controllers/Api/RiderController.php:376
  * @route '/api/v1/rider/orders/{id}/transit'
  */
-        startTransitForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: startTransit.url(args, options),
+        startTransit30258da9f6003769dffda8523c718911Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: startTransit30258da9f6003769dffda8523c718911.url(args, options),
             method: 'post',
         })
     
-    startTransit.form = startTransitForm
-/**
-* @see \App\Http\Controllers\Api\RiderController::deliverOrder
- * @see app/Http/Controllers/Api/RiderController.php:333
- * @route '/api/v1/rider/orders/{id}/deliver'
+    startTransit30258da9f6003769dffda8523c718911.form = startTransit30258da9f6003769dffda8523c718911Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:376
+ * @route '/api/rider/orders/{id}/transit'
  */
-export const deliverOrder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: deliverOrder.url(args, options),
+const startTransit113e82e4514b9b80d3702387e44dbe82 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: startTransit113e82e4514b9b80d3702387e44dbe82.url(args, options),
     method: 'post',
 })
 
-deliverOrder.definition = {
+startTransit113e82e4514b9b80d3702387e44dbe82.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/transit',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:376
+ * @route '/api/rider/orders/{id}/transit'
+ */
+startTransit113e82e4514b9b80d3702387e44dbe82.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return startTransit113e82e4514b9b80d3702387e44dbe82.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:376
+ * @route '/api/rider/orders/{id}/transit'
+ */
+startTransit113e82e4514b9b80d3702387e44dbe82.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: startTransit113e82e4514b9b80d3702387e44dbe82.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:376
+ * @route '/api/rider/orders/{id}/transit'
+ */
+    const startTransit113e82e4514b9b80d3702387e44dbe82Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: startTransit113e82e4514b9b80d3702387e44dbe82.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::startTransit
+ * @see app/Http/Controllers/Api/RiderController.php:376
+ * @route '/api/rider/orders/{id}/transit'
+ */
+        startTransit113e82e4514b9b80d3702387e44dbe82Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: startTransit113e82e4514b9b80d3702387e44dbe82.url(args, options),
+            method: 'post',
+        })
+    
+    startTransit113e82e4514b9b80d3702387e44dbe82.form = startTransit113e82e4514b9b80d3702387e44dbe82Form
+
+export const startTransit = {
+    '/api/v1/rider/orders/{id}/transit': startTransit30258da9f6003769dffda8523c718911,
+    '/api/rider/orders/{id}/transit': startTransit113e82e4514b9b80d3702387e44dbe82,
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:443
+ * @route '/api/v1/rider/orders/{id}/deliver'
+ */
+const deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.url(args, options),
+    method: 'post',
+})
+
+deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.definition = {
     methods: ["post"],
     url: '/api/v1/rider/orders/{id}/deliver',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::deliverOrder
- * @see app/Http/Controllers/Api/RiderController.php:333
+ * @see app/Http/Controllers/Api/RiderController.php:443
  * @route '/api/v1/rider/orders/{id}/deliver'
  */
-deliverOrder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -1053,63 +1631,143 @@ deliverOrder.url = (args: { id: string | number } | [id: string | number ] | str
                         id: args.id,
                 }
 
-    return deliverOrder.definition.url
+    return deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::deliverOrder
- * @see app/Http/Controllers/Api/RiderController.php:333
+ * @see app/Http/Controllers/Api/RiderController.php:443
  * @route '/api/v1/rider/orders/{id}/deliver'
  */
-deliverOrder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: deliverOrder.url(args, options),
+deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.url(args, options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::deliverOrder
- * @see app/Http/Controllers/Api/RiderController.php:333
+ * @see app/Http/Controllers/Api/RiderController.php:443
  * @route '/api/v1/rider/orders/{id}/deliver'
  */
-    const deliverOrderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: deliverOrder.url(args, options),
+    const deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.url(args, options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::deliverOrder
- * @see app/Http/Controllers/Api/RiderController.php:333
+ * @see app/Http/Controllers/Api/RiderController.php:443
  * @route '/api/v1/rider/orders/{id}/deliver'
  */
-        deliverOrderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: deliverOrder.url(args, options),
+        deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.url(args, options),
             method: 'post',
         })
     
-    deliverOrder.form = deliverOrderForm
-/**
-* @see \App\Http\Controllers\Api\RiderController::rejectOrder
- * @see app/Http/Controllers/Api/RiderController.php:535
- * @route '/api/v1/rider/orders/{id}/reject'
+    deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3.form = deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:443
+ * @route '/api/rider/orders/{id}/deliver'
  */
-export const rejectOrder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: rejectOrder.url(args, options),
+const deliverOrdera86283c8722d7e0d3031b8c518471787 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: deliverOrdera86283c8722d7e0d3031b8c518471787.url(args, options),
     method: 'post',
 })
 
-rejectOrder.definition = {
+deliverOrdera86283c8722d7e0d3031b8c518471787.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/deliver',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:443
+ * @route '/api/rider/orders/{id}/deliver'
+ */
+deliverOrdera86283c8722d7e0d3031b8c518471787.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return deliverOrdera86283c8722d7e0d3031b8c518471787.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:443
+ * @route '/api/rider/orders/{id}/deliver'
+ */
+deliverOrdera86283c8722d7e0d3031b8c518471787.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: deliverOrdera86283c8722d7e0d3031b8c518471787.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:443
+ * @route '/api/rider/orders/{id}/deliver'
+ */
+    const deliverOrdera86283c8722d7e0d3031b8c518471787Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: deliverOrdera86283c8722d7e0d3031b8c518471787.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::deliverOrder
+ * @see app/Http/Controllers/Api/RiderController.php:443
+ * @route '/api/rider/orders/{id}/deliver'
+ */
+        deliverOrdera86283c8722d7e0d3031b8c518471787Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: deliverOrdera86283c8722d7e0d3031b8c518471787.url(args, options),
+            method: 'post',
+        })
+    
+    deliverOrdera86283c8722d7e0d3031b8c518471787.form = deliverOrdera86283c8722d7e0d3031b8c518471787Form
+
+export const deliverOrder = {
+    '/api/v1/rider/orders/{id}/deliver': deliverOrderfcf79bea3da3a5d29bcf2e2f6eb5eff3,
+    '/api/rider/orders/{id}/deliver': deliverOrdera86283c8722d7e0d3031b8c518471787,
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::rejectOrder
+ * @see app/Http/Controllers/Api/RiderController.php:672
+ * @route '/api/v1/rider/orders/{id}/reject'
+ */
+const rejectOrderfaac7c9761f8bf4f25eb23e454f6727b = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.url(args, options),
+    method: 'post',
+})
+
+rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.definition = {
     methods: ["post"],
     url: '/api/v1/rider/orders/{id}/reject',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::rejectOrder
- * @see app/Http/Controllers/Api/RiderController.php:535
+ * @see app/Http/Controllers/Api/RiderController.php:672
  * @route '/api/v1/rider/orders/{id}/reject'
  */
-rejectOrder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -1127,45 +1785,125 @@ rejectOrder.url = (args: { id: string | number } | [id: string | number ] | stri
                         id: args.id,
                 }
 
-    return rejectOrder.definition.url
+    return rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::rejectOrder
- * @see app/Http/Controllers/Api/RiderController.php:535
+ * @see app/Http/Controllers/Api/RiderController.php:672
  * @route '/api/v1/rider/orders/{id}/reject'
  */
-rejectOrder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: rejectOrder.url(args, options),
+rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.url(args, options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::rejectOrder
- * @see app/Http/Controllers/Api/RiderController.php:535
+ * @see app/Http/Controllers/Api/RiderController.php:672
  * @route '/api/v1/rider/orders/{id}/reject'
  */
-    const rejectOrderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: rejectOrder.url(args, options),
+    const rejectOrderfaac7c9761f8bf4f25eb23e454f6727bForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.url(args, options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::rejectOrder
- * @see app/Http/Controllers/Api/RiderController.php:535
+ * @see app/Http/Controllers/Api/RiderController.php:672
  * @route '/api/v1/rider/orders/{id}/reject'
  */
-        rejectOrderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: rejectOrder.url(args, options),
+        rejectOrderfaac7c9761f8bf4f25eb23e454f6727bForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.url(args, options),
             method: 'post',
         })
     
-    rejectOrder.form = rejectOrderForm
+    rejectOrderfaac7c9761f8bf4f25eb23e454f6727b.form = rejectOrderfaac7c9761f8bf4f25eb23e454f6727bForm
+    /**
+* @see \App\Http\Controllers\Api\RiderController::rejectOrder
+ * @see app/Http/Controllers/Api/RiderController.php:672
+ * @route '/api/rider/orders/{id}/reject'
+ */
+const rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.url(args, options),
+    method: 'post',
+})
+
+rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/reject',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::rejectOrder
+ * @see app/Http/Controllers/Api/RiderController.php:672
+ * @route '/api/rider/orders/{id}/reject'
+ */
+rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::rejectOrder
+ * @see app/Http/Controllers/Api/RiderController.php:672
+ * @route '/api/rider/orders/{id}/reject'
+ */
+rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::rejectOrder
+ * @see app/Http/Controllers/Api/RiderController.php:672
+ * @route '/api/rider/orders/{id}/reject'
+ */
+    const rejectOrder94fb5ab30d0131e4068baa7bd57d7ecdForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::rejectOrder
+ * @see app/Http/Controllers/Api/RiderController.php:672
+ * @route '/api/rider/orders/{id}/reject'
+ */
+        rejectOrder94fb5ab30d0131e4068baa7bd57d7ecdForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.url(args, options),
+            method: 'post',
+        })
+    
+    rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd.form = rejectOrder94fb5ab30d0131e4068baa7bd57d7ecdForm
+
+export const rejectOrder = {
+    '/api/v1/rider/orders/{id}/reject': rejectOrderfaac7c9761f8bf4f25eb23e454f6727b,
+    '/api/rider/orders/{id}/reject': rejectOrder94fb5ab30d0131e4068baa7bd57d7ecd,
+}
+
 /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel'
  */
 const cancelOrderc6e91f42a6a96f0dc48849a40d8ac513 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -1180,7 +1918,7 @@ cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel'
  */
 cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -1208,7 +1946,7 @@ cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.url = (args: { id: string | number }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel'
  */
 cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -1218,7 +1956,7 @@ cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.post = (args: { id: string | number 
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel'
  */
     const cancelOrderc6e91f42a6a96f0dc48849a40d8ac513Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -1228,7 +1966,7 @@ cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.post = (args: { id: string | number 
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel'
  */
         cancelOrderc6e91f42a6a96f0dc48849a40d8ac513Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -1239,7 +1977,7 @@ cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.post = (args: { id: string | number 
     cancelOrderc6e91f42a6a96f0dc48849a40d8ac513.form = cancelOrderc6e91f42a6a96f0dc48849a40d8ac513Form
     /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel-request'
  */
 const cancelOrder676ea8b862358a07db7266022896cc59 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -1254,7 +1992,7 @@ cancelOrder676ea8b862358a07db7266022896cc59.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel-request'
  */
 cancelOrder676ea8b862358a07db7266022896cc59.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -1282,7 +2020,7 @@ cancelOrder676ea8b862358a07db7266022896cc59.url = (args: { id: string | number }
 
 /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel-request'
  */
 cancelOrder676ea8b862358a07db7266022896cc59.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -1292,7 +2030,7 @@ cancelOrder676ea8b862358a07db7266022896cc59.post = (args: { id: string | number 
 
     /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel-request'
  */
     const cancelOrder676ea8b862358a07db7266022896cc59Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -1302,7 +2040,7 @@ cancelOrder676ea8b862358a07db7266022896cc59.post = (args: { id: string | number 
 
             /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:401
+ * @see app/Http/Controllers/Api/RiderController.php:538
  * @route '/api/v1/rider/orders/{id}/cancel-request'
  */
         cancelOrder676ea8b862358a07db7266022896cc59Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -1311,10 +2049,160 @@ cancelOrder676ea8b862358a07db7266022896cc59.post = (args: { id: string | number 
         })
     
     cancelOrder676ea8b862358a07db7266022896cc59.form = cancelOrder676ea8b862358a07db7266022896cc59Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel'
+ */
+const cancelOrder0ee1fe1f36eddf0b892c4836f981f776 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancelOrder0ee1fe1f36eddf0b892c4836f981f776.url(args, options),
+    method: 'post',
+})
+
+cancelOrder0ee1fe1f36eddf0b892c4836f981f776.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/cancel',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel'
+ */
+cancelOrder0ee1fe1f36eddf0b892c4836f981f776.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return cancelOrder0ee1fe1f36eddf0b892c4836f981f776.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel'
+ */
+cancelOrder0ee1fe1f36eddf0b892c4836f981f776.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancelOrder0ee1fe1f36eddf0b892c4836f981f776.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel'
+ */
+    const cancelOrder0ee1fe1f36eddf0b892c4836f981f776Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: cancelOrder0ee1fe1f36eddf0b892c4836f981f776.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel'
+ */
+        cancelOrder0ee1fe1f36eddf0b892c4836f981f776Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: cancelOrder0ee1fe1f36eddf0b892c4836f981f776.url(args, options),
+            method: 'post',
+        })
+    
+    cancelOrder0ee1fe1f36eddf0b892c4836f981f776.form = cancelOrder0ee1fe1f36eddf0b892c4836f981f776Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel-request'
+ */
+const cancelOrder2dccc2582b88c47bdea90c08f6913efa = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
+    method: 'post',
+})
+
+cancelOrder2dccc2582b88c47bdea90c08f6913efa.definition = {
+    methods: ["post"],
+    url: '/api/rider/orders/{id}/cancel-request',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel-request'
+ */
+cancelOrder2dccc2582b88c47bdea90c08f6913efa.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return cancelOrder2dccc2582b88c47bdea90c08f6913efa.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel-request'
+ */
+cancelOrder2dccc2582b88c47bdea90c08f6913efa.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel-request'
+ */
+    const cancelOrder2dccc2582b88c47bdea90c08f6913efaForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::cancelOrder
+ * @see app/Http/Controllers/Api/RiderController.php:538
+ * @route '/api/rider/orders/{id}/cancel-request'
+ */
+        cancelOrder2dccc2582b88c47bdea90c08f6913efaForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
+            method: 'post',
+        })
+    
+    cancelOrder2dccc2582b88c47bdea90c08f6913efa.form = cancelOrder2dccc2582b88c47bdea90c08f6913efaForm
 
 export const cancelOrder = {
     '/api/v1/rider/orders/{id}/cancel': cancelOrderc6e91f42a6a96f0dc48849a40d8ac513,
     '/api/v1/rider/orders/{id}/cancel-request': cancelOrder676ea8b862358a07db7266022896cc59,
+    '/api/rider/orders/{id}/cancel': cancelOrder0ee1fe1f36eddf0b892c4836f981f776,
+    '/api/rider/orders/{id}/cancel-request': cancelOrder2dccc2582b88c47bdea90c08f6913efa,
 }
 
 const RiderController = { changePassword, updateStatus, ping, getStats, updateLocation, getOrders, getMyOrders, getCompletedOrders, acceptOrder, pickupOrder, startTransit, deliverOrder, rejectOrder, cancelOrder }

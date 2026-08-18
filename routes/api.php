@@ -153,8 +153,22 @@ Route::middleware(['auth:sanctum,web'])->prefix('branch')->group(function () {
 
 // ── Rider Routes (v1 & non-v1 aliases) ──
 Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
-    Route::get('orders', [RiderController::class, 'getOrders']);
-    Route::get('my-orders', [RiderController::class, 'getMyOrders']);
+    Route::post('change-password', [RiderController::class, 'changePassword']);
+    Route::patch('status', [RiderController::class, 'updateStatus']);
+    Route::post('ping',    [RiderController::class, 'ping']);
+    Route::get('stats',    [RiderController::class, 'getStats']);
+    Route::post('location', [RiderController::class, 'updateLocation']);
+
+    Route::get('orders',           [RiderController::class, 'getOrders']);
+    Route::get('my-orders',        [RiderController::class, 'getMyOrders']);
     Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']);
+    Route::post('orders/{id}/accept',  [RiderController::class, 'acceptOrder']);
+    Route::post('orders/{id}/pickup',  [RiderController::class, 'pickupOrder']);
+    Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']);
+    Route::post('orders/{id}/deliver', [RiderController::class, 'deliverOrder']);
+    Route::post('orders/{id}/reject',  [RiderController::class, 'rejectOrder']);
+    Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);
+    Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);
+
     Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
 });

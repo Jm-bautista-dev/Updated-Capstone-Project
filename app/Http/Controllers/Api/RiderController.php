@@ -45,9 +45,9 @@ class RiderController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $rider = $request->user();
+        $rider = $this->resolveRider($request);
 
-        if (!$rider instanceof Rider) {
+        if (!$rider) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -87,10 +87,10 @@ class RiderController extends Controller
                 ->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success' => true,
-                'data' => $deliveries,
+                'success'    => true,
+                'data'       => $deliveries,
                 'deliveries' => $deliveries,
-                'orders' => $deliveries,
+                'orders'     => $deliveries,
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getOrders failed', ['error' => $e->getMessage()]);
@@ -114,14 +114,47 @@ class RiderController extends Controller
                 ->where('rider_id', $rider->id)
                 ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
                 ->orderBy('updated_at', 'desc')
-                ->get()
-                ->map(fn(Delivery $d) => $this->formatDelivery($d));
+                ->get();
+
+            if ($deliveries->isEmpty()) {
+                $orders = Order::with(['items.product', 'branch', 'delivery'])
+                    ->where('rider_id', $rider->id)
+                    ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
+                    ->orderBy('updated_at', 'desc')
+                    ->get();
+
+                if ($orders->isNotEmpty()) {
+                    $orderData = $orders->map(fn(Order $o) => [
+                        'id'                      => $o->id,
+                        'order_id'                => $o->id,
+                        'delivery_id'             => $o->delivery?->id,
+                        'status'                  => $o->status,
+                        'order_status'            => $o->status,
+                        'cancellation_status'     => $o->cancellation_status,
+                        'is_cancellation_pending' => (bool)$o->is_cancellation_pending,
+                        'customer_name'           => $o->customer_name,
+                        'customer_phone'          => $o->contact_number,
+                        'customer_address'        => $o->address,
+                        'items'                   => $o->items,
+                        'branch'                  => $o->branch,
+                    ]);
+
+                    return response()->json([
+                        'success'    => true,
+                        'data'       => $orderData,
+                        'deliveries' => $orderData,
+                        'orders'     => $orderData,
+                    ]);
+                }
+            }
+
+            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success' => true,
-                'data' => $deliveries,
-                'deliveries' => $deliveries,
-                'orders' => $deliveries,
+                'success'    => true,
+                'data'       => $formatted,
+                'deliveries' => $formatted,
+                'orders'     => $formatted,
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getMyOrders failed', ['error' => $e->getMessage()]);
@@ -150,14 +183,14 @@ class RiderController extends Controller
             $formatted = collect($deliveries->items())->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success' => true,
-                'data' => $formatted,
+                'success'    => true,
+                'data'       => $formatted,
                 'deliveries' => $formatted,
-                'orders' => $formatted,
-                'meta' => [
+                'orders'     => $formatted,
+                'meta'       => [
                     'current_page' => $deliveries->currentPage(),
-                    'last_page' => $deliveries->lastPage(),
-                    'total' => $deliveries->total(),
+                    'last_page'    => $deliveries->lastPage(),
+                    'total'        => $deliveries->total(),
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -183,8 +216,8 @@ class RiderController extends Controller
     public function acceptOrder(Request $request, $id): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
@@ -199,11 +232,34 @@ class RiderController extends Controller
 
                 // Pessimistic lock — prevents two riders accepting the same order simultaneously
                 $delivery = Delivery::with('order')
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)->orWhere('order_id', $id);
+                    })
                     ->whereNull('rider_id')
                     ->lockForUpdate()
-                    ->findOrFail($id);
+                    ->first();
 
-                $order = $delivery->order;
+                if (!$delivery) {
+                    $order = Order::where('id', $id)->whereNull('rider_id')->first();
+                    if ($order) {
+                        $delivery = Delivery::firstOrCreate(
+                            ['order_id' => $order->id],
+                            [
+                                'rider_id'         => null,
+                                'status'           => $order->status,
+                                'customer_name'    => $order->customer_name,
+                                'customer_phone'   => $order->contact_number,
+                                'customer_address' => $order->address,
+                            ]
+                        );
+                    }
+                }
+
+                if (!$delivery) {
+                    return response()->json(['success' => false, 'message' => 'Delivery not available'], 404);
+                }
+
+                $order = $delivery->order ?: Order::find($delivery->order_id);
                 if (!$order) {
                     return response()->json(['success' => false, 'message' => 'Order not found'], 404);
                 }
@@ -214,7 +270,7 @@ class RiderController extends Controller
                 // Assign rider to delivery record
                 $delivery->update([
                     'rider_id' => $rider->id,
-                    'status' => 'assigned_to_rider',
+                    'status'   => 'assigned_to_rider',
                 ]);
 
                 // Mark rider busy
@@ -225,7 +281,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Order accepted! Please head to the branch for pickup.',
-                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -245,8 +301,8 @@ class RiderController extends Controller
     public function pickupOrder(Request $request, $id): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
@@ -260,11 +316,38 @@ class RiderController extends Controller
                 }
 
                 $delivery = Delivery::with('order')
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)->orWhere('order_id', $id);
+                    })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
-                    ->findOrFail($id);
+                    ->first();
 
-                $order = $delivery->order;
+                if (!$delivery) {
+                    $order = Order::where('rider_id', $rider->id)->where('id', $id)->first();
+                    if ($order) {
+                        $delivery = Delivery::firstOrCreate(
+                            ['order_id' => $order->id],
+                            [
+                                'rider_id'         => $rider->id,
+                                'status'           => $order->status,
+                                'customer_name'    => $order->customer_name,
+                                'customer_phone'   => $order->contact_number,
+                                'customer_address' => $order->address,
+                            ]
+                        );
+                    }
+                }
+
+                if (!$delivery) {
+                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                }
+
+                $order = $delivery->order ?: Order::find($delivery->order_id);
+                if (!$order) {
+                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                }
+
                 $order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
 
                 $delivery->update(['status' => 'picked_up']);
@@ -274,7 +357,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Order picked up! Now head to the customer.',
-                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -293,18 +376,45 @@ class RiderController extends Controller
     public function startTransit(Request $request, $id): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
             return DB::transaction(function () use ($rider, $id) {
                 $delivery = Delivery::with('order')
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)->orWhere('order_id', $id);
+                    })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
-                    ->findOrFail($id);
+                    ->first();
 
-                $order = $delivery->order;
+                if (!$delivery) {
+                    $order = Order::where('rider_id', $rider->id)->where('id', $id)->first();
+                    if ($order) {
+                        $delivery = Delivery::firstOrCreate(
+                            ['order_id' => $order->id],
+                            [
+                                'rider_id'         => $rider->id,
+                                'status'           => $order->status,
+                                'customer_name'    => $order->customer_name,
+                                'customer_phone'   => $order->contact_number,
+                                'customer_address' => $order->address,
+                            ]
+                        );
+                    }
+                }
+
+                if (!$delivery) {
+                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                }
+
+                $order = $delivery->order ?: Order::find($delivery->order_id);
+                if (!$order) {
+                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                }
+
                 $order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
 
                 $delivery->update(['status' => 'in_transit']);
@@ -314,7 +424,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'You are on your way!',
-                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -333,8 +443,8 @@ class RiderController extends Controller
     public function deliverOrder(Request $request, $id): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
@@ -344,11 +454,38 @@ class RiderController extends Controller
 
             return DB::transaction(function () use ($rider, $id, $request) {
                 $delivery = Delivery::with('order')
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)->orWhere('order_id', $id);
+                    })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
-                    ->findOrFail($id);
+                    ->first();
 
-                $order = $delivery->order;
+                if (!$delivery) {
+                    $order = Order::where('rider_id', $rider->id)->where('id', $id)->first();
+                    if ($order) {
+                        $delivery = Delivery::firstOrCreate(
+                            ['order_id' => $order->id],
+                            [
+                                'rider_id'         => $rider->id,
+                                'status'           => $order->status,
+                                'customer_name'    => $order->customer_name,
+                                'customer_phone'   => $order->contact_number,
+                                'customer_address' => $order->address,
+                            ]
+                        );
+                    }
+                }
+
+                if (!$delivery) {
+                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                }
+
+                $order = $delivery->order ?: Order::find($delivery->order_id);
+                if (!$order) {
+                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                }
+
                 $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
 
                 $updateData = ['status' => 'delivered'];
@@ -383,7 +520,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Delivery confirmed! Great job!',
-                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -401,14 +538,14 @@ class RiderController extends Controller
     public function cancelOrder(Request $request, $id): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
             $request->validate([
                 'reason' => 'required|string|max:255',
-                'notes' => 'nullable|string|max:500',
+                'notes'  => 'nullable|string|max:500',
             ]);
 
             return DB::transaction(function () use ($rider, $id, $request) {
@@ -429,10 +566,10 @@ class RiderController extends Controller
                     $delivery = Delivery::firstOrCreate(
                         ['order_id' => $order->id],
                         [
-                            'rider_id' => $rider->id,
-                            'status' => $order->status,
-                            'customer_name' => $order->customer_name,
-                            'customer_phone' => $order->contact_number,
+                            'rider_id'         => $rider->id,
+                            'status'           => $order->status,
+                            'customer_name'    => $order->customer_name,
+                            'customer_phone'   => $order->contact_number,
                             'customer_address' => $order->address,
                         ]
                     );
@@ -466,7 +603,7 @@ class RiderController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'A cancellation request is already pending for this order.',
-                        'status' => 'cancellation_requested',
+                        'status'  => 'cancellation_requested',
                         'request' => $existingRequest,
                     ], 422);
                 }
@@ -476,9 +613,9 @@ class RiderController extends Controller
 
                 // Update Order & Delivery status
                 $order->update([
-                    'status' => 'cancellation_requested',
+                    'status'                  => 'cancellation_requested',
                     'is_cancellation_pending' => true,
-                    'cancellation_status' => 'pending',
+                    'cancellation_status'     => 'pending',
                 ]);
                 $delivery->update(['status' => 'cancellation_requested']);
 
@@ -486,23 +623,23 @@ class RiderController extends Controller
                 \App\Models\CancellationRequest::create([
                     'order_id' => $order->id,
                     'rider_id' => $rider->id,
-                    'reason' => $request->reason,
-                    'notes' => $request->input('notes'),
-                    'status' => 'pending',
+                    'reason'   => $request->reason,
+                    'notes'    => $request->input('notes'),
+                    'status'   => 'pending',
                 ]);
 
                 // Create in order_cancellation_requests table
                 $cancellationRequest = OrderCancellationRequest::create([
-                    'order_id' => $order->id,
-                    'delivery_id' => $delivery->id,
-                    'requested_by_rider_id' => $rider->id,
-                    'branch_id' => $order->branch_id,
-                    'reason' => $request->reason,
-                    'notes' => $request->input('notes'),
-                    'previous_order_status' => $prevOrderStatus,
+                    'order_id'                 => $order->id,
+                    'delivery_id'              => $delivery->id,
+                    'requested_by_rider_id'    => $rider->id,
+                    'branch_id'                => $order->branch_id,
+                    'reason'                   => $request->reason,
+                    'notes'                    => $request->input('notes'),
+                    'previous_order_status'    => $prevOrderStatus,
                     'previous_delivery_status' => $prevDeliveryStatus,
-                    'status' => 'pending',
-                    'requested_at' => now(),
+                    'status'                   => 'pending',
+                    'requested_at'             => now(),
                 ]);
 
                 // Real-Time Broadcasts
@@ -516,7 +653,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Cancellation request submitted successfully. Waiting for cashier approval.',
-                    'status' => 'cancellation_requested',
+                    'status'  => 'cancellation_requested',
                     'request' => $cancellationRequest->fresh(),
                 ]);
             });
@@ -535,17 +672,24 @@ class RiderController extends Controller
     public function rejectOrder(Request $request, $id): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
             return DB::transaction(function () use ($rider, $id) {
                 $delivery = Delivery::with('order')
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)->orWhere('order_id', $id);
+                    })
                     ->where('rider_id', $rider->id)
                     ->whereHas('order', fn($q) => $q->where('status', 'assigned_to_rider'))
                     ->lockForUpdate()
-                    ->findOrFail($id);
+                    ->first();
+
+                if (!$delivery) {
+                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                }
 
                 $order = $delivery->order;
                 // Return to ready_for_pickup so another rider can accept it
@@ -581,17 +725,17 @@ class RiderController extends Controller
     public function updateLocation(Request $request): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
             $request->validate([
-                'latitude' => 'required|numeric|between:-90,90',
-                'longitude' => 'required|numeric|between:-180,180',
-                'accuracy' => 'nullable|numeric|min:0',
-                'speed' => 'nullable|numeric|min:0',
-                'heading' => 'nullable|numeric|between:0,360',
+                'latitude'    => 'required|numeric|between:-90,90',
+                'longitude'   => 'required|numeric|between:-180,180',
+                'accuracy'    => 'nullable|numeric|min:0',
+                'speed'       => 'nullable|numeric|min:0',
+                'heading'     => 'nullable|numeric|between:0,360',
                 'recorded_at' => 'nullable|date',
             ]);
 
@@ -608,24 +752,24 @@ class RiderController extends Controller
 
             // Store location log
             RiderLocationLog::create([
-                'rider_id' => $rider->id,
+                'rider_id'    => $rider->id,
                 'delivery_id' => $delivery?->id,
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'speed' => $request->speed,
-                'heading' => $request->heading,
+                'latitude'    => $request->latitude,
+                'longitude'   => $request->longitude,
+                'speed'       => $request->speed,
+                'heading'     => $request->heading,
                 'recorded_at' => $recordedAt,
             ]);
 
             // Update rider's current position on riders table
             $rider->update([
-                'last_active_at' => now(),
+                'last_active_at'      => now(),
                 'location_updated_at' => $recordedAt,
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'accuracy' => $request->accuracy,
-                'speed' => $request->speed,
-                'heading' => $request->heading,
+                'latitude'            => $request->latitude,
+                'longitude'           => $request->longitude,
+                'accuracy'            => $request->accuracy,
+                'speed'               => $request->speed,
+                'heading'             => $request->heading,
             ]);
 
             // Broadcast real-time location update event
@@ -638,9 +782,9 @@ class RiderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Location updated successfully',
-                'data' => [
-                    'latitude' => (float) $rider->latitude,
-                    'longitude' => (float) $rider->longitude,
+                'data'    => [
+                    'latitude'            => (float) $rider->latitude,
+                    'longitude'           => (float) $rider->longitude,
                     'location_updated_at' => $rider->location_updated_at?->toIso8601String(),
                 ]
             ]);
@@ -663,20 +807,20 @@ class RiderController extends Controller
     {
         try {
             $request->validate(['status' => 'required|in:available,busy,offline']);
-            $rider = $request->user();
+            $rider = $this->resolveRider($request);
 
-            if (!$rider instanceof Rider) {
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
             $rider->update([
-                'status' => $request->status,
+                'status'         => $request->status,
                 'last_active_at' => now(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'status' => $rider->status,
+                'status'  => $rider->status,
             ]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Update failed'], 500);
@@ -690,8 +834,8 @@ class RiderController extends Controller
     public function getStats(Request $request): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false], 403);
             }
 
@@ -709,12 +853,12 @@ class RiderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'total_orders' => Delivery::where('rider_id', $rider->id)->count(),
+                'data'    => [
+                    'total_orders'     => Delivery::where('rider_id', $rider->id)->count(),
                     'completed_orders' => $totalCompleted,
-                    'active_orders' => $activeOrders,
-                    'earnings' => (float) $totalEarnings,
-                    'rating' => 5.0,
+                    'active_orders'    => $activeOrders,
+                    'earnings'         => (float) $totalEarnings,
+                    'rating'           => 5.0,
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -727,16 +871,16 @@ class RiderController extends Controller
      */
     public function ping(Request $request): JsonResponse
     {
-        $rider = $request->user();
-        if (!$rider instanceof Rider) {
+        $rider = $this->resolveRider($request);
+        if (!$rider) {
             return response()->json(['success' => false], 403);
         }
 
         $rider->update(['last_active_at' => now()]);
 
         return response()->json([
-            'success' => true,
-            'status' => $rider->status,
+            'success'        => true,
+            'status'         => $rider->status,
             'last_active_at' => $rider->last_active_at,
         ]);
     }
