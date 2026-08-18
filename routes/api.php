@@ -66,19 +66,36 @@ Route::prefix('v1')->group(function () {
             // GPS location ping (fires every 5-10s while rider is active)
             Route::post('location', [RiderController::class, 'updateLocation']);
 
-            // Order Feed Tabs
+            // Order Feed Tabs & History
             Route::get('orders',           [RiderController::class, 'getOrders']);          // Available (ready_for_pickup)
             Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Active (assigned/picking/transit)
             Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done (paginated)
+            Route::get('history',          [RiderController::class, 'getCompletedOrders']); // Alias
 
-            // STRICT WORKFLOW ENDPOINTS
-            Route::post('orders/{id}/accept',  [RiderController::class, 'acceptOrder']);  // assigned_to_rider
-            Route::post('orders/{id}/pickup',  [RiderController::class, 'pickupOrder']);  // picked_up
-            Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']); // in_transit
-            Route::post('orders/{id}/deliver', [RiderController::class, 'deliverOrder']); // delivered + proof upload
-            Route::post('orders/{id}/reject',  [RiderController::class, 'rejectOrder']);  // back to ready_for_pickup
-            Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);  // rider cancellation request
-            Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);  // alias for rider cancellation request
+            // WORKFLOW ENDPOINTS (Both strict actions and generic status transitions)
+            Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);
+            Route::post('accept/{id}',                [RiderController::class, 'acceptOrder']);
+            Route::post('orders/{id}/pickup',         [RiderController::class, 'pickupOrder']);
+            Route::post('pickup/{id}',                [RiderController::class, 'pickupOrder']);
+            Route::post('deliveries/{id}/pickup',     [RiderController::class, 'pickupOrder']);
+            Route::post('orders/{id}/transit',        [RiderController::class, 'startTransit']);
+            Route::post('orders/{id}/start-transit',  [RiderController::class, 'startTransit']);
+            Route::post('transit/{id}',               [RiderController::class, 'startTransit']);
+            Route::post('deliveries/{id}/transit',    [RiderController::class, 'startTransit']);
+            Route::post('orders/{id}/deliver',        [RiderController::class, 'deliverOrder']);
+            Route::post('orders/{id}/delivered',      [RiderController::class, 'deliverOrder']);
+            Route::post('deliver/{id}',               [RiderController::class, 'deliverOrder']);
+            Route::post('deliveries/{id}/deliver',    [RiderController::class, 'deliverOrder']);
+            Route::post('orders/{id}/reject',         [RiderController::class, 'rejectOrder']);
+            Route::post('reject/{id}',                [RiderController::class, 'rejectOrder']);
+            Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);
+            Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);
+
+            // Generic status updates for older APK versions
+            Route::match(['post', 'patch', 'put'], 'orders/{id}/status', [RiderController::class, 'updateOrderStatus']);
+            Route::match(['post', 'patch', 'put'], 'orders/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
+            Route::match(['post', 'patch', 'put'], 'deliveries/{id}/status', [RiderController::class, 'updateOrderStatus']);
+            Route::match(['post', 'patch', 'put'], 'deliveries/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
         });
 
         // Cancellation Requests (Cashier/Admin Approval)
@@ -162,13 +179,30 @@ Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
     Route::get('orders',           [RiderController::class, 'getOrders']);
     Route::get('my-orders',        [RiderController::class, 'getMyOrders']);
     Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']);
-    Route::post('orders/{id}/accept',  [RiderController::class, 'acceptOrder']);
-    Route::post('orders/{id}/pickup',  [RiderController::class, 'pickupOrder']);
-    Route::post('orders/{id}/transit', [RiderController::class, 'startTransit']);
-    Route::post('orders/{id}/deliver', [RiderController::class, 'deliverOrder']);
-    Route::post('orders/{id}/reject',  [RiderController::class, 'rejectOrder']);
+    Route::get('history',          [RiderController::class, 'getCompletedOrders']);
+    Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);
+    Route::post('accept/{id}',                [RiderController::class, 'acceptOrder']);
+    Route::post('orders/{id}/pickup',         [RiderController::class, 'pickupOrder']);
+    Route::post('pickup/{id}',                [RiderController::class, 'pickupOrder']);
+    Route::post('deliveries/{id}/pickup',     [RiderController::class, 'pickupOrder']);
+    Route::post('orders/{id}/transit',        [RiderController::class, 'startTransit']);
+    Route::post('orders/{id}/start-transit',  [RiderController::class, 'startTransit']);
+    Route::post('transit/{id}',               [RiderController::class, 'startTransit']);
+    Route::post('deliveries/{id}/transit',    [RiderController::class, 'startTransit']);
+    Route::post('orders/{id}/deliver',        [RiderController::class, 'deliverOrder']);
+    Route::post('orders/{id}/delivered',      [RiderController::class, 'deliverOrder']);
+    Route::post('deliver/{id}',               [RiderController::class, 'deliverOrder']);
+    Route::post('deliveries/{id}/deliver',    [RiderController::class, 'deliverOrder']);
+    Route::post('orders/{id}/reject',         [RiderController::class, 'rejectOrder']);
+    Route::post('reject/{id}',                [RiderController::class, 'rejectOrder']);
     Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);
     Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);
+
+    // Generic status updates for older APK versions
+    Route::match(['post', 'patch', 'put'], 'orders/{id}/status', [RiderController::class, 'updateOrderStatus']);
+    Route::match(['post', 'patch', 'put'], 'orders/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
+    Route::match(['post', 'patch', 'put'], 'deliveries/{id}/status', [RiderController::class, 'updateOrderStatus']);
+    Route::match(['post', 'patch', 'put'], 'deliveries/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
 
     Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
 });

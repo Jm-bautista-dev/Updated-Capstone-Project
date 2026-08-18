@@ -369,6 +369,26 @@ class RiderController extends Controller
     }
 
     /**
+     * Generic status updater fallback for mobile apps that send status payloads.
+     */
+    public function updateOrderStatus(Request $request, $id): JsonResponse
+    {
+        $status = $request->input('status', $request->input('order_status'));
+        return match ($status) {
+            'picked_up'                           => $this->pickupOrder($request, $id),
+            'in_transit', 'out_for_delivery'      => $this->startTransit($request, $id),
+            'delivered'                           => $this->deliverOrder($request, $id),
+            'assigned_to_rider', 'accepted'       => $this->acceptOrder($request, $id),
+            'cancelled', 'cancellation_requested' => $this->cancelOrder($request, $id),
+            'rejected'                            => $this->rejectOrder($request, $id),
+            default                               => response()->json([
+                'success' => false,
+                'message' => 'Invalid status transition: ' . ($status ?? 'none provided'),
+            ], 422),
+        };
+    }
+
+    /**
      * POST /api/v1/rider/orders/{id}/transit
      * Transition: picked_up → in_transit
      * Rider has left the branch and is now delivering.
