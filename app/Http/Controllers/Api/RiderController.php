@@ -22,7 +22,8 @@ class RiderController extends Controller
 {
     public function __construct(
         protected OrderFulfillmentService $fulfillmentService
-    ) {}
+    ) {
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -86,10 +87,10 @@ class RiderController extends Controller
                 ->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success'    => true,
-                'data'       => $deliveries,
+                'success' => true,
+                'data' => $deliveries,
                 'deliveries' => $deliveries,
-                'orders'     => $deliveries,
+                'orders' => $deliveries,
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getOrders failed', ['error' => $e->getMessage()]);
@@ -113,47 +114,14 @@ class RiderController extends Controller
                 ->where('rider_id', $rider->id)
                 ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
                 ->orderBy('updated_at', 'desc')
-                ->get();
-
-            if ($deliveries->isEmpty()) {
-                $orders = Order::with(['items.product', 'branch', 'delivery'])
-                    ->where('rider_id', $rider->id)
-                    ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
-                    ->orderBy('updated_at', 'desc')
-                    ->get();
-
-                if ($orders->isNotEmpty()) {
-                    $orderData = $orders->map(fn(Order $o) => [
-                        'id'                      => $o->id,
-                        'order_id'                => $o->id,
-                        'delivery_id'             => $o->delivery?->id,
-                        'status'                  => $o->status,
-                        'order_status'            => $o->status,
-                        'cancellation_status'     => $o->cancellation_status,
-                        'is_cancellation_pending' => (bool)$o->is_cancellation_pending,
-                        'customer_name'           => $o->customer_name,
-                        'customer_phone'          => $o->contact_number,
-                        'customer_address'        => $o->address,
-                        'items'                   => $o->items,
-                        'branch'                  => $o->branch,
-                    ]);
-
-                    return response()->json([
-                        'success'    => true,
-                        'data'       => $orderData,
-                        'deliveries' => $orderData,
-                        'orders'     => $orderData,
-                    ]);
-                }
-            }
-
-            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
+                ->get()
+                ->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success'    => true,
-                'data'       => $formatted,
-                'deliveries' => $formatted,
-                'orders'     => $formatted,
+                'success' => true,
+                'data' => $deliveries,
+                'deliveries' => $deliveries,
+                'orders' => $deliveries,
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getMyOrders failed', ['error' => $e->getMessage()]);
@@ -182,14 +150,14 @@ class RiderController extends Controller
             $formatted = collect($deliveries->items())->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success'    => true,
-                'data'       => $formatted,
+                'success' => true,
+                'data' => $formatted,
                 'deliveries' => $formatted,
-                'orders'     => $formatted,
-                'meta'       => [
+                'orders' => $formatted,
+                'meta' => [
                     'current_page' => $deliveries->currentPage(),
-                    'last_page'    => $deliveries->lastPage(),
-                    'total'        => $deliveries->total(),
+                    'last_page' => $deliveries->lastPage(),
+                    'total' => $deliveries->total(),
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -246,7 +214,7 @@ class RiderController extends Controller
                 // Assign rider to delivery record
                 $delivery->update([
                     'rider_id' => $rider->id,
-                    'status'   => 'assigned_to_rider',
+                    'status' => 'assigned_to_rider',
                 ]);
 
                 // Mark rider busy
@@ -257,7 +225,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Order accepted! Please head to the branch for pickup.',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -306,7 +274,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Order picked up! Now head to the customer.',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -346,7 +314,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'You are on your way!',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -415,7 +383,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Delivery confirmed! Great job!',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data' => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -440,14 +408,14 @@ class RiderController extends Controller
 
             $request->validate([
                 'reason' => 'required|string|max:255',
-                'notes'  => 'nullable|string|max:500',
+                'notes' => 'nullable|string|max:500',
             ]);
 
             return DB::transaction(function () use ($rider, $id, $request) {
                 $delivery = Delivery::with(['order.branch', 'order'])
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)
-                          ->orWhere('order_id', $id);
+                            ->orWhere('order_id', $id);
                     })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
@@ -461,10 +429,10 @@ class RiderController extends Controller
                     $delivery = Delivery::firstOrCreate(
                         ['order_id' => $order->id],
                         [
-                            'rider_id'         => $rider->id,
-                            'status'           => $order->status,
-                            'customer_name'    => $order->customer_name,
-                            'customer_phone'   => $order->contact_number,
+                            'rider_id' => $rider->id,
+                            'status' => $order->status,
+                            'customer_name' => $order->customer_name,
+                            'customer_phone' => $order->contact_number,
                             'customer_address' => $order->address,
                         ]
                     );
@@ -498,7 +466,7 @@ class RiderController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'A cancellation request is already pending for this order.',
-                        'status'  => 'cancellation_requested',
+                        'status' => 'cancellation_requested',
                         'request' => $existingRequest,
                     ], 422);
                 }
@@ -508,9 +476,9 @@ class RiderController extends Controller
 
                 // Update Order & Delivery status
                 $order->update([
-                    'status'                  => 'cancellation_requested',
+                    'status' => 'cancellation_requested',
                     'is_cancellation_pending' => true,
-                    'cancellation_status'     => 'pending',
+                    'cancellation_status' => 'pending',
                 ]);
                 $delivery->update(['status' => 'cancellation_requested']);
 
@@ -518,23 +486,23 @@ class RiderController extends Controller
                 \App\Models\CancellationRequest::create([
                     'order_id' => $order->id,
                     'rider_id' => $rider->id,
-                    'reason'   => $request->reason,
-                    'notes'    => $request->input('notes'),
-                    'status'   => 'pending',
+                    'reason' => $request->reason,
+                    'notes' => $request->input('notes'),
+                    'status' => 'pending',
                 ]);
 
                 // Create in order_cancellation_requests table
                 $cancellationRequest = OrderCancellationRequest::create([
-                    'order_id'                 => $order->id,
-                    'delivery_id'              => $delivery->id,
-                    'requested_by_rider_id'    => $rider->id,
-                    'branch_id'                => $order->branch_id,
-                    'reason'                   => $request->reason,
-                    'notes'                    => $request->input('notes'),
-                    'previous_order_status'    => $prevOrderStatus,
+                    'order_id' => $order->id,
+                    'delivery_id' => $delivery->id,
+                    'requested_by_rider_id' => $rider->id,
+                    'branch_id' => $order->branch_id,
+                    'reason' => $request->reason,
+                    'notes' => $request->input('notes'),
+                    'previous_order_status' => $prevOrderStatus,
                     'previous_delivery_status' => $prevDeliveryStatus,
-                    'status'                   => 'pending',
-                    'requested_at'             => now(),
+                    'status' => 'pending',
+                    'requested_at' => now(),
                 ]);
 
                 // Real-Time Broadcasts
@@ -548,7 +516,7 @@ class RiderController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Cancellation request submitted successfully. Waiting for cashier approval.',
-                    'status'  => 'cancellation_requested',
+                    'status' => 'cancellation_requested',
                     'request' => $cancellationRequest->fresh(),
                 ]);
             });
@@ -619,11 +587,11 @@ class RiderController extends Controller
             }
 
             $request->validate([
-                'latitude'    => 'required|numeric|between:-90,90',
-                'longitude'   => 'required|numeric|between:-180,180',
-                'accuracy'    => 'nullable|numeric|min:0',
-                'speed'       => 'nullable|numeric|min:0',
-                'heading'     => 'nullable|numeric|between:0,360',
+                'latitude' => 'required|numeric|between:-90,90',
+                'longitude' => 'required|numeric|between:-180,180',
+                'accuracy' => 'nullable|numeric|min:0',
+                'speed' => 'nullable|numeric|min:0',
+                'heading' => 'nullable|numeric|between:0,360',
                 'recorded_at' => 'nullable|date',
             ]);
 
@@ -631,7 +599,7 @@ class RiderController extends Controller
             $delivery = Delivery::where('rider_id', $rider->id)
                 ->where(function ($q) {
                     $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit'])
-                      ->orWhereHas('order', fn($oq) => $oq->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit']));
+                        ->orWhereHas('order', fn($oq) => $oq->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit']));
                 })
                 ->latest()
                 ->first();
@@ -640,24 +608,24 @@ class RiderController extends Controller
 
             // Store location log
             RiderLocationLog::create([
-                'rider_id'    => $rider->id,
+                'rider_id' => $rider->id,
                 'delivery_id' => $delivery?->id,
-                'latitude'    => $request->latitude,
-                'longitude'   => $request->longitude,
-                'speed'       => $request->speed,
-                'heading'     => $request->heading,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'speed' => $request->speed,
+                'heading' => $request->heading,
                 'recorded_at' => $recordedAt,
             ]);
 
             // Update rider's current position on riders table
             $rider->update([
-                'last_active_at'      => now(),
+                'last_active_at' => now(),
                 'location_updated_at' => $recordedAt,
-                'latitude'            => $request->latitude,
-                'longitude'           => $request->longitude,
-                'accuracy'            => $request->accuracy,
-                'speed'               => $request->speed,
-                'heading'             => $request->heading,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'accuracy' => $request->accuracy,
+                'speed' => $request->speed,
+                'heading' => $request->heading,
             ]);
 
             // Broadcast real-time location update event
@@ -670,9 +638,9 @@ class RiderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Location updated successfully',
-                'data'    => [
-                    'latitude'            => (float) $rider->latitude,
-                    'longitude'           => (float) $rider->longitude,
+                'data' => [
+                    'latitude' => (float) $rider->latitude,
+                    'longitude' => (float) $rider->longitude,
                     'location_updated_at' => $rider->location_updated_at?->toIso8601String(),
                 ]
             ]);
@@ -702,13 +670,13 @@ class RiderController extends Controller
             }
 
             $rider->update([
-                'status'         => $request->status,
+                'status' => $request->status,
                 'last_active_at' => now(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'status'  => $rider->status,
+                'status' => $rider->status,
             ]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Update failed'], 500);
@@ -741,12 +709,12 @@ class RiderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => [
-                    'total_orders'     => Delivery::where('rider_id', $rider->id)->count(),
+                'data' => [
+                    'total_orders' => Delivery::where('rider_id', $rider->id)->count(),
                     'completed_orders' => $totalCompleted,
-                    'active_orders'    => $activeOrders,
-                    'earnings'         => (float) $totalEarnings,
-                    'rating'           => 5.0,
+                    'active_orders' => $activeOrders,
+                    'earnings' => (float) $totalEarnings,
+                    'rating' => 5.0,
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -767,8 +735,8 @@ class RiderController extends Controller
         $rider->update(['last_active_at' => now()]);
 
         return response()->json([
-            'success'        => true,
-            'status'         => $rider->status,
+            'success' => true,
+            'status' => $rider->status,
             'last_active_at' => $rider->last_active_at,
         ]);
     }
@@ -802,44 +770,41 @@ class RiderController extends Controller
     private function formatDelivery(Delivery $delivery): array
     {
         $order = $delivery->order;
-        $lat   = $delivery->latitude ?? $order?->latitude;
-        $lng   = $delivery->longitude ?? $order?->longitude;
+        $lat = $delivery->latitude ?? $order?->latitude;
+        $lng = $delivery->longitude ?? $order?->longitude;
 
         return [
-            'id'                      => $order?->id ?? $delivery->id,
-            'delivery_id'             => $delivery->id,
-            'order_id'                => $delivery->order_id,
-            'status'                  => $delivery->status,
-            'order_status'            => $order?->status,
-            'cancellation_status'     => $order?->cancellation_status,
-            'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
-            'status_label'            => $delivery->getStatusLabel(),
+            'delivery_id' => $delivery->id,
+            'order_id' => $delivery->order_id,
+            'status' => $delivery->status,
+            'order_status' => $order?->status,
+            'status_label' => $delivery->getStatusLabel(),
 
             // Customer Info
-            'customer_name'    => $delivery->customer_name,
-            'customer_phone'   => $delivery->customer_phone,
+            'customer_name' => $delivery->customer_name,
+            'customer_phone' => $delivery->customer_phone,
             'customer_address' => $delivery->customer_address,
 
             // Location for maps
-            'latitude'         => $lat,
-            'longitude'        => $lng,
-            'landmark'         => $delivery->landmark ?? $order?->landmark,
-            'notes'            => $delivery->notes ?? $order?->notes,
-            'maps_url'         => ($lat && $lng)
+            'latitude' => $lat,
+            'longitude' => $lng,
+            'landmark' => $delivery->landmark ?? $order?->landmark,
+            'notes' => $delivery->notes ?? $order?->notes,
+            'maps_url' => ($lat && $lng)
                 ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
                 : null,
 
             // Financial
-            'delivery_fee'     => (float) $delivery->delivery_fee,
-            'distance_km'      => (float) $delivery->distance_km,
-            'total_amount'     => (float) ($order?->total_amount ?? 0),
+            'delivery_fee' => (float) $delivery->delivery_fee,
+            'distance_km' => (float) $delivery->distance_km,
+            'total_amount' => (float) ($order?->total_amount ?? 0),
 
             // Branch (pickup point)
-            'branch_name'      => $order?->branch?->name ?? 'N/A',
-            'branch_address'   => $order?->branch?->address ?? null,
-            'branch_latitude'  => (float) ($order?->branch?->latitude ?? 0),
+            'branch_name' => $order?->branch?->name ?? 'N/A',
+            'branch_address' => $order?->branch?->address ?? null,
+            'branch_latitude' => (float) ($order?->branch?->latitude ?? 0),
             'branch_longitude' => (float) ($order?->branch?->longitude ?? 0),
-            'branch_maps_url'  => ($order?->branch?->latitude && $order?->branch?->longitude)
+            'branch_maps_url' => ($order?->branch?->latitude && $order?->branch?->longitude)
                 ? "https://www.google.com/maps/dir/?api=1&destination={$order->branch->latitude},{$order->branch->longitude}"
                 : null,
 
@@ -847,16 +812,16 @@ class RiderController extends Controller
             'proof_of_delivery_url' => $delivery->proof_of_delivery_url,
 
             // Order Items
-            'items'            => $order?->items?->map(fn($item) => [
+            'items' => $order?->items?->map(fn($item) => [
                 'product_name' => $item->product?->name ?? 'Item',
-                'quantity'     => $item->quantity,
-                'price'        => (float) $item->price,
-                'subtotal'     => (float) ($item->quantity * $item->price),
+                'quantity' => $item->quantity,
+                'price' => (float) $item->price,
+                'subtotal' => (float) ($item->quantity * $item->price),
             ]) ?? [],
-            'items_count'      => $order?->items?->count() ?? 0,
+            'items_count' => $order?->items?->count() ?? 0,
 
-            'created_at'       => $delivery->created_at?->toIso8601String(),
-            'updated_at'       => $delivery->updated_at?->toIso8601String(),
+            'created_at' => $delivery->created_at?->toIso8601String(),
+            'updated_at' => $delivery->updated_at?->toIso8601String(),
         ];
     }
 
@@ -865,7 +830,8 @@ class RiderController extends Controller
      */
     private function syncToPublicStorage(?string $imagePath): void
     {
-        if (!$imagePath) return;
+        if (!$imagePath)
+            return;
         $source = storage_path('app/public/' . $imagePath);
         $dest = public_path('storage/' . $imagePath);
         if (file_exists($source)) {
