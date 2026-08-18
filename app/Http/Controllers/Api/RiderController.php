@@ -194,7 +194,10 @@ class RiderController extends Controller
             }
 
             $deliveries = Delivery::with(['order.items.product', 'order.branch'])
-                ->where('rider_id', $rider->id)
+                ->where(function ($q) use ($rider) {
+                    $q->where('rider_id', $rider->id)
+                      ->orWhereHas('order', fn($oq) => $oq->where('rider_id', $rider->id));
+                })
                 ->where(function ($q) {
                     $q->where('status', 'delivered')
                       ->orWhereHas('order', fn($oq) => $oq->where('status', 'delivered'));
@@ -227,17 +230,24 @@ class RiderController extends Controller
             }
 
             $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
+            $totalEarnings = (float) $deliveries->sum(fn(Delivery $d) => (float) ($d->delivery_fee ?: ($d->order?->delivery_fee ?: 50.00)));
 
             return response()->json([
-                'success'    => true,
-                'data'       => $formatted,
-                'deliveries' => $formatted,
-                'orders'     => $formatted,
-                'history'    => $formatted,
-                'meta'       => [
-                    'current_page' => 1,
-                    'last_page'    => 1,
-                    'total'        => $formatted->count(),
+                'success'           => true,
+                'status'            => 'success',
+                'data'              => $formatted,
+                'deliveries'        => $formatted,
+                'orders'            => $formatted,
+                'history'           => $formatted,
+                'earnings'          => $totalEarnings,
+                'total_earnings'    => $totalEarnings,
+                'totalEarnings'     => $totalEarnings,
+                'completed_orders'  => $formatted->count(),
+                'completedOrders'   => $formatted->count(),
+                'meta'              => [
+                    'current_page'  => 1,
+                    'last_page'     => 1,
+                    'total'         => $formatted->count(),
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -1017,60 +1027,82 @@ class RiderController extends Controller
         $lat = $delivery->latitude ?? $order?->latitude;
         $lng = $delivery->longitude ?? $order?->longitude;
 
+        $fee = (float) ($delivery->delivery_fee ?: ($order?->delivery_fee ?: 50.00));
+        $totalAmount = (float) ($order?->total_amount ?? 0);
+        $createdAt = $delivery->created_at?->toIso8601String() ?? $order?->created_at?->toIso8601String();
+        $updatedAt = $delivery->updated_at?->toIso8601String() ?? $order?->updated_at?->toIso8601String();
+
         return [
             'id'                      => $order?->id ?? $delivery->id,
             'delivery_id'             => $delivery->id,
+            'deliveryId'              => $delivery->id,
             'order_id'                => $delivery->order_id,
+            'orderId'                 => $delivery->order_id,
             'order_number'            => $order?->order_number,
+            'orderNumber'             => $order?->order_number,
             'status'                  => $delivery->status,
             'order_status'            => $order?->status,
+            'orderStatus'             => $order?->status,
             'status_label'            => $delivery->getStatusLabel(),
+            'statusLabel'             => $delivery->getStatusLabel(),
             'cancellation_status'     => $order?->cancellation_status,
             'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
 
             // Customer Info
-            'customer_name' => $delivery->customer_name,
-            'customer_phone' => $delivery->customer_phone,
-            'customer_address' => $delivery->customer_address,
+            'customer_name'           => $delivery->customer_name,
+            'customerName'            => $delivery->customer_name,
+            'customer_phone'          => $delivery->customer_phone,
+            'customerPhone'           => $delivery->customer_phone,
+            'customer_address'        => $delivery->customer_address,
+            'customerAddress'         => $delivery->customer_address,
 
             // Location for maps
-            'latitude' => $lat,
-            'longitude' => $lng,
-            'landmark' => $delivery->landmark ?? $order?->landmark,
-            'notes' => $delivery->notes ?? $order?->notes,
-            'maps_url' => ($lat && $lng)
+            'latitude'                => $lat,
+            'longitude'               => $lng,
+            'landmark'                => $delivery->landmark ?? $order?->landmark,
+            'notes'                   => $delivery->notes ?? $order?->notes,
+            'maps_url'                => ($lat && $lng)
                 ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
                 : null,
 
             // Financial & Earnings
-            'delivery_fee'            => (float) ($delivery->delivery_fee ?: ($order?->delivery_fee ?: 50.00)),
-            'earnings'                => (float) ($delivery->delivery_fee ?: ($order?->delivery_fee ?: 50.00)),
+            'delivery_fee'            => $fee,
+            'deliveryFee'             => $fee,
+            'earnings'                => $fee,
+            'fee'                     => $fee,
             'distance_km'             => (float) $delivery->distance_km,
-            'total_amount'            => (float) ($order?->total_amount ?? 0),
+            'total_amount'            => $totalAmount,
+            'totalAmount'             => $totalAmount,
 
             // Branch (pickup point)
-            'branch_name' => $order?->branch?->name ?? 'N/A',
-            'branch_address' => $order?->branch?->address ?? null,
-            'branch_latitude' => (float) ($order?->branch?->latitude ?? 0),
-            'branch_longitude' => (float) ($order?->branch?->longitude ?? 0),
-            'branch_maps_url' => ($order?->branch?->latitude && $order?->branch?->longitude)
+            'branch_name'             => $order?->branch?->name ?? 'N/A',
+            'branchName'              => $order?->branch?->name ?? 'N/A',
+            'branch_address'          => $order?->branch?->address ?? null,
+            'branch_latitude'         => (float) ($order?->branch?->latitude ?? 0),
+            'branch_longitude'        => (float) ($order?->branch?->longitude ?? 0),
+            'branch_maps_url'         => ($order?->branch?->latitude && $order?->branch?->longitude)
                 ? "https://www.google.com/maps/dir/?api=1&destination={$order->branch->latitude},{$order->branch->longitude}"
                 : null,
 
             // Proof of delivery
-            'proof_of_delivery_url' => $delivery->proof_of_delivery_url,
+            'proof_of_delivery_url'   => $delivery->proof_of_delivery_url,
 
             // Order Items
-            'items' => $order?->items?->map(fn($item) => [
+            'items'                   => $order?->items?->map(fn($item) => [
                 'product_name' => $item->product?->name ?? 'Item',
-                'quantity' => $item->quantity,
-                'price' => (float) $item->price,
-                'subtotal' => (float) ($item->quantity * $item->price),
+                'quantity'     => $item->quantity,
+                'price'        => (float) $item->price,
+                'subtotal'     => (float) ($item->quantity * $item->price),
             ]) ?? [],
-            'items_count' => $order?->items?->count() ?? 0,
+            'items_count'             => $order?->items?->count() ?? 0,
 
-            'created_at' => $delivery->created_at?->toIso8601String(),
-            'updated_at' => $delivery->updated_at?->toIso8601String(),
+            'created_at'              => $createdAt,
+            'createdAt'               => $createdAt,
+            'updated_at'              => $updatedAt,
+            'updatedAt'               => $updatedAt,
+            'date'                    => $createdAt,
+            'completed_at'            => $updatedAt,
+            'completedAt'             => $updatedAt,
         ];
     }
 
