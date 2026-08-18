@@ -22,14 +22,35 @@ class ApiOrderController extends Controller
     public function index(Request $request)
     {
         try {
-            $orders = Order::with(['delivery'])
-                ->where('user_id', $request->user()?->id)
-                ->latest()
-                ->get();
+            $user = $request->user();
+            $userId = $user?->id ?? $request->input('user_id', $request->input('customer_id'));
+            $phone = $request->input('phone', $request->input('contact_number', $user?->phone_number ?? $user?->phone));
+
+            $query = Order::with(['delivery', 'items.product', 'branch']);
+
+            if ($userId) {
+                $query->where(function ($q) use ($userId, $phone) {
+                    $q->where('user_id', $userId);
+                    if ($phone) {
+                        $q->orWhere('contact_number', $phone);
+                    }
+                });
+            } elseif ($phone) {
+                $query->where('contact_number', $phone);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'data'    => [],
+                    'orders'  => [],
+                ]);
+            }
+
+            $orders = $query->latest()->get();
 
             return response()->json([
                 'success' => true,
-                'data'    => $orders
+                'data'    => $orders,
+                'orders'  => $orders,
             ]);
         } catch (\Throwable $e) {
             Log::error('API Order Index Failure', [

@@ -4,12 +4,12 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: index.url(options),
+const indexda23f1e8e129248b9ee1f3a9c965ae1a = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: indexda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
     method: 'get',
 })
 
-index.definition = {
+indexda23f1e8e129248b9ee1f3a9c965ae1a.definition = {
     methods: ["get","head"],
     url: '/api/v1/orders',
 } satisfies RouteDefinition<["get","head"]>
@@ -19,8 +19,8 @@ index.definition = {
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-index.url = (options?: RouteQueryOptions) => {
-    return index.definition.url + queryParams(options)
+indexda23f1e8e129248b9ee1f3a9c965ae1a.url = (options?: RouteQueryOptions) => {
+    return indexda23f1e8e129248b9ee1f3a9c965ae1a.definition.url + queryParams(options)
 }
 
 /**
@@ -28,8 +28,8 @@ index.url = (options?: RouteQueryOptions) => {
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: index.url(options),
+indexda23f1e8e129248b9ee1f3a9c965ae1a.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: indexda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
     method: 'get',
 })
 /**
@@ -37,8 +37,8 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: index.url(options),
+indexda23f1e8e129248b9ee1f3a9c965ae1a.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: indexda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
     method: 'head',
 })
 
@@ -47,8 +47,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-    const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: index.url(options),
+    const indexda23f1e8e129248b9ee1f3a9c965ae1aForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: indexda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
         method: 'get',
     })
 
@@ -57,8 +57,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-        indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: index.url(options),
+        indexda23f1e8e129248b9ee1f3a9c965ae1aForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: indexda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
             method: 'get',
         })
             /**
@@ -66,8 +66,8 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
  * @see app/Http/Controllers/Api/ApiOrderController.php:22
  * @route '/api/v1/orders'
  */
-        indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: index.url({
+        indexda23f1e8e129248b9ee1f3a9c965ae1aForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: indexda23f1e8e129248b9ee1f3a9c965ae1a.url({
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'HEAD',
                             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -76,83 +76,228 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
     
-    index.form = indexForm
+    indexda23f1e8e129248b9ee1f3a9c965ae1a.form = indexda23f1e8e129248b9ee1f3a9c965ae1aForm
+    /**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+const index60af82c283b93bc8dd05fe8aa8290a69 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: index60af82c283b93bc8dd05fe8aa8290a69.url(options),
+    method: 'get',
+})
+
+index60af82c283b93bc8dd05fe8aa8290a69.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/customer/orders',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+index60af82c283b93bc8dd05fe8aa8290a69.url = (options?: RouteQueryOptions) => {
+    return index60af82c283b93bc8dd05fe8aa8290a69.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+index60af82c283b93bc8dd05fe8aa8290a69.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: index60af82c283b93bc8dd05fe8aa8290a69.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+index60af82c283b93bc8dd05fe8aa8290a69.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: index60af82c283b93bc8dd05fe8aa8290a69.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+    const index60af82c283b93bc8dd05fe8aa8290a69Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: index60af82c283b93bc8dd05fe8aa8290a69.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+        index60af82c283b93bc8dd05fe8aa8290a69Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index60af82c283b93bc8dd05fe8aa8290a69.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\ApiOrderController::index
+ * @see app/Http/Controllers/Api/ApiOrderController.php:22
+ * @route '/api/v1/customer/orders'
+ */
+        index60af82c283b93bc8dd05fe8aa8290a69Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index60af82c283b93bc8dd05fe8aa8290a69.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    index60af82c283b93bc8dd05fe8aa8290a69.form = index60af82c283b93bc8dd05fe8aa8290a69Form
+
+export const index = {
+    '/api/v1/orders': indexda23f1e8e129248b9ee1f3a9c965ae1a,
+    '/api/v1/customer/orders': index60af82c283b93bc8dd05fe8aa8290a69,
+}
+
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
- * @see app/Http/Controllers/Api/ApiOrderController.php:49
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
  * @route '/api/v1/orders'
  */
-export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: store.url(options),
+const storeda23f1e8e129248b9ee1f3a9c965ae1a = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: storeda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
     method: 'post',
 })
 
-store.definition = {
+storeda23f1e8e129248b9ee1f3a9c965ae1a.definition = {
     methods: ["post"],
     url: '/api/v1/orders',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
- * @see app/Http/Controllers/Api/ApiOrderController.php:49
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
  * @route '/api/v1/orders'
  */
-store.url = (options?: RouteQueryOptions) => {
-    return store.definition.url + queryParams(options)
+storeda23f1e8e129248b9ee1f3a9c965ae1a.url = (options?: RouteQueryOptions) => {
+    return storeda23f1e8e129248b9ee1f3a9c965ae1a.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
- * @see app/Http/Controllers/Api/ApiOrderController.php:49
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
  * @route '/api/v1/orders'
  */
-store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: store.url(options),
+storeda23f1e8e129248b9ee1f3a9c965ae1a.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: storeda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
     method: 'post',
 })
 
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
- * @see app/Http/Controllers/Api/ApiOrderController.php:49
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
  * @route '/api/v1/orders'
  */
-    const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: store.url(options),
+    const storeda23f1e8e129248b9ee1f3a9c965ae1aForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: storeda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
         method: 'post',
     })
 
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::store
- * @see app/Http/Controllers/Api/ApiOrderController.php:49
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
  * @route '/api/v1/orders'
  */
-        storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: store.url(options),
+        storeda23f1e8e129248b9ee1f3a9c965ae1aForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: storeda23f1e8e129248b9ee1f3a9c965ae1a.url(options),
             method: 'post',
         })
     
-    store.form = storeForm
+    storeda23f1e8e129248b9ee1f3a9c965ae1a.form = storeda23f1e8e129248b9ee1f3a9c965ae1aForm
+    /**
+* @see \App\Http\Controllers\Api\ApiOrderController::store
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
+ * @route '/api/v1/customer/orders'
+ */
+const store60af82c283b93bc8dd05fe8aa8290a69 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store60af82c283b93bc8dd05fe8aa8290a69.url(options),
+    method: 'post',
+})
+
+store60af82c283b93bc8dd05fe8aa8290a69.definition = {
+    methods: ["post"],
+    url: '/api/v1/customer/orders',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::store
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
+ * @route '/api/v1/customer/orders'
+ */
+store60af82c283b93bc8dd05fe8aa8290a69.url = (options?: RouteQueryOptions) => {
+    return store60af82c283b93bc8dd05fe8aa8290a69.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::store
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
+ * @route '/api/v1/customer/orders'
+ */
+store60af82c283b93bc8dd05fe8aa8290a69.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store60af82c283b93bc8dd05fe8aa8290a69.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\ApiOrderController::store
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
+ * @route '/api/v1/customer/orders'
+ */
+    const store60af82c283b93bc8dd05fe8aa8290a69Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: store60af82c283b93bc8dd05fe8aa8290a69.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\ApiOrderController::store
+ * @see app/Http/Controllers/Api/ApiOrderController.php:70
+ * @route '/api/v1/customer/orders'
+ */
+        store60af82c283b93bc8dd05fe8aa8290a69Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: store60af82c283b93bc8dd05fe8aa8290a69.url(options),
+            method: 'post',
+        })
+    
+    store60af82c283b93bc8dd05fe8aa8290a69.form = store60af82c283b93bc8dd05fe8aa8290a69Form
+
+export const store = {
+    '/api/v1/orders': storeda23f1e8e129248b9ee1f3a9c965ae1a,
+    '/api/v1/customer/orders': store60af82c283b93bc8dd05fe8aa8290a69,
+}
+
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-export const show = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show.url(args, options),
+const show36a43de71b51ebde23c4a4c15c636cee = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
     method: 'get',
 })
 
-show.definition = {
+show36a43de71b51ebde23c4a4c15c636cee.definition = {
     methods: ["get","head"],
     url: '/api/v1/orders/{id}',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-show.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+show36a43de71b51ebde23c4a4c15c636cee.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -170,56 +315,56 @@ show.url = (args: { id: string | number } | [id: string | number ] | string | nu
                         id: args.id,
                 }
 
-    return show.definition.url
+    return show36a43de71b51ebde23c4a4c15c636cee.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-show.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show.url(args, options),
+show36a43de71b51ebde23c4a4c15c636cee.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
     method: 'get',
 })
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-show.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: show.url(args, options),
+show36a43de71b51ebde23c4a4c15c636cee.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
     method: 'head',
 })
 
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-    const showForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: show.url(args, options),
+    const show36a43de71b51ebde23c4a4c15c636ceeForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
         method: 'get',
     })
 
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-        showForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: show.url(args, options),
+        show36a43de71b51ebde23c4a4c15c636ceeForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
             method: 'get',
         })
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:219
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
  * @route '/api/v1/orders/{id}'
  */
-        showForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: show.url(args, {
+        show36a43de71b51ebde23c4a4c15c636ceeForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show36a43de71b51ebde23c4a4c15c636cee.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'HEAD',
                             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -228,10 +373,113 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
             method: 'get',
         })
     
-    show.form = showForm
+    show36a43de71b51ebde23c4a4c15c636cee.form = show36a43de71b51ebde23c4a4c15c636ceeForm
+    /**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+const show5b0a1bd37c56e55e3b005b31dc3ece43 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
+    method: 'get',
+})
+
+show5b0a1bd37c56e55e3b005b31dc3ece43.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/customer/orders/{id}',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+show5b0a1bd37c56e55e3b005b31dc3ece43.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return show5b0a1bd37c56e55e3b005b31dc3ece43.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+show5b0a1bd37c56e55e3b005b31dc3ece43.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+show5b0a1bd37c56e55e3b005b31dc3ece43.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+    const show5b0a1bd37c56e55e3b005b31dc3ece43Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+        show5b0a1bd37c56e55e3b005b31dc3ece43Form.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\ApiOrderController::show
+ * @see app/Http/Controllers/Api/ApiOrderController.php:240
+ * @route '/api/v1/customer/orders/{id}'
+ */
+        show5b0a1bd37c56e55e3b005b31dc3ece43Form.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    show5b0a1bd37c56e55e3b005b31dc3ece43.form = show5b0a1bd37c56e55e3b005b31dc3ece43Form
+
+export const show = {
+    '/api/v1/orders/{id}': show36a43de71b51ebde23c4a4c15c636cee,
+    '/api/v1/customer/orders/{id}': show5b0a1bd37c56e55e3b005b31dc3ece43,
+}
+
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
 const trackingac77c32e8816b05a8fd5a40ba6f25522 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -246,7 +494,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
 trackingac77c32e8816b05a8fd5a40ba6f25522.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -274,7 +522,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.url = (args: { id: string | number } | 
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
 trackingac77c32e8816b05a8fd5a40ba6f25522.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -283,7 +531,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.get = (args: { id: string | number } | 
 })
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
 trackingac77c32e8816b05a8fd5a40ba6f25522.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -293,7 +541,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.head = (args: { id: string | number } |
 
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
     const trackingac77c32e8816b05a8fd5a40ba6f25522Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -303,7 +551,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.head = (args: { id: string | number } |
 
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
         trackingac77c32e8816b05a8fd5a40ba6f25522Form.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -312,7 +560,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.head = (args: { id: string | number } |
         })
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/orders/{id}/tracking'
  */
         trackingac77c32e8816b05a8fd5a40ba6f25522Form.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -328,7 +576,7 @@ trackingac77c32e8816b05a8fd5a40ba6f25522.head = (args: { id: string | number } |
     trackingac77c32e8816b05a8fd5a40ba6f25522.form = trackingac77c32e8816b05a8fd5a40ba6f25522Form
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
 const tracking36d2a1ced4db6948eafdcf9b275b9143 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -343,7 +591,7 @@ tracking36d2a1ced4db6948eafdcf9b275b9143.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
 tracking36d2a1ced4db6948eafdcf9b275b9143.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -371,7 +619,7 @@ tracking36d2a1ced4db6948eafdcf9b275b9143.url = (args: { id: string | number } | 
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
 tracking36d2a1ced4db6948eafdcf9b275b9143.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -380,7 +628,7 @@ tracking36d2a1ced4db6948eafdcf9b275b9143.get = (args: { id: string | number } | 
 })
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
 tracking36d2a1ced4db6948eafdcf9b275b9143.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -390,7 +638,7 @@ tracking36d2a1ced4db6948eafdcf9b275b9143.head = (args: { id: string | number } |
 
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
     const tracking36d2a1ced4db6948eafdcf9b275b9143Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -400,7 +648,7 @@ tracking36d2a1ced4db6948eafdcf9b275b9143.head = (args: { id: string | number } |
 
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
         tracking36d2a1ced4db6948eafdcf9b275b9143Form.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -409,7 +657,7 @@ tracking36d2a1ced4db6948eafdcf9b275b9143.head = (args: { id: string | number } |
         })
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
- * @see app/Http/Controllers/Api/ApiOrderController.php:271
+ * @see app/Http/Controllers/Api/ApiOrderController.php:292
  * @route '/api/v1/customer/orders/{id}/tracking'
  */
         tracking36d2a1ced4db6948eafdcf9b275b9143Form.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -431,7 +679,7 @@ export const tracking = {
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
 const route3dc26aa79a154ff87d2636c69cb80753 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -446,7 +694,7 @@ route3dc26aa79a154ff87d2636c69cb80753.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
 route3dc26aa79a154ff87d2636c69cb80753.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -474,7 +722,7 @@ route3dc26aa79a154ff87d2636c69cb80753.url = (args: { id: string | number } | [id
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
 route3dc26aa79a154ff87d2636c69cb80753.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -483,7 +731,7 @@ route3dc26aa79a154ff87d2636c69cb80753.get = (args: { id: string | number } | [id
 })
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
 route3dc26aa79a154ff87d2636c69cb80753.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -493,7 +741,7 @@ route3dc26aa79a154ff87d2636c69cb80753.head = (args: { id: string | number } | [i
 
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
     const route3dc26aa79a154ff87d2636c69cb80753Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -503,7 +751,7 @@ route3dc26aa79a154ff87d2636c69cb80753.head = (args: { id: string | number } | [i
 
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
         route3dc26aa79a154ff87d2636c69cb80753Form.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -512,7 +760,7 @@ route3dc26aa79a154ff87d2636c69cb80753.head = (args: { id: string | number } | [i
         })
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/orders/{id}/route'
  */
         route3dc26aa79a154ff87d2636c69cb80753Form.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -528,7 +776,7 @@ route3dc26aa79a154ff87d2636c69cb80753.head = (args: { id: string | number } | [i
     route3dc26aa79a154ff87d2636c69cb80753.form = route3dc26aa79a154ff87d2636c69cb80753Form
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
 const route862b0e1503de6ccf0b3992b4833c4ffd = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -543,7 +791,7 @@ route862b0e1503de6ccf0b3992b4833c4ffd.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
 route862b0e1503de6ccf0b3992b4833c4ffd.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -571,7 +819,7 @@ route862b0e1503de6ccf0b3992b4833c4ffd.url = (args: { id: string | number } | [id
 
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
 route862b0e1503de6ccf0b3992b4833c4ffd.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -580,7 +828,7 @@ route862b0e1503de6ccf0b3992b4833c4ffd.get = (args: { id: string | number } | [id
 })
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
 route862b0e1503de6ccf0b3992b4833c4ffd.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -590,7 +838,7 @@ route862b0e1503de6ccf0b3992b4833c4ffd.head = (args: { id: string | number } | [i
 
     /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
     const route862b0e1503de6ccf0b3992b4833c4ffdForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -600,7 +848,7 @@ route862b0e1503de6ccf0b3992b4833c4ffd.head = (args: { id: string | number } | [i
 
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
         route862b0e1503de6ccf0b3992b4833c4ffdForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -609,7 +857,7 @@ route862b0e1503de6ccf0b3992b4833c4ffd.head = (args: { id: string | number } | [i
         })
             /**
 * @see \App\Http\Controllers\Api\ApiOrderController::route
- * @see app/Http/Controllers/Api/ApiOrderController.php:432
+ * @see app/Http/Controllers/Api/ApiOrderController.php:453
  * @route '/api/v1/customer/orders/{id}/route'
  */
         route862b0e1503de6ccf0b3992b4833c4ffdForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

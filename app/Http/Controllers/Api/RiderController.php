@@ -73,8 +73,8 @@ class RiderController extends Controller
     public function getOrders(Request $request): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
@@ -85,7 +85,12 @@ class RiderController extends Controller
                 ->get()
                 ->map(fn(Delivery $d) => $this->formatDelivery($d));
 
-            return response()->json(['success' => true, 'data' => $deliveries]);
+            return response()->json([
+                'success'    => true,
+                'data'       => $deliveries,
+                'deliveries' => $deliveries,
+                'orders'     => $deliveries,
+            ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getOrders failed', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Failed to fetch orders'], 500);
@@ -99,19 +104,24 @@ class RiderController extends Controller
     public function getMyOrders(Request $request): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
             $deliveries = Delivery::with(['order.items.product', 'order.branch'])
                 ->where('rider_id', $rider->id)
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit']))
+                ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
                 ->orderBy('updated_at', 'desc')
                 ->get()
                 ->map(fn(Delivery $d) => $this->formatDelivery($d));
 
-            return response()->json(['success' => true, 'data' => $deliveries]);
+            return response()->json([
+                'success'    => true,
+                'data'       => $deliveries,
+                'deliveries' => $deliveries,
+                'orders'     => $deliveries,
+            ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getMyOrders failed', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Failed to fetch orders'], 500);
@@ -125,8 +135,8 @@ class RiderController extends Controller
     public function getCompletedOrders(Request $request): JsonResponse
     {
         try {
-            $rider = $request->user();
-            if (!$rider instanceof Rider) {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
@@ -136,10 +146,14 @@ class RiderController extends Controller
                 ->orderBy('updated_at', 'desc')
                 ->paginate(20);
 
+            $formatted = collect($deliveries->items())->map(fn(Delivery $d) => $this->formatDelivery($d));
+
             return response()->json([
-                'success' => true,
-                'data'    => collect($deliveries->items())->map(fn(Delivery $d) => $this->formatDelivery($d)),
-                'meta'    => [
+                'success'    => true,
+                'data'       => $formatted,
+                'deliveries' => $formatted,
+                'orders'     => $formatted,
+                'meta'       => [
                     'current_page' => $deliveries->currentPage(),
                     'last_page'    => $deliveries->lastPage(),
                     'total'        => $deliveries->total(),
@@ -731,6 +745,23 @@ class RiderController extends Controller
     | PRIVATE HELPERS
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * Resolve authenticated rider instance from either Rider model or User model.
+     */
+    private function resolveRider(Request $request): ?Rider
+    {
+        $user = $request->user();
+        if ($user instanceof Rider) {
+            return $user;
+        }
+        if ($user) {
+            return Rider::where('id', $user->id)
+                ->orWhere('email', $user->email)
+                ->first();
+        }
+        return null;
+    }
 
     /**
      * Standardized delivery response formatter.

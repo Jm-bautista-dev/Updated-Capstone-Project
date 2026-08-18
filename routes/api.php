@@ -100,8 +100,11 @@ Route::prefix('v1')->group(function () {
 
         // Orders & Cart & Live Tracking & Road Routing
         Route::get('orders', [ApiOrderController::class, 'index']);
+        Route::get('customer/orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);
+        Route::post('customer/orders', [ApiOrderController::class, 'store']);
         Route::get('orders/{id}', [ApiOrderController::class, 'show']);
+        Route::get('customer/orders/{id}', [ApiOrderController::class, 'show']);
         Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
         Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
         Route::get('orders/{id}/route', [ApiOrderController::class, 'route']);
@@ -148,8 +151,10 @@ Route::middleware(['auth:sanctum,web'])->prefix('branch')->group(function () {
     Route::post('cancellation-requests/{id}/approve', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'approve']);
 });
 
-// ── Rider Routes ──
+// ── Rider Routes (v1 & non-v1 aliases) ──
 Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
-    Route::get('my-orders', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'myOrders']);
+    Route::get('orders', [RiderController::class, 'getOrders']);
+    Route::get('my-orders', [RiderController::class, 'getMyOrders']);
+    Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']);
     Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
 });
