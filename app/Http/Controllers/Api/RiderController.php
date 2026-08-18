@@ -113,14 +113,47 @@ class RiderController extends Controller
                 ->where('rider_id', $rider->id)
                 ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
                 ->orderBy('updated_at', 'desc')
-                ->get()
-                ->map(fn(Delivery $d) => $this->formatDelivery($d));
+                ->get();
+
+            if ($deliveries->isEmpty()) {
+                $orders = Order::with(['items.product', 'branch', 'delivery'])
+                    ->where('rider_id', $rider->id)
+                    ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
+                    ->orderBy('updated_at', 'desc')
+                    ->get();
+
+                if ($orders->isNotEmpty()) {
+                    $orderData = $orders->map(fn(Order $o) => [
+                        'id'                      => $o->id,
+                        'order_id'                => $o->id,
+                        'delivery_id'             => $o->delivery?->id,
+                        'status'                  => $o->status,
+                        'order_status'            => $o->status,
+                        'cancellation_status'     => $o->cancellation_status,
+                        'is_cancellation_pending' => (bool)$o->is_cancellation_pending,
+                        'customer_name'           => $o->customer_name,
+                        'customer_phone'          => $o->contact_number,
+                        'customer_address'        => $o->address,
+                        'items'                   => $o->items,
+                        'branch'                  => $o->branch,
+                    ]);
+
+                    return response()->json([
+                        'success'    => true,
+                        'data'       => $orderData,
+                        'deliveries' => $orderData,
+                        'orders'     => $orderData,
+                    ]);
+                }
+            }
+
+            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
                 'success'    => true,
-                'data'       => $deliveries,
-                'deliveries' => $deliveries,
-                'orders'     => $deliveries,
+                'data'       => $formatted,
+                'deliveries' => $formatted,
+                'orders'     => $formatted,
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getMyOrders failed', ['error' => $e->getMessage()]);
@@ -773,11 +806,14 @@ class RiderController extends Controller
         $lng   = $delivery->longitude ?? $order?->longitude;
 
         return [
-            'delivery_id'      => $delivery->id,
-            'order_id'         => $delivery->order_id,
-            'status'           => $delivery->status,
-            'order_status'     => $order?->status,
-            'status_label'     => $delivery->getStatusLabel(),
+            'id'                      => $order?->id ?? $delivery->id,
+            'delivery_id'             => $delivery->id,
+            'order_id'                => $delivery->order_id,
+            'status'                  => $delivery->status,
+            'order_status'            => $order?->status,
+            'cancellation_status'     => $order?->cancellation_status,
+            'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
+            'status_label'            => $delivery->getStatusLabel(),
 
             // Customer Info
             'customer_name'    => $delivery->customer_name,
