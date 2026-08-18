@@ -18,8 +18,9 @@ use App\Http\Controllers\Api\DeliveryFeeController;
 use App\Http\Controllers\Api\TopPickController;
 use App\Http\Controllers\Api\CustomerOrderController;
 
-// Direct Top-Picks API endpoint
+// Direct Top-Picks & Branches API endpoints
 Route::get('top-picks', [TopPickController::class, 'index']);
+Route::get('branches',  [BranchController::class, 'apiIndex']);
 
 // External Operations API (Mobile App Entry)
 Route::prefix('v1')->group(function () {

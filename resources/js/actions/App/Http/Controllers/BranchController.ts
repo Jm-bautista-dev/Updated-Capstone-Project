@@ -1,73 +1,73 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-export const apiIndex = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: apiIndex.url(options),
+const apiIndex79a38bc5e41fa7a73766069cf0b9d9b2 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url(options),
     method: 'get',
 })
 
-apiIndex.definition = {
+apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.definition = {
     methods: ["get","head"],
-    url: '/api/v1/branches',
+    url: '/api/branches',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-apiIndex.url = (options?: RouteQueryOptions) => {
-    return apiIndex.definition.url + queryParams(options)
+apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url = (options?: RouteQueryOptions) => {
+    return apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.definition.url + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-apiIndex.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: apiIndex.url(options),
+apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url(options),
     method: 'get',
 })
 /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-apiIndex.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: apiIndex.url(options),
+apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url(options),
     method: 'head',
 })
 
     /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-    const apiIndexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: apiIndex.url(options),
+    const apiIndex79a38bc5e41fa7a73766069cf0b9d9b2Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url(options),
         method: 'get',
     })
 
             /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-        apiIndexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: apiIndex.url(options),
+        apiIndex79a38bc5e41fa7a73766069cf0b9d9b2Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url(options),
             method: 'get',
         })
             /**
 * @see \App\Http\Controllers\BranchController::apiIndex
- * @see app/Http/Controllers/BranchController.php:67
- * @route '/api/v1/branches'
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/branches'
  */
-        apiIndexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: apiIndex.url({
+        apiIndex79a38bc5e41fa7a73766069cf0b9d9b2Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.url({
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'HEAD',
                             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -76,10 +76,94 @@ apiIndex.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
     
-    apiIndex.form = apiIndexForm
+    apiIndex79a38bc5e41fa7a73766069cf0b9d9b2.form = apiIndex79a38bc5e41fa7a73766069cf0b9d9b2Form
+    /**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+const apiIndexc6ef769c783d440c68fcc24c9c598880 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: apiIndexc6ef769c783d440c68fcc24c9c598880.url(options),
+    method: 'get',
+})
+
+apiIndexc6ef769c783d440c68fcc24c9c598880.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/branches',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+apiIndexc6ef769c783d440c68fcc24c9c598880.url = (options?: RouteQueryOptions) => {
+    return apiIndexc6ef769c783d440c68fcc24c9c598880.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+apiIndexc6ef769c783d440c68fcc24c9c598880.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: apiIndexc6ef769c783d440c68fcc24c9c598880.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+apiIndexc6ef769c783d440c68fcc24c9c598880.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: apiIndexc6ef769c783d440c68fcc24c9c598880.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+    const apiIndexc6ef769c783d440c68fcc24c9c598880Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: apiIndexc6ef769c783d440c68fcc24c9c598880.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+        apiIndexc6ef769c783d440c68fcc24c9c598880Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: apiIndexc6ef769c783d440c68fcc24c9c598880.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\BranchController::apiIndex
+ * @see app/Http/Controllers/BranchController.php:75
+ * @route '/api/v1/branches'
+ */
+        apiIndexc6ef769c783d440c68fcc24c9c598880Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: apiIndexc6ef769c783d440c68fcc24c9c598880.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    apiIndexc6ef769c783d440c68fcc24c9c598880.form = apiIndexc6ef769c783d440c68fcc24c9c598880Form
+
+export const apiIndex = {
+    '/api/branches': apiIndex79a38bc5e41fa7a73766069cf0b9d9b2,
+    '/api/v1/branches': apiIndexc6ef769c783d440c68fcc24c9c598880,
+}
+
 /**
 * @see \App\Http\Controllers\BranchController::update
- * @see app/Http/Controllers/BranchController.php:32
+ * @see app/Http/Controllers/BranchController.php:40
  * @route '/branches/{id}'
  */
 export const update = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -94,7 +178,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\BranchController::update
- * @see app/Http/Controllers/BranchController.php:32
+ * @see app/Http/Controllers/BranchController.php:40
  * @route '/branches/{id}'
  */
 update.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -122,7 +206,7 @@ update.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\BranchController::update
- * @see app/Http/Controllers/BranchController.php:32
+ * @see app/Http/Controllers/BranchController.php:40
  * @route '/branches/{id}'
  */
 update.put = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -132,7 +216,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
 
     /**
 * @see \App\Http\Controllers\BranchController::update
- * @see app/Http/Controllers/BranchController.php:32
+ * @see app/Http/Controllers/BranchController.php:40
  * @route '/branches/{id}'
  */
     const updateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -147,7 +231,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
 
             /**
 * @see \App\Http\Controllers\BranchController::update
- * @see app/Http/Controllers/BranchController.php:32
+ * @see app/Http/Controllers/BranchController.php:40
  * @route '/branches/{id}'
  */
         updateForm.put = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

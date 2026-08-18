@@ -14,8 +14,16 @@ class BranchController extends Controller
      * Admin web page — manage branches and their locations.
      * GET /branches
      */
-    public function adminIndex(): Response
+    public function adminIndex(Request $request)
     {
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json(Branch::orderBy('name')->get([
+                'id', 'name', 'address', 'latitude', 'longitude',
+                'delivery_radius_km', 'has_internal_riders',
+                'base_delivery_fee', 'per_km_fee',
+            ]));
+        }
+
         return Inertia::render('Admin/Branches/Index', [
             'branches' => Branch::orderBy('name')->get([
                 'id', 'name', 'address', 'latitude', 'longitude',
