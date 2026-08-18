@@ -193,44 +193,15 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
+            // Look up all delivered deliveries for this rider
             $deliveries = Delivery::with(['order.items.product', 'order.branch'])
-                ->where(function ($q) use ($rider) {
-                    $q->where('rider_id', $rider->id)
-                      ->orWhereHas('order', fn($oq) => $oq->where('rider_id', $rider->id));
-                })
-                ->where(function ($q) {
-                    $q->where('status', 'delivered')
-                      ->orWhereHas('order', fn($oq) => $oq->where('status', 'delivered'));
-                })
-                ->orderBy('updated_at', 'desc')
-                ->get();
-
-            // Also check orders assigned to this rider in delivered status
-            $deliveredOrders = Order::with(['items.product', 'branch', 'delivery'])
                 ->where('rider_id', $rider->id)
                 ->where('status', 'delivered')
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
-            foreach ($deliveredOrders as $order) {
-                if (!$deliveries->contains('order_id', $order->id)) {
-                    $d = Delivery::firstOrCreate(
-                        ['order_id' => $order->id],
-                        [
-                            'rider_id'         => $rider->id,
-                            'status'           => 'delivered',
-                            'delivery_fee'     => $order->delivery_fee ?: 50.00,
-                            'customer_name'    => $order->customer_name,
-                            'customer_phone'   => $order->contact_number,
-                            'customer_address' => $order->address,
-                        ]
-                    );
-                    $deliveries->push($d->load(['order.items.product', 'order.branch']));
-                }
-            }
-
             $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
-            $totalEarnings = (float) $deliveries->sum(fn(Delivery $d) => (float) ($d->delivery_fee ?: ($d->order?->delivery_fee ?: 50.00)));
+            $totalEarnings = (float) $deliveries->sum(fn(Delivery $d) => (float) ($d->delivery_fee ?: 50.00));
 
             return response()->json([
                 'success'           => true,
@@ -923,55 +894,57 @@ class RiderController extends Controller
                 return response()->json(['success' => false], 403);
             }
 
-            $completedOrdersCount = Order::where('rider_id', $rider->id)
+            $totalCompleted = Delivery::where('rider_id', $rider->id)
                 ->where('status', 'delivered')
                 ->count();
 
-            $completedDeliveriesCount = Delivery::where('rider_id', $rider->id)
-                ->where(function ($q) {
-                    $q->where('status', 'delivered')
-                      ->orWhereHas('order', fn($oq) => $oq->where('status', 'delivered'));
-                })
-                ->count();
-
-            $totalCompleted = max($completedOrdersCount, $completedDeliveriesCount);
-
-            $deliveryFeeEarnings = Delivery::where('rider_id', $rider->id)
-                ->where(function ($q) {
-                    $q->where('status', 'delivered')
-                      ->orWhereHas('order', fn($oq) => $oq->where('status', 'delivered'));
-                })
-                ->sum('delivery_fee');
-
-            $orderFeeEarnings = Order::where('rider_id', $rider->id)
+            $totalEarnings = (float) Delivery::where('rider_id', $rider->id)
                 ->where('status', 'delivered')
                 ->sum('delivery_fee');
 
-            $totalEarnings = max((float) $deliveryFeeEarnings, (float) $orderFeeEarnings);
-            if ($totalEarnings == 0 && $totalCompleted > 0) {
-                $totalEarnings = (float) ($totalCompleted * 50.00);
-            }
+            $todayEarnings = (float) Delivery::where('rider_id', $rider->id)
+                ->where('status', 'delivered')
+                ->whereDate('updated_at', now()->toDateString())
+                ->sum('delivery_fee');
 
-            $activeOrders = Order::where('rider_id', $rider->id)
+            $activeOrders = Delivery::where('rider_id', $rider->id)
                 ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit'])
                 ->count();
 
             $statsData = [
-                'total_orders'     => $totalCompleted + $activeOrders,
-                'completed_orders' => $totalCompleted,
-                'active_orders'    => $activeOrders,
-                'earnings'         => (float) $totalEarnings,
-                'total_earnings'   => (float) $totalEarnings,
-                'today_earnings'   => (float) $totalEarnings,
-                'rating'           => 5.0,
+                'total_orders'      => $totalCompleted + $activeOrders,
+                'totalOrders'       => $totalCompleted + $activeOrders,
+                'completed_orders'  => $totalCompleted,
+                'completedOrders'   => $totalCompleted,
+                'active_orders'     => $activeOrders,
+                'activeOrders'      => $activeOrders,
+                'earnings'          => $totalEarnings,
+                'total_earnings'    => $totalEarnings,
+                'totalEarnings'     => $totalEarnings,
+                'today_earnings'    => $todayEarnings,
+                'todayEarnings'     => $todayEarnings,
+                'rating'            => 5.0,
             ];
 
             return response()->json([
-                'success' => true,
-                'data'    => $statsData,
-                'stats'   => $statsData,
+                'success'           => true,
+                'status'            => 'success',
+                'data'              => $statsData,
+                'stats'             => $statsData,
+                'earnings'          => $totalEarnings,
+                'total_earnings'    => $totalEarnings,
+                'totalEarnings'     => $totalEarnings,
+                'today_earnings'    => $todayEarnings,
+                'todayEarnings'     => $todayEarnings,
+                'completed_orders'  => $totalCompleted,
+                'completedOrders'   => $totalCompleted,
+                'total_orders'      => $totalCompleted + $activeOrders,
+                'totalOrders'       => $totalCompleted + $activeOrders,
+                'active_orders'     => $activeOrders,
+                'activeOrders'      => $activeOrders,
             ]);
         } catch (\Throwable $e) {
+            Log::error('Rider::getStats failed', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Failed to fetch stats'], 500);
         }
     }
