@@ -160,6 +160,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
             Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
             Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
+            Route::post('/inventory/scan-receipt/upload', [App\Http\Controllers\Api\ReceiptController::class, 'upload'])->name('inventory.scan-receipt.upload');
+            Route::post('/inventory/scan-receipt/process', [App\Http\Controllers\Api\ReceiptController::class, 'process'])->name('inventory.scan-receipt.process');
+            Route::post('/inventory/scan-receipt/confirm', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn'])->name('inventory.scan-receipt.confirm');
+            Route::get('/inventory/scan-receipt/history', [App\Http\Controllers\Api\ReceiptController::class, 'history'])->name('inventory.scan-receipt.history');
+            Route::get('/inventory/scan-receipt/{id}', [App\Http\Controllers\Api\ReceiptController::class, 'show'])->name('inventory.scan-receipt.show');
+            // Compatibility aliases
+            Route::post('/inventory/scan-receipt', [App\Http\Controllers\Api\ReceiptController::class, 'upload']);
+            Route::post('/inventory/apply-receipt-restock', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn']);
 
             // Reports
             Route::get('reports', [App\Http\Controllers\Admin\ReportController::class, 'index'])->name('reports.index');
@@ -191,6 +199,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('admin/reviews', [App\Http\Controllers\Admin\ReviewController::class, 'index'])->name('admin.reviews.index');
             Route::put('admin/reviews/{review}/status', [App\Http\Controllers\Admin\ReviewController::class, 'updateStatus'])->name('admin.reviews.update-status');
             Route::post('admin/reviews/{review}/respond', [App\Http\Controllers\Admin\ReviewController::class, 'respond'])->name('admin.reviews.respond');
+            Route::post('admin/reviews/{review}/mark-seen', [App\Http\Controllers\Admin\ReviewController::class, 'markReviewSeen'])->name('admin.reviews.mark-seen');
+            Route::post('admin/reviews/products/{product}/mark-seen', [App\Http\Controllers\Admin\ReviewController::class, 'markProductReviewsSeen'])->name('admin.reviews.products.mark-seen');
             Route::delete('admin/reviews/{review}', [App\Http\Controllers\Admin\ReviewController::class, 'destroy'])->name('admin.reviews.destroy');
 
             // Branches

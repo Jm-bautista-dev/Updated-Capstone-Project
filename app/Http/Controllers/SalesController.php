@@ -29,12 +29,9 @@ class SalesController extends Controller
 
         // Scope the main query and stats
         if (!$user->isAdmin()) {
-            // Cashier: ONLY their own sales from their specific branch
-            $query->where('user_id', $user->id)
-                  ->where('branch_id', $user->branch_id);
-            
-            $statsScope = Sale::where('user_id', $user->id)
-                              ->where('branch_id', $user->branch_id);
+            // Cashier: all sales from their specific authorized branch (POS + delivered mobile orders)
+            $query->where('branch_id', $user->branch_id);
+            $statsScope = Sale::where('branch_id', $user->branch_id);
         } else {
             // Admin: sees ALL, optional branch filter
             if ($branchId) {
@@ -69,8 +66,8 @@ class SalesController extends Controller
             abort(401, 'Unauthenticated.');
         }
         
-        // Authorization check: Admin can update any, Cashier only their branch or own sales
-        if (!$user->isAdmin() && $sale->user_id !== $user->id && $sale->branch_id !== $user->branch_id) {
+        // Authorization check: Admin can update any, Cashier only their authorized branch
+        if (!$user->isAdmin() && (int)$sale->branch_id !== (int)$user->branch_id) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => 'You are not authorized to modify this sale record.'], 403);
             }
@@ -339,8 +336,7 @@ class SalesController extends Controller
             });
 
         if (!$user->isAdmin()) {
-            $query->where('user_id', $user->id)
-                  ->where('branch_id', $user->branch_id);
+            $query->where('branch_id', $user->branch_id);
         } else {
             if ($branchId && $branchId !== 'all') {
                 $query->where('branch_id', (int) $branchId);

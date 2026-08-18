@@ -23,8 +23,13 @@ class RiderLocationUpdated implements ShouldBroadcast
     public function broadcastOn(): array
     {
         $channels = [
-            new Channel('deliveries'),
+            new PrivateChannel('admin.orders'),
         ];
+
+        $branchId = $this->delivery?->order?->branch_id ?? ($this->delivery?->sale?->branch_id ?? $this->rider->branch_id);
+        if ($branchId) {
+            $channels[] = new PrivateChannel('branch.' . $branchId . '.orders');
+        }
 
         // Customer-scoped private channel for active order delivery
         if ($this->delivery && $this->delivery->order_id && in_array($this->delivery->status, ['assigned_to_rider', 'picked_up', 'in_transit'])) {

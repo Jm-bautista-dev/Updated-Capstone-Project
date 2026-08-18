@@ -85,6 +85,15 @@ Route::prefix('v1')->group(function () {
         Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept']);
         Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject']);
 
+        // POS / Branch Manager Routes
+        Route::prefix('branch')->group(function () {
+            Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'reject']);
+            Route::post('cancellation-requests/{id}/approve', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'approve']);
+        });
+
+        // Rider Cancellation Requests Ledger
+        Route::get('rider/cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
+
         // Deliveries Live Tracking
         Route::get('deliveries/live-riders', [App\Http\Controllers\Admin\DeliveryController::class, 'getLiveRiderLocations']);
 
@@ -117,7 +126,7 @@ Route::prefix('v1')->group(function () {
 });
 
 // Staff & Admin Offline & Barcode Sync Module
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::post('transactions/sale', [App\Http\Controllers\Api\SyncApiController::class, 'storeSale']);
     Route::post('inventory/update', [App\Http\Controllers\Api\SyncApiController::class, 'updateInventory']);
     Route::post('restock/request', [App\Http\Controllers\Api\SyncApiController::class, 'requestRestock']);
@@ -126,5 +135,20 @@ Route::middleware('auth:sanctum')->group(function () {
     // Receipt-based Inventory Scanner endpoints
     Route::post('receipts/upload', [App\Http\Controllers\Api\ReceiptController::class, 'upload']);
     Route::post('receipts/process', [App\Http\Controllers\Api\ReceiptController::class, 'process']);
+    Route::post('receipts/confirm-stock-in', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn']);
+    Route::get('receipts/history', [App\Http\Controllers\Api\ReceiptController::class, 'history']);
+    Route::get('receipts/{id}', [App\Http\Controllers\Api\ReceiptController::class, 'show']);
     Route::post('inventory/stock-in', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn']);
+});
+
+// ── POS / Branch Manager Routes ──
+Route::middleware(['auth:sanctum,web'])->prefix('branch')->group(function () {
+    Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'reject']);
+    Route::post('cancellation-requests/{id}/approve', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'approve']);
+});
+
+// ── Rider Routes ──
+Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
+    Route::get('my-orders', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'myOrders']);
+    Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
 });

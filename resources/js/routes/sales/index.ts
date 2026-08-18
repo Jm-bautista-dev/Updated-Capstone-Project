@@ -78,8 +78,86 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     index.form = indexForm
 /**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+export const exportMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: exportMethod.url(options),
+    method: 'get',
+})
+
+exportMethod.definition = {
+    methods: ["get","head"],
+    url: '/sales/export',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+exportMethod.url = (options?: RouteQueryOptions) => {
+    return exportMethod.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+exportMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: exportMethod.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: exportMethod.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+    const exportMethodForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: exportMethod.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+        exportMethodForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: exportMethod.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\SalesController::exportMethod
+ * @see app/Http/Controllers/SalesController.php:171
+ * @route '/sales/export'
+ */
+        exportMethodForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: exportMethod.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    exportMethod.form = exportMethodForm
+/**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:64
+ * @see app/Http/Controllers/SalesController.php:62
  * @route '/sales/{sale}/status'
  */
 export const updateStatus = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -88,13 +166,13 @@ export const updateStatus = (args: { sale: number | { id: number } } | [sale: nu
 })
 
 updateStatus.definition = {
-    methods: ["put"],
+    methods: ["put","patch"],
     url: '/sales/{sale}/status',
-} satisfies RouteDefinition<["put"]>
+} satisfies RouteDefinition<["put","patch"]>
 
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:64
+ * @see app/Http/Controllers/SalesController.php:62
  * @route '/sales/{sale}/status'
  */
 updateStatus.url = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -127,17 +205,26 @@ updateStatus.url = (args: { sale: number | { id: number } } | [sale: number | { 
 
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:64
+ * @see app/Http/Controllers/SalesController.php:62
  * @route '/sales/{sale}/status'
  */
 updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
     url: updateStatus.url(args, options),
     method: 'put',
 })
+/**
+* @see \App\Http\Controllers\SalesController::updateStatus
+ * @see app/Http/Controllers/SalesController.php:62
+ * @route '/sales/{sale}/status'
+ */
+updateStatus.patch = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+    url: updateStatus.url(args, options),
+    method: 'patch',
+})
 
     /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:64
+ * @see app/Http/Controllers/SalesController.php:62
  * @route '/sales/{sale}/status'
  */
     const updateStatusForm = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -152,7 +239,7 @@ updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { 
 
             /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:64
+ * @see app/Http/Controllers/SalesController.php:62
  * @route '/sales/{sale}/status'
  */
         updateStatusForm.put = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -164,10 +251,25 @@ updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { 
                     }),
             method: 'post',
         })
+            /**
+* @see \App\Http\Controllers\SalesController::updateStatus
+ * @see app/Http/Controllers/SalesController.php:62
+ * @route '/sales/{sale}/status'
+ */
+        updateStatusForm.patch = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: updateStatus.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'PATCH',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
     
     updateStatus.form = updateStatusForm
 const sales = {
     index: Object.assign(index, index),
+export: Object.assign(exportMethod, exportMethod),
 updateStatus: Object.assign(updateStatus, updateStatus),
 }
 

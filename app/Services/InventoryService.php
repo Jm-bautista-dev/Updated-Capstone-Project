@@ -17,19 +17,19 @@ class InventoryService
     /**
      * Perform a strictly logged stock-in operation with Weighted Average Cost (WAC) tracking.
      */
-    public function stockIn(string $type, int $id, float $quantity, string $unit, int $branchId, float $purchasePrice = 0, ?int $userId = null)
+    public function stockIn(string $type, int $id, float $quantity, string $unit, int $branchId, float $purchasePrice = 0, ?int $userId = null, ?string $reference = null)
     {
-        return DB::transaction(function () use ($type, $id, $quantity, $unit, $branchId, $purchasePrice, $userId) {
+        return DB::transaction(function () use ($type, $id, $quantity, $unit, $branchId, $purchasePrice, $userId, $reference) {
             $userId        = $userId ?? Auth::id();
             $quantityBase  = UnitConverter::convertToBaseQuantity($quantity, $unit);
             $normalizedUnit = UnitConverter::normalizeUnit($unit);
 
             if ($type === 'ingredient' || $type === Ingredient::class) {
-                return $this->stockInIngredient($id, $quantity, $quantityBase, $unit, $normalizedUnit, $branchId, $purchasePrice, $userId);
+                return $this->stockInIngredient($id, $quantity, $quantityBase, $unit, $normalizedUnit, $branchId, $purchasePrice, $userId, $reference);
             }
 
             if ($type === 'product') {
-                return $this->stockInProduct($id, $quantity, $quantityBase, $unit, $branchId, $userId);
+                return $this->stockInProduct($id, $quantity, $quantityBase, $unit, $branchId, $userId, $reference);
             }
 
             throw new \Exception("Unknown domain type: {$type}");
@@ -43,14 +43,15 @@ class InventoryService
      * New Avg Cost = (Current Total Value + New Batch Value) / (Current Stock + New Stock)
      */
     protected function stockInIngredient(
-        int    $ingredientId,
-        float  $quantity,
-        float  $quantityBase,
-        string $rawUnit,
-        string $normalizedUnit,
-        int    $branchId,
-        float  $purchasePrice,
-        ?int   $userId
+        int     $ingredientId,
+        float   $quantity,
+        float   $quantityBase,
+        string  $rawUnit,
+        string  $normalizedUnit,
+        int     $branchId,
+        float   $purchasePrice,
+        ?int    $userId,
+        ?string $reference = null
     ) {
         $ingredient = Ingredient::findOrFail($ingredientId);
 
@@ -85,6 +86,8 @@ class InventoryService
             $stockRow->update(['is_low_stock_notified' => false, 'is_out_of_stock_notified' => false]);
         }
 
+        $refText = $reference ?: "WAC Purchase: @{$purchasePrice}/{$rawUnit}";
+
         return StockLog::create([
             'storable_type'  => Ingredient::class,
             'storable_id'    => $ingredientId,
@@ -96,7 +99,7 @@ class InventoryService
             'unit'           => $rawUnit,
             'previous_stock' => $previousStock,
             'new_stock'      => $newStock,
-            'reference'      => "WAC Purchase: @{$purchasePrice}/{$rawUnit}",
+            'reference'      => $refText,
         ]);
     }
 
@@ -125,7 +128,7 @@ class InventoryService
     /**
      * Stock-in Product logic...
      */
-    protected function stockInProduct($productId, $quantity, $quantityBase, $rawUnit, $branchId, $userId) {
+    protected function stockInProduct($productId, $quantity, $quantityBase, $rawUnit, $branchId, $userId, ?string $reference = null) {
         $product = Product::findOrFail($productId);
         $previousStock = (float) $product->stock;
         $newStock = $previousStock + $quantityBase;
@@ -133,9 +136,17 @@ class InventoryService
         $product->update(['stock' => $newStock, 'unit' => UnitConverter::normalizeUnit($rawUnit)]);
 
         return StockLog::create([
-            'storable_type' => Product::class, 'storable_id' => $productId, 'branch_id' => $branchId, 'user_id' => $userId,
-            'action_type' => 'stock_in', 'quantity' => $quantity, 'quantity_base' => $quantityBase, 'unit' => $rawUnit,
-            'previous_stock' => $previousStock, 'new_stock' => $newStock, 'reference' => 'Manual Restock'
+            'storable_type'  => Product::class,
+            'storable_id'    => $productId,
+            'branch_id'      => $branchId,
+            'user_id'        => $userId,
+            'action_type'    => 'stock_in',
+            'quantity'       => $quantity,
+            'quantity_base'  => $quantityBase,
+            'unit'           => $rawUnit,
+            'previous_stock' => $previousStock,
+            'new_stock'      => $newStock,
+            'reference'      => $reference ?: 'Manual Restock'
         ]);
     }
 

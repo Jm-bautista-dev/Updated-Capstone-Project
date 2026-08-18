@@ -757,6 +757,8 @@ export default function InventoryIndex() {
                 onOpenChange={setIsReceiptScannerOpen}
                 branchId={Number(currentBranchId || branchList[0]?.id || 1)}
                 inventory={inventory}
+                branches={branchList}
+                isAdmin={isAdmin}
                 onSuccess={() => {
                     fetchActivityLogs();
                     router.reload({ only: ['inventory', 'stats'] });

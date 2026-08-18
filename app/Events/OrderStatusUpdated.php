@@ -43,8 +43,6 @@ class OrderStatusUpdated implements ShouldBroadcastNow
         }
 
         $channels = [
-            new Channel('deliveries'),
-            new Channel('orders'),
             new PrivateChannel('admin.orders'),
         ];
 

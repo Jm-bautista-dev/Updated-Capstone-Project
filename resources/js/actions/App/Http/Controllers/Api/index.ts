@@ -8,7 +8,11 @@ import DeliveryFeeController from './DeliveryFeeController'
 import ReviewController from './ReviewController'
 import UserController from './UserController'
 import RiderController from './RiderController'
+import CancellationRequestController from './CancellationRequestController'
+import Branch from './Branch'
+import Rider from './Rider'
 import ApiOrderController from './ApiOrderController'
+import CustomerOrderController from './CustomerOrderController'
 import CartController from './CartController'
 import SyncApiController from './SyncApiController'
 import ReceiptController from './ReceiptController'
@@ -23,7 +27,11 @@ DeliveryFeeController: Object.assign(DeliveryFeeController, DeliveryFeeControlle
 ReviewController: Object.assign(ReviewController, ReviewController),
 UserController: Object.assign(UserController, UserController),
 RiderController: Object.assign(RiderController, RiderController),
+CancellationRequestController: Object.assign(CancellationRequestController, CancellationRequestController),
+Branch: Object.assign(Branch, Branch),
+Rider: Object.assign(Rider, Rider),
 ApiOrderController: Object.assign(ApiOrderController, ApiOrderController),
+CustomerOrderController: Object.assign(CustomerOrderController, CustomerOrderController),
 CartController: Object.assign(CartController, CartController),
 SyncApiController: Object.assign(SyncApiController, SyncApiController),
 ReceiptController: Object.assign(ReceiptController, ReceiptController),

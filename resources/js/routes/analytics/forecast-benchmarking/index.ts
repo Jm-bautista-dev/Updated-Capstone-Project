@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::run
- * @see app/Http/Controllers/Admin/AnalyticsController.php:439
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:523
  * @route '/analytics/forecast-benchmarking/run'
  */
 export const run = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ run.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::run
- * @see app/Http/Controllers/Admin/AnalyticsController.php:439
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:523
  * @route '/analytics/forecast-benchmarking/run'
  */
 run.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ run.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::run
- * @see app/Http/Controllers/Admin/AnalyticsController.php:439
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:523
  * @route '/analytics/forecast-benchmarking/run'
  */
 run.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ run.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::run
- * @see app/Http/Controllers/Admin/AnalyticsController.php:439
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:523
  * @route '/analytics/forecast-benchmarking/run'
  */
     const runForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ run.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::run
- * @see app/Http/Controllers/Admin/AnalyticsController.php:439
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:523
  * @route '/analytics/forecast-benchmarking/run'
  */
         runForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ run.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     run.form = runForm
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::save
- * @see app/Http/Controllers/Admin/AnalyticsController.php:450
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:534
  * @route '/analytics/forecast-benchmarking/save'
  */
 export const save = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ save.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::save
- * @see app/Http/Controllers/Admin/AnalyticsController.php:450
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:534
  * @route '/analytics/forecast-benchmarking/save'
  */
 save.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ save.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::save
- * @see app/Http/Controllers/Admin/AnalyticsController.php:450
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:534
  * @route '/analytics/forecast-benchmarking/save'
  */
 save.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ save.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::save
- * @see app/Http/Controllers/Admin/AnalyticsController.php:450
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:534
  * @route '/analytics/forecast-benchmarking/save'
  */
     const saveForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -100,7 +100,7 @@ save.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::save
- * @see app/Http/Controllers/Admin/AnalyticsController.php:450
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:534
  * @route '/analytics/forecast-benchmarking/save'
  */
         saveForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -111,7 +111,7 @@ save.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     save.form = saveForm
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
 export const exportMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -126,7 +126,7 @@ exportMethod.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
 exportMethod.url = (options?: RouteQueryOptions) => {
@@ -135,7 +135,7 @@ exportMethod.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
 exportMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -144,7 +144,7 @@ exportMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
 exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -154,7 +154,7 @@ exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
     const exportMethodForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -164,7 +164,7 @@ exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
         exportMethodForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -173,7 +173,7 @@ exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\AnalyticsController::exportMethod
- * @see app/Http/Controllers/Admin/AnalyticsController.php:483
+ * @see app/Http/Controllers/Admin/AnalyticsController.php:567
  * @route '/analytics/forecast-benchmarking/export'
  */
         exportMethodForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

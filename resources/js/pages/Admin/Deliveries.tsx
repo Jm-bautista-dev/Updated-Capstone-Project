@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -88,11 +88,21 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
         }
     }
 
-    // Real-time updates via Pusher / Reverb
+    const { auth } = usePage().props as unknown as { auth?: { user?: { id?: number; role?: string; branch_id?: number } } };
+    const userRole = (auth?.user?.role || '').toLowerCase();
+    const activeBranchId = (filters.branch_id && filters.branch_id !== 'all') ? filters.branch_id : auth?.user?.branch_id;
+
+    // Real-time updates via Pusher / Reverb (Strict Branch Isolated)
     useEffect(() => {
         if (!echo) return;
 
-        const channel = echo.channel('deliveries');
+        const targetChannelName = userRole === 'admin' 
+            ? (activeBranchId ? `branch.${activeBranchId}.orders` : 'admin.orders')
+            : (activeBranchId ? `branch.${activeBranchId}.orders` : null);
+
+        if (!targetChannelName) return;
+
+        const channel = echo.private(targetChannelName);
 
         const handleStatusUpdate = (e: {
             delivery_id?: number;
@@ -142,9 +152,9 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                .listen('OrderStatusUpdated', handleStatusUpdate);
 
         return () => {
-            echo?.leaveChannel('deliveries');
+            echo?.leave(targetChannelName);
         };
-    }, []);
+    }, [userRole, activeBranchId]);
 
     // Auto-select delivery sheet if navigated from high-priority order toast
     useEffect(() => {

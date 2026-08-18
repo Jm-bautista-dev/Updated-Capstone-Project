@@ -24,15 +24,12 @@ class ReportController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $branchId = $request->input('branch_id') && $request->input('branch_id') !== 'all'
-            ? (int) $request->input('branch_id')
-            : null;
+        $branchId = $user->isAdmin()
+            ? ($request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int) $request->input('branch_id') : null)
+            : (int) $user->branch_id;
 
         $sales = Sale::with(['cashier', 'items.product', 'branch'])
-            ->when(!$user->isAdmin(), fn($q) => $q
-                ->where('user_id',   $user->id)
-                ->where('branch_id', $user->branch_id)
-            )
+            ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
             ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
             ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
             ->when($request->date_to,   fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
@@ -44,10 +41,7 @@ class ReportController extends Controller
 
         $todayQuery = Sale::where('status', 'completed')
             ->whereDate('created_at', today())
-            ->when(!$user->isAdmin(), fn($q) => $q
-                ->where('user_id',   $user->id)
-                ->where('branch_id', $user->branch_id)
-            )
+            ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
             ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId));
 
         $todaySales = (float) (clone $todayQuery)->sum('total');
@@ -107,10 +101,7 @@ class ReportController extends Controller
 
         if ($activeTab === 'sales') {
             $sales = Sale::with(['cashier', 'items.product', 'branch'])
-                ->when(!$user->isAdmin(), fn($q) => $q
-                    ->where('user_id',   $user->id)
-                    ->where('branch_id', $user->branch_id)
-                )
+                ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
                 ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
                 ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
                 ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('created_at', '<=', $filters['date_to']))

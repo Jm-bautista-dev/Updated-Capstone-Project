@@ -38,3 +38,16 @@ Broadcast::channel('customer.order.{orderId}', function ($user, $orderId) {
     $order = \App\Models\Order::find($orderId);
     return $order && (int) $order->user_id === (int) $user->id;
 });
+
+Broadcast::channel('user.{id}', function ($user, $id) {
+    if (!$user) return false;
+    if (method_exists($user, 'isAdmin') && $user->isAdmin()) return true;
+    return (int) $user->id === (int) $id;
+});
+
+Broadcast::channel('rider.{id}', function ($user, $id) {
+    if (!$user) return false;
+    if (method_exists($user, 'isAdmin') && $user->isAdmin()) return true;
+    return (int) $user->id === (int) $id;
+});
+

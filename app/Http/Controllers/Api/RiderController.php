@@ -398,9 +398,30 @@ class RiderController extends Controller
 
             return DB::transaction(function () use ($rider, $id, $request) {
                 $delivery = Delivery::with(['order.branch', 'order'])
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)
+                          ->orWhere('order_id', $id);
+                    })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
-                    ->findOrFail($id);
+                    ->first();
+
+                if (!$delivery) {
+                    $order = Order::where('id', $id)->where('rider_id', $rider->id)->first();
+                    if (!$order) {
+                        return response()->json(['success' => false, 'message' => 'Delivery or order not found.'], 404);
+                    }
+                    $delivery = Delivery::firstOrCreate(
+                        ['order_id' => $order->id],
+                        [
+                            'rider_id'         => $rider->id,
+                            'status'           => $order->status,
+                            'customer_name'    => $order->customer_name,
+                            'customer_phone'   => $order->contact_number,
+                            'customer_address' => $order->address,
+                        ]
+                    );
+                }
 
                 if ($delivery->isDelivered()) {
                     return response()->json(['success' => false, 'message' => 'Cannot request cancellation for a delivered order.'], 422);
@@ -410,7 +431,7 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => 'Order is already cancelled.'], 422);
                 }
 
-                $order = $delivery->order;
+                $order = $delivery->order ?: Order::find($delivery->order_id);
                 if (!$order) {
                     return response()->json(['success' => false, 'message' => 'Order not found for this delivery.'], 404);
                 }
@@ -419,6 +440,12 @@ class RiderController extends Controller
                 $existingRequest = OrderCancellationRequest::where('order_id', $order->id)
                     ->where('status', 'pending')
                     ->first();
+
+                if (!$existingRequest) {
+                    $existingRequest = \App\Models\CancellationRequest::where('order_id', $order->id)
+                        ->where('status', 'pending')
+                        ->first();
+                }
 
                 if ($existingRequest) {
                     return response()->json([
@@ -432,11 +459,24 @@ class RiderController extends Controller
                 $prevOrderStatus = $order->status;
                 $prevDeliveryStatus = $delivery->status;
 
-                // Update Order & Delivery status to 'cancellation_requested'
-                $order->update(['status' => 'cancellation_requested']);
+                // Update Order & Delivery status
+                $order->update([
+                    'status'                  => 'cancellation_requested',
+                    'is_cancellation_pending' => true,
+                    'cancellation_status'     => 'pending',
+                ]);
                 $delivery->update(['status' => 'cancellation_requested']);
 
-                // Create Cancellation Request Record
+                // Create in cancellation_requests table
+                \App\Models\CancellationRequest::create([
+                    'order_id' => $order->id,
+                    'rider_id' => $rider->id,
+                    'reason'   => $request->reason,
+                    'notes'    => $request->input('notes'),
+                    'status'   => 'pending',
+                ]);
+
+                // Create in order_cancellation_requests table
                 $cancellationRequest = OrderCancellationRequest::create([
                     'order_id'                 => $order->id,
                     'delivery_id'              => $delivery->id,

@@ -34,7 +34,6 @@ class CancellationRequested implements ShouldBroadcastNow
 
         $channels = [
             new PrivateChannel('admin.orders'),
-            new Channel('orders'),
         ];
 
         if ($branchId) {

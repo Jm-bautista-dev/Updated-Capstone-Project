@@ -129,9 +129,11 @@ class CancellationRequestController extends Controller
                 // 2. Update Order
                 if ($order) {
                     $order->update([
-                        'status'              => 'cancelled',
-                        'cancellation_reason' => $req->reason,
-                        'cancelled_at'        => $now,
+                        'status'                  => 'cancelled',
+                        'is_cancellation_pending' => false,
+                        'cancellation_status'     => 'approved',
+                        'cancellation_reason'     => $req->reason,
+                        'cancelled_at'            => $now,
                     ]);
 
                     // Restore Product Inventory (guarded to prevent double-restoration)
@@ -243,7 +245,14 @@ class CancellationRequestController extends Controller
                 $order = $req->order;
                 if ($order && $req->previous_order_status) {
                     $order->update([
-                        'status' => $req->previous_order_status,
+                        'status'                  => $req->previous_order_status,
+                        'is_cancellation_pending' => false,
+                        'cancellation_status'     => 'rejected',
+                    ]);
+                } elseif ($order) {
+                    $order->update([
+                        'is_cancellation_pending' => false,
+                        'cancellation_status'     => 'rejected',
                     ]);
                 }
 
@@ -258,6 +267,9 @@ class CancellationRequestController extends Controller
                 // 4. Post-Commit Real-Time Broadcasts
                 try {
                     broadcast(new CancellationResolved($req->fresh()));
+                    if ($order) {
+                        broadcast(new \App\Events\CancellationRejectedEvent($req, $order->fresh()));
+                    }
                     if ($delivery) {
                         broadcast(new OrderStatusUpdated($delivery->fresh(), 'cashier'));
                     }

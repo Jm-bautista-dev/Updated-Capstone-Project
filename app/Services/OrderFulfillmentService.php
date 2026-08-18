@@ -84,10 +84,22 @@ class OrderFulfillmentService
      */
     private function recordAsSale(Order $order, Delivery $delivery): void
     {
-        $orderNum = 'MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT);
+        $orderNum = $order->order_number ?: ('MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT));
 
         // ── Guard: Prevent duplicate sales records ───────────────────────
+        if ($delivery->sale_id && Sale::where('id', $delivery->sale_id)->exists()) {
+            Log::info('OrderFulfillment: sale already recorded for delivery, skipping.', [
+                'order_id'     => $order->id,
+                'sale_id'      => $delivery->sale_id,
+            ]);
+            return;
+        }
+
         if (Sale::where('order_number', $orderNum)->exists()) {
+            $existingSale = Sale::where('order_number', $orderNum)->first();
+            if ($existingSale && !$delivery->sale_id) {
+                $delivery->update(['sale_id' => $existingSale->id]);
+            }
             Log::info('OrderFulfillment: sale already recorded, skipping.', [
                 'order_id'     => $order->id,
                 'order_number' => $orderNum,

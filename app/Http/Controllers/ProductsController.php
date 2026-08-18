@@ -60,21 +60,24 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId, $branches) {
-            // Build dynamic branch stock breakdown for all active branches
-            $branchBreakdown = [];
+        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId, $branches, $user) {
+            // Build dynamic branch stock breakdown (only for Admin)
+            $branchBreakdown = null;
             $totalStock = 0;
 
-            foreach ($branches as $branch) {
-                $bAvail = $product->dynamicAvailability($branch->id);
-                $bStock = (float) $bAvail['available'];
-                $branchBreakdown[$branch->id] = [
-                    'branch_id'    => $branch->id,
-                    'branch_name'  => $branch->name,
-                    'stock'        => $bStock,
-                    'is_available' => $bAvail['is_available'],
-                ];
-                $totalStock += $bStock;
+            if ($user->isAdmin()) {
+                $branchBreakdown = [];
+                foreach ($branches as $branch) {
+                    $bAvail = $product->dynamicAvailability($branch->id);
+                    $bStock = (float) $bAvail['available'];
+                    $branchBreakdown[$branch->id] = [
+                        'branch_id'    => $branch->id,
+                        'branch_name'  => $branch->name,
+                        'stock'        => $bStock,
+                        'is_available' => $bAvail['is_available'],
+                    ];
+                    $totalStock += $bStock;
+                }
             }
 
             if ($branchId) {
@@ -115,6 +118,11 @@ class ProductsController extends Controller
 
         // ── Ingredients for the recipe builder ──────────────────────────────
         $ingredientsQuery = Ingredient::orderBy('name');
+        if (!$user->isAdmin() && $user->branch_id) {
+            $ingredientsQuery->with(['stocks' => fn($q) => $q->where('branch_id', $user->branch_id)]);
+        } else {
+            $ingredientsQuery->with('stocks');
+        }
 
         // Categories for the product form
         $categoriesQuery = Category::query()->orderBy('name');
@@ -122,9 +130,9 @@ class ProductsController extends Controller
         return Inertia::render('Products/Index', [
             'products'        => $products,
             'categories'      => $categoriesQuery->get(),
-            'ingredients'     => $ingredientsQuery->with('stocks')->get(),
+            'ingredients'     => $ingredientsQuery->get(),
             'summary'         => $summary,
-            'branches'        => $branches,
+            'branches'        => $user->isAdmin() ? $branches : $branches->where('id', $user->branch_id)->values(),
             'allowedUnits'    => UnitConverter::getAllowedUnits(),
             'currentBranchId' => $branchId,
             'isAdmin'         => $user->isAdmin(),

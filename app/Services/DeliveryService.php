@@ -269,10 +269,18 @@ class DeliveryService
      */
     private function recordOrderAsSale($order, $delivery)
     {
-        $orderNum = 'MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT);
+        $orderNum = $order->order_number ?: ('MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT));
 
         // Prevent duplicate sales for the same order
+        if ($delivery->sale_id && Sale::where('id', $delivery->sale_id)->exists()) {
+            return;
+        }
+
         if (Sale::where('order_number', $orderNum)->exists()) {
+            $existingSale = Sale::where('order_number', $orderNum)->first();
+            if ($existingSale && !$delivery->sale_id) {
+                $delivery->update(['sale_id' => $existingSale->id]);
+            }
             return;
         }
 

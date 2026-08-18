@@ -327,21 +327,6 @@ export function useRealTime(branchId?: number | null) {
                 });
             };
 
-            // Public Orders Channel fallback (guarantees delivery across all connections)
-            echo.channel('orders')
-                .listen('OrderCreated', handleOrderNotification)
-                .listen('.OrderCreated', handleOrderNotification)
-                .listen('App\\Events\\OrderCreated', handleOrderNotification)
-                .listen('.App\\Events\\OrderCreated', handleOrderNotification)
-                .listen('CancellationRequested', handleCancellationRequested)
-                .listen('.CancellationRequested', handleCancellationRequested)
-                .listen('App\\Events\\CancellationRequested', handleCancellationRequested)
-                .listen('.App\\Events\\CancellationRequested', handleCancellationRequested)
-                .listen('CancellationResolved', handleCancellationResolved)
-                .listen('.CancellationResolved', handleCancellationResolved)
-                .listen('App\\Events\\CancellationResolved', handleCancellationResolved)
-                .listen('.App\\Events\\CancellationResolved', handleCancellationResolved);
-
             const userRole = (auth?.user?.role || '').toLowerCase();
             const userBranchId = branchId || auth?.user?.branch_id;
 
@@ -385,7 +370,6 @@ export function useRealTime(branchId?: number | null) {
         return () => {
             if (echo) {
                 echo.leave('global');
-                echo.leave('orders');
                 const userBranchId = branchId || auth?.user?.branch_id;
                 if (userBranchId) {
                     echo.leave(`branch.${userBranchId}`);

@@ -24,14 +24,17 @@ class Order extends Model
         'notes',
         'total_amount',
         'status',
+        'is_cancellation_pending',
+        'cancellation_status',
         'cancellation_reason',
         'cancelled_at',
         'inventory_deducted',
     ];
 
     protected $casts = [
-        'cancelled_at' => 'datetime',
-        'total_amount' => 'decimal:2',
+        'is_cancellation_pending' => 'boolean',
+        'cancelled_at'            => 'datetime',
+        'total_amount'            => 'decimal:2',
     ];
 
     /*

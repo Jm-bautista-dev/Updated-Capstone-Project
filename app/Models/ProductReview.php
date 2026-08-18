@@ -23,6 +23,9 @@ class ProductReview extends Model
         'rating',
         'comment',
         'status',
+        'is_seen',
+        'seen_at',
+        'seen_by',
         'admin_response',
         'admin_response_by',
         'admin_responded_at',
@@ -30,6 +33,8 @@ class ProductReview extends Model
 
     protected $casts = [
         'rating'             => 'integer',
+        'is_seen'            => 'boolean',
+        'seen_at'            => 'datetime',
         'admin_responded_at' => 'datetime',
     ];
 
@@ -71,6 +76,11 @@ class ProductReview extends Model
         return $this->belongsTo(User::class, 'admin_response_by');
     }
 
+    public function seenBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seen_by');
+    }
+
     /* ── Scopes ────────────────────────────────────── */
 
     public function scopePublished(Builder $query): Builder
@@ -81,5 +91,15 @@ class ProductReview extends Model
     public function scopeFlagged(Builder $query): Builder
     {
         return $query->whereIn('status', [self::STATUS_FLAGGED, self::STATUS_PENDING]);
+    }
+
+    public function scopeUnseen(Builder $query): Builder
+    {
+        return $query->where('is_seen', false);
+    }
+
+    public function scopeSeen(Builder $query): Builder
+    {
+        return $query->where('is_seen', true);
     }
 }
