@@ -128,6 +128,24 @@ class RiderController extends Controller
     }
 
     /**
+     * Aliases for external store conventions
+     */
+    public function availableOrders(Request $request): JsonResponse
+    {
+        return $this->getOrders($request);
+    }
+
+    public function myOrders(Request $request): JsonResponse
+    {
+        return $this->getMyOrders($request);
+    }
+
+    public function completedOrders(Request $request): JsonResponse
+    {
+        return $this->getCompletedOrders($request);
+    }
+
+    /**
      * GET /api/v1/rider/my-orders
      * Returns orders assigned to THIS rider that are active.
      */
