@@ -71,6 +71,10 @@ Route::prefix('v1')->group(function () {
             Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Active (assigned/picking/transit)
             Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done (paginated)
             Route::get('history',          [RiderController::class, 'getCompletedOrders']); // Alias
+            Route::get('transactions',     [RiderController::class, 'getCompletedOrders']);
+            Route::get('past-transactions',[RiderController::class, 'getCompletedOrders']);
+            Route::get('stats',            [RiderController::class, 'getStats']);
+            Route::get('earnings',         [RiderController::class, 'getStats']);
 
             // WORKFLOW ENDPOINTS (Both strict actions and generic status transitions)
             Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);

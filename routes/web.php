@@ -256,11 +256,17 @@ Route::middleware(['auth:sanctum,web'])->group(function () {
         Route::post('orders/{id}/reject', [App\Http\Controllers\Api\RiderController::class, 'rejectOrder']);
         Route::post('orders/{id}/cancel', [App\Http\Controllers\Api\RiderController::class, 'cancelOrder']);
         Route::post('location', [App\Http\Controllers\Api\RiderController::class, 'updateLocation']);
-        Route::post('ping', [App\Http\Controllers\Api\RiderController::class, 'ping']);
         Route::get('stats', [App\Http\Controllers\Api\RiderController::class, 'getStats']);
+        Route::get('earnings', [App\Http\Controllers\Api\RiderController::class, 'getStats']);
+        Route::get('transactions', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+        Route::get('past-transactions', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
         Route::patch('status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
         Route::match(['post', 'patch', 'put'], 'orders/{id}/status', [App\Http\Controllers\Api\RiderController::class, 'updateOrderStatus']);
     });
+
+    Route::get('earnings', [App\Http\Controllers\Api\RiderController::class, 'getStats']);
+    Route::get('transactions', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+    Route::get('past-transactions', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
 });
 
 require __DIR__.'/settings.php';

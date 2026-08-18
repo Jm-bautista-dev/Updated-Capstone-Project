@@ -570,6 +570,84 @@ getStatsb4b7a936b4dbf8c412ae7f146e59c3c6.head = (options?: RouteQueryOptions): R
     /**
 * @see \App\Http\Controllers\Api\RiderController::getStats
  * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+const getStats04238a27ca0a44a14158124a93c7d3c4 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getStats04238a27ca0a44a14158124a93c7d3c4.url(options),
+    method: 'get',
+})
+
+getStats04238a27ca0a44a14158124a93c7d3c4.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/rider/earnings',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+getStats04238a27ca0a44a14158124a93c7d3c4.url = (options?: RouteQueryOptions) => {
+    return getStats04238a27ca0a44a14158124a93c7d3c4.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+getStats04238a27ca0a44a14158124a93c7d3c4.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getStats04238a27ca0a44a14158124a93c7d3c4.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+getStats04238a27ca0a44a14158124a93c7d3c4.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getStats04238a27ca0a44a14158124a93c7d3c4.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+    const getStats04238a27ca0a44a14158124a93c7d3c4Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getStats04238a27ca0a44a14158124a93c7d3c4.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+        getStats04238a27ca0a44a14158124a93c7d3c4Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getStats04238a27ca0a44a14158124a93c7d3c4.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
+ * @route '/api/v1/rider/earnings'
+ */
+        getStats04238a27ca0a44a14158124a93c7d3c4Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getStats04238a27ca0a44a14158124a93c7d3c4.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getStats04238a27ca0a44a14158124a93c7d3c4.form = getStats04238a27ca0a44a14158124a93c7d3c4Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getStats
+ * @see app/Http/Controllers/Api/RiderController.php:889
  * @route '/api/rider/stats'
  */
 const getStats7c3d39de8ff6ff150c545ad605884ca4 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -726,6 +804,7 @@ getStatsadcb4ad2a029c78e1de2c392184fa1d0.head = (options?: RouteQueryOptions): R
 
 export const getStats = {
     '/api/v1/rider/stats': getStatsb4b7a936b4dbf8c412ae7f146e59c3c6,
+    '/api/v1/rider/earnings': getStats04238a27ca0a44a14158124a93c7d3c4,
     '/api/rider/stats': getStats7c3d39de8ff6ff150c545ad605884ca4,
     '/rider/stats': getStatsadcb4ad2a029c78e1de2c392184fa1d0,
 }
@@ -2965,6 +3044,162 @@ getCompletedOrdersabde917f84dacb687a598548424e8a47.head = (options?: RouteQueryO
     /**
 * @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
  * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+const getCompletedOrders8a130ed474753b912b288c59bd53c250 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getCompletedOrders8a130ed474753b912b288c59bd53c250.url(options),
+    method: 'get',
+})
+
+getCompletedOrders8a130ed474753b912b288c59bd53c250.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/rider/transactions',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+getCompletedOrders8a130ed474753b912b288c59bd53c250.url = (options?: RouteQueryOptions) => {
+    return getCompletedOrders8a130ed474753b912b288c59bd53c250.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+getCompletedOrders8a130ed474753b912b288c59bd53c250.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getCompletedOrders8a130ed474753b912b288c59bd53c250.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+getCompletedOrders8a130ed474753b912b288c59bd53c250.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getCompletedOrders8a130ed474753b912b288c59bd53c250.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+    const getCompletedOrders8a130ed474753b912b288c59bd53c250Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getCompletedOrders8a130ed474753b912b288c59bd53c250.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+        getCompletedOrders8a130ed474753b912b288c59bd53c250Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getCompletedOrders8a130ed474753b912b288c59bd53c250.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/transactions'
+ */
+        getCompletedOrders8a130ed474753b912b288c59bd53c250Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getCompletedOrders8a130ed474753b912b288c59bd53c250.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getCompletedOrders8a130ed474753b912b288c59bd53c250.form = getCompletedOrders8a130ed474753b912b288c59bd53c250Form
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+const getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url(options),
+    method: 'get',
+})
+
+getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/rider/past-transactions',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url = (options?: RouteQueryOptions) => {
+    return getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+    const getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafdForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+        getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafdForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
+ * @route '/api/v1/rider/past-transactions'
+ */
+        getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafdForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd.form = getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafdForm
+    /**
+* @see \App\Http\Controllers\Api\RiderController::getCompletedOrders
+ * @see app/Http/Controllers/Api/RiderController.php:188
  * @route '/api/v1/orders/completed'
  */
 const getCompletedOrders762fad025826d27afd5c06b1ecf69a3e = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -3746,6 +3981,8 @@ getCompletedOrders0f5feb3fdd4e10be69e77c75dcb4177c.head = (options?: RouteQueryO
 export const getCompletedOrders = {
     '/api/v1/rider/completed-orders': getCompletedOrdersa9e8bf68f2b8fe95b8dc3c57c869603f,
     '/api/v1/rider/history': getCompletedOrdersabde917f84dacb687a598548424e8a47,
+    '/api/v1/rider/transactions': getCompletedOrders8a130ed474753b912b288c59bd53c250,
+    '/api/v1/rider/past-transactions': getCompletedOrdersb062ab391bc3860ea383ea2b45a5eafd,
     '/api/v1/orders/completed': getCompletedOrders762fad025826d27afd5c06b1ecf69a3e,
     '/api/v1/orders/history': getCompletedOrders5bdaf7c800a463570fa791708f4ebc3a,
     '/api/rider/completed-orders': getCompletedOrders805dad15d371e329367cc660ba824f6b,
