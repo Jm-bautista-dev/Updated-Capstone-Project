@@ -28,7 +28,11 @@ class ApiOrderController extends Controller
 
             $query = Order::with(['delivery', 'items.product', 'branch']);
 
-            if ($userId) {
+            if ($request->filled('status')) {
+                $status = $request->input('status');
+                $statuses = is_array($status) ? $status : explode(',', $status);
+                $query->whereIn('status', $statuses);
+            } elseif ($userId) {
                 $query->where(function ($q) use ($userId, $phone) {
                     $q->where('user_id', $userId);
                     if ($phone) {

@@ -79,18 +79,47 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
+            $riderBranchId = $rider->branch_id;
+
             $deliveries = Delivery::with(['order.items.product', 'order.branch'])
                 ->whereNull('rider_id')
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['ready_for_pickup']))
+                ->whereHas('order', function ($q) use ($riderBranchId) {
+                    $q->whereIn('status', ['ready_for_pickup', 'preparing'])
+                      ->whereNull('rider_id')
+                      ->when($riderBranchId, fn($bq) => $bq->where('branch_id', $riderBranchId));
+                })
                 ->orderBy('created_at', 'asc')
-                ->get()
-                ->map(fn(Delivery $d) => $this->formatDelivery($d));
+                ->get();
+
+            // Check unlinked orders
+            $unlinkedOrders = Order::with(['items.product', 'branch'])
+                ->whereIn('status', ['ready_for_pickup', 'preparing'])
+                ->whereNull('rider_id')
+                ->when($riderBranchId, fn($bq) => $bq->where('branch_id', $riderBranchId))
+                ->whereDoesntHave('delivery')
+                ->get();
+
+            foreach ($unlinkedOrders as $uo) {
+                $d = Delivery::firstOrCreate(
+                    ['order_id' => $uo->id],
+                    [
+                        'rider_id'         => null,
+                        'status'           => $uo->status,
+                        'customer_name'    => $uo->customer_name,
+                        'customer_phone'   => $uo->contact_number,
+                        'customer_address' => $uo->address,
+                    ]
+                );
+                $deliveries->push($d->load(['order.items.product', 'order.branch']));
+            }
+
+            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
                 'success'    => true,
-                'data'       => $deliveries,
-                'deliveries' => $deliveries,
-                'orders'     => $deliveries,
+                'data'       => $formatted,
+                'deliveries' => $formatted,
+                'orders'     => $formatted,
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getOrders failed', ['error' => $e->getMessage()]);
@@ -112,39 +141,29 @@ class RiderController extends Controller
 
             $deliveries = Delivery::with(['order.items.product', 'order.branch'])
                 ->where('rider_id', $rider->id)
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
+                ->whereHas('order', fn($q) => $q->whereIn('status', ['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
-            if ($deliveries->isEmpty()) {
-                $orders = Order::with(['items.product', 'branch', 'delivery'])
-                    ->where('rider_id', $rider->id)
-                    ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
-                    ->orderBy('updated_at', 'desc')
-                    ->get();
+            $assignedOrders = Order::with(['items.product', 'branch', 'delivery'])
+                ->where('rider_id', $rider->id)
+                ->whereIn('status', ['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
+                ->orderBy('updated_at', 'desc')
+                ->get();
 
-                if ($orders->isNotEmpty()) {
-                    $orderData = $orders->map(fn(Order $o) => [
-                        'id'                      => $o->id,
-                        'order_id'                => $o->id,
-                        'delivery_id'             => $o->delivery?->id,
-                        'status'                  => $o->status,
-                        'order_status'            => $o->status,
-                        'cancellation_status'     => $o->cancellation_status,
-                        'is_cancellation_pending' => (bool)$o->is_cancellation_pending,
-                        'customer_name'           => $o->customer_name,
-                        'customer_phone'          => $o->contact_number,
-                        'customer_address'        => $o->address,
-                        'items'                   => $o->items,
-                        'branch'                  => $o->branch,
-                    ]);
-
-                    return response()->json([
-                        'success'    => true,
-                        'data'       => $orderData,
-                        'deliveries' => $orderData,
-                        'orders'     => $orderData,
-                    ]);
+            foreach ($assignedOrders as $ao) {
+                if (!$deliveries->contains('order_id', $ao->id)) {
+                    $d = Delivery::firstOrCreate(
+                        ['order_id' => $ao->id],
+                        [
+                            'rider_id'         => $rider->id,
+                            'status'           => $ao->status,
+                            'customer_name'    => $ao->customer_name,
+                            'customer_phone'   => $ao->contact_number,
+                            'customer_address' => $ao->address,
+                        ]
+                    );
+                    $deliveries->push($d->load(['order.items.product', 'order.branch']));
                 }
             }
 
@@ -315,44 +334,51 @@ class RiderController extends Controller
                     ], 422);
                 }
 
-                $delivery = Delivery::with('order')
-                    ->where(function ($q) use ($id) {
-                        $q->where('id', $id)->orWhere('order_id', $id);
-                    })
-                    ->where('rider_id', $rider->id)
+                // Look up order by id, order_number, or delivery ID
+                $order = Order::with(['items.product', 'branch', 'delivery'])
+                    ->where('id', $id)
+                    ->orWhere('order_number', $id)
+                    ->orWhereHas('delivery', fn($dq) => $dq->where('id', $id))
                     ->lockForUpdate()
                     ->first();
 
-                if (!$delivery) {
-                    $order = Order::where('rider_id', $rider->id)->where('id', $id)->first();
-                    if ($order) {
-                        $delivery = Delivery::firstOrCreate(
-                            ['order_id' => $order->id],
-                            [
-                                'rider_id'         => $rider->id,
-                                'status'           => $order->status,
-                                'customer_name'    => $order->customer_name,
-                                'customer_phone'   => $order->contact_number,
-                                'customer_address' => $order->address,
-                            ]
-                        );
-                    }
-                }
-
-                if (!$delivery) {
-                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
-                }
-
-                $order = $delivery->order ?: Order::find($delivery->order_id);
                 if (!$order) {
-                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                    $delivery = Delivery::with(['order.items.product', 'order.branch'])->find($id);
+                    $order = $delivery?->order;
+                }
+
+                if (!$order) {
+                    return response()->json(['success' => false, 'message' => 'Order or delivery not found.'], 404);
+                }
+
+                // Authorization check
+                if ($order->rider_id && $order->rider_id != $rider->id) {
+                    return response()->json(['success' => false, 'message' => 'Order is assigned to another rider.'], 403);
                 }
 
                 $order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
+                $order->update([
+                    'rider_id' => $rider->id,
+                    'status'   => 'picked_up',
+                ]);
 
-                $delivery->update(['status' => 'picked_up']);
+                $delivery = Delivery::firstOrCreate(
+                    ['order_id' => $order->id],
+                    [
+                        'rider_id'         => $rider->id,
+                        'status'           => 'picked_up',
+                        'customer_name'    => $order->customer_name,
+                        'customer_phone'   => $order->contact_number,
+                        'customer_address' => $order->address,
+                    ]
+                );
 
-                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                $delivery->update([
+                    'rider_id' => $rider->id,
+                    'status'   => 'picked_up',
+                ]);
+
+                event(new OrderStatusUpdated($delivery->fresh(['order.items.product', 'order.branch']), 'rider'));
 
                 return response()->json([
                     'success' => true,
@@ -938,11 +964,15 @@ class RiderController extends Controller
         $lng = $delivery->longitude ?? $order?->longitude;
 
         return [
-            'delivery_id' => $delivery->id,
-            'order_id' => $delivery->order_id,
-            'status' => $delivery->status,
-            'order_status' => $order?->status,
-            'status_label' => $delivery->getStatusLabel(),
+            'id'                      => $order?->id ?? $delivery->id,
+            'delivery_id'             => $delivery->id,
+            'order_id'                => $delivery->order_id,
+            'order_number'            => $order?->order_number,
+            'status'                  => $delivery->status,
+            'order_status'            => $order?->status,
+            'status_label'            => $delivery->getStatusLabel(),
+            'cancellation_status'     => $order?->cancellation_status,
+            'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
 
             // Customer Info
             'customer_name' => $delivery->customer_name,
