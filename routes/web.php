@@ -227,4 +227,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
 
+// ── Root-Level API Route Fallbacks (for mobile app requests with leading slash) ──
+Route::middleware(['auth:sanctum,web'])->group(function () {
+    Route::get('/user', [App\Http\Controllers\Api\UserController::class, 'me']);
+    
+    Route::prefix('rider')->group(function () {
+        Route::get('orders', [App\Http\Controllers\Api\RiderController::class, 'getOrders']);
+        Route::get('my-orders', [App\Http\Controllers\Api\RiderController::class, 'getMyOrders']);
+        Route::get('completed-orders', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+        Route::get('history', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+        Route::post('orders/{id}/pickup', [App\Http\Controllers\Api\RiderController::class, 'pickupOrder']);
+        Route::post('pickup/{id}', [App\Http\Controllers\Api\RiderController::class, 'pickupOrder']);
+        Route::post('orders/{id}/transit', [App\Http\Controllers\Api\RiderController::class, 'startTransit']);
+        Route::post('transit/{id}', [App\Http\Controllers\Api\RiderController::class, 'startTransit']);
+        Route::post('orders/{id}/deliver', [App\Http\Controllers\Api\RiderController::class, 'deliverOrder']);
+        Route::post('deliver/{id}', [App\Http\Controllers\Api\RiderController::class, 'deliverOrder']);
+        Route::post('orders/{id}/reject', [App\Http\Controllers\Api\RiderController::class, 'rejectOrder']);
+        Route::post('orders/{id}/cancel', [App\Http\Controllers\Api\RiderController::class, 'cancelOrder']);
+        Route::post('location', [App\Http\Controllers\Api\RiderController::class, 'updateLocation']);
+        Route::post('ping', [App\Http\Controllers\Api\RiderController::class, 'ping']);
+        Route::get('stats', [App\Http\Controllers\Api\RiderController::class, 'getStats']);
+        Route::patch('status', [App\Http\Controllers\Api\RiderController::class, 'updateStatus']);
+        Route::match(['post', 'patch', 'put'], 'orders/{id}/status', [App\Http\Controllers\Api\RiderController::class, 'updateOrderStatus']);
+    });
+});
+
 require __DIR__.'/settings.php';
+
