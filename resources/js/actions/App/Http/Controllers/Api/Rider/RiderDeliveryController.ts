@@ -155,10 +155,89 @@ cancellationRequests4e91f346ba9a280b660aeca0ff27ca97.head = (options?: RouteQuer
         })
     
     cancellationRequests4e91f346ba9a280b660aeca0ff27ca97.form = cancellationRequests4e91f346ba9a280b660aeca0ff27ca97Form
+    /**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+const cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url(options),
+    method: 'get',
+})
+
+cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.definition = {
+    methods: ["get","head"],
+    url: '/rider/cancellation-requests',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url = (options?: RouteQueryOptions) => {
+    return cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+    const cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1eForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+        cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1eForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\Rider\RiderDeliveryController::cancellationRequests
+ * @see app/Http/Controllers/Api/Rider/RiderDeliveryController.php:42
+ * @route '/rider/cancellation-requests'
+ */
+        cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1eForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e.form = cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1eForm
 
 export const cancellationRequests = {
     '/api/v1/rider/cancellation-requests': cancellationRequests86b69beae8e1e23bf83db8ab53ae6afa,
     '/api/rider/cancellation-requests': cancellationRequests4e91f346ba9a280b660aeca0ff27ca97,
+    '/rider/cancellation-requests': cancellationRequests579cdedbcc9f9bc73d409b78aa58fa1e,
 }
 
 const RiderDeliveryController = { cancellationRequests }
