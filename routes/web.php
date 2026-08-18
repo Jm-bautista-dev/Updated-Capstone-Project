@@ -231,11 +231,22 @@ Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name
 Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::get('/user', [App\Http\Controllers\Api\UserController::class, 'me']);
     
+    // Order endpoints under root
+    Route::get('orders/ready',     [App\Http\Controllers\Api\RiderController::class, 'getOrders']);
+    Route::get('orders/pickup',    [App\Http\Controllers\Api\RiderController::class, 'getOrders']);
+    Route::get('orders/pending',   [App\Http\Controllers\Api\RiderController::class, 'getOrders']);
+    Route::get('orders/my',        [App\Http\Controllers\Api\RiderController::class, 'getMyOrders']);
+    Route::get('orders/assigned',  [App\Http\Controllers\Api\RiderController::class, 'getMyOrders']);
+    Route::get('orders/active',    [App\Http\Controllers\Api\RiderController::class, 'getMyOrders']);
+    Route::get('orders/completed', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+    Route::get('orders/history',   [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+
     Route::prefix('rider')->group(function () {
         Route::get('orders', [App\Http\Controllers\Api\RiderController::class, 'getOrders']);
         Route::get('my-orders', [App\Http\Controllers\Api\RiderController::class, 'getMyOrders']);
         Route::get('completed-orders', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
         Route::get('history', [App\Http\Controllers\Api\RiderController::class, 'getCompletedOrders']);
+        Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
         Route::post('orders/{id}/pickup', [App\Http\Controllers\Api\RiderController::class, 'pickupOrder']);
         Route::post('pickup/{id}', [App\Http\Controllers\Api\RiderController::class, 'pickupOrder']);
         Route::post('orders/{id}/transit', [App\Http\Controllers\Api\RiderController::class, 'startTransit']);

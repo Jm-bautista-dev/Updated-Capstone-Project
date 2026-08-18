@@ -116,16 +116,26 @@ Route::prefix('v1')->group(function () {
         Route::get('deliveries/live-riders', [App\Http\Controllers\Admin\DeliveryController::class, 'getLiveRiderLocations']);
 
         // Orders & Cart & Live Tracking & Road Routing
+        // Rider order alias endpoints (prevent collision with orders/{id})
+        Route::get('orders/ready',     [RiderController::class, 'getOrders']);
+        Route::get('orders/pickup',    [RiderController::class, 'getOrders']);
+        Route::get('orders/pending',   [RiderController::class, 'getOrders']);
+        Route::get('orders/my',        [RiderController::class, 'getMyOrders']);
+        Route::get('orders/assigned',  [RiderController::class, 'getMyOrders']);
+        Route::get('orders/active',    [RiderController::class, 'getMyOrders']);
+        Route::get('orders/completed', [RiderController::class, 'getCompletedOrders']);
+        Route::get('orders/history',   [RiderController::class, 'getCompletedOrders']);
+
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::get('customer/orders', [ApiOrderController::class, 'index']);
         Route::post('orders', [ApiOrderController::class, 'store']);
         Route::post('customer/orders', [ApiOrderController::class, 'store']);
-        Route::get('orders/{id}', [ApiOrderController::class, 'show']);
-        Route::get('customer/orders/{id}', [ApiOrderController::class, 'show']);
-        Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
-        Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking']);
-        Route::get('orders/{id}/route', [ApiOrderController::class, 'route']);
-        Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route']);
+        Route::get('orders/{id}', [ApiOrderController::class, 'show'])->whereNumber('id');
+        Route::get('customer/orders/{id}', [ApiOrderController::class, 'show'])->whereNumber('id');
+        Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
+        Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
+        Route::get('orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
+        Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
         Route::post('orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
         Route::post('customer/orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
         Route::get('deliveries/{id}/route', [App\Http\Controllers\Admin\DeliveryController::class, 'getRoute']);
@@ -205,4 +215,17 @@ Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
     Route::match(['post', 'patch', 'put'], 'deliveries/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
 
     Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
+});
+
+// ── Non-v1 Order & User Aliases ──
+Route::middleware(['auth:sanctum,web'])->group(function () {
+    Route::get('user',             [UserController::class, 'me']);
+    Route::get('orders/ready',     [RiderController::class, 'getOrders']);
+    Route::get('orders/pickup',    [RiderController::class, 'getOrders']);
+    Route::get('orders/pending',   [RiderController::class, 'getOrders']);
+    Route::get('orders/my',        [RiderController::class, 'getMyOrders']);
+    Route::get('orders/assigned',  [RiderController::class, 'getMyOrders']);
+    Route::get('orders/active',    [RiderController::class, 'getMyOrders']);
+    Route::get('orders/completed', [RiderController::class, 'getCompletedOrders']);
+    Route::get('orders/history',   [RiderController::class, 'getCompletedOrders']);
 });
