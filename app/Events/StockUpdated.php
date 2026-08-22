@@ -18,7 +18,7 @@ class StockUpdated implements ShouldBroadcast
     public $storableType;
     public $storableId;
 
-    public function __construct(int $branchId, ?string $storableType = null, ?int $storableId = null)
+    public function __construct(?int $branchId = null, ?string $storableType = null, ?int $storableId = null)
     {
         $this->branchId = $branchId;
         $this->storableType = $storableType;
@@ -27,8 +27,14 @@ class StockUpdated implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
+        if ($this->branchId) {
+            return [
+                new PrivateChannel('branch.' . $this->branchId),
+            ];
+        }
+
         return [
-            new PrivateChannel('branch.' . $this->branchId),
+            new Channel('inventory'),
         ];
     }
 

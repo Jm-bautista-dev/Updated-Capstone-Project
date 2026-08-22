@@ -34,13 +34,14 @@ class Ingredient extends Model
         static::created(function ($ingredient) {
             // Ensure every new ingredient has a stock record for every branch (defaulting to 0)
             $branches = \App\Models\Branch::all();
+            $defaultLowStock = \App\Utils\UnitConverter::convertToBaseQuantity(5, $ingredient->unit ?? 'g');
             foreach ($branches as $branch) {
                 \App\Models\IngredientStock::firstOrCreate([
                     'ingredient_id' => $ingredient->id,
                     'branch_id'     => $branch->id,
                 ], [
                     'stock'           => 0,
-                    'low_stock_level' => 5, // default
+                    'low_stock_level' => $defaultLowStock, // canonical default
                 ]);
             }
         });

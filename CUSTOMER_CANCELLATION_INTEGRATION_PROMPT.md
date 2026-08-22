@@ -15,7 +15,7 @@ The customer does **NOT** make the approval/rejection decision — that is handl
 ---
 
 ## Real-Time Events (Pusher/Laravel Echo)
-
+as
 ### Channel: `customer.order.{order_id}`
 
 Listen on this channel for cancellation-related events.

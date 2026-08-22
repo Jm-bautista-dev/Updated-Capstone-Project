@@ -18,10 +18,11 @@ return new class extends Migration {
         });
 
         // Backfill existing orders with ORD-{id}
+        $concatExpr = DB::getDriverName() === 'sqlite' ? "'ORD-' || id" : "CONCAT('ORD-', id)";
         DB::table('orders')
             ->whereNull('order_number')
             ->update([
-                'order_number' => DB::raw("CONCAT('ORD-', id)")
+                'order_number' => DB::raw($concatExpr)
             ]);
 
         Schema::table('orders', function (Blueprint $table) {

@@ -189,12 +189,18 @@ class Product extends Model
      * Compute dynamic availability based on ingredient stock in a specific branch.
      * Returns an array with available quantity and the limiting ingredient name.
      * 
-     * @note Used ONLY for Analytics, Suggestions, and Reports.
+    /**
+     * Compute dynamic availability based on ingredient stock in a specific branch.
+     * Returns an array with available quantity, limiting ingredient name, and blocking ingredients.
+     *
+     * @param int|null $branchId When null, aggregates and provides per-branch breakdown.
+     * @return array
      */
-    public function dynamicAvailability(?int $branchId): array
+    public function dynamicAvailability(?int $branchId = null): array
     {
-        $ingredients = $this->ingredients;
+        $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
 
+        // 1. Direct Physical Products (No Recipe)
         if ($ingredients->isEmpty()) {
             if ($branchId) {
                 $pivot = DB::table('branch_product')
@@ -202,78 +208,104 @@ class Product extends Model
                     ->where('branch_id', $branchId)
                     ->first();
                 $stock = $pivot ? (float) $pivot->stock : (float) ($this->stock ?? 0);
-            } else {
-                $pivotSum = (float) DB::table('branch_product')
-                    ->where('product_id', $this->id)
-                    ->sum('stock');
-                $stock = $pivotSum > 0 ? $pivotSum : (float) ($this->stock ?? 0);
+
+                return [
+                    'available'            => max(0, $stock),
+                    'is_available'         => $stock >= 1,
+                    'max_servings'         => max(0, $stock),
+                    'limiting_ingredient'  => $stock < 1 ? 'Physical Stock' : null,
+                    'blocking_ingredients' => $stock < 1 ? ['Physical Stock'] : [],
+                    'is_low_stock'         => $stock > 0 && $stock <= 5,
+                    'scope'                => 'branch',
+                ];
+            }
+
+            // All branches aggregation for direct products
+            $allBranches = \App\Models\Branch::all();
+            $branchBreakdown = [];
+            $totalStock = 0;
+            $hasAnyStock = false;
+
+            foreach ($allBranches as $branch) {
+                $bAvail = $this->dynamicAvailability($branch->id);
+                $bStock = (float) $bAvail['available'];
+                $branchBreakdown[$branch->id] = [
+                    'branch_id'    => $branch->id,
+                    'branch_name'  => $branch->name,
+                    'stock'        => $bStock,
+                    'available'    => $bStock,
+                    'is_available' => $bAvail['is_available'],
+                ];
+                $totalStock += $bStock;
+                if ($bAvail['is_available']) {
+                    $hasAnyStock = true;
+                }
             }
 
             return [
-                'available'            => max(0, $stock),
-                'is_available'         => $stock >= 1,
-                'max_servings'         => max(0, $stock),
-                'limiting_ingredient'  => $stock < 1 ? 'Physical Stock' : null,
-                'blocking_ingredients' => $stock < 1 ? ['Physical Stock'] : [],
-                'is_low_stock'         => $stock > 0 && $stock <= 5
+                'available'                   => $totalStock,
+                'total_stock'                 => $totalStock,
+                'branch_breakdown'            => $branchBreakdown,
+                'is_available'                => $hasAnyStock,
+                'max_servings'                => $totalStock,
+                'limiting_ingredient'         => !$hasAnyStock ? 'Physical Stock' : null,
+                'blocking_ingredients'        => !$hasAnyStock ? ['Physical Stock'] : [],
+                'is_low_stock'                => $totalStock > 0 && $totalStock <= 5,
+                'scope'                       => 'all_branches',
             ];
         }
 
+        // 2. All Branches Aggregation for Recipe Products
         if (!$branchId) {
             $allBranches = \App\Models\Branch::all();
             $branchBreakdown = [];
-            $minBranchStock = PHP_FLOAT_MAX;
-            $maxBranchStock = 0;
+            $totalProducibleStock = 0;
             $hasAnyStock = false;
 
             foreach ($allBranches as $branch) {
                 $bAvail = $this->dynamicAvailability($branch->id);
                 $availCount = (float) $bAvail['available'];
                 $branchBreakdown[$branch->id] = [
-                    'branch_id'    => $branch->id,
-                    'branch_name'  => $branch->name,
-                    'available'    => $availCount,
-                    'is_available' => $bAvail['is_available'],
+                    'branch_id'           => $branch->id,
+                    'branch_name'         => $branch->name,
+                    'stock'               => $availCount,
+                    'available'           => $availCount,
+                    'is_available'        => $bAvail['is_available'],
+                    'is_low_stock'        => $bAvail['is_low_stock'],
+                    'limiting_ingredient' => $bAvail['limiting_ingredient'],
                 ];
-                if ($availCount < $minBranchStock) {
-                    $minBranchStock = $availCount;
-                }
-                if ($availCount > $maxBranchStock) {
-                    $maxBranchStock = $availCount;
-                }
+                $totalProducibleStock += $availCount;
                 if ($bAvail['is_available']) {
                     $hasAnyStock = true;
                 }
             }
 
-            $guaranteedMin = ($minBranchStock === PHP_FLOAT_MAX) ? 0 : max(0, (int) $minBranchStock);
-
             return [
-                'available'                   => $guaranteedMin, // Minimum guaranteed per-branch availability
-                'min_guaranteed_availability' => $guaranteedMin,
-                'max_branch_availability'     => $maxBranchStock,
+                'available'                   => $totalProducibleStock,
+                'total_stock'                 => $totalProducibleStock,
                 'branch_breakdown'            => $branchBreakdown,
                 'is_available'                => $hasAnyStock,
-                'max_servings'                => $maxBranchStock,
-                'limiting_ingredient'         => !$hasAnyStock ? 'Insufficient Branch Stock' : null,
+                'max_servings'                => $totalProducibleStock,
+                'limiting_ingredient'         => !$hasAnyStock ? 'Out of Stock in all branches' : null,
                 'blocking_ingredients'        => [],
-                'is_low_stock'                => $guaranteedMin > 0 && $guaranteedMin <= 5,
+                'is_low_stock'                => $totalProducibleStock > 0 && $totalProducibleStock <= 5,
                 'scope'                       => 'all_branches',
             ];
         }
 
+        // 3. Single Branch-Specific Availability Calculation (Core Business Truth)
         $minPossible = PHP_FLOAT_MAX;
         $limitingIngredient = null;
         $blockingIngredients = [];
 
         foreach ($ingredients as $ingredient) {
-            $qtyInput = (float) $ingredient->pivot->quantity_required;
+            $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);
             $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
-            
+
             $requiredPerUnit = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
-                $qtyInput, 
-                $unitInput, 
-                $ingredient->unit, 
+                $qtyInput,
+                $unitInput,
+                $ingredient->unit,
                 $ingredient->avg_weight_per_piece
             );
 
@@ -282,11 +314,15 @@ class Product extends Model
                 continue;
             }
 
-            $stockRow = $ingredient->stocks()->where('branch_id', $branchId)->first();
+            // Read branch stock row
+            $stockRow = $ingredient->relationLoaded('stocks')
+                ? $ingredient->stocks->firstWhere('branch_id', $branchId)
+                : $ingredient->stocks()->where('branch_id', $branchId)->first();
+
             $availableInStock = $stockRow ? (float) $stockRow->stock : 0.0;
-            
+
             $unitsPossible = floor($availableInStock / $requiredPerUnit);
-            
+
             if ($unitsPossible < $minPossible) {
                 $minPossible = $unitsPossible;
                 $limitingIngredient = $ingredient->name;
@@ -294,24 +330,14 @@ class Product extends Model
 
             if ($availableInStock < $requiredPerUnit) {
                 $displayUnit = $ingredient->unit ?? 'pcs';
-                $displayStock = $availableInStock;
-                $displayRequired = $requiredPerUnit;
-
-                if ($displayUnit === 'g' && ($displayStock >= 1000 || $displayRequired >= 1000)) {
-                    $displayStock = $displayStock / 1000;
-                    $displayRequired = $displayRequired / 1000;
-                    $displayUnit = 'kg';
-                } elseif ($displayUnit === 'ml' && ($displayStock >= 1000 || $displayRequired >= 1000)) {
-                    $displayStock = $displayStock / 1000;
-                    $displayRequired = $displayRequired / 1000;
-                    $displayUnit = 'L';
-                }
+                $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity($availableInStock, $displayUnit);
+                $displayRequired = \App\Utils\UnitConverter::convertFromBaseQuantity($requiredPerUnit, $displayUnit);
 
                 $blockingIngredients[] = [
-                    'name' => $ingredient->name,
-                    'stock' => $displayStock,
+                    'name'     => $ingredient->name,
+                    'stock'    => $displayStock,
                     'required' => $displayRequired,
-                    'unit' => $displayUnit
+                    'unit'     => $displayUnit
                 ];
             }
         }
@@ -319,12 +345,13 @@ class Product extends Model
         $available = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (float) $minPossible);
 
         return [
-            'available' => $available,
-            'is_available' => $available >= 1,
-            'max_servings' => $available,
-            'limiting_ingredient' => $available < 1 ? ($limitingIngredient ?? 'Insufficient Stock') : ($available <= 10 ? $limitingIngredient : null),
+            'available'            => $available,
+            'is_available'         => $available >= 1,
+            'max_servings'         => $available,
+            'limiting_ingredient'  => $available < 1 ? ($limitingIngredient ?? 'Insufficient Stock') : ($available <= 5 ? $limitingIngredient : null),
             'blocking_ingredients' => $blockingIngredients,
-            'is_low_stock' => $available > 0 && $available <= 5
+            'is_low_stock'         => $available > 0 && $available <= 5,
+            'scope'                => 'branch',
         ];
     }
 
@@ -344,7 +371,7 @@ class Product extends Model
             return ['success' => false, 'message' => "Quantity must be greater than 0."];
         }
 
-        $ingredients = $this->ingredients;
+        $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
 
         // 1. Fallback for items with no recipe (direct physical stock)
         if ($ingredients->isEmpty()) {
@@ -380,14 +407,20 @@ class Product extends Model
 
                 if ($totalNeeded <= 0) continue;
 
-                $stockRecord = $ingredient->stocks()->where('branch_id', $branchId)->first();
+                $stockRecord = $ingredient->relationLoaded('stocks')
+                    ? $ingredient->stocks->firstWhere('branch_id', $branchId)
+                    : $ingredient->stocks()->where('branch_id', $branchId)->first();
+
                 $availableStock = $stockRecord ? (float) $stockRecord->stock : 0.0;
 
                 if ($availableStock < $totalNeeded) {
-                    $unit = $ingredient->unit ?? 'unit(s)';
+                    $displayUnit = $ingredient->unit ?? 'unit(s)';
+                    $displayAvailable = \App\Utils\UnitConverter::convertFromBaseQuantity($availableStock, $displayUnit);
+                    $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($totalNeeded, $displayUnit);
+
                     return [
                         'success' => false,
-                        'message' => "Unable to order '{$this->name}'. Ingredient '{$ingredient->name}' is insufficient in this branch (Available: {$availableStock} {$unit}, Required: {$totalNeeded} {$unit})."
+                        'message' => "Unable to order '{$this->name}'. Ingredient '{$ingredient->name}' is insufficient in this branch (Available: {$displayAvailable} {$displayUnit}, Required: {$displayNeeded} {$displayUnit})."
                     ];
                 }
 
@@ -409,9 +442,10 @@ class Product extends Model
      *
      * @param int $branchId
      * @param array $items Array of items with 'product_id' (or 'id') and 'quantity'
+     * @param bool $lockForUpdate Set to true within DB transactions to acquire row locks
      * @return array { success: bool, message: string|null }
      */
-    public static function validateBatchStock(int $branchId, array $items): array
+    public static function validateBatchStock(int $branchId, array $items, bool $lockForUpdate = false): array
     {
         if (empty($items)) {
             return ['success' => false, 'message' => 'No items provided for validation.'];
@@ -460,8 +494,8 @@ class Product extends Model
 
                     if (!isset($ingredientRequirements[$ingredient->id])) {
                         $ingredientRequirements[$ingredient->id] = [
-                            'name' => $ingredient->name,
-                            'unit' => $ingredient->unit ?? 'unit(s)',
+                            'name'   => $ingredient->name,
+                            'unit'   => $ingredient->unit ?? 'unit(s)',
                             'needed' => 0.0,
                         ];
                     }
@@ -470,22 +504,31 @@ class Product extends Model
             } else {
                 $directProductRequirements[$pId] = [
                     'product' => $product,
-                    'needed' => $qty,
+                    'needed'  => $qty,
                 ];
             }
         }
 
         // 1. Check cumulative ingredient requirements
         foreach ($ingredientRequirements as $ingId => $req) {
-            $stockRow = \App\Models\IngredientStock::where('ingredient_id', $ingId)
-                ->where('branch_id', $branchId)
-                ->first();
+            $query = \App\Models\IngredientStock::where('ingredient_id', $ingId)
+                ->where('branch_id', $branchId);
+
+            if ($lockForUpdate) {
+                $query->lockForUpdate();
+            }
+
+            $stockRow = $query->first();
 
             $available = $stockRow ? (float) $stockRow->stock : 0.0;
             if ($available < $req['needed']) {
+                $displayUnit = $req['unit'];
+                $displayAvailable = \App\Utils\UnitConverter::convertFromBaseQuantity($available, $displayUnit);
+                $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($req['needed'], $displayUnit);
+
                 return [
                     'success' => false,
-                    'message' => "Insufficient stock in this branch for '{$req['name']}'. (Available: {$available} {$req['unit']}, Required: {$req['needed']} {$req['unit']})."
+                    'message' => "Insufficient stock in this branch for '{$req['name']}'. (Available: {$displayAvailable} {$displayUnit}, Required: {$displayNeeded} {$displayUnit})."
                 ];
             }
         }
@@ -512,13 +555,12 @@ class Product extends Model
     }
 
     /**
-     * Legacy shorthand for basic stock check.
+     * Dynamic shorthand for basic stock check.
      */
     public function getComputedStockAttribute(): int|float
     {
-        // Safety check: If product is new or doesn't have a branch context, return 0
-        if (!$this->exists || !$this->branch_id) {
-            return (float) ($this->stock ?? 0);
+        if (!$this->exists) {
+            return 0;
         }
 
         $data = $this->dynamicAvailability($this->branch_id);

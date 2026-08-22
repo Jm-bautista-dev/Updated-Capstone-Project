@@ -19,12 +19,17 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $branchId = $request->branch_id ?? 1;
+        $branchId = $request->branch_id ?? $request->user()?->branch_id ?? \App\Models\Branch::first()?->id;
 
         $query = Product::where(function($q) use ($branchId) {
-            $q->where('branch_id', $branchId)
-              ->orWhereHas('branches', fn($bq) => $bq->where('branches.id', $branchId));
-        });
+            if ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id')
+                  ->orWhereHas('branches', fn($bq) => $bq->where('branches.id', $branchId));
+            } else {
+                $q->whereNull('branch_id');
+            }
+        })->whereNull('deleted_at');
 
         // Filter by category slug if provided
         if ($request->filled('category')) {
@@ -42,16 +47,17 @@ class ProductController extends Controller
                 $availability = $product->dynamicAvailability($branchId);
                 
                 return [
-                    'id'            => $product->id,
-                    'name'          => $product->name,
-                    'price'         => (float) $product->selling_price,
-                    'selling_price' => (float) $product->selling_price,
-                    'description'   => $product->description,
-                    'image'         => $this->resolveImageUrl($product->image_path),
-                    'category_id'   => $product->category_id,
-                    'available_to_sell' => $availability['available'],
+                    'id'                  => $product->id,
+                    'name'                => $product->name,
+                    'price'               => (float) $product->selling_price,
+                    'selling_price'       => (float) $product->selling_price,
+                    'description'         => $product->description,
+                    'image'               => $this->resolveImageUrl($product->image_path),
+                    'category_id'         => $product->category_id,
+                    'available_to_sell'   => (float) $availability['available'],
+                    'is_available'        => (bool) $availability['is_available'],
                     'limiting_ingredient' => $availability['limiting_ingredient'],
-                    'is_low_stock' => $availability['is_low_stock'],
+                    'is_low_stock'        => (bool) $availability['is_low_stock'],
                 ];
             });
 

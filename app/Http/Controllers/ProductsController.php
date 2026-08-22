@@ -61,46 +61,36 @@ class ProductsController extends Controller
         }
 
         $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId, $branches, $user) {
-            // Build dynamic branch stock breakdown (only for Admin)
-            $branchBreakdown = null;
-            $totalStock = 0;
-
-            if ($user->isAdmin()) {
-                $branchBreakdown = [];
-                foreach ($branches as $branch) {
-                    $bAvail = $product->dynamicAvailability($branch->id);
-                    $bStock = (float) $bAvail['available'];
-                    $branchBreakdown[$branch->id] = [
-                        'branch_id'    => $branch->id,
-                        'branch_name'  => $branch->name,
-                        'stock'        => $bStock,
-                        'is_available' => $bAvail['is_available'],
-                    ];
-                    $totalStock += $bStock;
-                }
-            }
-
             if ($branchId) {
+                // Scoped to a specific single branch
                 $availability = $product->dynamicAvailability($branchId);
                 $product->stock = (float) $availability['available'];
+                $product->is_available = (bool) $availability['is_available'];
+                $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
+                $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+                $product->max_servings = $availability['max_servings'] ?? $product->stock;
+                $product->is_low_stock = (bool) $availability['is_low_stock'];
+                $product->status = $this->getStockStatus($product->stock);
+                $product->branch_breakdown = null;
             } else {
+                // Admin viewing "All Branches"
                 $availability = $product->dynamicAvailability(null);
-                $product->stock = $totalStock > 0 ? $totalStock : (float) $availability['available'];
+                $product->stock = (float) $availability['available'];
+                $product->is_available = (bool) $availability['is_available'];
+                $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
+                $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+                $product->max_servings = $availability['max_servings'] ?? $product->stock;
+                $product->is_low_stock = (bool) $availability['is_low_stock'];
+                $product->status = $product->is_available
+                    ? ($product->stock <= 5 ? 'Low Stock' : 'In Stock')
+                    : 'Out of Stock';
+                $product->branch_breakdown = $availability['branch_breakdown'] ?? [];
             }
 
             $costPrice = $product->computeProductCost($branchId);
             $product->cost_price = $costPrice;
             $product->cost = $costPrice;
             $product->has_cost = $costPrice > 0;
-
-            $product->branch_breakdown = $branchBreakdown;
-            $product->max_servings = $availability['max_servings'];
-            $product->is_available = $product->stock > 0;
-            $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
-            $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
-            $product->is_low_stock = $product->stock > 0 && $product->stock <= 5;
-
-            $product->status = $this->getStockStatus($product->stock);
             $product->is_direct = !$product->hasRecipe();
 
             $product->image_url = ($product->image_path && Storage::disk('public')->exists($product->image_path))
@@ -149,10 +139,32 @@ class ProductsController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('Product Registration Attempt:', $request->all());
+        $user = Auth::user();
+        $this->authorize('create', Product::class);
 
         try {
-            $user = Auth::user();
+            // Normalize branch selection from request
+            $branchOption = $request->input('branch_option');
+            $branchId = $request->input('branch_id');
+            $branchIds = $request->input('branch_ids');
+
+            if (is_array($branchIds) && count($branchIds) > 0) {
+                if (count($branchIds) === 1 && empty($branchId)) {
+                    $branchId = $branchIds[0];
+                    $branchOption = $branchOption ?: 'single';
+                } elseif (count($branchIds) > 1) {
+                    $branchOption = 'both';
+                }
+            } elseif (!empty($branchId) && empty($branchOption)) {
+                $branchOption = 'single';
+            }
+
+            if ($branchOption !== null || $branchId !== null) {
+                $request->merge([
+                    'branch_option' => $branchOption,
+                    'branch_id'     => $branchId,
+                ]);
+            }
 
             $validated = $request->validate([
                 'name'                       => [
@@ -164,21 +176,28 @@ class ProductsController extends Controller
                 'sku' => [
                     'nullable',
                     'string',
-                    function ($attribute, $value, $fail) use ($request, $user) {
+                    function ($attribute, $value, $fail) use ($request, $user, $branchOption, $branchId, $branchIds) {
                         $targetBranches = [];
-                        if ($user->isAdmin() && $request->branch_option === 'both') {
-                            $targetBranches = Branch::all()->pluck('id');
+                        if ($user->isAdmin()) {
+                            if (!empty($branchIds) && is_array($branchIds)) {
+                                $targetBranches = $branchIds;
+                            } elseif ($branchOption === 'both') {
+                                $targetBranches = Branch::pluck('id')->toArray();
+                            } elseif (!empty($branchId)) {
+                                $targetBranches = [$branchId];
+                            }
                         } else {
-                            $branchId = $user->isAdmin() ? $request->branch_id : $user->branch_id;
-                            $targetBranches = [$branchId];
+                            $targetBranches = [$user->branch_id];
                         }
 
-                        $exists = Product::where('sku', $value)
-                            ->whereIn('branch_id', $targetBranches)
-                            ->exists();
+                        if (!empty($targetBranches)) {
+                            $exists = Product::where('sku', $value)
+                                ->whereIn('branch_id', $targetBranches)
+                                ->exists();
 
-                        if ($exists) {
-                            $fail('The SKU "' . $value . '" is already in use in one of the selected branches.');
+                            if ($exists) {
+                                $fail('The SKU "' . $value . '" is already in use in one of the selected branches.');
+                            }
                         }
                     }
                 ],
@@ -193,6 +212,11 @@ class ProductsController extends Controller
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
                 'branch_option'              => 'required|in:single,both',
                 'branch_id'                  => 'required_if:branch_option,single|nullable|exists:branches,id',
+                'branch_ids'                 => 'nullable|array',
+                'branch_ids.*'               => 'exists:branches,id',
+            ], [
+                'branch_option.required' => 'Please select at least one branch for this product.',
+                'branch_id.required_if'  => 'Please select a valid branch for this product.',
             ]);
 
             // Strip manual cost_price/stock if sent in request
@@ -240,11 +264,22 @@ class ProductsController extends Controller
             return DB::transaction(function () use ($request, $validated, $user) {
                 $targetBranches = [];
                 
-                if ($user->isAdmin() && $validated['branch_option'] === 'both') {
-                    $targetBranches = Branch::all();
+                if ($user->isAdmin()) {
+                    if (!empty($validated['branch_ids']) && is_array($validated['branch_ids'])) {
+                        $targetBranches = Branch::whereIn('id', $validated['branch_ids'])->get();
+                    } elseif ($validated['branch_option'] === 'both') {
+                        $targetBranches = Branch::all();
+                    } else {
+                        $targetBranches = Branch::where('id', $validated['branch_id'])->get();
+                    }
                 } else {
-                    $branchId = $user->isAdmin() ? $validated['branch_id'] : $user->branch_id;
-                    $targetBranches = Branch::where('id', $branchId)->get();
+                    $targetBranches = Branch::where('id', $user->branch_id)->get();
+                }
+
+                if ($targetBranches->isEmpty()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'branch_id' => 'Please select at least one valid branch.'
+                    ]);
                 }
 
                 foreach ($targetBranches as $branch) {
@@ -258,8 +293,9 @@ class ProductsController extends Controller
                             if (!$exists) {
                                 /** @var Ingredient $ing */
                                 $ing = Ingredient::find($item['ingredient_id']);
+                                $ingName = $ing ? $ing->name : "ID #{$item['ingredient_id']}";
                                 throw \Illuminate\Validation\ValidationException::withMessages([
-                                    'recipe' => "Ingredient '{$ing->name}' is not available in branch: {$branch->name}"
+                                    'recipe' => "Ingredient '{$ingName}' is not available in branch: {$branch->name}"
                                 ]);
                             }
                         }
@@ -286,105 +322,121 @@ class ProductsController extends Controller
         $product = Product::findOrFail($id);
         $this->authorize('update', $product);
 
-        $validated = $request->validate([
-            'name'                       => [
-                'required',
-                'string',
-                'max:80',
-                'regex:/^[A-Za-z0-9\s\-\.\(\)\'\&\/]+$/'
-            ],
-            'sku' => [
-                'nullable',
-                'string',
-                Rule::unique('products')->where(function ($query) use ($product) {
-                    return $query->where('branch_id', $product->branch_id);
-                })->ignore($id),
-            ],
-            'description'                => 'nullable|string',
-            'category_id'                => 'required|exists:categories,id',
-            'selling_price'              => 'required|numeric|min:0|max:999999.99',
-            'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
-            'recipe'                     => 'nullable|array',
-            'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
-            'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
-            'recipe.*.unit'              => 'nullable|string',
-            'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
-        ]);
+        try {
+            $validated = $request->validate([
+                'name'                       => [
+                    'required',
+                    'string',
+                    'max:80',
+                    'regex:/^[A-Za-z0-9\s\-\.\(\)\'\&\/]+$/'
+                ],
+                'sku' => [
+                    'nullable',
+                    'string',
+                    Rule::unique('products')->where(function ($query) use ($product) {
+                        if ($product->branch_id) {
+                            return $query->where('branch_id', $product->branch_id);
+                        }
+                        return $query->whereNull('branch_id');
+                    })->ignore($id),
+                ],
+                'description'                => 'nullable|string',
+                'category_id'                => 'required|exists:categories,id',
+                'selling_price'              => 'required|numeric|min:0|max:999999.99',
+                'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+                'recipe'                     => 'nullable|array',
+                'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
+                'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
+                'recipe.*.unit'              => 'nullable|string',
+                'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            ]);
 
-        // Strip manual cost_price/stock if sent in request
-        unset($validated['cost_price'], $validated['stock']);
+            // Strip manual cost_price/stock if sent in request
+            unset($validated['cost_price'], $validated['stock']);
 
-        // Infer missing recipe unit from ingredient base unit
-        if (!empty($validated['recipe'])) {
-            foreach ($validated['recipe'] as $idx => &$item) {
-                if (empty($item['unit'])) {
-                    $ing = Ingredient::find($item['ingredient_id']);
-                    $item['unit'] = $ing ? $ing->unit : 'pcs';
+            // Infer missing recipe unit from ingredient base unit
+            if (!empty($validated['recipe'])) {
+                foreach ($validated['recipe'] as $idx => &$item) {
+                    if (empty($item['unit'])) {
+                        $ing = Ingredient::find($item['ingredient_id']);
+                        $item['unit'] = $ing ? $ing->unit : 'pcs';
+                    }
                 }
-            }
-            unset($item);
-        }
-        // ✅ Prevent Duplicate Ingredients
-        if (!empty($validated['recipe'])) {
-            $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
-            if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'recipe' => 'Duplicate ingredients are not allowed.'
-                ]);
+                unset($item);
             }
 
-            // ✅ Strict Recipe and Cost Consistency Validations
-            foreach ($validated['recipe'] as $idx => $item) {
-                if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+            // ✅ Prevent Duplicate Ingredients
+            if (!empty($validated['recipe'])) {
+                $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
+                if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                        'recipe' => 'Duplicate ingredients are not allowed in the same product recipe.'
                     ]);
                 }
 
-                /** @var Ingredient $ing */
-                $ing = Ingredient::find($item['ingredient_id']);
-                if (!$ing) continue;
+                // ✅ Strict Recipe and Cost Consistency Validations
+                foreach ($validated['recipe'] as $idx => $item) {
+                    if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                        ]);
+                    }
 
-                $usedUnit = strtolower(trim($item['unit']));
-                $baseUnit = strtolower(trim($ing->unit));
-
-                if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
-                    $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
-                    $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe.{$idx}.unit" => "Invalid unit '{$item['unit']}' for ingredient '{$ing->name}'. Please select a {$family} unit ({$validUnits})."
-                    ]);
-                }
-
-                // Verify base cost exists
-                if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
-                    ]);
-                }
-            }
-        }
-
-        // ✅ Strict Branch-Stock Validation (updates only affect the product's owner branch)
-        if (!empty($validated['recipe'])) {
-            foreach ($validated['recipe'] as $item) {
-                $exists = IngredientStock::where('ingredient_id', $item['ingredient_id'])
-                    ->where('branch_id', $product->branch_id)
-                    ->exists();
-
-                if (!$exists) {
                     /** @var Ingredient $ing */
                     $ing = Ingredient::find($item['ingredient_id']);
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'recipe' => "Ingredient '{$ing->name}' is not available in branch: " . $product->branch->name
-                    ]);
+                    if (!$ing) continue;
+
+                    $usedUnit = strtolower(trim($item['unit']));
+                    $baseUnit = strtolower(trim($ing->unit));
+
+                    if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
+                        $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
+                        $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe.{$idx}.unit" => "Invalid unit '{$item['unit']}' for ingredient '{$ing->name}'. Please select a {$family} unit ({$validUnits})."
+                        ]);
+                    }
+
+                    // Verify base cost exists
+                    if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe" => "Unable to calculate product cost because '{$ing->name}' does not have a valid inventory cost."
+                        ]);
+                    }
                 }
             }
+
+            // ✅ Strict Branch-Stock Validation (only when updating a branch-specific product)
+            if (!empty($validated['recipe']) && $product->branch_id) {
+                $branch = $product->branch ?? Branch::find($product->branch_id);
+                $branchName = $branch ? $branch->name : "Branch #{$product->branch_id}";
+                foreach ($validated['recipe'] as $item) {
+                    $exists = IngredientStock::where('ingredient_id', $item['ingredient_id'])
+                        ->where('branch_id', $product->branch_id)
+                        ->exists();
+
+                    if (!$exists) {
+                        /** @var Ingredient $ing */
+                        $ing = Ingredient::find($item['ingredient_id']);
+                        $ingName = $ing ? $ing->name : "ID #{$item['ingredient_id']}";
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'recipe' => "Ingredient '{$ingName}' is not available in branch: {$branchName}"
+                        ]);
+                    }
+                }
+            }
+
+            $this->productService->update($product, $validated, $request->file('image'));
+
+            return redirect()->back()->with('success', 'Product updated successfully.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('Product Update Validation Failed:', $e->errors());
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Product Update Error:', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
         }
-
-        $this->productService->update($product, $validated, $request->file('image'));
-
-        return redirect()->back()->with('success', 'Product updated.');
     }
 
     public function destroy($id)

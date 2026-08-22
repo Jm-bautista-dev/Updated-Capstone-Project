@@ -64,9 +64,11 @@ class InventoryController extends Controller
 
                 $displayUnit  = strtolower(trim($ingredient->unit));
                 $canonicalQty = (float) $stockRow->stock;
-
-                // Convert canonical stock to ingredient's display unit quantity
                 $displayStock = UnitConverter::convertFromBaseQuantity($canonicalQty, $displayUnit);
+
+                // Convert canonical low_stock_level to ingredient's display unit
+                $canonicalLowStock = (float) $stockRow->low_stock_level;
+                $displayLowStock   = UnitConverter::convertFromBaseQuantity($canonicalLowStock, $displayUnit);
 
                 // Price: prefer the branch-level cost, fall back to global cost
                 $baseUnitPrice = (float) $stockRow->cost_per_unit > 0
@@ -85,14 +87,17 @@ class InventoryController extends Controller
                     'display_unit'         => $displayUnit,
                     'branch_id'            => $stockRow->branch_id,
                     'branch_name'          => $stockRow->branch->name,
-                    'stock'                => (float) $stockRow->stock,
+                    'stock'                => $displayStock,
+                    'canonical_stock'      => $canonicalQty,
                     'display_stock'        => $displayStock,
-                    'low_stock_level'      => (float) $stockRow->low_stock_level,
+                    'low_stock_level'      => $displayLowStock,
+                    'canonical_low_stock'  => $canonicalLowStock,
                     'is_low_stock'         => $stockRow->isLowStock(),
                     'is_out_of_stock'      => $stockRow->isOutOfStock(),
                     'status'               => 'active',
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
-                    'cost_per_unit'        => (float) $stockRow->cost_per_unit,
+                    'cost_per_unit'        => $displayPrice,
+                    'cost_per_base_unit'   => $baseUnitPrice,
                     'display_price'        => $displayPrice,
                 ];
             }
@@ -151,7 +156,7 @@ class InventoryController extends Controller
         $conversionFactor = UnitConverter::convertToBaseQuantity(1, $validated['unit']);
         
         $baseStock        = (float) ($validated['initial_stock'] ?? 0) * $conversionFactor;
-        $lowStockLevel    = (float) ($validated['low_stock_level'] ?? 5);
+        $lowStockLevel    = UnitConverter::convertToBaseQuantity((float) ($validated['low_stock_level'] ?? 5), $validated['unit']);
 
         // Canonical Cost Per Base Unit (Total batch cost / Total base stock)
         // Tomato: 1,000 pesos for 100kg (100,000g) => 1,000 / 100,000 = 0.01 per gram
@@ -272,17 +277,20 @@ class InventoryController extends Controller
         // If branch_id and stock provided, update that branch's stock row
         if (!empty($validated['branch_id']) && isset($validated['stock'])) {
             $baseStock = (float) $validated['stock'] * $conversionFactor;
+            $canonicalLowStock = isset($validated['low_stock_level']) 
+                ? UnitConverter::convertToBaseQuantity((float) $validated['low_stock_level'], $validated['unit']) 
+                : null;
             $normalizedBranchCost = $normalizedInputCost;
 
             $stockRow = IngredientStock::firstOrCreate(
                 ['ingredient_id' => $ingredient->id, 'branch_id' => $validated['branch_id']],
-                ['stock' => 0, 'low_stock_level' => $validated['low_stock_level'] ?? 5, 'cost_per_unit' => $normalizedBranchCost]
+                ['stock' => 0, 'low_stock_level' => $canonicalLowStock ?? UnitConverter::convertToBaseQuantity(5, $validated['unit']), 'cost_per_unit' => $normalizedBranchCost]
             );
 
             $oldStock = (float) $stockRow->stock;
             $stockRow->update([
                 'stock'             => $baseStock,
-                'low_stock_level'   => $validated['low_stock_level'] ?? $stockRow->low_stock_level,
+                'low_stock_level'   => $canonicalLowStock ?? $stockRow->low_stock_level,
                 'cost_per_unit'     => $normalizedBranchCost,
                 'total_stock_value' => $baseStock * $normalizedBranchCost,
             ]);

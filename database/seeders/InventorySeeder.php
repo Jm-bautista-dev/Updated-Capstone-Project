@@ -45,12 +45,16 @@ class InventorySeeder extends Seeder
 
         // 2. Seed Ingredient Stocks for each branch
         foreach ($ingredientIds as $name => $ingId) {
+            $unit = $rawIngredients[$name];
+            $baseStock = \App\Utils\UnitConverter::convertToBaseQuantity(rand(50, 200), $unit);
+            $lowStock = \App\Utils\UnitConverter::convertToBaseQuantity(10, $unit);
+
             foreach ($branches as $bId) {
                 DB::table('ingredient_stocks')->updateOrInsert(
                     ['ingredient_id' => $ingId, 'branch_id' => $bId],
                     [
-                        'stock' => rand(50, 200),
-                        'low_stock_level' => 10,
+                        'stock' => $baseStock,
+                        'low_stock_level' => $lowStock,
                         'created_at' => now(),
                         'updated_at' => now()
                     ]
@@ -82,13 +86,18 @@ class InventorySeeder extends Seeder
             if (isset($recipes[$product->name])) {
                 foreach ($recipes[$product->name] as $ingName => $qty) {
                     if (isset($ingredientIds[$ingName])) {
+                        $rawUnit = $rawIngredients[$ingName];
+                        $baseQty = \App\Utils\UnitConverter::convertToBaseQuantity($qty, $rawUnit);
+                        $baseUnit = \App\Utils\UnitConverter::normalizeUnit($rawUnit);
+
                         DB::table('menu_item_ingredients')->updateOrInsert(
                             [
                                 'menu_item_id' => $product->id,
                                 'ingredient_id' => $ingredientIds[$ingName]
                             ],
                             [
-                                'quantity_required' => $qty,
+                                'quantity_required' => $baseQty,
+                                'unit' => $baseUnit,
                                 'created_at' => now(),
                                 'updated_at' => now()
                             ]

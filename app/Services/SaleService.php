@@ -201,6 +201,7 @@ class SaleService
             $stockRow = IngredientStock::with('ingredient', 'branch')
                 ->where('ingredient_id', $ingredientId)
                 ->where('branch_id', $branchId)  // ← STRICT: current branch ONLY
+                ->lockForUpdate()
                 ->first();
 
             if (!$stockRow) {
@@ -213,11 +214,15 @@ class SaleService
             }
 
             if ((float) $stockRow->stock < $totalNeeded) {
+                $unit = $stockRow->ingredient->unit ?? 'unit(s)';
+                $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity((float) $stockRow->stock, $unit);
+                $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($totalNeeded, $unit);
+
                 throw new \Exception(
                     "Insufficient stock in this branch. " .
                     "Ingredient '{$stockRow->ingredient->name}': " .
-                    "need {$totalNeeded} {$stockRow->ingredient->unit}, " .
-                    "have {$stockRow->stock} {$stockRow->ingredient->unit}."
+                    "need {$displayNeeded} {$unit}, " .
+                    "have {$displayStock} {$unit}."
                 );
             }
         }

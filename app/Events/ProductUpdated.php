@@ -17,7 +17,7 @@ class ProductUpdated implements ShouldBroadcast
     public $productId;
     public $branchId;
 
-    public function __construct(int $productId, int $branchId)
+    public function __construct(int $productId, ?int $branchId = null)
     {
         $this->productId = $productId;
         $this->branchId = $branchId;
@@ -25,8 +25,14 @@ class ProductUpdated implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
+        if ($this->branchId) {
+            return [
+                new PrivateChannel('branch.' . $this->branchId),
+            ];
+        }
+
         return [
-            new PrivateChannel('branch.' . $this->branchId),
+            new Channel('products'),
         ];
     }
 

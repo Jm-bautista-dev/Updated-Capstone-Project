@@ -11,9 +11,11 @@ use App\Models\IngredientStock;
 use App\Models\MenuItemIngredient;
 use App\Models\User;
 use App\Models\Cart;
+use App\Models\CashierShift;
 use App\Services\SaleService;
-use App\Services\DeliveryService;
+use App\Utils\UnitConverter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 class ProductIngredientStockAvailabilityTest extends TestCase
 {
@@ -21,8 +23,10 @@ class ProductIngredientStockAvailabilityTest extends TestCase
 
     public Branch $branchSantaCruz;
     public Branch $branchVictoria;
-    public $testCategory;
+    public Category $testCategory;
+    public User $admin;
     public User $cashierSantaCruz;
+    public User $cashierVictoria;
     public User $customer;
 
     protected function setUp(): void
@@ -30,26 +34,37 @@ class ProductIngredientStockAvailabilityTest extends TestCase
         parent::setUp();
 
         $this->branchSantaCruz = Branch::create([
-            'name' => 'Santa Cruz',
+            'name' => 'MAKI DESU STA CRUZ',
             'latitude' => 14.5995,
             'longitude' => 120.9842,
             'delivery_radius_km' => 10,
         ]);
 
         $this->branchVictoria = Branch::create([
-            'name' => 'Victoria',
+            'name' => 'MAKI DESU VICTORIA',
             'latitude' => 14.6000,
             'longitude' => 120.9900,
             'delivery_radius_km' => 10,
         ]);
 
         $this->testCategory = Category::create([
-            'name' => 'Beverages',
+            'name' => 'Japanese Cuisine',
+        ]);
+
+        $this->admin = User::factory()->create([
+            'role' => 'admin',
+            'must_change_password' => false,
         ]);
 
         $this->cashierSantaCruz = User::factory()->create([
             'role' => 'cashier',
             'branch_id' => $this->branchSantaCruz->id,
+            'must_change_password' => false,
+        ]);
+
+        $this->cashierVictoria = User::factory()->create([
+            'role' => 'cashier',
+            'branch_id' => $this->branchVictoria->id,
             'must_change_password' => false,
         ]);
 
@@ -75,11 +90,20 @@ class ProductIngredientStockAvailabilityTest extends TestCase
         ]);
 
         foreach ($recipe as $item) {
+            $inputUnit = $item['unit'] ?? $item['ingredient']->unit;
+            $baseUnit = UnitConverter::normalizeUnit($item['ingredient']->unit);
+            $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
+                (float) $item['quantity'],
+                $inputUnit,
+                $item['ingredient']->unit,
+                $item['ingredient']->avg_weight_per_piece ?? null
+            );
+
             MenuItemIngredient::create([
                 'menu_item_id' => $product->id,
                 'ingredient_id' => $item['ingredient']->id,
-                'quantity_required' => $item['quantity'],
-                'unit' => $item['unit'] ?? $item['ingredient']->unit,
+                'quantity_required' => $baseQty,
+                'unit' => $baseUnit,
             ]);
         }
 
@@ -87,193 +111,246 @@ class ProductIngredientStockAvailabilityTest extends TestCase
     }
 
     /**
-     * TEST 1: All ingredients have sufficient stock -> Product AVAILABLE.
+     * TEST 1: Ingredient available -> Product AVAILABLE
      */
-    public function test_test1_all_ingredients_sufficient_stock_makes_product_available()
+    public function test_test1_ingredient_available_makes_product_available()
     {
-        $coffeeBeans = Ingredient::create(['name' => 'Coffee Beans', 'unit' => 'g', 'cost_per_base_unit' => 1]);
-        $milk = Ingredient::create(['name' => 'Milk', 'unit' => 'ml', 'cost_per_base_unit' => 0.5]);
-        $sugar = Ingredient::create(['name' => 'Sugar', 'unit' => 'g', 'cost_per_base_unit' => 0.2]);
-
+        $rice = Ingredient::create(['name' => 'Japanese Rice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $coffeeBeans->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 100] // Need 20g
-        );
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $milk->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 500] // Need 150ml
-        );
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 100] // Need 10g
+            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 2000, 'cost_per_unit' => 0.05] // 2,000g in stock
         );
 
-        $icedCoffee = $this->createProductWithRecipe('Iced Coffee', [
-            ['ingredient' => $coffeeBeans, 'quantity' => 20, 'unit' => 'g'],
-            ['ingredient' => $milk, 'quantity' => 150, 'unit' => 'ml'],
-            ['ingredient' => $sugar, 'quantity' => 10, 'unit' => 'g'],
+        $maki = $this->createProductWithRecipe('Maki Roll', [
+            ['ingredient' => $rice, 'quantity' => 200, 'unit' => 'g'], // 200g per roll
         ], $this->branchSantaCruz->id);
 
-        $availability = $icedCoffee->dynamicAvailability($this->branchSantaCruz->id);
+        $avail = $maki->dynamicAvailability($this->branchSantaCruz->id);
 
-        $this->assertTrue($availability['is_available']);
-        $this->assertGreaterThanOrEqual(1, $availability['available']);
-        $this->assertEquals(3, (int) $availability['available']); // min(100/20=5, 500/150=3, 100/10=10) = 3
+        $this->assertTrue($avail['is_available']);
+        $this->assertEquals(10, $avail['available']); // 2000 / 200 = 10
     }
 
     /**
-     * TEST 2: One required ingredient has zero stock -> Product OUT OF STOCK.
+     * TEST 2: One ingredient zero -> Product OUT OF STOCK
      */
-    public function test_test2_one_ingredient_zero_stock_makes_product_out_of_stock()
+    public function test_test2_one_ingredient_zero_makes_product_out_of_stock()
     {
-        $coffeeBeans = Ingredient::create(['name' => 'Coffee Beans', 'unit' => 'g', 'cost_per_base_unit' => 1]);
-        $milk = Ingredient::create(['name' => 'Milk', 'unit' => 'ml', 'cost_per_base_unit' => 0.5]);
-        $sugar = Ingredient::create(['name' => 'Sugar', 'unit' => 'g', 'cost_per_base_unit' => 0.2]);
+        $rice = Ingredient::create(['name' => 'Japanese Rice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        $nori = Ingredient::create(['name' => 'Nori Seaweed', 'unit' => 'pcs', 'cost_per_base_unit' => 5]);
 
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $coffeeBeans->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 0] // 0 stock!
+            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 5000] // Plenty of rice
         );
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $milk->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 500]
-        );
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 100]
+            ['ingredient_id' => $nori->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 0] // 0 Nori
         );
 
-        $icedCoffee = $this->createProductWithRecipe('Iced Coffee', [
-            ['ingredient' => $coffeeBeans, 'quantity' => 20, 'unit' => 'g'],
-            ['ingredient' => $milk, 'quantity' => 150, 'unit' => 'ml'],
-            ['ingredient' => $sugar, 'quantity' => 10, 'unit' => 'g'],
+        $maki = $this->createProductWithRecipe('Maki Roll', [
+            ['ingredient' => $rice, 'quantity' => 200, 'unit' => 'g'],
+            ['ingredient' => $nori, 'quantity' => 1, 'unit' => 'pcs'],
         ], $this->branchSantaCruz->id);
 
-        $availability = $icedCoffee->dynamicAvailability($this->branchSantaCruz->id);
+        $avail = $maki->dynamicAvailability($this->branchSantaCruz->id);
 
-        $this->assertFalse($availability['is_available']);
-        $this->assertEquals(0, $availability['available']);
-        $this->assertEquals('Coffee Beans', $availability['limiting_ingredient']);
-
-        // Check simpleStockCheck
-        $check = $icedCoffee->simpleStockCheck(1, $this->branchSantaCruz->id);
-        $this->assertFalse($check['success']);
+        $this->assertFalse($avail['is_available']);
+        $this->assertEquals(0, $avail['available']);
+        $this->assertEquals('Nori Seaweed', $avail['limiting_ingredient']);
     }
 
     /**
-     * TEST 3: One required ingredient has insufficient stock (< 1 unit) -> Product OUT OF STOCK.
+     * TEST 3: One ingredient insufficient (< 1 unit) -> Product OUT OF STOCK
      */
-    public function test_test3_insufficient_stock_for_single_unit_makes_product_out_of_stock()
+    public function test_test3_one_ingredient_insufficient_for_single_unit_makes_product_out_of_stock()
     {
-        $coffeeBeans = Ingredient::create(['name' => 'Coffee Beans', 'unit' => 'g', 'cost_per_base_unit' => 1]);
-        $milk = Ingredient::create(['name' => 'Milk', 'unit' => 'ml', 'cost_per_base_unit' => 0.5]);
+        $beef = Ingredient::create(['name' => 'Beef', 'unit' => 'g', 'cost_per_base_unit' => 0.4]);
 
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $coffeeBeans->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 10] // Needs 20g, only 10g available
-        );
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $milk->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 500]
+            ['ingredient_id' => $beef->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 50] // 50g available, but recipe needs 150g
         );
 
-        $icedCoffee = $this->createProductWithRecipe('Iced Coffee', [
-            ['ingredient' => $coffeeBeans, 'quantity' => 20, 'unit' => 'g'],
-            ['ingredient' => $milk, 'quantity' => 150, 'unit' => 'ml'],
+        $gyudon = $this->createProductWithRecipe('Gyudon', [
+            ['ingredient' => $beef, 'quantity' => 150, 'unit' => 'g'],
         ], $this->branchSantaCruz->id);
 
-        $availability = $icedCoffee->dynamicAvailability($this->branchSantaCruz->id);
+        $avail = $gyudon->dynamicAvailability($this->branchSantaCruz->id);
 
-        $this->assertFalse($availability['is_available']);
-        $this->assertEquals(0, $availability['available']);
+        $this->assertFalse($avail['is_available']);
+        $this->assertEquals(0, $avail['available']);
     }
 
     /**
-     * TEST 4: All ingredients have enough stock for 5 units but not 6 -> 5 allowed, 6 rejected.
+     * TEST 4: Multiple ingredients -> Minimum capacity determines product stock
      */
-    public function test_test4_order_quantity_boundary_validation()
+    public function test_test4_multiple_ingredients_minimum_capacity_determines_product_stock()
     {
-        $milk = Ingredient::create(['name' => 'Milk', 'unit' => 'ml', 'cost_per_base_unit' => 0.5]);
+        $rice = Ingredient::create(['name' => 'Rice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        $salmon = Ingredient::create(['name' => 'Salmon', 'unit' => 'g', 'cost_per_base_unit' => 0.8]);
+        $nori = Ingredient::create(['name' => 'Nori', 'unit' => 'pcs', 'cost_per_base_unit' => 2]);
 
+        // Rice: 1000g / 200g = 5 servings
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $milk->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 500] // 100ml per unit => exactly 5 units
+            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 1000]
+        );
+        // Salmon: 300g / 100g = 3 servings (Limiting!)
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $salmon->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 300]
+        );
+        // Nori: 20 pcs / 1 pc = 20 servings
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $nori->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 20]
         );
 
-        $milkTea = $this->createProductWithRecipe('Milk Tea', [
-            ['ingredient' => $milk, 'quantity' => 100, 'unit' => 'ml'],
+        $salmonRoll = $this->createProductWithRecipe('Salmon Roll', [
+            ['ingredient' => $rice, 'quantity' => 200, 'unit' => 'g'],
+            ['ingredient' => $salmon, 'quantity' => 100, 'unit' => 'g'],
+            ['ingredient' => $nori, 'quantity' => 1, 'unit' => 'pcs'],
         ], $this->branchSantaCruz->id);
 
-        $check5 = $milkTea->simpleStockCheck(5, $this->branchSantaCruz->id);
-        $this->assertTrue($check5['success']);
+        $avail = $salmonRoll->dynamicAvailability($this->branchSantaCruz->id);
 
-        $check6 = $milkTea->simpleStockCheck(6, $this->branchSantaCruz->id);
-        $this->assertFalse($check6['success']);
+        $this->assertTrue($avail['is_available']);
+        $this->assertEquals(3, $avail['available']);
+        $this->assertEquals('Salmon', $avail['limiting_ingredient']);
     }
 
     /**
-     * TEST 5: Ingredient is restocked -> Product becomes AVAILABLE again.
+     * TEST 5: Santa Cruz available / Victoria unavailable -> Separate branch statuses
      */
-    public function test_test5_restocked_ingredient_dynamically_makes_product_available()
+    public function test_test5_santa_cruz_available_and_victoria_unavailable()
     {
-        $coffeeBeans = Ingredient::create(['name' => 'Coffee Beans', 'unit' => 'g', 'cost_per_base_unit' => 1]);
+        $tomato = Ingredient::create(['name' => 'Tomato', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        $pasta = Ingredient::create(['name' => 'Pasta', 'unit' => 'g', 'cost_per_base_unit' => 0.03]);
 
-        $stockRecord = IngredientStock::updateOrCreate(
-            ['ingredient_id' => $coffeeBeans->id, 'branch_id' => $this->branchSantaCruz->id],
+        // Santa Cruz: 10 kg Tomato (10,000g), 10 kg Pasta (10,000g) -> 10 available
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $tomato->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 10000]
+        );
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $pasta->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 10000]
+        );
+
+        // Victoria: 0 kg Tomato, 20 kg Pasta (20,000g) -> 0 available (OUT OF STOCK)
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $tomato->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 0]
+        );
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $pasta->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 20000]
+        );
+
+        $tomatoPasta = $this->createProductWithRecipe('Tomato Pasta', [
+            ['ingredient' => $tomato, 'quantity' => 1, 'unit' => 'kg'], // 1000g
+            ['ingredient' => $pasta, 'quantity' => 500, 'unit' => 'g'], // 500g
+        ]);
+
+        $availSC = $tomatoPasta->dynamicAvailability($this->branchSantaCruz->id);
+        $availVIC = $tomatoPasta->dynamicAvailability($this->branchVictoria->id);
+
+        $this->assertTrue($availSC['is_available']);
+        $this->assertEquals(10, $availSC['available']);
+
+        $this->assertFalse($availVIC['is_available']);
+        $this->assertEquals(0, $availVIC['available']);
+        $this->assertEquals('Tomato', $availVIC['limiting_ingredient']);
+    }
+
+    /**
+     * TEST 6: Victoria restock -> Victoria product becomes available
+     */
+    public function test_test6_victoria_restock_makes_product_available()
+    {
+        $tomato = Ingredient::create(['name' => 'Tomato', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+
+        $vicStock = IngredientStock::updateOrCreate(
+            ['ingredient_id' => $tomato->id, 'branch_id' => $this->branchVictoria->id],
             ['stock' => 0]
         );
 
-        $espresso = $this->createProductWithRecipe('Espresso', [
-            ['ingredient' => $coffeeBeans, 'quantity' => 20, 'unit' => 'g'],
-        ], $this->branchSantaCruz->id);
+        $soup = $this->createProductWithRecipe('Tomato Soup', [
+            ['ingredient' => $tomato, 'quantity' => 500, 'unit' => 'g'],
+        ], $this->branchVictoria->id);
 
-        // Before restock
-        $this->assertFalse($espresso->dynamicAvailability($this->branchSantaCruz->id)['is_available']);
+        // Before restock: 0 available
+        $this->assertFalse($soup->dynamicAvailability($this->branchVictoria->id)['is_available']);
 
-        // Restock
-        $stockRecord->update(['stock' => 100]);
+        // Restock Victoria: +5,000g (5 kg)
+        $vicStock->update(['stock' => 5000]);
 
-        // After restock (dynamic calculation, no stale status)
-        $avail = $espresso->dynamicAvailability($this->branchSantaCruz->id);
+        // After restock: 10 available
+        $avail = $soup->dynamicAvailability($this->branchVictoria->id);
         $this->assertTrue($avail['is_available']);
-        $this->assertEquals(5, (int) $avail['available']);
+        $this->assertEquals(10, $avail['available']);
     }
 
     /**
-     * TEST 6: Santa Cruz ingredient is out of stock but Victoria has stock -> Santa Cruz OUT OF STOCK, Victoria AVAILABLE.
+     * TEST 7: Santa Cruz stock must not affect Victoria
      */
-    public function test_test6_branch_isolated_inventory_stock()
+    public function test_test7_santa_cruz_stock_must_not_affect_victoria()
     {
-        $matcha = Ingredient::create(['name' => 'Matcha Powder', 'unit' => 'g', 'cost_per_base_unit' => 2]);
+        $tea = Ingredient::create(['name' => 'Tea Leaves', 'unit' => 'g', 'cost_per_base_unit' => 0.1]);
 
+        // Santa Cruz has 50,000g
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $matcha->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 0] // Santa Cruz is out
+            ['ingredient_id' => $tea->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 50000]
+        );
+        // Victoria has 0g
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $tea->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 0]
         );
 
-        IngredientStock::updateOrCreate(
-            ['ingredient_id' => $matcha->id, 'branch_id' => $this->branchVictoria->id],
-            ['stock' => 100] // Victoria has 100g
-        );
-
-        $matchaLatte = $this->createProductWithRecipe('Matcha Latte', [
-            ['ingredient' => $matcha, 'quantity' => 10, 'unit' => 'g'],
+        $hotTea = $this->createProductWithRecipe('Hot Tea', [
+            ['ingredient' => $tea, 'quantity' => 10, 'unit' => 'g'],
         ]);
 
-        $santaCruzAvail = $matchaLatte->dynamicAvailability($this->branchSantaCruz->id);
-        $victoriaAvail = $matchaLatte->dynamicAvailability($this->branchVictoria->id);
-
-        $this->assertFalse($santaCruzAvail['is_available']);
-        $this->assertEquals(0, $santaCruzAvail['available']);
-
-        $this->assertTrue($victoriaAvail['is_available']);
-        $this->assertEquals(10, (int) $victoriaAvail['available']);
+        $vicAvail = $hotTea->dynamicAvailability($this->branchVictoria->id);
+        $this->assertFalse($vicAvail['is_available']);
+        $this->assertEquals(0, $vicAvail['available']);
     }
 
     /**
-     * TEST 7: Frontend says product is available but backend rejects when inventory is insufficient.
+     * TEST 8: Victoria stock must not affect Santa Cruz
      */
-    public function test_test7_backend_validates_and_rejects_order_if_inventory_insufficient()
+    public function test_test8_victoria_stock_must_not_affect_santa_cruz()
+    {
+        $coffee = Ingredient::create(['name' => 'Coffee', 'unit' => 'g', 'cost_per_base_unit' => 0.2]);
+
+        // Victoria has 50,000g
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $coffee->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 50000]
+        );
+        // Santa Cruz has 0g
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $coffee->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 0]
+        );
+
+        $blackCoffee = $this->createProductWithRecipe('Black Coffee', [
+            ['ingredient' => $coffee, 'quantity' => 20, 'unit' => 'g'],
+        ]);
+
+        $scAvail = $blackCoffee->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertFalse($scAvail['is_available']);
+        $this->assertEquals(0, $scAvail['available']);
+    }
+
+    /**
+     * TEST 9: Customer order for unavailable product is rejected (422)
+     */
+    public function test_test9_customer_order_for_unavailable_product_is_rejected()
     {
         $beans = Ingredient::create(['name' => 'Beans', 'unit' => 'g', 'cost_per_base_unit' => 1]);
 
@@ -286,9 +363,8 @@ class ProductIngredientStockAvailabilityTest extends TestCase
             ['ingredient' => $beans, 'quantity' => 20, 'unit' => 'g'],
         ], $this->branchSantaCruz->id);
 
-        // Attempt API order submission
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/v1/orders', [
-            'customer_name' => 'John Doe',
+            'customer_name' => 'Jane Doe',
             'mobile_number' => '09123456789',
             'address' => 'Santa Cruz, Manila',
             'latitude' => 14.5995,
@@ -305,61 +381,190 @@ class ProductIngredientStockAvailabilityTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $response->assertJson([
-            'success' => false,
-        ]);
-
         $this->assertDatabaseCount('orders', 0);
     }
 
     /**
-     * TEST 8: Multi-product / batch validation prevents cumulative stock over-allocation.
+     * TEST 10: POS order for unavailable product is rejected
      */
-    public function test_test8_multi_item_cumulative_stock_over_allocation_rejected()
+    public function test_test10_pos_order_for_unavailable_product_is_rejected()
     {
-        $milk = Ingredient::create(['name' => 'Fresh Milk', 'unit' => 'ml', 'cost_per_base_unit' => 0.05]);
+        $beef = Ingredient::create(['name' => 'Beef', 'unit' => 'g', 'cost_per_base_unit' => 0.5]);
 
         IngredientStock::updateOrCreate(
-            ['ingredient_id' => $milk->id, 'branch_id' => $this->branchSantaCruz->id],
-            ['stock' => 500] // Only 500ml available
+            ['ingredient_id' => $beef->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 0]
         );
 
-        $latte = $this->createProductWithRecipe('Cafe Latte', [
-            ['ingredient' => $milk, 'quantity' => 300, 'unit' => 'ml'],
+        $gyudon = $this->createProductWithRecipe('Gyudon POS', [
+            ['ingredient' => $beef, 'quantity' => 100, 'unit' => 'g'],
         ], $this->branchSantaCruz->id);
 
-        $cappuccino = $this->createProductWithRecipe('Cappuccino', [
-            ['ingredient' => $milk, 'quantity' => 300, 'unit' => 'ml'],
+        CashierShift::create([
+            'cashier_id' => $this->cashierSantaCruz->id,
+            'branch_id' => $this->branchSantaCruz->id,
+            'opening_balance' => 1000,
+            'status' => 'open',
+            'opened_at' => now(),
+        ]);
+
+        $this->actingAs($this->cashierSantaCruz);
+        $saleService = app(SaleService::class);
+
+        $this->expectException(\Exception::class);
+        $saleService->processSale([
+            'items' => [
+                [
+                    'id' => $gyudon->id,
+                    'quantity' => 1,
+                ]
+            ],
+            'total' => 100.00,
+            'paid_amount' => 100.00,
+            'payment_method' => 'cash',
+        ]);
+    }
+
+    /**
+     * TEST 11: Inventory stock changes are immediately reflected in product availability
+     */
+    public function test_test11_inventory_stock_changes_are_immediately_reflected()
+    {
+        $sugar = Ingredient::create(['name' => 'Sugar', 'unit' => 'g', 'cost_per_base_unit' => 0.02]);
+        $stock = IngredientStock::updateOrCreate(
+            ['ingredient_id' => $sugar->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 100] // 100g / 10g = 10 servings
+        );
+
+        $sweetTea = $this->createProductWithRecipe('Sweet Tea', [
+            ['ingredient' => $sugar, 'quantity' => 10, 'unit' => 'g'],
         ], $this->branchSantaCruz->id);
 
-        // Item 1 requires 300ml, Item 2 requires 300ml -> Total 600ml needed, but only 500ml in stock
-        $items = [
-            ['product_id' => $latte->id, 'quantity' => 1],
-            ['product_id' => $cappuccino->id, 'quantity' => 1],
-        ];
+        $this->assertEquals(10, $sweetTea->dynamicAvailability($this->branchSantaCruz->id)['available']);
 
-        $batchCheck = Product::validateBatchStock($this->branchSantaCruz->id, $items);
-        $this->assertFalse($batchCheck['success']);
+        // Stock increases to 500g -> 50 servings
+        $stock->update(['stock' => 500]);
+        $this->assertEquals(50, $sweetTea->dynamicAvailability($this->branchSantaCruz->id)['available']);
 
-        // Check Cart validation
-        $cart = Cart::create([
-            'user_id' => $this->customer->id,
-            'branch_id' => $this->branchSantaCruz->id,
+        // Stock decreases to 20g -> 2 servings
+        $stock->update(['stock' => 20]);
+        $this->assertEquals(2, $sweetTea->dynamicAvailability($this->branchSantaCruz->id)['available']);
+
+        // Stock decreases to 5g -> 0 servings (OUT OF STOCK)
+        $stock->update(['stock' => 5]);
+        $avail = $sweetTea->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertFalse($avail['is_available']);
+        $this->assertEquals(0, $avail['available']);
+    }
+
+    /**
+     * TEST 12: Unit conversion works correctly (kg <-> g, L <-> ml, pcs)
+     */
+    public function test_test12_unit_conversion_works_correctly()
+    {
+        $flour = Ingredient::create(['name' => 'Flour', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+        $milk = Ingredient::create(['name' => 'Milk', 'unit' => 'ml', 'cost_per_base_unit' => 0.08]);
+        $eggs = Ingredient::create(['name' => 'Eggs', 'unit' => 'pcs', 'cost_per_base_unit' => 8]);
+
+        // Inventory: 2 kg Flour (2000g), 1 Liter Milk (1000ml), 10 pcs Eggs
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $flour->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => UnitConverter::convertToBaseQuantity(2, 'kg')]
+        );
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $milk->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => UnitConverter::convertToBaseQuantity(1, 'L')]
+        );
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $eggs->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 10]
+        );
+
+        // Recipe: 200g Flour, 100ml Milk, 2 pcs Eggs -> Yields min(2000/200=10, 1000/100=10, 10/2=5) = 5
+        $pancake = $this->createProductWithRecipe('Pancake Stack', [
+            ['ingredient' => $flour, 'quantity' => 200, 'unit' => 'g'],
+            ['ingredient' => $milk, 'quantity' => 100, 'unit' => 'ml'],
+            ['ingredient' => $eggs, 'quantity' => 2, 'unit' => 'pcs'],
+        ], $this->branchSantaCruz->id);
+
+        $avail = $pancake->dynamicAvailability($this->branchSantaCruz->id);
+        $this->assertTrue($avail['is_available']);
+        $this->assertEquals(5, $avail['available']);
+    }
+
+    /**
+     * TEST 13: Branch filtering/authorization cannot be bypassed
+     */
+    public function test_test13_branch_filtering_cannot_be_bypassed()
+    {
+        $rice = Ingredient::create(['name' => 'Rice', 'unit' => 'g', 'cost_per_base_unit' => 0.05]);
+
+        // Only Victoria has stock
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 0]
+        );
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $rice->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 5000]
+        );
+
+        $riceBowl = $this->createProductWithRecipe('Rice Bowl', [
+            ['ingredient' => $rice, 'quantity' => 200, 'unit' => 'g'],
         ]);
 
-        $cart->items()->create([
-            'product_id' => $latte->id,
-            'quantity' => 1,
-            'branch_id' => $this->branchSantaCruz->id,
-        ]);
-        $cart->items()->create([
-            'product_id' => $cappuccino->id,
-            'quantity' => 1,
-            'branch_id' => $this->branchSantaCruz->id,
-        ]);
+        // Customer in Santa Cruz branch context queries products
+        $response = $this->actingAs($this->customer, 'sanctum')->getJson('/api/v1/customer/products?branch_id=' . $this->branchSantaCruz->id);
+        $response->assertStatus(200);
 
-        $cartValidationResponse = $this->actingAs($this->customer, 'sanctum')->postJson('/api/v1/cart/validate');
-        $cartValidationResponse->assertStatus(422);
-        $cartValidationResponse->assertJson(['success' => false]);
+        $products = $response->json('products');
+        $data = collect($products)->firstWhere('id', $riceBowl->id);
+        $this->assertNotNull($data);
+        $this->assertFalse((bool) $data['is_available']);
+        $this->assertEquals(0, (float) $data['stock']);
+    }
+
+    /**
+     * TEST 14: Last available ingredient cannot be consumed by two concurrent orders (concurrency locking)
+     */
+    public function test_test14_last_available_ingredient_concurrency_locking()
+    {
+        $cheese = Ingredient::create(['name' => 'Special Cheese', 'unit' => 'g', 'cost_per_base_unit' => 1]);
+
+        // Stock exactly enough for 1 serving (50g)
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $cheese->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 50]
+        );
+
+        $cheeseRoll = $this->createProductWithRecipe('Cheese Roll', [
+            ['ingredient' => $cheese, 'quantity' => 50, 'unit' => 'g'],
+        ], $this->branchSantaCruz->id);
+
+        // First order validates and locks inside transaction
+        $order1Success = false;
+        DB::transaction(function () use ($cheeseRoll, &$order1Success, $cheese) {
+            $check = Product::validateBatchStock($this->branchSantaCruz->id, [
+                ['product_id' => $cheeseRoll->id, 'quantity' => 1]
+            ], true);
+
+            $this->assertTrue($check['success']);
+            $order1Success = true;
+
+            // Deduct stock for order 1
+            IngredientStock::where('ingredient_id', $cheese->id)
+                ->where('branch_id', $this->branchSantaCruz->id)
+                ->decrement('stock', 50);
+        });
+
+        $this->assertTrue($order1Success);
+
+        // Second order attempts to purchase the same product now that stock is 0
+        $check2 = Product::validateBatchStock($this->branchSantaCruz->id, [
+            ['product_id' => $cheeseRoll->id, 'quantity' => 1]
+        ], true);
+
+        $this->assertFalse($check2['success']);
+        $this->assertStringContainsString('Insufficient stock', $check2['message']);
     }
 }

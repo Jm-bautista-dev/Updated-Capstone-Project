@@ -606,8 +606,8 @@ class AutomaticProductCostAndStockTest extends TestCase
         // ₱0.0108/g
         $this->assertEquals(0.0108, round((float) $stockRow->cost_per_unit, 4));
 
-        // Recipe: 1 kg (1,000 g) * 0.0108/g = ₱10.80
-        $this->assertEquals(10.80, round($product->computeProductCost($this->branchSantaCruz->id), 2));
+        // Recipe: 1 kg (1,000 g) * (1300/120000)/g = ₱10.83
+        $this->assertEquals(10.83, round($product->computeProductCost($this->branchSantaCruz->id), 2));
         // Available stock: 120,000 / 1,000 = 120 products
         $this->assertEquals(120, $product->dynamicAvailability($this->branchSantaCruz->id)['available']);
     }

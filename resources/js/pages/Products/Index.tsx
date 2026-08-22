@@ -211,6 +211,9 @@ export default function ProductsIndex() {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+    const initialBranchId = currentBranchId && currentBranchId !== 'all' ? String(currentBranchId) : '';
+    const initialBranchIds = initialBranchId ? [initialBranchId] : (branches && branches.length === 1 ? [String(branches[0].id)] : []);
+
     const { data, setData, delete: destroy, processing, errors, reset } = useForm({
         name: '',
         sku: '',
@@ -218,8 +221,9 @@ export default function ProductsIndex() {
         description: '',
         cost_price: '',
         selling_price: '',
-        branch_id: currentBranchId ? String(currentBranchId) : '',
-        branch_ids: [] as string[],
+        branch_option: initialBranchIds.length > 1 ? 'both' : 'single',
+        branch_id: initialBranchIds.length === 1 ? initialBranchIds[0] : initialBranchId,
+        branch_ids: initialBranchIds,
         recipe: [] as { ingredient_id: string; quantity_required: string; unit: string }[],
         unit: 'pcs',
         stock: '0',
@@ -393,8 +397,26 @@ export default function ProductsIndex() {
     const handleAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setAddErrors({});
+
+        let payloadOption = data.branch_option || 'single';
+        let payloadBranchId = data.branch_id;
+        const currentBranchIds = data.branch_ids || [];
+
+        if (currentBranchIds.length === 1) {
+            payloadOption = 'single';
+            payloadBranchId = currentBranchIds[0];
+        } else if (currentBranchIds.length > 1) {
+            payloadOption = 'both';
+            payloadBranchId = '';
+        } else if (payloadBranchId) {
+            payloadOption = 'single';
+        }
+
         router.post('/products', {
             ...data,
+            branch_option: payloadOption,
+            branch_id: payloadBranchId,
+            branch_ids: currentBranchIds,
             image: imageFile,
         } as RequestPayload, {
             forceFormData: true,
@@ -418,9 +440,27 @@ export default function ProductsIndex() {
         e.preventDefault();
         if (!selectedProduct) return;
         setEditErrors({});
+
+        let payloadOption = data.branch_option || 'single';
+        let payloadBranchId = data.branch_id;
+        const currentBranchIds = data.branch_ids || [];
+
+        if (currentBranchIds.length === 1) {
+            payloadOption = 'single';
+            payloadBranchId = currentBranchIds[0];
+        } else if (currentBranchIds.length > 1) {
+            payloadOption = 'both';
+            payloadBranchId = '';
+        } else if (payloadBranchId) {
+            payloadOption = 'single';
+        }
+
         router.post(`/products/${selectedProduct.id}`, {
             _method: 'PUT',
             ...data,
+            branch_option: payloadOption,
+            branch_id: payloadBranchId,
+            branch_ids: currentBranchIds,
             image: imageFile,
         } as RequestPayload, {
             forceFormData: true,
@@ -480,7 +520,22 @@ export default function ProductsIndex() {
         } else {
             current.push(id);
         }
-        setData('branch_ids', current);
+
+        let newOption = 'single';
+        let newBranchId = '';
+        if (current.length > 1 || (branches.length > 0 && current.length === branches.length)) {
+            newOption = 'both';
+        } else if (current.length === 1) {
+            newOption = 'single';
+            newBranchId = current[0];
+        }
+
+        setData((prev) => ({
+            ...prev,
+            branch_ids: current,
+            branch_id: newBranchId,
+            branch_option: newOption,
+        }));
     };
 
     return (
@@ -811,6 +866,11 @@ export default function ProductsIndex() {
                                             </button>
                                         ))}
                                     </div>
+                                    {(addErrors.branch_id || addErrors.branch_ids || addErrors.branch_option || errors.branch_id || errors.branch_ids || errors.branch_option) && (
+                                        <p className="text-xs text-rose-500 font-medium ml-1">
+                                            {addErrors.branch_id || addErrors.branch_ids || addErrors.branch_option || errors.branch_id || errors.branch_ids || errors.branch_option}
+                                        </p>
+                                    )}
                                 </div>
                             )}
 
@@ -1057,6 +1117,11 @@ export default function ProductsIndex() {
                                             </button>
                                         ))}
                                     </div>
+                                    {(editErrors.branch_id || editErrors.branch_ids || editErrors.branch_option || errors.branch_id || errors.branch_ids || errors.branch_option) && (
+                                        <p className="text-xs text-rose-500 font-medium ml-1">
+                                            {editErrors.branch_id || editErrors.branch_ids || editErrors.branch_option || errors.branch_id || errors.branch_ids || errors.branch_option}
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

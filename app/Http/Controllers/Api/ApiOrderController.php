@@ -157,6 +157,12 @@ class ApiOrderController extends Controller
 
             // --- 3. TRANSACTIONAL CREATION ---
             $records = DB::transaction(function () use ($validated, $branchId, $userId, $distanceKm, $deliveryFee) {
+                // Strict row-level lock on ingredient stocks during transaction
+                $lockedBatchCheck = Product::validateBatchStock($branchId, $validated['items'], true);
+                if (!$lockedBatchCheck['success']) {
+                    throw new \Exception($lockedBatchCheck['message']);
+                }
+
                 $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
 
                 $orderNumberService = new \App\Services\OrderNumberService();

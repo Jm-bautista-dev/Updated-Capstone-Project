@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { WastageModal } from '@/components/wastage-modal';
 import AppLayout from '@/layouts/app-layout';
+import { convertQuantity } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
 type Branch = { id: number; name: string };
@@ -376,7 +377,7 @@ export default function InventoryIndex() {
         setCurrentPage(1);
     };
 
-    const handleUnitChange = (val: string) => {
+    const handleUnitFilterChange = (val: string) => {
         setFilterUnit(val);
         setCurrentPage(1);
     };
@@ -396,6 +397,30 @@ export default function InventoryIndex() {
         reset();
         setLocalErrors({});
         setIsAddModalOpen(true);
+    };
+
+    const handleUnitChange = (newUnit: string) => {
+        const oldUnit = data.unit || 'g';
+        if (oldUnit === newUnit) return;
+
+        let newStock = data.stock;
+        let newLowStock = data.low_stock_level;
+
+        if (data.stock && !isNaN(Number(data.stock)) && Number(data.stock) > 0) {
+            const converted = convertQuantity(Number(data.stock), oldUnit, newUnit);
+            newStock = String(Number(converted.toFixed(4)));
+        }
+        if (data.low_stock_level && !isNaN(Number(data.low_stock_level)) && Number(data.low_stock_level) > 0) {
+            const converted = convertQuantity(Number(data.low_stock_level), oldUnit, newUnit);
+            newLowStock = String(Number(converted.toFixed(4)));
+        }
+
+        setData((prev) => ({
+            ...prev,
+            unit: newUnit,
+            stock: newStock,
+            low_stock_level: newLowStock,
+        }));
     };
 
     const handleEdit = (row: InventoryRow) => {
@@ -593,7 +618,7 @@ export default function InventoryIndex() {
                     search={search}
                     onSearchChange={handleSearchChange}
                     filterUnit={filterUnit}
-                    onUnitChange={handleUnitChange}
+                    onUnitChange={handleUnitFilterChange}
                     filterStatus={filterStatus}
                     onStatusChange={handleStatusChange}
                     quickFilter={quickFilter}
@@ -800,7 +825,7 @@ export default function InventoryIndex() {
                                 <select
                                     required
                                     value={data.unit}
-                                    onChange={(e) => setData('unit', e.target.value)}
+                                    onChange={(e) => handleUnitChange(e.target.value)}
                                     className="w-full h-12 px-3 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm font-bold appearance-none"
                                 >
                                     <option value="g">Grams (g)</option>
@@ -819,8 +844,14 @@ export default function InventoryIndex() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Low Stock Mark</label>
-                                <Input type="number" step="0.0001" required value={data.low_stock_level} onChange={(e) => setData('low_stock_level', e.target.value)} placeholder="5" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                                <div className="flex items-center justify-between ml-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8]">Low Stock Mark</label>
+                                    <span className="text-[10px] font-mono font-bold text-[#E75480] dark:text-[#FF4F81] uppercase">[{data.unit || 'pcs'}]</span>
+                                </div>
+                                <div className="relative">
+                                    <Input type="number" step="0.0001" required value={data.low_stock_level} onChange={(e) => setData('low_stock_level', e.target.value)} placeholder="5" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono pr-12" />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-[#9E8B8E] dark:text-[#64748B] pointer-events-none">{data.unit || 'pcs'}</span>
+                                </div>
                                 <InputError message={localErrors.low_stock_level} />
                             </div>
 
@@ -922,7 +953,7 @@ export default function InventoryIndex() {
                                 <select
                                     required
                                     value={data.unit}
-                                    onChange={(e) => setData('unit', e.target.value)}
+                                    onChange={(e) => handleUnitChange(e.target.value)}
                                     className="w-full h-12 px-3 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm font-bold appearance-none"
                                 >
                                     <option value="g">Grams (g)</option>
@@ -941,8 +972,14 @@ export default function InventoryIndex() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Low Stock Mark</label>
-                                <Input type="number" step="0.0001" required value={data.low_stock_level} onChange={(e) => setData('low_stock_level', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono" />
+                                <div className="flex items-center justify-between ml-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8]">Low Stock Mark</label>
+                                    <span className="text-[10px] font-mono font-bold text-[#E75480] dark:text-[#FF4F81] uppercase">[{data.unit || 'pcs'}]</span>
+                                </div>
+                                <div className="relative">
+                                    <Input type="number" step="0.0001" required value={data.low_stock_level} onChange={(e) => setData('low_stock_level', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] font-mono pr-12" />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-[#9E8B8E] dark:text-[#64748B] pointer-events-none">{data.unit || 'pcs'}</span>
+                                </div>
                                 <InputError message={localErrors.low_stock_level} />
                             </div>
 

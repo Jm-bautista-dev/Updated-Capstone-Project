@@ -66,7 +66,14 @@ class ProductService
             $product->update(['cost_price' => $product->computeProductCost($product->branch_id)]);
 
             // 🔥 BROADCAST: Instant catalog sync
-            broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
+            if ($product->branch_id) {
+                broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
+            } else {
+                $branches = \App\Models\Branch::all();
+                foreach ($branches as $b) {
+                    broadcast(new ProductUpdated($product->id, $b->id))->toOthers();
+                }
+            }
 
             return $product->load('branch', 'unit_model');
         });
@@ -127,8 +134,16 @@ class ProductService
             $product->update(['cost_price' => $product->computeProductCost($product->branch_id)]);
 
             // 🔥 BROADCAST: Instant catalog sync
-            broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
-            broadcast(new StockUpdated($product->branch_id, Product::class, $product->id))->toOthers();
+            if ($product->branch_id) {
+                broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
+                broadcast(new StockUpdated($product->branch_id, Product::class, $product->id))->toOthers();
+            } else {
+                $branches = \App\Models\Branch::all();
+                foreach ($branches as $b) {
+                    broadcast(new ProductUpdated($product->id, $b->id))->toOthers();
+                    broadcast(new StockUpdated($b->id, Product::class, $product->id))->toOthers();
+                }
+            }
 
             return $product->load('branch', 'unit_model', 'ingredients');
         });
