@@ -1,9 +1,8 @@
 import { Head, router } from '@inertiajs/react';
-import { FileText, Search } from 'lucide-react';
-import React from 'react';
+import { FileText } from 'lucide-react';
+import React, { useState } from 'react';
+import { FilterBar } from '@/components/super-admin/FilterBar';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 interface AuditLogRecord {
     id: number;
@@ -26,7 +25,7 @@ interface AuditLogsProps {
 }
 
 export default function AuditLogs({ logs, filters }: AuditLogsProps) {
-    const [search, setSearch] = React.useState(filters.search || '');
+    const [search, setSearch] = useState(filters.search || '');
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,65 +38,58 @@ export default function AuditLogs({ logs, filters }: AuditLogsProps) {
 
             <div className="space-y-6">
                 <div>
-                    <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                         <FileText className="size-6 text-amber-500" />
                         Immutable Developer Audit Logs
                     </h1>
-                    <p className="text-xs text-slate-400 mt-1">
-                        Security-hardened trail of all privileged Super Admin actions and system state modifications
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Security-hardened ledger tracking all privileged Super Admin operations and system state modifications
                     </p>
                 </div>
 
-                <form onSubmit={handleSearch} className="flex gap-2">
-                    <div className="relative flex-1">
-                        <Search className="size-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                        <Input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search action, actor, IP address, or target..."
-                            className="bg-slate-900 border-slate-800 text-white pl-10 h-10 text-xs rounded-xl"
-                        />
-                    </div>
-                    <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-10 px-5 rounded-xl">
-                        Filter Audit Logs
-                    </Button>
-                </form>
+                <FilterBar
+                    search={search}
+                    onSearchChange={setSearch}
+                    onSubmit={handleSearch}
+                    placeholder="Search action, actor name, IP address, or target resource..."
+                />
 
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-slate-800 bg-slate-950/60 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                     <th className="p-4">Action</th>
                                     <th className="p-4">Actor</th>
-                                    <th className="p-4">Target</th>
+                                    <th className="p-4">Target Resource</th>
                                     <th className="p-4">IP Address</th>
                                     <th className="p-4">Timestamp</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs font-mono">
                                 {logs.data.map((log) => (
-                                    <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                                        <td className="p-4 font-bold text-amber-400">
+                                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                                        <td className="p-4 font-bold text-amber-600 dark:text-amber-400">
                                             {log.action}
                                         </td>
-                                        <td className="p-4 text-slate-200">
-                                            {log.actor_name} <span className="text-slate-500 text-[10px]">({log.actor_role})</span>
+                                        <td className="p-4 text-slate-900 dark:text-slate-200">
+                                            {log.actor_name}{' '}
+                                            <span className="text-slate-400 text-[10px]">({log.actor_role})</span>
                                         </td>
-                                        <td className="p-4 text-slate-300">
+                                        <td className="p-4 text-slate-600 dark:text-slate-300">
                                             {log.target ?? '—'}
                                         </td>
-                                        <td className="p-4 text-slate-400 text-[11px]">
+                                        <td className="p-4 text-slate-500 text-[11px]">
                                             {log.ip_address ?? '127.0.0.1'}
                                         </td>
-                                        <td className="p-4 text-slate-400 text-[11px]">
+                                        <td className="p-4 text-slate-500 text-[11px]">
                                             {new Date(log.created_at).toLocaleString()}
                                         </td>
                                     </tr>
                                 ))}
                                 {logs.data.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-slate-500 italic font-sans">
+                                        <td colSpan={5} className="p-12 text-center text-slate-400 italic font-sans">
                                             No audit log entries recorded yet.
                                         </td>
                                     </tr>
