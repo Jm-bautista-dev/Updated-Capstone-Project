@@ -1,4 +1,5 @@
 import TopPickController from './TopPickController'
+import PosDeliveryDistanceController from './PosDeliveryDistanceController'
 import AuthController from './AuthController'
 import VerificationController from './VerificationController'
 import ProductController from './ProductController'
@@ -10,15 +11,18 @@ import UserController from './UserController'
 import RiderController from './RiderController'
 import Rider from './Rider'
 import CancellationRequestController from './CancellationRequestController'
-import PosDeliveryDistanceController from './PosDeliveryDistanceController'
 import Branch from './Branch'
 import ApiOrderController from './ApiOrderController'
 import CustomerOrderController from './CustomerOrderController'
 import CartController from './CartController'
+import CustomerNotificationController from './CustomerNotificationController'
 import SyncApiController from './SyncApiController'
 import ReceiptController from './ReceiptController'
+import RiderCancellationController from './RiderCancellationController'
+import POSCancellationController from './POSCancellationController'
 const Api = {
     TopPickController: Object.assign(TopPickController, TopPickController),
+PosDeliveryDistanceController: Object.assign(PosDeliveryDistanceController, PosDeliveryDistanceController),
 AuthController: Object.assign(AuthController, AuthController),
 VerificationController: Object.assign(VerificationController, VerificationController),
 ProductController: Object.assign(ProductController, ProductController),
@@ -30,13 +34,15 @@ UserController: Object.assign(UserController, UserController),
 RiderController: Object.assign(RiderController, RiderController),
 Rider: Object.assign(Rider, Rider),
 CancellationRequestController: Object.assign(CancellationRequestController, CancellationRequestController),
-PosDeliveryDistanceController: Object.assign(PosDeliveryDistanceController, PosDeliveryDistanceController),
 Branch: Object.assign(Branch, Branch),
 ApiOrderController: Object.assign(ApiOrderController, ApiOrderController),
 CustomerOrderController: Object.assign(CustomerOrderController, CustomerOrderController),
 CartController: Object.assign(CartController, CartController),
+CustomerNotificationController: Object.assign(CustomerNotificationController, CustomerNotificationController),
 SyncApiController: Object.assign(SyncApiController, SyncApiController),
 ReceiptController: Object.assign(ReceiptController, ReceiptController),
+RiderCancellationController: Object.assign(RiderCancellationController, RiderCancellationController),
+POSCancellationController: Object.assign(POSCancellationController, POSCancellationController),
 }
 
 export default Api

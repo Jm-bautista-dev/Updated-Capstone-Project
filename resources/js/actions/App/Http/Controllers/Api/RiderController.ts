@@ -7395,80 +7395,6 @@ cancelOrder0ee1fe1f36eddf0b892c4836f981f776.post = (args: { id: string | number 
     /**
 * @see \App\Http\Controllers\Api\RiderController::cancelOrder
  * @see app/Http/Controllers/Api/RiderController.php:614
- * @route '/api/rider/orders/{id}/cancel-request'
- */
-const cancelOrder2dccc2582b88c47bdea90c08f6913efa = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
-    method: 'post',
-})
-
-cancelOrder2dccc2582b88c47bdea90c08f6913efa.definition = {
-    methods: ["post"],
-    url: '/api/rider/orders/{id}/cancel-request',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:614
- * @route '/api/rider/orders/{id}/cancel-request'
- */
-cancelOrder2dccc2582b88c47bdea90c08f6913efa.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { id: args }
-    }
-
-    
-    if (Array.isArray(args)) {
-        args = {
-                    id: args[0],
-                }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-                        id: args.id,
-                }
-
-    return cancelOrder2dccc2582b88c47bdea90c08f6913efa.definition.url
-            .replace('{id}', parsedArgs.id.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:614
- * @route '/api/rider/orders/{id}/cancel-request'
- */
-cancelOrder2dccc2582b88c47bdea90c08f6913efa.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
-    method: 'post',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:614
- * @route '/api/rider/orders/{id}/cancel-request'
- */
-    const cancelOrder2dccc2582b88c47bdea90c08f6913efaForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:614
- * @route '/api/rider/orders/{id}/cancel-request'
- */
-        cancelOrder2dccc2582b88c47bdea90c08f6913efaForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: cancelOrder2dccc2582b88c47bdea90c08f6913efa.url(args, options),
-            method: 'post',
-        })
-    
-    cancelOrder2dccc2582b88c47bdea90c08f6913efa.form = cancelOrder2dccc2582b88c47bdea90c08f6913efaForm
-    /**
-* @see \App\Http\Controllers\Api\RiderController::cancelOrder
- * @see app/Http/Controllers/Api/RiderController.php:614
  * @route '/rider/orders/{id}/cancel'
  */
 const cancelOrder60c7b3d61dbfd26c9a9367be40523e1f = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -7545,7 +7471,6 @@ export const cancelOrder = {
     '/api/v1/rider/orders/{id}/cancel': cancelOrderc6e91f42a6a96f0dc48849a40d8ac513,
     '/api/v1/rider/orders/{id}/cancel-request': cancelOrder676ea8b862358a07db7266022896cc59,
     '/api/rider/orders/{id}/cancel': cancelOrder0ee1fe1f36eddf0b892c4836f981f776,
-    '/api/rider/orders/{id}/cancel-request': cancelOrder2dccc2582b88c47bdea90c08f6913efa,
     '/rider/orders/{id}/cancel': cancelOrder60c7b3d61dbfd26c9a9367be40523e1f,
 }
 

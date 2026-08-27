@@ -57,3 +57,10 @@ Broadcast::channel('rider.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
 
+// Customer-scoped user channel (push notification broadcast target)
+Broadcast::channel('customer.{userId}', function ($user, $userId) {
+    if (!$user) return false;
+    if (method_exists($user, 'isAdmin') && $user->isAdmin()) return true;
+    return (int) $user->id === (int) $userId;
+});
+

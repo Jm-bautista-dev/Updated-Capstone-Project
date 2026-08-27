@@ -161,9 +161,20 @@ Route::prefix('v1')->group(function () {
         Route::post('reviews', [App\Http\Controllers\Api\ReviewController::class, 'store']);
         Route::put('reviews/{id}', [App\Http\Controllers\Api\ReviewController::class, 'update']);
 
-        // Notifications
+        // Notifications (legacy Laravel model notifications)
         Route::get('notifications', [App\Http\Controllers\NotificationController::class, 'index']);
         Route::post('notifications/mark-as-read', [App\Http\Controllers\NotificationController::class, 'markAsRead']);
+
+        // ── Customer Push Notification Device Tokens ──
+        Route::post('customer/device-token',          [App\Http\Controllers\Api\CustomerNotificationController::class, 'registerDeviceToken']);
+        Route::post('notifications/push-token',        [App\Http\Controllers\Api\CustomerNotificationController::class, 'registerDeviceToken']);
+        Route::post('notifications/push-token/remove', [App\Http\Controllers\Api\CustomerNotificationController::class, 'removeDeviceToken']);
+
+        // ── Customer Notification Ledger ──
+        Route::get('customer/notifications',                     [App\Http\Controllers\Api\CustomerNotificationController::class, 'index']);
+        Route::get('customer/notifications/unread-count',        [App\Http\Controllers\Api\CustomerNotificationController::class, 'unreadCount']);
+        Route::post('customer/notifications/read-all',           [App\Http\Controllers\Api\CustomerNotificationController::class, 'markAllAsRead']);
+        Route::post('customer/notifications/{id}/read',          [App\Http\Controllers\Api\CustomerNotificationController::class, 'markAsRead']);
     });
 });
 
@@ -226,6 +237,18 @@ Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
     Route::match(['post', 'patch', 'put'], 'deliveries/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
 
     Route::get('cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
+
+    // ── RiderCancellationController aliases (Master Prompt routes) ──
+    Route::post('orders/{id}/cancel-request', [App\Http\Controllers\Api\RiderCancellationController::class, 'requestCancellation']);
+});
+
+// ── POS Cancellation Routes (Master Prompt) ──
+Route::middleware(['auth:sanctum,web'])->
+    prefix('pos')->group(function () {
+    Route::post('cancellation-requests/{id}/resolve', [App\Http\Controllers\Api\POSCancellationController::class, 'resolve']);
+    Route::post('cancellation-requests/{id}/approve', [App\Http\Controllers\Api\POSCancellationController::class, 'approve']);
+    Route::post('cancellation-requests/{id}/reject',  [App\Http\Controllers\Api\POSCancellationController::class, 'reject']);
+    Route::post('calculate-delivery-distance', [App\Http\Controllers\Api\PosDeliveryDistanceController::class, 'calculate']);
 });
 
 // ── Non-v1 Order & User Aliases ──
