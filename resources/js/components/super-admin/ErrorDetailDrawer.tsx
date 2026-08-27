@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Copy, X } from 'lucide-react';
+import { CheckCircle2, Copy, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SeverityBadge } from './SeverityBadge';

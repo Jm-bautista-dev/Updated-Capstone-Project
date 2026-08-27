@@ -1,8 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { Terminal } from 'lucide-react';
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
 import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
+import { Badge } from '@/components/ui/badge';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface Endpoint {

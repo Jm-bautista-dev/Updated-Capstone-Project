@@ -10,11 +10,12 @@ import {
     Wrench,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ErrorDetailDrawer, ErrorRecordDetail } from '@/components/super-admin/ErrorDetailDrawer';
+import { ErrorDetailDrawer } from '@/components/super-admin/ErrorDetailDrawer';
+import type { ErrorRecordDetail } from '@/components/super-admin/ErrorDetailDrawer';
 import { IncidentBanner } from '@/components/super-admin/IncidentBanner';
 import { SeverityBadge } from '@/components/super-admin/SeverityBadge';
 import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface Service {

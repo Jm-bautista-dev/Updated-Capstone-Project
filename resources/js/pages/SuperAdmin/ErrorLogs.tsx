@@ -1,10 +1,11 @@
 import { Head, router } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { ErrorDetailDrawer, ErrorRecordDetail } from '@/components/super-admin/ErrorDetailDrawer';
+import { ErrorDetailDrawer } from '@/components/super-admin/ErrorDetailDrawer';
+import type { ErrorRecordDetail } from '@/components/super-admin/ErrorDetailDrawer';
 import { FilterBar } from '@/components/super-admin/FilterBar';
 import { SeverityBadge } from '@/components/super-admin/SeverityBadge';
+import { Button } from '@/components/ui/button';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface ErrorLogsProps {

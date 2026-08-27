@@ -1,10 +1,10 @@
 import { Head, router } from '@inertiajs/react';
 import { Wrench } from 'lucide-react';
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ConfirmDangerDialog } from '@/components/super-admin/ConfirmDangerDialog';
 import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface MaintenanceProps {

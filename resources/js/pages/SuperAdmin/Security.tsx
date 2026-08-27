@@ -1,9 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { KeyRound, Shield, UserCheck } from 'lucide-react';
 import React, { useState } from 'react';
+import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface AdminUser {

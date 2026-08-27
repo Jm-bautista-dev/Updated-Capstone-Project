@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { LogOut, Moon, Sun, Terminal, User } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { LogOut, Moon, Sun, User } from 'lucide-react';
+import React, { useState } from 'react';
 import { SystemStatusBadge } from './SystemStatusBadge';
 
 interface SuperAdminTopBarProps {
@@ -14,12 +14,12 @@ export const SuperAdminTopBar: React.FC<SuperAdminTopBarProps> = ({
     environment = 'PRODUCTION',
     isMaintenance = false,
 }) => {
-    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-    useEffect(() => {
-        const isDark = document.documentElement.classList.contains('dark');
-        setTheme(isDark ? 'dark' : 'light');
-    }, []);
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+        if (typeof document !== 'undefined') {
+            return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        }
+        return 'dark';
+    });
 
     const toggleTheme = () => {
         const nextTheme = theme === 'dark' ? 'light' : 'dark';
