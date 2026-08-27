@@ -22,7 +22,8 @@ class SuperAdminSystemTest extends TestCase
 
     public function test_super_admin_seeder_creates_super_admin_user()
     {
-        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->first();
+        /** @var User $superAdmin */
+        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->firstOrFail();
         $this->assertNotNull($superAdmin);
         $this->assertTrue($superAdmin->isSuperAdmin());
         $this->assertTrue($superAdmin->isAdmin());
@@ -49,7 +50,8 @@ class SuperAdminSystemTest extends TestCase
     {
         $this->seed(\Database\Seeders\DatabaseSeeder::class);
 
-        $adminUser = User::where('email', 'jmbautista0228@gmail.com')->first();
+        /** @var User $adminUser */
+        $adminUser = User::where('email', 'jmbautista0228@gmail.com')->firstOrFail();
         $this->assertNotNull($adminUser);
         $this->assertEquals('admin', $adminUser->role);
         $this->assertFalse($adminUser->isSuperAdmin());
@@ -59,7 +61,8 @@ class SuperAdminSystemTest extends TestCase
         $response->assertStatus(403);
 
         // Separate Super Admin account must exist
-        $superAdminUser = User::where('email', 'superadmin@makidesu')->first();
+        /** @var User $superAdminUser */
+        $superAdminUser = User::where('email', 'superadmin@makidesu')->firstOrFail();
         $this->assertNotNull($superAdminUser);
         $this->assertEquals('super_admin', $superAdminUser->role);
         $this->assertTrue($superAdminUser->isSuperAdmin());
@@ -71,7 +74,7 @@ class SuperAdminSystemTest extends TestCase
 
     public function test_super_admin_can_access_super_admin_dashboard()
     {
-        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->first();
+        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->firstOrFail();
 
         $response = $this->actingAs($superAdmin)->get('/super-admin');
         $response->assertStatus(200);
@@ -89,7 +92,7 @@ class SuperAdminSystemTest extends TestCase
 
     public function test_maintenance_mode_toggle_and_public_503_response()
     {
-        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->first();
+        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->firstOrFail();
 
         // Enable Maintenance Mode
         $toggleResponse = $this->actingAs($superAdmin)->postJson('/super-admin/maintenance/toggle', [
@@ -126,7 +129,7 @@ class SuperAdminSystemTest extends TestCase
 
     public function test_feature_flag_toggle_records_audit_log()
     {
-        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->first();
+        $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->firstOrFail();
         $flag = FeatureFlag::first();
 
         $response = $this->actingAs($superAdmin)->postJson("/super-admin/features/{$flag->id}/toggle", [

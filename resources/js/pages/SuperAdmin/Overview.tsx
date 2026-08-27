@@ -5,8 +5,6 @@ import {
     ArrowUpRight,
     FileText,
     Flag,
-    GitCommit,
-    LayoutDashboard,
     Server,
     Shield,
     Wrench,
