@@ -90,7 +90,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
 
     const { auth } = usePage().props as unknown as { auth?: { user?: { id?: number; role?: string; branch_id?: number } } };
     const userRole = (auth?.user?.role || '').toLowerCase();
-    const activeBranchId = (filters.branch_id && filters.branch_id !== 'all') ? filters.branch_id : auth?.user?.branch_id;
+    const isFilteredBranch = Boolean(filters.branch_id && filters.branch_id !== 'all');
+    const branchFilterId = isFilteredBranch ? filters.branch_id : null;
 
     // Local reactive available riders state
     const [localAvailableRiders, setLocalAvailableRiders] = useState<Rider[]>(availableRiders);
@@ -99,17 +100,31 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
         setLocalAvailableRiders(availableRiders);
     }, [availableRiders]);
 
-    // Real-time updates via Pusher / Reverb (Strict Branch Isolated)
+    // Real-time updates via Pusher / Reverb (Strict Branch Isolated + Admin Global)
     useEffect(() => {
         if (!echo) return;
 
-        const targetChannelName = userRole === 'admin' 
-            ? (activeBranchId ? `branch.${activeBranchId}.orders` : 'admin.orders')
-            : (activeBranchId ? `branch.${activeBranchId}.orders` : null);
+        // Determine channels to subscribe to
+        const channelsToSubscribe: string[] = [];
+        if (userRole === 'admin') {
+            channelsToSubscribe.push('admin.orders');
+            if (branchFilterId) {
+                channelsToSubscribe.push(`branch.${branchFilterId}.orders`);
+            }
+        } else if (auth?.user?.branch_id) {
+            channelsToSubscribe.push(`branch.${auth.user.branch_id}.orders`);
+        }
 
-        if (!targetChannelName) return;
+        if (channelsToSubscribe.length === 0) return;
 
-        const channel = echo.private(targetChannelName);
+        const handleNewOrder = (e: unknown) => {
+            console.log('Real-time new order received in Deliveries page:', e);
+            router.reload({
+                only: ['deliveries', 'stats', 'availableRiders', 'allRiders'],
+                preserveScroll: true,
+                preserveState: true,
+            } as Parameters<typeof router.reload>[0]);
+        };
 
         const handleStatusUpdate = (e: {
             delivery_id?: number;
@@ -145,11 +160,31 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                         return item;
                     })
                 );
+
+                setSelectedDelivery(prev => {
+                    if (!prev) return null;
+                    const matches = (e.delivery_id && prev.id === e.delivery_id) ||
+                                    (e.order_id && prev.order_id === e.order_id) ||
+                                    (e.order_id && prev.sale_id === e.order_id);
+                    if (matches && e.status) {
+                        return {
+                            ...prev,
+                            status: e.status,
+                            status_label: e.status_label || e.status.replace('_', ' '),
+                            rider_id: e.rider_id !== undefined ? e.rider_id : prev.rider_id,
+                            rider: e.rider_name ? ({ ...prev.rider, id: e.rider_id, name: e.rider_name } as unknown as Rider) : prev.rider,
+                            proof_of_delivery: e.proof_of_delivery_url || prev.proof_of_delivery,
+                            proof_of_delivery_url: e.proof_of_delivery_url || prev.proof_of_delivery_url,
+                            updated_at: e.timestamp || new Date().toISOString(),
+                        };
+                    }
+                    return prev;
+                });
             }
 
             // 2. Refresh Inertia props without full page reload
             router.reload({
-                only: ['deliveries', 'stats'],
+                only: ['deliveries', 'stats', 'availableRiders', 'allRiders'],
                 preserveScroll: true,
                 preserveState: true,
             } as Parameters<typeof router.reload>[0]);
@@ -216,15 +251,30 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             } as Parameters<typeof router.reload>[0]);
         };
 
-        channel.listen('.order-status-updated', handleStatusUpdate)
-               .listen('OrderStatusUpdated', handleStatusUpdate)
-               .listen('.rider.status.updated', handleRiderUpdate)
-               .listen('RiderStatusUpdated', handleRiderUpdate);
+        const activeChannels = channelsToSubscribe.map(chName => {
+            const ch = echo!.private(chName);
+            ch.listen('.OrderCreated', handleNewOrder)
+              .listen('OrderCreated', handleNewOrder)
+              .listen('App\\Events\\OrderCreated', handleNewOrder)
+              .listen('.order-status-updated', handleStatusUpdate)
+              .listen('OrderStatusUpdated', handleStatusUpdate)
+              .listen('App\\Events\\OrderStatusUpdated', handleStatusUpdate)
+              .listen('.rider.status.updated', handleRiderUpdate)
+              .listen('RiderStatusUpdated', handleRiderUpdate)
+              .listen('App\\Events\\RiderStatusUpdated', handleRiderUpdate)
+              .listen('.CancellationRequested', handleStatusUpdate)
+              .listen('CancellationRequested', handleStatusUpdate)
+              .listen('.CancellationResolved', handleStatusUpdate)
+              .listen('CancellationResolved', handleStatusUpdate);
+            return chName;
+        });
 
         return () => {
-            echo?.leave(targetChannelName);
+            activeChannels.forEach(chName => {
+                echo?.leave(chName);
+            });
         };
-    }, [userRole, activeBranchId]);
+    }, [userRole, branchFilterId, auth?.user?.branch_id]);
 
     // Auto-select delivery sheet if navigated from high-priority order toast
     useEffect(() => {

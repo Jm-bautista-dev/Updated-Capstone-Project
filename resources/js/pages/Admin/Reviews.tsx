@@ -6,8 +6,11 @@ import {
     Calendar,
     Check,
     CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
     Eye,
     EyeOff,
+    Loader2,
     MessageSquare,
     Package,
     RefreshCw,
@@ -18,7 +21,7 @@ import {
     UserCheck,
     X,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
@@ -97,7 +100,10 @@ interface Props {
         links: Array<{ url: string | null; label: string; active: boolean }>;
         current_page: number;
         last_page: number;
+        per_page: number;
         total: number;
+        from?: number | null;
+        to?: number | null;
     };
     stats: ReviewStats;
     selectedProductId: number | null;
@@ -110,9 +116,27 @@ interface Props {
         search?: string;
         date_from?: string;
         date_to?: string;
+        per_page?: number;
+        page?: number;
     };
     branches: Array<{ id: number; name: string }>;
     isAdmin: boolean;
+}
+
+function getPaginationPages(currentPage: number, lastPage: number): (number | '...')[] {
+    if (lastPage <= 7) {
+        return Array.from({ length: lastPage }, (_, i) => i + 1);
+    }
+
+    if (currentPage <= 4) {
+        return [1, 2, 3, 4, 5, '...', lastPage];
+    }
+
+    if (currentPage >= lastPage - 3) {
+        return [1, '...', lastPage - 4, lastPage - 3, lastPage - 2, lastPage - 1, lastPage];
+    }
+
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', lastPage];
 }
 
 export default function Reviews({
@@ -139,6 +163,10 @@ export default function Reviews({
     const [seenFilter, setSeenFilter] = useState(filters.seen_status || 'all');
     const [branchFilter, setBranchFilter] = useState(filters.branch_id || 'all');
 
+    // Pagination & Loading States
+    const [isPageLoading, setIsPageLoading] = useState(false);
+    const reviewsListRef = useRef<HTMLDivElement>(null);
+
     // Modals
     const [activeReviewDetail, setActiveReviewDetail] = useState<ReviewItem | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -158,7 +186,42 @@ export default function Reviews({
         }
     }
 
-    // Apply Filter
+    // Pagination handler
+    const handlePageChange = (targetPage: number) => {
+        if (targetPage < 1 || targetPage > reviews.last_page || targetPage === reviews.current_page || isPageLoading) {
+            return;
+        }
+
+        setIsPageLoading(true);
+
+        const params = {
+            search,
+            status: statusFilter,
+            rating: ratingFilter,
+            seen_status: seenFilter,
+            branch_id: branchFilter,
+            product_id: selectedProduct ? String(selectedProduct.id) : 'all',
+            page: targetPage,
+        };
+
+        router.get('/admin/reviews', params, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['reviews'],
+            onSuccess: () => {
+                setIsPageLoading(false);
+                reviewsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            },
+            onError: () => {
+                setIsPageLoading(false);
+            },
+            onFinish: () => {
+                setIsPageLoading(false);
+            },
+        });
+    };
+
+    // Apply Filter (Resets to page 1)
     const applyFilter = (key: string, val: string) => {
         const newFilters = {
             search,
@@ -168,6 +231,7 @@ export default function Reviews({
             branch_id: branchFilter,
             product_id: selectedProduct ? String(selectedProduct.id) : 'all',
             [key]: val,
+            page: 1,
         };
 
         router.get('/admin/reviews', newFilters, {
@@ -189,10 +253,10 @@ export default function Reviews({
         setSeenFilter('all');
         setBranchFilter('all');
         setSelectedProduct(null);
-        router.get('/admin/reviews', {}, { replace: true });
+        router.get('/admin/reviews', { page: 1 }, { replace: true });
     };
 
-    // Selecting a Product
+    // Selecting a Product (Resets to page 1)
     const handleSelectProduct = (product: ProductItem | null) => {
         setSelectedProduct(product);
         const pid = product ? String(product.id) : 'all';
@@ -206,6 +270,7 @@ export default function Reviews({
                 seen_status: seenFilter,
                 branch_id: branchFilter,
                 product_id: pid,
+                page: 1,
             },
             {
                 preserveState: true,
@@ -743,7 +808,7 @@ export default function Reviews({
                     </div>
 
                     {/* ── RIGHT COLUMN: REVIEWS DETAIL PANEL ──────────────────── */}
-                    <div className="lg:col-span-7 space-y-4">
+                    <div ref={reviewsListRef} className="lg:col-span-7 space-y-4">
                         {/* Selected Product Summary Header Card */}
                         {selectedProduct ? (
                             <Card className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-xl bg-linear-to-br from-white via-[#FFF5F7]/30 to-white dark:from-[#121218] dark:via-[#181824] dark:to-[#121218] backdrop-blur-xl p-5 relative overflow-hidden">
@@ -1053,23 +1118,95 @@ export default function Reviews({
                                 ))
                             )}
 
-                            {/* Pagination */}
-                            {reviews.links && reviews.links.length > 3 && (
-                                <div className="flex items-center justify-center gap-1.5 pt-4">
-                                    {reviews.links.map((link, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => link.url && router.visit(link.url)}
-                                            disabled={!link.url}
-                                            className={cn(
-                                                'px-3 py-1 rounded-xl text-xs font-bold transition-all',
-                                                link.active
-                                                    ? 'bg-[#E75480] text-white shadow-xs'
-                                                    : 'bg-white dark:bg-[#181824] text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-800'
-                                            )}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ))}
+                            {/* Professional Server-Side Pagination Footer */}
+                            {reviews.total > 0 && (
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 pb-2 border-t border-[#F8C8DC]/30 dark:border-white/10">
+                                    {/* Showing X to Y of Z reviews */}
+                                    <div className="flex items-center gap-1.5 text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                                        <span>Showing</span>
+                                        <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {reviews.from ?? ((reviews.current_page - 1) * (reviews.per_page || 10) + 1)}
+                                        </span>
+                                        <span>to</span>
+                                        <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {reviews.to ?? Math.min(reviews.current_page * (reviews.per_page || 10), reviews.total)}
+                                        </span>
+                                        <span>of</span>
+                                        <span className="font-mono font-black text-[#E75480] dark:text-[#FF4F81]">
+                                            {reviews.total}
+                                        </span>
+                                        <span>reviews</span>
+                                        {isPageLoading && (
+                                            <Loader2 className="size-3.5 animate-spin text-[#E75480] ml-1.5 inline" />
+                                        )}
+                                    </div>
+
+                                    {/* Controls: Prev, Numbers, Next */}
+                                    {reviews.last_page > 1 && (
+                                        <div className="flex items-center gap-1.5 select-none">
+                                            {/* Previous Page Button */}
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handlePageChange(reviews.current_page - 1)}
+                                                disabled={reviews.current_page <= 1 || isPageLoading}
+                                                className="h-9 px-3 rounded-2xl text-xs font-bold gap-1 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                            >
+                                                <ChevronLeft className="size-4" />
+                                                <span className="hidden sm:inline">Prev</span>
+                                            </Button>
+
+                                            {/* Numbered Page Buttons */}
+                                            {getPaginationPages(reviews.current_page, reviews.last_page).map((item, idx) => {
+                                                if (item === '...') {
+                                                    return (
+                                                        <span
+                                                            key={`dots-${idx}`}
+                                                            className="px-2 py-1 text-xs text-slate-400 font-bold"
+                                                        >
+                                                            ...
+                                                        </span>
+                                                    );
+                                                }
+
+                                                const pageNum = item as number;
+                                                const isActive = pageNum === reviews.current_page;
+
+                                                return (
+                                                    <Button
+                                                        key={pageNum}
+                                                        type="button"
+                                                        size="sm"
+                                                        variant={isActive ? 'default' : 'outline'}
+                                                        onClick={() => handlePageChange(pageNum)}
+                                                        disabled={isPageLoading}
+                                                        className={cn(
+                                                            "size-9 p-0 rounded-2xl text-xs font-mono font-black transition-all cursor-pointer",
+                                                            isActive
+                                                                ? "bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white shadow-md shadow-[#E75480]/20 hover:from-[#d64370] hover:to-[#eb3b6f] border-0 scale-105"
+                                                                : "border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-white/5"
+                                                        )}
+                                                    >
+                                                        {pageNum}
+                                                    </Button>
+                                                );
+                                            })}
+
+                                            {/* Next Page Button */}
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handlePageChange(reviews.current_page + 1)}
+                                                disabled={reviews.current_page >= reviews.last_page || isPageLoading}
+                                                className="h-9 px-3 rounded-2xl text-xs font-bold gap-1 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+                                            >
+                                                <span className="hidden sm:inline">Next</span>
+                                                <ChevronRight className="size-4" />
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -36,12 +36,13 @@ class ReviewController extends Controller
         $branchFilter = $isAdmin ? $request->input('branch_id', 'all') : ($userBranchId ? (string) $userBranchId : 'all');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+        $perPage = max(1, min(100, (int) $request->input('per_page', 10)));
 
         // 1. Master Products List with review aggregations
         $productList = $this->buildProductList($userBranchId, $search, $branchFilter, $isAdmin);
 
-        // 2. Filtered Reviews List
-        $reviews = $this->buildFilteredReviews($selectedProductId, $userBranchId, $ratingFilter, $statusFilter, $seenFilter, $branchFilter, $dateFrom, $dateTo, $search);
+        // 2. Filtered Reviews List (10 per page server-side paginated)
+        $reviews = $this->buildFilteredReviews($selectedProductId, $userBranchId, $ratingFilter, $statusFilter, $seenFilter, $branchFilter, $dateFrom, $dateTo, $search, $perPage);
 
         // 3. System-wide Overall Statistics
         $stats = $this->buildOverallStats($userBranchId, $branchFilter, $isAdmin, $productList->count());
@@ -60,6 +61,7 @@ class ReviewController extends Controller
                 'search'      => $search,
                 'date_from'   => $dateFrom,
                 'date_to'     => $dateTo,
+                'per_page'    => $perPage,
             ],
             'branches'           => $isAdmin ? Branch::orderBy('name')->get(['id', 'name']) : Branch::where('id', $userBranchId)->get(['id', 'name']),
             'isAdmin'            => $isAdmin,
@@ -147,7 +149,8 @@ class ReviewController extends Controller
         string $branchFilter,
         ?string $dateFrom,
         ?string $dateTo,
-        string $search
+        string $search,
+        int $perPage = 10
     ) {
         $reviewsQuery = ProductReview::with([
             'user:id,name,email',
@@ -202,10 +205,14 @@ class ReviewController extends Controller
             });
         }
 
-        $reviews = $reviewsQuery->latest()->paginate(20)->withQueryString();
+        $reviews = $reviewsQuery->latest()->paginate($perPage)->withQueryString();
 
         $reviews->getCollection()->transform(function ($review) {
             $orderNum = $review->order?->order_number ?? ($review->order_id ? "ORD-{$review->order_id}" : null);
+            $productImg = $review->product?->image_path
+                ? \App\Utils\ImageHelper::resolveUrl($review->product->image_path, 'products')
+                : null;
+
             return [
                 'id'                   => $review->id,
                 'user_id'              => $review->user_id,
@@ -223,7 +230,11 @@ class ReviewController extends Controller
                 'admin_responded_at'   => $review->admin_responded_at ? $review->admin_responded_at->toIso8601String() : null,
                 'created_at'           => $review->created_at ? $review->created_at->toIso8601String() : null,
                 'user'                 => $review->user ? ['id' => $review->user->id, 'name' => $review->user->name, 'email' => $review->user->email] : null,
-                'product'              => $review->product ? ['id' => $review->product->id, 'name' => $review->product->name, 'image_path' => $review->product->image_path] : null,
+                'product'              => $review->product ? [
+                    'id'         => $review->product->id,
+                    'name'       => $review->product->name,
+                    'image_path' => $productImg,
+                ] : null,
                 'branch'               => $review->branch ? ['id' => $review->branch->id, 'name' => $review->branch->name] : null,
                 'responder'            => $review->responder ? ['id' => $review->responder->id, 'name' => $review->responder->name] : null,
                 'seen_by'              => $review->seenBy ? ['id' => $review->seenBy->id, 'name' => $review->seenBy->name] : null,

@@ -80,7 +80,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::updateStatus
- * @see app/Http/Controllers/Admin/ReviewController.php:321
+ * @see app/Http/Controllers/Admin/ReviewController.php:332
  * @route '/admin/reviews/{review}/status'
  */
 export const updateStatus = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -95,7 +95,7 @@ updateStatus.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::updateStatus
- * @see app/Http/Controllers/Admin/ReviewController.php:321
+ * @see app/Http/Controllers/Admin/ReviewController.php:332
  * @route '/admin/reviews/{review}/status'
  */
 updateStatus.url = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -128,7 +128,7 @@ updateStatus.url = (args: { review: number | { id: number } } | [review: number 
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::updateStatus
- * @see app/Http/Controllers/Admin/ReviewController.php:321
+ * @see app/Http/Controllers/Admin/ReviewController.php:332
  * @route '/admin/reviews/{review}/status'
  */
 updateStatus.put = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -138,7 +138,7 @@ updateStatus.put = (args: { review: number | { id: number } } | [review: number 
 
     /**
 * @see \App\Http\Controllers\Admin\ReviewController::updateStatus
- * @see app/Http/Controllers/Admin/ReviewController.php:321
+ * @see app/Http/Controllers/Admin/ReviewController.php:332
  * @route '/admin/reviews/{review}/status'
  */
     const updateStatusForm = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -153,7 +153,7 @@ updateStatus.put = (args: { review: number | { id: number } } | [review: number 
 
             /**
 * @see \App\Http\Controllers\Admin\ReviewController::updateStatus
- * @see app/Http/Controllers/Admin/ReviewController.php:321
+ * @see app/Http/Controllers/Admin/ReviewController.php:332
  * @route '/admin/reviews/{review}/status'
  */
         updateStatusForm.put = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -169,7 +169,7 @@ updateStatus.put = (args: { review: number | { id: number } } | [review: number 
     updateStatus.form = updateStatusForm
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::respond
- * @see app/Http/Controllers/Admin/ReviewController.php:340
+ * @see app/Http/Controllers/Admin/ReviewController.php:351
  * @route '/admin/reviews/{review}/respond'
  */
 export const respond = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -184,7 +184,7 @@ respond.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::respond
- * @see app/Http/Controllers/Admin/ReviewController.php:340
+ * @see app/Http/Controllers/Admin/ReviewController.php:351
  * @route '/admin/reviews/{review}/respond'
  */
 respond.url = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -217,7 +217,7 @@ respond.url = (args: { review: number | { id: number } } | [review: number | { i
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::respond
- * @see app/Http/Controllers/Admin/ReviewController.php:340
+ * @see app/Http/Controllers/Admin/ReviewController.php:351
  * @route '/admin/reviews/{review}/respond'
  */
 respond.post = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -227,7 +227,7 @@ respond.post = (args: { review: number | { id: number } } | [review: number | { 
 
     /**
 * @see \App\Http\Controllers\Admin\ReviewController::respond
- * @see app/Http/Controllers/Admin/ReviewController.php:340
+ * @see app/Http/Controllers/Admin/ReviewController.php:351
  * @route '/admin/reviews/{review}/respond'
  */
     const respondForm = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -237,7 +237,7 @@ respond.post = (args: { review: number | { id: number } } | [review: number | { 
 
             /**
 * @see \App\Http\Controllers\Admin\ReviewController::respond
- * @see app/Http/Controllers/Admin/ReviewController.php:340
+ * @see app/Http/Controllers/Admin/ReviewController.php:351
  * @route '/admin/reviews/{review}/respond'
  */
         respondForm.post = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -248,7 +248,7 @@ respond.post = (args: { review: number | { id: number } } | [review: number | { 
     respond.form = respondForm
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:294
+ * @see app/Http/Controllers/Admin/ReviewController.php:305
  * @route '/admin/reviews/{review}/mark-seen'
  */
 export const markSeen = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -263,7 +263,7 @@ markSeen.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:294
+ * @see app/Http/Controllers/Admin/ReviewController.php:305
  * @route '/admin/reviews/{review}/mark-seen'
  */
 markSeen.url = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -296,7 +296,7 @@ markSeen.url = (args: { review: number | { id: number } } | [review: number | { 
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:294
+ * @see app/Http/Controllers/Admin/ReviewController.php:305
  * @route '/admin/reviews/{review}/mark-seen'
  */
 markSeen.post = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -306,7 +306,7 @@ markSeen.post = (args: { review: number | { id: number } } | [review: number | {
 
     /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:294
+ * @see app/Http/Controllers/Admin/ReviewController.php:305
  * @route '/admin/reviews/{review}/mark-seen'
  */
     const markSeenForm = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -316,7 +316,7 @@ markSeen.post = (args: { review: number | { id: number } } | [review: number | {
 
             /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:294
+ * @see app/Http/Controllers/Admin/ReviewController.php:305
  * @route '/admin/reviews/{review}/mark-seen'
  */
         markSeenForm.post = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -327,7 +327,7 @@ markSeen.post = (args: { review: number | { id: number } } | [review: number | {
     markSeen.form = markSeenForm
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::destroy
- * @see app/Http/Controllers/Admin/ReviewController.php:363
+ * @see app/Http/Controllers/Admin/ReviewController.php:374
  * @route '/admin/reviews/{review}'
  */
 export const destroy = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -342,7 +342,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::destroy
- * @see app/Http/Controllers/Admin/ReviewController.php:363
+ * @see app/Http/Controllers/Admin/ReviewController.php:374
  * @route '/admin/reviews/{review}'
  */
 destroy.url = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -375,7 +375,7 @@ destroy.url = (args: { review: number | { id: number } } | [review: number | { i
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::destroy
- * @see app/Http/Controllers/Admin/ReviewController.php:363
+ * @see app/Http/Controllers/Admin/ReviewController.php:374
  * @route '/admin/reviews/{review}'
  */
 destroy.delete = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -385,7 +385,7 @@ destroy.delete = (args: { review: number | { id: number } } | [review: number | 
 
     /**
 * @see \App\Http\Controllers\Admin\ReviewController::destroy
- * @see app/Http/Controllers/Admin/ReviewController.php:363
+ * @see app/Http/Controllers/Admin/ReviewController.php:374
  * @route '/admin/reviews/{review}'
  */
     const destroyForm = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -400,7 +400,7 @@ destroy.delete = (args: { review: number | { id: number } } | [review: number | 
 
             /**
 * @see \App\Http\Controllers\Admin\ReviewController::destroy
- * @see app/Http/Controllers/Admin/ReviewController.php:363
+ * @see app/Http/Controllers/Admin/ReviewController.php:374
  * @route '/admin/reviews/{review}'
  */
         destroyForm.delete = (args: { review: number | { id: number } } | [review: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

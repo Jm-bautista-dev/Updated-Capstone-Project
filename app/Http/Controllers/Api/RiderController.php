@@ -324,6 +324,7 @@ class RiderController extends Controller
                 $rider->update(['status' => 'busy']);
 
                 event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
@@ -407,6 +408,7 @@ class RiderController extends Controller
                 ]);
 
                 event(new OrderStatusUpdated($delivery->fresh(['order.items.product', 'order.branch']), 'rider'));
+                event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
@@ -494,6 +496,7 @@ class RiderController extends Controller
                 $delivery->update(['status' => 'in_transit']);
 
                 event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
@@ -593,6 +596,7 @@ class RiderController extends Controller
                 );
 
                 event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
