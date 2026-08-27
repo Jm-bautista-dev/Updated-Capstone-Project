@@ -282,12 +282,12 @@ export const store = {
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-const show36a43de71b51ebde23c4a4c15c636cee = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
+export const show = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show.url(args, options),
     method: 'get',
 })
 
-show36a43de71b51ebde23c4a4c15c636cee.definition = {
+show.definition = {
     methods: ["get","head"],
     url: '/api/v1/orders/{id}',
 } satisfies RouteDefinition<["get","head"]>
@@ -297,7 +297,7 @@ show36a43de71b51ebde23c4a4c15c636cee.definition = {
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-show36a43de71b51ebde23c4a4c15c636cee.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+show.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { id: args }
     }
@@ -315,7 +315,7 @@ show36a43de71b51ebde23c4a4c15c636cee.url = (args: { id: string | number } | [id:
                         id: args.id,
                 }
 
-    return show36a43de71b51ebde23c4a4c15c636cee.definition.url
+    return show.definition.url
             .replace('{id}', parsedArgs.id.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
@@ -325,8 +325,8 @@ show36a43de71b51ebde23c4a4c15c636cee.url = (args: { id: string | number } | [id:
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-show36a43de71b51ebde23c4a4c15c636cee.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
+show.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show.url(args, options),
     method: 'get',
 })
 /**
@@ -334,8 +334,8 @@ show36a43de71b51ebde23c4a4c15c636cee.get = (args: { id: string | number } | [id:
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-show36a43de71b51ebde23c4a4c15c636cee.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
+show.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: show.url(args, options),
     method: 'head',
 })
 
@@ -344,8 +344,8 @@ show36a43de71b51ebde23c4a4c15c636cee.head = (args: { id: string | number } | [id
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-    const show36a43de71b51ebde23c4a4c15c636ceeForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
+    const showForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: show.url(args, options),
         method: 'get',
     })
 
@@ -354,8 +354,8 @@ show36a43de71b51ebde23c4a4c15c636cee.head = (args: { id: string | number } | [id
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-        show36a43de71b51ebde23c4a4c15c636ceeForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: show36a43de71b51ebde23c4a4c15c636cee.url(args, options),
+        showForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show.url(args, options),
             method: 'get',
         })
             /**
@@ -363,8 +363,8 @@ show36a43de71b51ebde23c4a4c15c636cee.head = (args: { id: string | number } | [id
  * @see app/Http/Controllers/Api/ApiOrderController.php:274
  * @route '/api/v1/orders/{id}'
  */
-        show36a43de71b51ebde23c4a4c15c636ceeForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: show36a43de71b51ebde23c4a4c15c636cee.url(args, {
+        showForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show.url(args, {
                         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
                             _method: 'HEAD',
                             ...(options?.query ?? options?.mergeQuery ?? {}),
@@ -373,110 +373,7 @@ show36a43de71b51ebde23c4a4c15c636cee.head = (args: { id: string | number } | [id
             method: 'get',
         })
     
-    show36a43de71b51ebde23c4a4c15c636cee.form = show36a43de71b51ebde23c4a4c15c636ceeForm
-    /**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-const show5b0a1bd37c56e55e3b005b31dc3ece43 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
-    method: 'get',
-})
-
-show5b0a1bd37c56e55e3b005b31dc3ece43.definition = {
-    methods: ["get","head"],
-    url: '/api/v1/customer/orders/{id}',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-show5b0a1bd37c56e55e3b005b31dc3ece43.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { id: args }
-    }
-
-    
-    if (Array.isArray(args)) {
-        args = {
-                    id: args[0],
-                }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-                        id: args.id,
-                }
-
-    return show5b0a1bd37c56e55e3b005b31dc3ece43.definition.url
-            .replace('{id}', parsedArgs.id.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-show5b0a1bd37c56e55e3b005b31dc3ece43.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
-    method: 'get',
-})
-/**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-show5b0a1bd37c56e55e3b005b31dc3ece43.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
-    method: 'head',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-    const show5b0a1bd37c56e55e3b005b31dc3ece43Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
-        method: 'get',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-        show5b0a1bd37c56e55e3b005b31dc3ece43Form.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, options),
-            method: 'get',
-        })
-            /**
-* @see \App\Http\Controllers\Api\ApiOrderController::show
- * @see app/Http/Controllers/Api/ApiOrderController.php:274
- * @route '/api/v1/customer/orders/{id}'
- */
-        show5b0a1bd37c56e55e3b005b31dc3ece43Form.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: show5b0a1bd37c56e55e3b005b31dc3ece43.url(args, {
-                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                            _method: 'HEAD',
-                            ...(options?.query ?? options?.mergeQuery ?? {}),
-                        }
-                    }),
-            method: 'get',
-        })
-    
-    show5b0a1bd37c56e55e3b005b31dc3ece43.form = show5b0a1bd37c56e55e3b005b31dc3ece43Form
-
-export const show = {
-    '/api/v1/orders/{id}': show36a43de71b51ebde23c4a4c15c636cee,
-    '/api/v1/customer/orders/{id}': show5b0a1bd37c56e55e3b005b31dc3ece43,
-}
-
+    show.form = showForm
 /**
 * @see \App\Http\Controllers\Api\ApiOrderController::tracking
  * @see app/Http/Controllers/Api/ApiOrderController.php:368

@@ -105,19 +105,37 @@ class ImageHelper
     /**
      * Copy uploaded image to public/storage if symlink is unavailable/broken (e.g. shared hosting).
      */
+    /**
+     * Copy uploaded image to public/storage if symlink is unavailable/broken (e.g. shared hosting).
+     */
     public static function syncToPublicStorage(?string $imagePath): void
     {
         if (!$imagePath) return;
 
         $normalized = ltrim(str_replace('\\', '/', $imagePath), '/');
-        if (str_starts_with($normalized, 'storage/')) {
+        if (str_starts_with($normalized, 'public/storage/')) {
+            $normalized = substr($normalized, 15);
+        } elseif (str_starts_with($normalized, 'storage/')) {
             $normalized = substr($normalized, 8);
+        } elseif (str_starts_with($normalized, 'public/')) {
+            $normalized = substr($normalized, 7);
         }
 
         $source = storage_path('app/public/' . $normalized);
-        $dest = public_path('storage/' . $normalized);
+        if (!file_exists($source) || !is_file($source)) {
+            return;
+        }
 
-        if (file_exists($source) && is_file($source)) {
+        // Target destinations to ensure accessibility regardless of document root:
+        // 1. public/storage/... (standard Laravel public disk symlink location)
+        // 2. storage/... (Hostinger document root where storage/ is directly under public_html)
+        $targets = array_unique([
+            public_path('storage/' . $normalized),
+            base_path('storage/' . $normalized),
+            base_path('public/storage/' . $normalized),
+        ]);
+
+        foreach ($targets as $dest) {
             self::ensurePublicCopy($normalized, $source, $dest);
         }
     }
@@ -127,7 +145,7 @@ class ImageHelper
      */
     private static function ensurePublicCopy(string $candidate, string $source, string $dest): void
     {
-        if ($source === $dest || file_exists($dest)) {
+        if ($source === $dest) {
             return;
         }
 

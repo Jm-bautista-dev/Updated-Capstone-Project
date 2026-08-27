@@ -19,6 +19,16 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
+    # --- STORAGE FALLBACK FOR HOSTINGER SHARED HOSTING ---
+    RewriteCond %{REQUEST_URI} ^/storage/(.+)
+    RewriteCond %{DOCUMENT_ROOT}/storage/app/public/%1 -f
+    RewriteRule ^storage/(.+) storage/app/public/$1 [L]
+
+    RewriteCond %{REQUEST_URI} ^/storage/(.+)
+    RewriteCond %{DOCUMENT_ROOT}/public/storage/%1 -f
+    RewriteRule ^storage/(.+) public/storage/$1 [L]
+    # ----------------------------------------------------
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

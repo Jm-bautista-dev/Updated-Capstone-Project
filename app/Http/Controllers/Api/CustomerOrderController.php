@@ -58,7 +58,7 @@ class CustomerOrderController extends Controller
                 'status_label'   => $statusLabel,
                 'branch_id'      => $order->branch_id,
                 'branch_name'    => $order->branch?->name ?? 'Maki Store',
-                'subtotal'       => (float) $order->items->sum(fn($i) => $i->line_total),
+                'subtotal'       => (float) $order->items->sum('line_total'),
                 'delivery_fee'   => (float) ($order->delivery?->delivery_fee ?? 0),
                 'total_amount'   => (float) $order->total_amount,
                 'payment_method' => $order->payment_method ?? 'cash',

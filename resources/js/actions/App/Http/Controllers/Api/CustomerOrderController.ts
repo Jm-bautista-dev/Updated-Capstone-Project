@@ -1,5 +1,102 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+export const show = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show.url(args, options),
+    method: 'get',
+})
+
+show.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/customer/orders/{id}',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+show.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return show.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+show.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show.url(args, options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+show.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: show.url(args, options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+    const showForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: show.url(args, options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+        showForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show.url(args, options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::show
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:22
+ * @route '/api/v1/customer/orders/{id}'
+ */
+        showForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: show.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    show.form = showForm
+/**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
  * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
@@ -153,6 +250,80 @@ export const cancel = {
     '/api/v1/customer/orders/{orderId}/cancel': cancelc3d6d94ed50464371b4d50833c4092e0,
 }
 
-const CustomerOrderController = { cancel }
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::checkReorder
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:106
+ * @route '/api/v1/customer/orders/{id}/reorder-check'
+ */
+export const checkReorder = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: checkReorder.url(args, options),
+    method: 'post',
+})
+
+checkReorder.definition = {
+    methods: ["post"],
+    url: '/api/v1/customer/orders/{id}/reorder-check',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::checkReorder
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:106
+ * @route '/api/v1/customer/orders/{id}/reorder-check'
+ */
+checkReorder.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return checkReorder.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::checkReorder
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:106
+ * @route '/api/v1/customer/orders/{id}/reorder-check'
+ */
+checkReorder.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: checkReorder.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::checkReorder
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:106
+ * @route '/api/v1/customer/orders/{id}/reorder-check'
+ */
+    const checkReorderForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: checkReorder.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::checkReorder
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:106
+ * @route '/api/v1/customer/orders/{id}/reorder-check'
+ */
+        checkReorderForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: checkReorder.url(args, options),
+            method: 'post',
+        })
+    
+    checkReorder.form = checkReorderForm
+const CustomerOrderController = { show, cancel, checkReorder }
 
 export default CustomerOrderController
