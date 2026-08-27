@@ -285,9 +285,9 @@ class RiderController extends Controller
                 }
 
                 // Pessimistic lock — prevents two riders accepting the same order simultaneously
-                $delivery = Delivery::with('order')
+                $delivery = Delivery::with(['order', 'sale'])
                     ->where(function ($q) use ($id) {
-                        $q->where('id', $id)->orWhere('order_id', $id);
+                        $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
                     })
                     ->whereNull('rider_id')
                     ->lockForUpdate()
@@ -313,13 +313,21 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => 'Delivery not available'], 404);
                 }
 
-                $order = $delivery->order ?: Order::find($delivery->order_id);
-                if (!$order) {
-                    return response()->json(['success' => false, 'message' => 'Order not found'], 404);
+                $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
+                if ($order) {
+                    // Enforce state machine for mobile order
+                    $order->transitionTo('assigned_to_rider', 'Rider accepted order', null, $rider->id);
+                    $order->update([
+                        'rider_id' => $rider->id,
+                        'status'   => 'assigned_to_rider',
+                    ]);
                 }
 
-                // Enforce state machine
-                $order->transitionTo('assigned_to_rider', 'Rider accepted order', null, $rider->id);
+                if ($delivery->sale) {
+                    $delivery->sale->update([
+                        'status' => 'assigned_to_rider',
+                    ]);
+                }
 
                 // Assign rider to delivery record
                 $delivery->update([
@@ -330,13 +338,14 @@ class RiderController extends Controller
                 // Mark rider busy
                 $rider->update(['status' => 'busy']);
 
-                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
                 event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Order accepted! Please head to the branch for pickup.',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
+                    'delivery' => $delivery,
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -508,9 +517,17 @@ class RiderController extends Controller
                 $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
                 if ($order) {
                     $order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
+                    $order->update(['status' => 'in_transit']);
                 }
 
-                $delivery->update(['status' => 'in_transit']);
+                if ($delivery->sale) {
+                    $delivery->sale->update(['status' => 'in_transit']);
+                }
+
+                $delivery->update([
+                    'status'     => 'in_transit',
+                    'transit_at' => now(),
+                ]);
 
                 event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
                 event(new RiderStatusUpdated($rider->fresh(['branch'])));
@@ -602,10 +619,16 @@ class RiderController extends Controller
                 $delivery->update($updateData);
 
                 // Free up the rider ONLY if all active deliveries are completed
-                if ($rider->activeDeliveriesCount() === 0) {
-                    $rider->update(['status' => 'available']);
+                $remainingActive = Delivery::where('rider_id', $rider->id)
+                    ->whereNotIn('status', ['delivered', 'cancelled'])
+                    ->count();
+
+                if ($remainingActive === 0) {
+                    Rider::where('id', $rider->id)->update(['status' => 'available']);
+                    $rider->status = 'available';
                 } else {
-                    $rider->update(['status' => 'busy']);
+                    Rider::where('id', $rider->id)->update(['status' => 'busy']);
+                    $rider->status = 'busy';
                 }
 
                 // ── POST-DELIVERY HOOK ─────────────────────────────────────

@@ -474,4 +474,173 @@ class UnifiedWebDeliverySystemTest extends TestCase
 
         $this->assertNull($delivery2->fresh()->rider_id);
     }
+
+    public function test_pos_walk_in_delivery_rider_full_lifecycle_pickup_transit_deliver(): void
+    {
+        Event::fake([OrderStatusUpdated::class, RiderStatusUpdated::class]);
+
+        $this->actingAs($this->cashier);
+
+        CashierShift::create([
+            'cashier_id'      => $this->cashier->id,
+            'branch_id'       => $this->branchVic->id,
+            'opening_balance' => 1000,
+            'status'          => 'open',
+            'opened_at'       => now(),
+        ]);
+
+        // 1. Cashier creates POS walk-in delivery
+        $payload = [
+            'type'           => 'delivery',
+            'items'          => [
+                ['id' => $this->product->id, 'quantity' => 2]
+            ],
+            'total'          => 300.00,
+            'payment_method' => 'cash',
+            'paid_amount'    => 500.00,
+            'change_amount'  => 200.00,
+            'delivery_info'  => [
+                'customer_name'    => 'Walk-in Customer John',
+                'customer_phone'   => '09187654321',
+                'customer_address' => 'Victoria Residenza Blk 4',
+                'delivery_type'    => 'internal',
+                'rider_id'         => $this->riderAvailable->id,
+                'distance_km'      => 3.5,
+                'delivery_fee'     => 50.00,
+            ]
+        ];
+
+        $response = $this->post('/pos', $payload);
+        $response->assertSessionHas('success');
+
+        $delivery = Delivery::where('customer_name', 'Walk-in Customer John')->first();
+        $this->assertNotNull($delivery);
+        $this->assertNotNull($delivery->sale_id);
+        $this->assertNull($delivery->order_id);
+        $this->assertEquals('assigned_to_rider', $delivery->status);
+        $this->assertEquals($this->riderAvailable->id, $delivery->rider_id);
+
+        // 2. Rider queries active orders
+        Sanctum::actingAs($this->riderAvailable);
+        $myOrdersRes = $this->getJson('/api/v1/rider/my-orders');
+        $myOrdersRes->assertOk()->assertJsonPath('success', true);
+        $this->assertTrue(
+            collect($myOrdersRes->json('data'))->contains('delivery_id', $delivery->id)
+        );
+
+        // 3. Rider executes PICK UP
+        $pickupRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
+        $pickupRes->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'picked_up');
+
+        $this->assertEquals('picked_up', $delivery->fresh()->status);
+        $this->assertEquals('picked_up', $delivery->fresh()->sale->status);
+
+        // 4. Rider executes START TRANSIT
+        $transitRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/transit");
+        $transitRes->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'in_transit');
+
+        $this->assertEquals('in_transit', $delivery->fresh()->status);
+        $this->assertEquals('in_transit', $delivery->fresh()->sale->status);
+
+        // 5. Rider executes DELIVER (complete)
+        $deliverRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/deliver", [
+            'notes' => 'Handed directly to John at gate',
+        ]);
+        $deliverRes->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertEquals('delivered', $delivery->fresh()->status);
+        $this->assertEquals('delivered', $delivery->fresh()->sale->status);
+        $this->assertNotNull($delivery->fresh()->delivered_at);
+        $this->assertEquals('available', $this->riderAvailable->fresh()->status);
+    }
+
+    public function test_pos_walk_in_delivery_wrong_rider_cannot_pickup(): void
+    {
+        $this->actingAs($this->cashier);
+
+        CashierShift::create([
+            'cashier_id'      => $this->cashier->id,
+            'branch_id'       => $this->branchVic->id,
+            'opening_balance' => 1000,
+            'status'          => 'open',
+            'opened_at'       => now(),
+        ]);
+
+        $payload = [
+            'type'           => 'delivery',
+            'items'          => [['id' => $this->product->id, 'quantity' => 1]],
+            'total'          => 150.00,
+            'payment_method' => 'cash',
+            'paid_amount'    => 200.00,
+            'change_amount'  => 50.00,
+            'delivery_info'  => [
+                'customer_name'    => 'Walk-in Client',
+                'customer_phone'   => '09123456780',
+                'customer_address' => 'Victoria Road',
+                'delivery_type'    => 'internal',
+                'rider_id'         => $this->riderAvailable->id,
+            ]
+        ];
+
+        $this->post('/pos', $payload);
+        $delivery = Delivery::where('customer_name', 'Walk-in Client')->first();
+
+        $riderOther = Rider::create([
+            'name'           => 'Rider Other Tom',
+            'email'          => 'tom.rider@milktea.test',
+            'phone'          => '09179998877',
+            'password'       => Hash::make('password'),
+            'branch_id'      => $this->branchVic->id,
+            'status'         => 'available',
+            'is_active'      => true,
+            'last_active_at' => now(),
+        ]);
+
+        // Rider Tom attempts to pickup Bob's assigned delivery
+        Sanctum::actingAs($riderOther);
+        $res = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
+        $res->assertStatus(404); // Not assigned to Tom
+    }
+
+    public function test_pos_walk_in_delivery_rider_with_in_transit_route_cannot_pickup_another(): void
+    {
+        // Give Bob an active in-transit delivery
+        Delivery::create([
+            'delivery_type'    => 'internal',
+            'rider_id'         => $this->riderAvailable->id,
+            'customer_name'    => 'Existing In Transit',
+            'customer_address' => 'Victoria Road',
+            'status'           => Delivery::STATUS_OUT_FOR_DELIVERY,
+        ]);
+
+        // Create new POS delivery assigned to Bob
+        $sale = Sale::create([
+            'branch_id'      => $this->branchVic->id,
+            'user_id'        => $this->cashier->id,
+            'order_number'   => 'POS-WALKIN-2',
+            'type'           => 'delivery',
+            'total'          => 150.00,
+            'paid_amount'    => 150.00,
+            'payment_method' => 'cash',
+            'status'         => 'completed',
+        ]);
+
+        $newDelivery = Delivery::create([
+            'sale_id'          => $sale->id,
+            'rider_id'         => $this->riderAvailable->id,
+            'customer_name'    => 'Second Customer',
+            'customer_address' => 'Victoria Road 2',
+            'status'           => 'assigned_to_rider',
+        ]);
+
+        Sanctum::actingAs($this->riderAvailable);
+        $res = $this->postJson("/api/v1/rider/deliveries/{$newDelivery->id}/pickup");
+        $res->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
 }
