@@ -10,6 +10,7 @@ import UserController from './UserController'
 import RiderController from './RiderController'
 import Rider from './Rider'
 import CancellationRequestController from './CancellationRequestController'
+import PosDeliveryDistanceController from './PosDeliveryDistanceController'
 import Branch from './Branch'
 import ApiOrderController from './ApiOrderController'
 import CustomerOrderController from './CustomerOrderController'
@@ -29,6 +30,7 @@ UserController: Object.assign(UserController, UserController),
 RiderController: Object.assign(RiderController, RiderController),
 Rider: Object.assign(Rider, Rider),
 CancellationRequestController: Object.assign(CancellationRequestController, CancellationRequestController),
+PosDeliveryDistanceController: Object.assign(PosDeliveryDistanceController, PosDeliveryDistanceController),
 Branch: Object.assign(Branch, Branch),
 ApiOrderController: Object.assign(ApiOrderController, ApiOrderController),
 CustomerOrderController: Object.assign(CustomerOrderController, CustomerOrderController),

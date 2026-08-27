@@ -66,11 +66,32 @@ class PosController extends Controller
             ->limit(10)
             ->get();
 
+        $allRiders = [];
         $availableRiders = [];
+
         if ($branchId) {
-            $availableRiders = Rider::where('branch_id', $branchId)
-                ->availableForAssignment()
-                ->get(['id', 'name', 'phone']);
+            $allRiders = Rider::where('branch_id', $branchId)
+                ->get()
+                ->map(function ($rider) {
+                    $inTransit = $rider->hasInTransitDelivery();
+                    $activeCount = $rider->deliveries()
+                        ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit'])
+                        ->count();
+                    $isAssignable = $rider->is_active && $rider->status !== 'offline' && !$inTransit;
+
+                    return [
+                        'id'                      => $rider->id,
+                        'name'                    => $rider->name,
+                        'phone'                   => $rider->phone,
+                        'is_active'               => (bool) $rider->is_active,
+                        'status'                  => $rider->status, // 'available' | 'busy' | 'offline'
+                        'in_transit'              => $inTransit,
+                        'active_deliveries_count' => $activeCount,
+                        'is_assignable'           => $isAssignable,
+                    ];
+                });
+
+            $availableRiders = $allRiders->where('is_assignable', true)->values()->all();
         }
 
         $activeShift = \App\Models\CashierShift::where('cashier_id', Auth::id())
@@ -78,12 +99,13 @@ class PosController extends Controller
             ->first();
 
         return Inertia::render('Pos/Index', [
-            'products' => $products,
-            'categories' => $categories,
-            'recentOrders' => $recentOrders,
-            'branch' => $user->branch,
+            'products'        => $products,
+            'categories'      => $categories,
+            'recentOrders'    => $recentOrders,
+            'branch'          => $user->branch,
             'availableRiders' => $availableRiders,
-            'activeShift' => $activeShift,
+            'allRiders'       => $allRiders,
+            'activeShift'     => $activeShift,
         ]);
     }
 

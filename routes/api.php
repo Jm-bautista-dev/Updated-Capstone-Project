@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\CustomerOrderController;
 // Direct Top-Picks & Branches API endpoints
 Route::get('top-picks', [TopPickController::class, 'index']);
 Route::get('branches',  [BranchController::class, 'apiIndex']);
+Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeliveryDistanceController::class, 'calculate']);
 
 // External Operations API (Mobile App Entry)
 Route::prefix('v1')->group(function () {
@@ -111,6 +112,7 @@ Route::prefix('v1')->group(function () {
         Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject']);
         Route::post('cancellation-requests/{id}/resolve', [App\Http\Controllers\Api\CancellationRequestController::class, 'resolve']);
         Route::post('pos/cancellation-requests/{id}/resolve', [App\Http\Controllers\Api\CancellationRequestController::class, 'resolve']);
+        Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeliveryDistanceController::class, 'calculate']);
 
         // POS / Branch Manager Routes
         Route::prefix('branch')->group(function () {

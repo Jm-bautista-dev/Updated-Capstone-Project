@@ -25,6 +25,8 @@ import {
 import { toast } from 'sonner';
 import { ResultModal } from '@/components/result-modal';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
+import { PosDeliverySection, PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
+import { PosRider } from '@/components/pos/PosRiderSelector';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -86,6 +88,7 @@ interface PosPageProps {
   categories?: Category[];
   branch?: BranchInfo;
   availableRiders?: Rider[];
+  allRiders?: PosRider[];
   activeShift?: ActiveShift | null;
   [key: string]: unknown;
 }
@@ -97,7 +100,7 @@ function generateOfflineId(): string {
 }
 
 export default function PosIndex() {
-  const { products = [], categories = [], branch, availableRiders = [], activeShift } = usePage().props as unknown as PosPageProps;
+  const { products = [], categories = [], branch, availableRiders = [], allRiders = [], activeShift } = usePage().props as unknown as PosPageProps;
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -184,31 +187,34 @@ export default function PosIndex() {
 
 
   // --- Delivery State ---
-  const [deliveryInfo, setDeliveryInfo] = useState({
+  const [deliveryInfo, setDeliveryInfo] = useState<PosDeliveryInfo>({
     customer_name: '',
     customer_phone: '',
     customer_address: '',
-    delivery_type: 'internal' as 'internal' | 'external',
-    external_service: 'grab' as 'grab' | 'lalamove',
-    rider_id: '' as string | number,
+    delivery_type: 'internal',
+    external_service: 'grab',
+    rider_id: '',
     tracking_number: '',
-    distance_km: '' as string | number,
-    delivery_notes: '',
+    distance_km: '',
     external_notes: '',
+    latitude: null,
+    longitude: null,
   });
+  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
 
   const deliveryFee = useMemo(() => {
     if (orderType !== 'delivery') return 0;
+    if (calculatedDeliveryFee !== null) return calculatedDeliveryFee;
     const distance = parseFloat(String(deliveryInfo.distance_km)) || 0;
     const base = parseFloat(String(branch?.base_delivery_fee ?? 49)) || 49;
     const perKm = parseFloat(String(branch?.per_km_fee ?? 15)) || 15;
-    const freeKm = 2.0;
+    const freeKm = 1.0;
 
     if (distance === 0) return 0;
     if (distance <= freeKm) return base;
     return Math.round(base + (distance - freeKm) * perKm);
-  }, [orderType, deliveryInfo.distance_km, branch]);
+  }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch]);
 
 
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
@@ -291,12 +297,7 @@ export default function PosIndex() {
         return;
       }
       if (!deliveryInfo.distance_km) {
-        setAlertModal({ type: 'warning', title: 'Missing Distance', message: 'Please enter delivery distance to calculate fees.' });
-        setIsAlertModalOpen(true);
-        return;
-      }
-      if (deliveryInfo.delivery_type === 'internal' && !deliveryInfo.rider_id) {
-        setAlertModal({ type: 'warning', title: 'No Rider', message: 'Please assign an internal rider.' });
+        setAlertModal({ type: 'warning', title: 'Locate Address', message: 'Please enter a valid customer address so road distance and delivery fees can be calculated.' });
         setIsAlertModalOpen(true);
         return;
       }
@@ -838,75 +839,14 @@ export default function PosIndex() {
 
                     {/* Delivery Form */}
                     {orderType === 'delivery' && (
-                      <div className="space-y-3 pt-3 border-t border-[#F8C8DC]/40 dark:border-[#26262A] text-xs">
-                        <Input
-                          placeholder="Customer Name *"
-                          className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
-                          value={deliveryInfo.customer_name}
-                          onChange={e => setDeliveryInfo(p => ({ ...p, customer_name: e.target.value }))}
+                      <div className="pt-3 border-t border-[#F8C8DC]/40 dark:border-[#26262A]">
+                        <PosDeliverySection
+                          deliveryInfo={deliveryInfo}
+                          onChange={setDeliveryInfo}
+                          onDeliveryFeeChange={(fee) => setCalculatedDeliveryFee(fee)}
+                          branch={branch}
+                          allRiders={allRiders}
                         />
-                        <Input
-                          placeholder="Customer Address *"
-                          className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
-                          value={deliveryInfo.customer_address}
-                          onChange={e => setDeliveryInfo(p => ({ ...p, customer_address: e.target.value }))}
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input
-                            placeholder="Phone"
-                            className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
-                            value={deliveryInfo.customer_phone}
-                            onChange={e => setDeliveryInfo(p => ({ ...p, customer_phone: e.target.value }))}
-                          />
-                          <Input
-                            type="number"
-                            placeholder="Distance (km) *"
-                            className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
-                            value={deliveryInfo.distance_km}
-                            onChange={e => setDeliveryInfo(p => ({ ...p, distance_km: e.target.value }))}
-                          />
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={deliveryInfo.delivery_type === 'internal' ? 'default' : 'outline'}
-                            className={cn("flex-1 text-[10px] uppercase font-bold rounded-xl", deliveryInfo.delivery_type === 'internal' && "bg-[#E75480] text-white")}
-                            onClick={() => setDeliveryInfo(p => ({ ...p, delivery_type: 'internal' }))}
-                          >
-                            Internal Rider
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={deliveryInfo.delivery_type === 'external' ? 'default' : 'outline'}
-                            className={cn("flex-1 text-[10px] uppercase font-bold rounded-xl", deliveryInfo.delivery_type === 'external' && "bg-[#E75480] text-white")}
-                            onClick={() => setDeliveryInfo(p => ({ ...p, delivery_type: 'external' }))}
-                          >
-                            External Courier
-                          </Button>
-                        </div>
-
-                        {deliveryInfo.delivery_type === 'internal' ? (
-                          <select
-                            className="w-full bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 px-3 text-[#3D2C2E] dark:text-white text-xs font-bold"
-                            value={deliveryInfo.rider_id}
-                            onChange={e => setDeliveryInfo(p => ({ ...p, rider_id: e.target.value }))}
-                          >
-                            <option value="">Select Internal Rider *</option>
-                            {availableRiders.map((r: Rider) => (
-                              <option key={r.id} value={r.id}>{r.name} ({r.phone || 'No phone'})</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <Input
-                            placeholder="Tracking Number *"
-                            className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-[#3D2C2E] dark:text-white"
-                            value={deliveryInfo.tracking_number}
-                            onChange={e => setDeliveryInfo(p => ({ ...p, tracking_number: e.target.value }))}
-                          />
-                        )}
                       </div>
                     )}
                   </div>

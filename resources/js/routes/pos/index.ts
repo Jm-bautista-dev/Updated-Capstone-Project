@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:90
+ * @see app/Http/Controllers/PosController.php:112
  * @route '/pos'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:90
+ * @see app/Http/Controllers/PosController.php:112
  * @route '/pos'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:90
+ * @see app/Http/Controllers/PosController.php:112
  * @route '/pos'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:90
+ * @see app/Http/Controllers/PosController.php:112
  * @route '/pos'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\PosController::store
- * @see app/Http/Controllers/PosController.php:90
+ * @see app/Http/Controllers/PosController.php:112
  * @route '/pos'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -132,6 +132,61 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
         })
     
     store.form = storeForm
+/**
+* @see \App\Http\Controllers\Api\PosDeliveryDistanceController::calculateDistance
+ * @see app/Http/Controllers/Api/PosDeliveryDistanceController.php:30
+ * @route '/pos/calculate-delivery-distance'
+ */
+export const calculateDistance = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: calculateDistance.url(options),
+    method: 'post',
+})
+
+calculateDistance.definition = {
+    methods: ["post"],
+    url: '/pos/calculate-delivery-distance',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\PosDeliveryDistanceController::calculateDistance
+ * @see app/Http/Controllers/Api/PosDeliveryDistanceController.php:30
+ * @route '/pos/calculate-delivery-distance'
+ */
+calculateDistance.url = (options?: RouteQueryOptions) => {
+    return calculateDistance.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\PosDeliveryDistanceController::calculateDistance
+ * @see app/Http/Controllers/Api/PosDeliveryDistanceController.php:30
+ * @route '/pos/calculate-delivery-distance'
+ */
+calculateDistance.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: calculateDistance.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\PosDeliveryDistanceController::calculateDistance
+ * @see app/Http/Controllers/Api/PosDeliveryDistanceController.php:30
+ * @route '/pos/calculate-delivery-distance'
+ */
+    const calculateDistanceForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: calculateDistance.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\PosDeliveryDistanceController::calculateDistance
+ * @see app/Http/Controllers/Api/PosDeliveryDistanceController.php:30
+ * @route '/pos/calculate-delivery-distance'
+ */
+        calculateDistanceForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: calculateDistance.url(options),
+            method: 'post',
+        })
+    
+    calculateDistance.form = calculateDistanceForm
 /**
 * @see \App\Http\Controllers\InventoryActionController::weight
  * @see app/Http/Controllers/InventoryActionController.php:38
@@ -213,6 +268,7 @@ weight.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 const pos = {
     index: Object.assign(index, index),
 store: Object.assign(store, store),
+calculateDistance: Object.assign(calculateDistance, calculateDistance),
 weight: Object.assign(weight, weight),
 }
 
