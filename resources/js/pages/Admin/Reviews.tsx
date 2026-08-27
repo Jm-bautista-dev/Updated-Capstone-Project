@@ -21,6 +21,7 @@ import {
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -682,15 +683,12 @@ export default function Reviews({
                                             <div className="flex items-center gap-3">
                                                 {/* Product Image / Icon */}
                                                 <div className="size-12 rounded-2xl bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-center shrink-0 overflow-hidden relative">
-                                                    {product.image_url ? (
-                                                        <img
-                                                            src={product.image_url}
-                                                            alt={product.name}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <Package className="size-6 text-[#E75480]/50" />
-                                                    )}
+                                                    <ImageWithFallback
+                                                        src={product.image_url}
+                                                        alt={product.name}
+                                                        className="w-full h-full object-cover"
+                                                        fallbackIcon={<Package className="size-6 text-[#E75480]/50" />}
+                                                    />
                                                 </div>
 
                                                 {/* Product Info */}
@@ -752,15 +750,12 @@ export default function Reviews({
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex items-center gap-3.5">
                                         <div className="size-14 rounded-2xl bg-white dark:bg-[#1C1C28] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                                            {selectedProduct.image_url ? (
-                                                <img
-                                                    src={selectedProduct.image_url}
-                                                    alt={selectedProduct.name}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <Package className="size-7 text-[#E75480]" />
-                                            )}
+                                            <ImageWithFallback
+                                                src={selectedProduct.image_url}
+                                                alt={selectedProduct.name}
+                                                className="w-full h-full object-cover"
+                                                fallbackIcon={<Package className="size-7 text-[#E75480]" />}
+                                            />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import {
     Package, Navigation, CheckCircle2, FileText, Image
 } from 'lucide-react';
 import React from 'react';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -453,15 +454,12 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             {((delivery.sale?.items || delivery.order?.items) || []).map((item) => (
                                 <div key={item.id} className="flex items-center gap-3 bg-(--ops-surface-sunken)/20 p-2.5 rounded-xl border border-transparent hover:border-(--ops-border) transition-colors">
                                     <div className="size-10 rounded-lg bg-(--ops-page-bg) flex items-center justify-center shrink-0 border overflow-hidden">
-                                        {item.product?.image_url ? (
-                                            <img 
-                                                src={item.product.image_url} 
-                                                alt={item.product.name} 
-                                                className="w-full h-full object-cover" 
-                                            />
-                                        ) : (
-                                            <Package className="size-5 text-(--ops-text-muted)/40" />
-                                        )}
+                                        <ImageWithFallback 
+                                            src={item.product?.image_url} 
+                                            alt={item.product?.name || 'Product'} 
+                                            className="w-full h-full object-cover" 
+                                            fallbackIcon={<Package className="size-5 text-(--ops-text-muted)/40" />}
+                                        />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-bold truncate">{item.product?.name || 'Product'}</p>

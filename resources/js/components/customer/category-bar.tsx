@@ -1,5 +1,6 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import React, { useRef, useEffect } from 'react';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { cn } from '@/lib/utils';
 
 interface Category {
@@ -42,7 +43,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
         return (
             <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide px-4 py-6 bg-background/80 backdrop-blur-md border-b">
                 {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="flex-shrink-0 w-24 h-24 rounded-2xl bg-muted animate-pulse" />
+                    <div key={i} className="shrink-0 w-24 h-24 rounded-2xl bg-muted animate-pulse" />
                 ))}
             </div>
         );
@@ -71,7 +72,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
                             whileTap={{ scale: 0.95 }}
                             onClick={() => onCategoryChange(category.slug)}
                             className={cn(
-                                "flex-shrink-0 flex flex-col items-center gap-2 group",
+                                "shrink-0 flex flex-col items-center gap-2 group",
                                 "transition-all duration-300"
                             )}
                         >
@@ -90,15 +91,13 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                                     </svg>
                                 ) : (
-                                    category.image ? (
-                                        <img 
-                                            src={category.image} 
-                                            alt={category.name} 
-                                            className="w-full h-full object-contain filter group-hover:drop-shadow-md"
-                                        />
-                                    ) : (
-                                        <div className={cn("w-full h-full rounded-md", isActive ? "bg-primary-foreground/20" : "bg-muted")} />
-                                    )
+                                    <ImageWithFallback 
+                                        src={category.image} 
+                                        alt={category.name} 
+                                        className="w-full h-full object-contain filter group-hover:drop-shadow-md"
+                                        fallbackClassName={cn("w-full h-full rounded-md", isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted")}
+                                        fallbackIcon={<div className={cn("w-full h-full rounded-md", isActive ? "bg-primary-foreground/20" : "bg-muted")} />}
+                                    />
                                 )}
                                 
                                 {isActive && (

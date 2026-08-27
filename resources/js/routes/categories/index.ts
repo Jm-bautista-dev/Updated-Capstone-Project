@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\CategoriesController::store
- * @see app/Http/Controllers/CategoriesController.php:50
+ * @see app/Http/Controllers/CategoriesController.php:48
  * @route '/categories'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\CategoriesController::store
- * @see app/Http/Controllers/CategoriesController.php:50
+ * @see app/Http/Controllers/CategoriesController.php:48
  * @route '/categories'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\CategoriesController::store
- * @see app/Http/Controllers/CategoriesController.php:50
+ * @see app/Http/Controllers/CategoriesController.php:48
  * @route '/categories'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\CategoriesController::store
- * @see app/Http/Controllers/CategoriesController.php:50
+ * @see app/Http/Controllers/CategoriesController.php:48
  * @route '/categories'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\CategoriesController::store
- * @see app/Http/Controllers/CategoriesController.php:50
+ * @see app/Http/Controllers/CategoriesController.php:48
  * @route '/categories'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\CategoriesController::update
- * @see app/Http/Controllers/CategoriesController.php:63
+ * @see app/Http/Controllers/CategoriesController.php:61
  * @route '/categories/{id}'
  */
 export const update = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -149,7 +149,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\CategoriesController::update
- * @see app/Http/Controllers/CategoriesController.php:63
+ * @see app/Http/Controllers/CategoriesController.php:61
  * @route '/categories/{id}'
  */
 update.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -177,7 +177,7 @@ update.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\CategoriesController::update
- * @see app/Http/Controllers/CategoriesController.php:63
+ * @see app/Http/Controllers/CategoriesController.php:61
  * @route '/categories/{id}'
  */
 update.put = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -187,7 +187,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
 
     /**
 * @see \App\Http\Controllers\CategoriesController::update
- * @see app/Http/Controllers/CategoriesController.php:63
+ * @see app/Http/Controllers/CategoriesController.php:61
  * @route '/categories/{id}'
  */
     const updateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -202,7 +202,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
 
             /**
 * @see \App\Http\Controllers\CategoriesController::update
- * @see app/Http/Controllers/CategoriesController.php:63
+ * @see app/Http/Controllers/CategoriesController.php:61
  * @route '/categories/{id}'
  */
         updateForm.put = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +218,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\CategoriesController::destroy
- * @see app/Http/Controllers/CategoriesController.php:78
+ * @see app/Http/Controllers/CategoriesController.php:76
  * @route '/categories/{id}'
  */
 export const destroy = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -233,7 +233,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\CategoriesController::destroy
- * @see app/Http/Controllers/CategoriesController.php:78
+ * @see app/Http/Controllers/CategoriesController.php:76
  * @route '/categories/{id}'
  */
 destroy.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -261,7 +261,7 @@ destroy.url = (args: { id: string | number } | [id: string | number ] | string |
 
 /**
 * @see \App\Http\Controllers\CategoriesController::destroy
- * @see app/Http/Controllers/CategoriesController.php:78
+ * @see app/Http/Controllers/CategoriesController.php:76
  * @route '/categories/{id}'
  */
 destroy.delete = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -271,7 +271,7 @@ destroy.delete = (args: { id: string | number } | [id: string | number ] | strin
 
     /**
 * @see \App\Http\Controllers\CategoriesController::destroy
- * @see app/Http/Controllers/CategoriesController.php:78
+ * @see app/Http/Controllers/CategoriesController.php:76
  * @route '/categories/{id}'
  */
     const destroyForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -286,7 +286,7 @@ destroy.delete = (args: { id: string | number } | [id: string | number ] | strin
 
             /**
 * @see \App\Http\Controllers\CategoriesController::destroy
- * @see app/Http/Controllers/CategoriesController.php:78
+ * @see app/Http/Controllers/CategoriesController.php:76
  * @route '/categories/{id}'
  */
         destroyForm.delete = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

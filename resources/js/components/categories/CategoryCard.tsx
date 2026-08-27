@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Layers, Edit2, Trash2, Eye } from 'lucide-react';
 
 import type { Category } from '@/components/categories/CategoriesHero';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 
 interface CategoryCardProps {
@@ -38,17 +39,16 @@ export function CategoryCard({
                     onClick={() => onSelectCategory(category)}
                     className="relative w-full h-44 rounded-2xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/30 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center mb-4 cursor-pointer group-hover:shadow-xs transition-all"
                 >
-                    <div className="flex flex-col items-center gap-1.5 text-[#E75480]/40 dark:text-[#FF4F81]/40 group-hover:scale-110 transition-transform absolute">
-                        <Layers className="size-10" />
-                    </div>
-                    {category.image_url && (
-                        <img
-                            src={category.image_url}
-                            alt={category.name}
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 relative z-10"
-                        />
-                    )}
+                    <ImageWithFallback
+                        src={category.image_url}
+                        alt={category.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 relative z-10"
+                        fallbackIcon={
+                            <div className="flex flex-col items-center gap-1.5 text-[#E75480]/40 dark:text-[#FF4F81]/40 group-hover:scale-110 transition-transform">
+                                <Layers className="size-10" />
+                            </div>
+                        }
+                    />
 
                     <div className="absolute top-3 left-3">
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black font-mono bg-white/90 dark:bg-[#181820]/90 backdrop-blur-md text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs">

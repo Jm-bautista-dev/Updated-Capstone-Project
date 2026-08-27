@@ -25,7 +25,6 @@ class ReviewController extends Controller
         $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
         $userBranchId = !$isAdmin ? (int) $user->branch_id : null;
 
-        // Selected product or first product
         $selectedProductId = $request->filled('product_id') && $request->product_id !== 'all'
             ? (int) $request->product_id
             : null;
@@ -38,7 +37,40 @@ class ReviewController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        // ── 1. Master Products List (ALL products visible) ────────────────────
+        // 1. Master Products List with review aggregations
+        $productList = $this->buildProductList($userBranchId, $search, $branchFilter, $isAdmin);
+
+        // 2. Filtered Reviews List
+        $reviews = $this->buildFilteredReviews($selectedProductId, $userBranchId, $ratingFilter, $statusFilter, $seenFilter, $branchFilter, $dateFrom, $dateTo, $search);
+
+        // 3. System-wide Overall Statistics
+        $stats = $this->buildOverallStats($userBranchId, $branchFilter, $isAdmin, $productList->count());
+
+        return Inertia::render('Admin/Reviews', [
+            'productList'        => $productList,
+            'reviews'            => $reviews,
+            'stats'              => $stats,
+            'selectedProductId'  => $selectedProductId,
+            'filters'            => [
+                'status'      => $statusFilter,
+                'rating'      => $ratingFilter,
+                'product_id'  => $selectedProductId ? (string) $selectedProductId : 'all',
+                'seen_status' => $seenFilter,
+                'branch_id'   => $branchFilter,
+                'search'      => $search,
+                'date_from'   => $dateFrom,
+                'date_to'     => $dateTo,
+            ],
+            'branches'           => $isAdmin ? Branch::orderBy('name')->get(['id', 'name']) : Branch::where('id', $userBranchId)->get(['id', 'name']),
+            'isAdmin'            => $isAdmin,
+        ]);
+    }
+
+    /**
+     * Build the product list with review metric aggregations.
+     */
+    private function buildProductList(?int $userBranchId, string $search, string $branchFilter, bool $isAdmin)
+    {
         $productsQuery = Product::with(['category', 'branch'])
             ->when($userBranchId, function ($q) use ($userBranchId) {
                 $q->where(function ($sub) use ($userBranchId) {
@@ -57,7 +89,6 @@ class ReviewController extends Controller
 
         $allProducts = $productsQuery->get();
 
-        // ── 2. Aggregations per Product ───────────────────────────────────────
         $reviewAggQuery = ProductReview::query()
             ->when($userBranchId, fn($q) => $q->where('branch_id', $userBranchId))
             ->when($branchFilter && $branchFilter !== 'all' && $isAdmin, fn($q) => $q->where('branch_id', (int) $branchFilter))
@@ -76,16 +107,11 @@ class ReviewController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $productList = $allProducts->map(function (Product $product) use ($reviewAggQuery) {
+        return $allProducts->map(function (Product $product) use ($reviewAggQuery) {
             $agg = $reviewAggQuery->get($product->id);
-
             $totalReviews = $agg ? (int) $agg->total_reviews : 0;
             $unseenCount = $agg ? (int) $agg->unseen_count : 0;
             $avgRating = $agg && $agg->avg_rating ? (float) round($agg->avg_rating, 1) : 0.0;
-
-            $imageUrl = ($product->image_path && Storage::disk('public')->exists($product->image_path))
-                ? asset('storage/' . $product->image_path)
-                : null;
 
             return [
                 'id'                  => $product->id,
@@ -94,7 +120,7 @@ class ReviewController extends Controller
                 'selling_price'       => (float) $product->selling_price,
                 'category_name'       => $product->category?->name ?? 'Uncategorized',
                 'branch_name'         => $product->branch?->name ?? 'Global',
-                'image_url'           => $imageUrl,
+                'image_url'           => \App\Utils\ImageHelper::resolveUrl($product->image_path, 'products'),
                 'total_reviews'       => $totalReviews,
                 'unseen_count'        => $unseenCount,
                 'average_rating'      => $avgRating,
@@ -107,8 +133,22 @@ class ReviewController extends Controller
                 ],
             ];
         });
+    }
 
-        // ── 3. Filtered Reviews List ──────────────────────────────────────────
+    /**
+     * Build the filtered reviews paginator.
+     */
+    private function buildFilteredReviews(
+        ?int $selectedProductId,
+        ?int $userBranchId,
+        string $ratingFilter,
+        string $statusFilter,
+        string $seenFilter,
+        string $branchFilter,
+        ?string $dateFrom,
+        ?string $dateTo,
+        string $search
+    ) {
         $reviewsQuery = ProductReview::with([
             'user:id,name,email',
             'product:id,name,selling_price,image_path',
@@ -119,36 +159,30 @@ class ReviewController extends Controller
             'seenBy:id,name',
         ]);
 
-        // Branch Isolation
         if ($userBranchId) {
             $reviewsQuery->where('branch_id', $userBranchId);
         } elseif ($branchFilter && $branchFilter !== 'all') {
             $reviewsQuery->where('branch_id', (int) $branchFilter);
         }
 
-        // Product Filter
         if ($selectedProductId) {
             $reviewsQuery->where('product_id', $selectedProductId);
         }
 
-        // Status Filter
         if ($statusFilter && $statusFilter !== 'all') {
             $reviewsQuery->where('status', $statusFilter);
         }
 
-        // Rating Filter
         if ($ratingFilter && $ratingFilter !== 'all') {
             $reviewsQuery->where('rating', (int) $ratingFilter);
         }
 
-        // Seen / Unseen Filter
         if ($seenFilter === 'unseen') {
             $reviewsQuery->where('is_seen', false);
         } elseif ($seenFilter === 'seen') {
             $reviewsQuery->where('is_seen', true);
         }
 
-        // Date Range Filter
         if ($dateFrom) {
             $reviewsQuery->whereDate('created_at', '>=', $dateFrom);
         }
@@ -156,7 +190,6 @@ class ReviewController extends Controller
             $reviewsQuery->whereDate('created_at', '<=', $dateTo);
         }
 
-        // Search Filter (Product name, Customer name, Order number, Comment)
         if ($search) {
             $reviewsQuery->where(function ($q) use ($search) {
                 $q->where('comment', 'like', "%{$search}%")
@@ -171,7 +204,6 @@ class ReviewController extends Controller
 
         $reviews = $reviewsQuery->latest()->paginate(20)->withQueryString();
 
-        // Format reviews items
         $reviews->getCollection()->transform(function ($review) {
             $orderNum = $review->order?->order_number ?? ($review->order_id ? "ORD-{$review->order_id}" : null);
             return [
@@ -198,7 +230,14 @@ class ReviewController extends Controller
             ];
         });
 
-        // ── 4. System-wide Overall Statistics ─────────────────────────────────
+        return $reviews;
+    }
+
+    /**
+     * Compute system-wide overall review statistics.
+     */
+    private function buildOverallStats(?int $userBranchId, string $branchFilter, bool $isAdmin, int $totalProducts): array
+    {
         $baseStatsQuery = ProductReview::query()
             ->when($userBranchId, fn($q) => $q->where('branch_id', $userBranchId))
             ->when($branchFilter && $branchFilter !== 'all' && $isAdmin, fn($q) => $q->where('branch_id', (int) $branchFilter));
@@ -210,33 +249,14 @@ class ReviewController extends Controller
             ? (float) round((clone $baseStatsQuery)->where('status', ProductReview::STATUS_PUBLISHED)->avg('rating'), 1)
             : 0.0;
 
-        $stats = [
-            'total_products'     => $productList->count(),
+        return [
+            'total_products'     => $totalProducts,
             'total_reviews'      => $totalReviewCount,
             'unseen_reviews'     => $unseenReviewCount,
             'average_rating'     => $avgRatingAll,
             'published_count'    => $publishedReviewCount,
             'flagged_count'      => (clone $baseStatsQuery)->whereIn('status', [ProductReview::STATUS_FLAGGED, ProductReview::STATUS_PENDING])->count(),
         ];
-
-        return Inertia::render('Admin/Reviews', [
-            'productList'        => $productList,
-            'reviews'            => $reviews,
-            'stats'              => $stats,
-            'selectedProductId'  => $selectedProductId,
-            'filters'            => [
-                'status'      => $statusFilter,
-                'rating'      => $ratingFilter,
-                'product_id'  => $selectedProductId ? (string) $selectedProductId : 'all',
-                'seen_status' => $seenFilter,
-                'branch_id'   => $branchFilter,
-                'search'      => $search,
-                'date_from'   => $dateFrom,
-                'date_to'     => $dateTo,
-            ],
-            'branches'           => $isAdmin ? Branch::orderBy('name')->get(['id', 'name']) : Branch::where('id', $userBranchId)->get(['id', 'name']),
-            'isAdmin'            => $isAdmin,
-        ]);
     }
 
     /**

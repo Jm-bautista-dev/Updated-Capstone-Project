@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { StatusBadge } from '@/components/products/StatusBadge';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import {
     Sheet,
@@ -101,20 +102,19 @@ export function ProductDrawer({
                 
                 {/* Image Header Banner */}
                 <div className="relative w-full h-60 bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#181822] dark:to-[#20202E] flex items-center justify-center border-b border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
-                    <div className="flex flex-col items-center gap-2 text-[#E75480]/40 dark:text-[#FF4F81]/40 absolute">
-                        <Package className="size-16" />
-                        <span className="text-xs font-bold uppercase tracking-widest">No Image Asset</span>
-                    </div>
-                    {product.image_url && (
-                        <img
-                            src={product.image_url}
-                            alt={product.name}
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            className="w-full h-full object-cover relative z-10"
-                        />
-                    )}
+                    <ImageWithFallback
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover relative z-10"
+                        fallbackIcon={
+                            <div className="flex flex-col items-center gap-2 text-[#E75480]/40 dark:text-[#FF4F81]/40">
+                                <Package className="size-16" />
+                                <span className="text-xs font-bold uppercase tracking-widest">No Image Asset</span>
+                            </div>
+                        }
+                    />
 
-                    <div className="absolute top-4 left-4">
+                    <div className="absolute top-4 left-4 z-20">
                         <StatusBadge status={product.status} />
                     </div>
                 </div>

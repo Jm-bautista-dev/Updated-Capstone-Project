@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useEffect } from 'react';
 import { FiShoppingBag, FiArrowRight, FiInfo, FiPlus } from 'react-icons/fi';
 import { CategoryBar } from '@/components/customer/category-bar';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -157,13 +158,16 @@ export default function Menu() {
                                         >
                                             <Card className={`rounded-[2.5rem] overflow-hidden border-none shadow-xl shadow-black/5 hover:shadow-primary/10 transition-all duration-300 bg-white dark:bg-[#161615] ${isOutOfStock ? 'opacity-60' : ''}`}>
                                                 <div className="aspect-square relative overflow-hidden bg-muted group-hover:scale-105 transition-transform duration-500">
-                                                    {product.image ? (
-                                                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center opacity-20">
-                                                            <FiInfo className="w-12 h-12" />
-                                                        </div>
-                                                    )}
+                                                    <ImageWithFallback
+                                                        src={product.image}
+                                                        alt={product.name}
+                                                        className="w-full h-full object-cover"
+                                                        fallbackIcon={
+                                                            <div className="w-full h-full flex items-center justify-center opacity-20">
+                                                                <FiInfo className="w-12 h-12" />
+                                                            </div>
+                                                        }
+                                                    />
 
                                                     {isOutOfStock && (
                                                         <div className="absolute top-4 left-4 z-10">

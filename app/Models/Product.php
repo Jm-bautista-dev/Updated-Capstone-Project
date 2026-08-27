@@ -33,12 +33,7 @@ class Product extends Model
 
     public function getImageUrlAttribute()
     {
-        if (!$this->image_path) {
-            return null;
-        }
-        return \Illuminate\Support\Facades\Storage::disk('public')->exists($this->image_path)
-            ? asset('storage/' . $this->image_path)
-            : null;
+        return \App\Utils\ImageHelper::resolveUrl($this->image_path, 'products');
     }
 
     public function branch()

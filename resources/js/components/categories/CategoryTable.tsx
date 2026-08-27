@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, Edit2, Trash2, Eye, MoreHorizontal, PackageSearch } from 'lucide-react';
 
 import type { Category } from '@/components/categories/CategoriesHero';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -105,15 +106,12 @@ export function CategoryTable({
                                         <td className={cn('px-6 align-middle', density === 'compact' ? 'py-2.5' : 'py-4')}>
                                             <div className="flex items-center gap-3.5">
                                                 <div className="size-11 rounded-xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-                                                    {category.image_url ? (
-                                                        <img
-                                                            src={category.image_url}
-                                                            alt={category.name}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <Layers className="size-5 text-[#E75480]/50 dark:text-[#FF4F81]/50" />
-                                                    )}
+                                                    <ImageWithFallback
+                                                        src={category.image_url}
+                                                        alt={category.name}
+                                                        className="w-full h-full object-cover"
+                                                        fallbackIcon={<Layers className="size-5 text-[#E75480]/50 dark:text-[#FF4F81]/50" />}
+                                                    />
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors leading-snug">

@@ -15,6 +15,13 @@ class Category extends Model
     use SoftDeletes;
     protected $fillable = ['name', 'description', 'image_path', 'created_by'];
 
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        return \App\Utils\ImageHelper::resolveUrl($this->image_path, 'categories');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

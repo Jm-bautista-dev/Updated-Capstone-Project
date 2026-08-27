@@ -4,6 +4,7 @@ import { Package, RefreshCw, Edit2, Trash2, Eye, PackageSearch, Building2 } from
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -75,15 +76,12 @@ export function ProductTable({
                                         <td className="p-4 px-6 align-middle">
                                             <div className="flex items-center gap-3.5">
                                                 <div className="size-11 rounded-xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0 relative">
-                                                    <Package className="size-5 text-[#E75480]/50 dark:text-[#FF4F81]/50 absolute" />
-                                                    {product.image_url && (
-                                                        <img
-                                                            src={product.image_url}
-                                                            alt={product.name}
-                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                            className="w-full h-full object-cover relative z-10"
-                                                        />
-                                                    )}
+                                                    <ImageWithFallback
+                                                        src={product.image_url}
+                                                        alt={product.name}
+                                                        className="w-full h-full object-cover"
+                                                        fallbackIcon={<Package className="size-5 text-[#E75480]/50 dark:text-[#FF4F81]/50" />}
+                                                    />
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors leading-snug">

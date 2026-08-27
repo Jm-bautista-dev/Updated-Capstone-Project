@@ -6,6 +6,7 @@ import {
 import React, { useCallback, useRef } from 'react';
 import { List } from 'react-window';
 
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -97,11 +98,12 @@ const TableRow = React.memo(function TableRow({
                                     <div key={item.id} className="flex justify-between items-center gap-3 text-[11px]">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <div className="size-6 rounded bg-[#FFF5F7] dark:bg-[#1C1C28] flex items-center justify-center shrink-0 border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
-                                                {item.product?.image_url ? (
-                                                    <img src={item.product.image_url} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <Package className="size-2.5 text-[#7D6B6E]/40 dark:text-[#94A3B8]/40" />
-                                                )}
+                                                <ImageWithFallback
+                                                    src={item.product?.image_url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    fallbackIcon={<Package className="size-2.5 text-[#7D6B6E]/40 dark:text-[#94A3B8]/40" />}
+                                                />
                                             </div>
                                             <span className="font-semibold truncate max-w-27.5 text-[#3D2C2E] dark:text-[#F8FAFC]">{item.product?.name || 'Product'}</span>
                                         </div>

@@ -24,6 +24,7 @@ import {
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { ResultModal } from '@/components/result-modal';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -600,15 +601,12 @@ export default function PosIndex() {
                           >
                             {/* Product Image Area (Aspect 4/3, fixed) */}
                             <div className="relative aspect-4/3 rounded-t-2xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] shrink-0 border-b border-[#F8C8DC]/40 dark:border-[#26262A] flex items-center justify-center">
-                              <FiPackage className="size-8 text-zinc-400 opacity-40 absolute" />
-                              {p.image_url && (
-                                <img
-                                  src={p.image_url}
-                                  alt={p.name}
-                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
-                                />
-                              )}
+                              <ImageWithFallback
+                                src={p.image_url}
+                                alt={p.name}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
+                                fallbackIcon={<FiPackage className="size-8 text-zinc-400 opacity-40" />}
+                              />
 
                               {/* Cart Count Overlay Badge */}
                               {inCartCount > 0 && (
@@ -758,15 +756,12 @@ export default function PosIndex() {
                     >
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="size-16 rounded-xl overflow-hidden bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/40 dark:border-[#26262A] shrink-0 flex items-center justify-center relative">
-                          <FiPackage className="size-6 text-zinc-400 absolute" />
-                          {item.image_url && (
-                            <img
-                              src={item.image_url}
-                              alt={item.name}
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              className="w-full h-full object-cover relative z-10"
-                            />
-                          )}
+                          <ImageWithFallback
+                            src={item.image_url}
+                            alt={item.name}
+                            className="w-full h-full object-cover relative z-10"
+                            fallbackIcon={<FiPackage className="size-6 text-zinc-400 opacity-50" />}
+                          />
                         </div>
                         <div>
                           <h4 className="text-sm font-extrabold uppercase text-[#3D2C2E] dark:text-white tracking-tight">{item.name}</h4>

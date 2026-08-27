@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 import { Package, RefreshCw, Edit2, Trash2, Eye, Building2 } from 'lucide-react';
-import { useState } from 'react';
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -29,8 +29,6 @@ export function ProductCard({
     onOpenDelete,
     index = 0,
 }: ProductCardProps) {
-    const [imgError, setImgError] = useState(false);
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -48,18 +46,16 @@ export function ProductCard({
                     onClick={() => onSelectProduct(product)}
                     className="relative w-full h-44 rounded-2xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/30 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center mb-4 cursor-pointer group-hover:shadow-xs transition-all"
                 >
-                    {product.image_url && !imgError ? (
-                        <img
-                            src={product.image_url}
-                            alt={product.name}
-                            onError={() => setImgError(true)}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center gap-1.5 text-[#E75480]/40 dark:text-[#FF4F81]/40 group-hover:scale-110 transition-transform">
-                            <Package className="size-10" />
-                        </div>
-                    )}
+                    <ImageWithFallback
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        fallbackIcon={
+                            <div className="flex flex-col items-center gap-1.5 text-[#E75480]/40 dark:text-[#FF4F81]/40 group-hover:scale-110 transition-transform">
+                                <Package className="size-10" />
+                            </div>
+                        }
+                    />
 
                     <div className="absolute top-3 left-3">
                         <StatusBadge status={product.status} />

@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { Layers, Edit2, Trash2, Tag, Calendar, Package } from 'lucide-react';
 
 import type { Category } from '@/components/categories/CategoriesHero';
+import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
 import {
     Sheet,
@@ -40,18 +41,17 @@ export function CategoryDrawer({
                 
                 {/* Header Image Banner */}
                 <div className="relative w-full h-60 bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#181822] dark:to-[#20202E] flex items-center justify-center border-b border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
-                    {category.image_url ? (
-                        <img
-                            src={category.image_url}
-                            alt={category.name}
-                            className="w-full h-full object-cover"
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center gap-2 text-[#E75480]/40 dark:text-[#FF4F81]/40">
-                            <Layers className="size-16" />
-                            <span className="text-xs font-bold uppercase tracking-widest">No Thumbnail Asset</span>
-                        </div>
-                    )}
+                    <ImageWithFallback
+                        src={category.image_url}
+                        alt={category.name}
+                        className="w-full h-full object-cover"
+                        fallbackIcon={
+                            <div className="flex flex-col items-center gap-2 text-[#E75480]/40 dark:text-[#FF4F81]/40">
+                                <Layers className="size-16" />
+                                <span className="text-xs font-bold uppercase tracking-widest">No Thumbnail Asset</span>
+                            </div>
+                        }
+                    />
                 </div>
 
                 <div className="p-6 sm:p-8 space-y-6">
