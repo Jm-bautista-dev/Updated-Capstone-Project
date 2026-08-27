@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
  */
 const cancel8fce9713bc55c11df3a2c57969b59e63 = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ cancel8fce9713bc55c11df3a2c57969b59e63.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
  */
 cancel8fce9713bc55c11df3a2c57969b59e63.url = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ cancel8fce9713bc55c11df3a2c57969b59e63.url = (args: { orderId: string | number }
 
 /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
  */
 cancel8fce9713bc55c11df3a2c57969b59e63.post = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -54,7 +54,7 @@ cancel8fce9713bc55c11df3a2c57969b59e63.post = (args: { orderId: string | number 
 
     /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
  */
     const cancel8fce9713bc55c11df3a2c57969b59e63Form = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -64,7 +64,7 @@ cancel8fce9713bc55c11df3a2c57969b59e63.post = (args: { orderId: string | number 
 
             /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
  */
         cancel8fce9713bc55c11df3a2c57969b59e63Form.post = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -75,7 +75,7 @@ cancel8fce9713bc55c11df3a2c57969b59e63.post = (args: { orderId: string | number 
     cancel8fce9713bc55c11df3a2c57969b59e63.form = cancel8fce9713bc55c11df3a2c57969b59e63Form
     /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/customer/orders/{orderId}/cancel'
  */
 const cancelc3d6d94ed50464371b4d50833c4092e0 = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ cancelc3d6d94ed50464371b4d50833c4092e0.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/customer/orders/{orderId}/cancel'
  */
 cancelc3d6d94ed50464371b4d50833c4092e0.url = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -118,7 +118,7 @@ cancelc3d6d94ed50464371b4d50833c4092e0.url = (args: { orderId: string | number }
 
 /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/customer/orders/{orderId}/cancel'
  */
 cancelc3d6d94ed50464371b4d50833c4092e0.post = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -128,7 +128,7 @@ cancelc3d6d94ed50464371b4d50833c4092e0.post = (args: { orderId: string | number 
 
     /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/customer/orders/{orderId}/cancel'
  */
     const cancelc3d6d94ed50464371b4d50833c4092e0Form = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -138,7 +138,7 @@ cancelc3d6d94ed50464371b4d50833c4092e0.post = (args: { orderId: string | number 
 
             /**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
- * @see app/Http/Controllers/Api/CustomerOrderController.php:21
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/customer/orders/{orderId}/cancel'
  */
         cancelc3d6d94ed50464371b4d50833c4092e0Form.post = (args: { orderId: string | number } | [orderId: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

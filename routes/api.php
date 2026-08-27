@@ -142,13 +142,16 @@ Route::prefix('v1')->group(function () {
         Route::post('orders', [ApiOrderController::class, 'store']);
         Route::post('customer/orders', [ApiOrderController::class, 'store']);
         Route::get('orders/{id}', [ApiOrderController::class, 'show'])->whereNumber('id');
-        Route::get('customer/orders/{id}', [ApiOrderController::class, 'show'])->whereNumber('id');
+        // Customer-scoped order detail (strict user_id scope + full Buy Again snapshots)
+        Route::get('customer/orders/{id}', [CustomerOrderController::class, 'show'])->whereNumber('id');
         Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
         Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
         Route::get('orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
         Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
         Route::post('orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
         Route::post('customer/orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
+        // Buy Again / Reorder validation
+        Route::post('customer/orders/{id}/reorder-check', [CustomerOrderController::class, 'checkReorder'])->whereNumber('id');
         Route::get('deliveries/{id}/route', [App\Http\Controllers\Admin\DeliveryController::class, 'getRoute']);
         Route::get('cart', [CartController::class, 'index']);
         Route::post('cart/add', [CartController::class, 'addItem']);

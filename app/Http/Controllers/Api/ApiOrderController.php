@@ -164,7 +164,31 @@ class ApiOrderController extends Controller
                     throw new \Exception($lockedBatchCheck['message']);
                 }
 
-                $itemsTotal = collect($validated['items'])->sum(fn($item) => $item['quantity'] * $item['price']);
+                // ── SERVER-SIDE PRICE RESOLUTION ──────────────────────────────────
+                // Batch-fetch all products in one query. Never trust client prices.
+                $productIds = collect($validated['items'])->pluck('product_id')->unique()->all();
+                $products   = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
+                $itemsTotal = 0;
+                $resolvedItems = [];
+                foreach ($validated['items'] as $itemData) {
+                    $product   = $products->get($itemData['product_id']);
+                    $unitPrice = $product ? (float) $product->selling_price : (float) $itemData['price'];
+                    $qty       = (int) $itemData['quantity'];
+                    $lineTotal = round($unitPrice * $qty, 2);
+                    $itemsTotal += $lineTotal;
+
+                    $resolvedItems[] = [
+                        'product_id'   => (int) $itemData['product_id'],
+                        'quantity'     => $qty,
+                        'price'        => $unitPrice,      // backward compat column
+                        'unit_price'   => $unitPrice,      // source of truth
+                        'line_total'   => $lineTotal,      // source of truth
+                        'product_name' => $product?->name ?? $itemData['product_name'] ?? null,
+                        'image_path'   => $product?->image_path ?? null,
+                        'notes'        => $itemData['notes'] ?? null,
+                    ];
+                }
 
                 $orderNumberService = new \App\Services\OrderNumberService();
                 $customerOrderNumber = $orderNumberService->allocateForBranch($branchId);
@@ -181,16 +205,12 @@ class ApiOrderController extends Controller
                     'landmark'       => $validated['landmark'] ?? null,
                     'notes'          => $validated['notes'] ?? null,
                     'payment_method' => $validated['payment_method'] ?? 'online',
-                    'total_amount'   => $itemsTotal + $deliveryFee, // Accurately calculate total from items + fee
+                    'total_amount'   => round($itemsTotal + $deliveryFee, 2),
                     'status'         => 'pending',
                 ]);
 
-                foreach ($validated['items'] as $itemData) {
-                    $order->items()->create([
-                        'product_id' => $itemData['product_id'],
-                        'quantity'   => $itemData['quantity'],
-                        'price'      => $itemData['price'],
-                    ]);
+                foreach ($resolvedItems as $resolved) {
+                    $order->items()->create($resolved);
                 }
 
                 $delivery = Delivery::create([
@@ -202,7 +222,7 @@ class ApiOrderController extends Controller
                     'longitude'        => $validated['longitude'],
                     'landmark'         => $validated['landmark'] ?? null,
                     'notes'            => $validated['notes'] ?? null,
-                    'delivery_type'    => 'internal', 
+                    'delivery_type'    => 'internal',
                     'delivery_fee'     => $deliveryFee,
                     'distance_km'      => $distanceKm,
                     'status'           => 'waiting_for_kitchen',
@@ -247,47 +267,91 @@ class ApiOrderController extends Controller
     }
 
     /**
-     * Retrieve order status for the tracking screen.
+     * Retrieve order details with full Buy Again item snapshots.
+     * GET /api/v1/orders/{id}
+     * GET /api/v1/customer/orders/{id}
      */
     public function show(Request $request, $id)
     {
         try {
-            $order = Order::with(['delivery.rider', 'items.product'])->find($id);
+            $order = Order::with(['delivery.rider', 'items.product', 'branch'])->find($id);
 
             if (!$order) {
                 return response()->json(['success' => false, 'message' => 'Order not found'], 404);
             }
 
-            if ($order->user_id && $request->user() && $order->user_id !== $request->user()->id) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            if ($order->user_id && $request->user() && (int)$order->user_id !== (int)$request->user()->id) {
+                $isAdmin = method_exists($request->user(), 'isAdmin') && $request->user()->isAdmin();
+                if (!$isAdmin) {
+                    return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+                }
             }
+
+            $statusLabel = match ($order->status) {
+                'pending'                => 'Order Received',
+                'confirmed'              => 'Confirmed',
+                'preparing'              => 'Preparing',
+                'ready_for_pickup'       => 'Ready for Pickup',
+                'assigned_to_rider'      => 'Rider Assigned',
+                'picked_up'              => 'Picked Up',
+                'in_transit'             => 'Out for Delivery',
+                'delivered'              => 'Delivered',
+                'cancelled'              => 'Cancelled',
+                'cancellation_requested' => 'Cancellation Requested',
+                default                  => ucfirst(str_replace('_', ' ', $order->status)),
+            };
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'id'             => $order->id,
-                    'status'         => $order->status,
-                    'total_amount'   => $order->total_amount,
-                    'customer_name'  => $order->customer_name,
-                    'delivery' => $order->delivery ? [
+                    'id'            => $order->id,
+                    'order_number'  => $order->order_number ?? "ORD-{$order->id}",
+                    'status'        => $order->status,
+                    'status_label'  => $statusLabel,
+                    'branch_id'     => $order->branch_id,
+                    'branch_name'   => $order->branch?->name ?? 'Maki Store',
+                    'subtotal'      => (float) $order->items->sum(fn($i) => $i->line_total),
+                    'delivery_fee'  => (float) ($order->delivery?->delivery_fee ?? 0),
+                    'total_amount'  => (float) $order->total_amount,
+                    'payment_method'=> $order->payment_method ?? 'cash',
+                    'customer_name' => $order->customer_name,
+                    'address'       => $order->address,
+                    'created_at'    => $order->created_at->toIso8601String(),
+                    'delivery'      => $order->delivery ? [
                         'status'        => $order->delivery->status,
                         'status_label'  => $order->delivery->getStatusLabel(),
                         'status_color'  => $order->delivery->getStatusColor(),
                         'rider_name'    => $order->delivery->rider?->name,
                         'updated_at'    => $order->delivery->updated_at,
                     ] : null,
-                    'items' => $order->items->map(fn($item) => [
-                        'product_name' => $item->product?->name ?? 'Unknown Product',
-                        'quantity'     => $item->quantity,
-                        'price'        => $item->price,
-                    ]),
-                    'created_at' => $order->created_at,
+                    'items' => $order->items->map(function ($item) {
+                        $product    = $item->product;
+                        $unitPrice  = $item->unit_price;
+                        $lineTotal  = $item->line_total;
+                        $inStock    = $product && $product->is_available && $product->stock > 0;
+
+                        return [
+                            'order_item_id' => $item->id,
+                            'product_id'    => (int) ($item->product_id ?? 0),
+                            'product_name'  => $item->product_name ?? $product?->name ?? 'Item',
+                            'title'         => $item->product_name ?? $product?->name ?? 'Item',
+                            'quantity'      => (int) $item->quantity,
+                            'unit_price'    => $unitPrice,
+                            'line_total'    => $lineTotal,
+                            'image_path'    => $item->image_path ?? $product?->image_path ?? null,
+                            'notes'         => $item->notes,
+                            // Live product status (for Buy Again checks)
+                            'is_available'  => $inStock,
+                            'current_price' => $product ? (float) $product->selling_price : $unitPrice,
+                            'current_stock' => $product ? (int) $product->stock : 0,
+                        ];
+                    }),
                 ]
             ]);
         } catch (\Throwable $e) {
             Log::error('Order API Show Failure', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace'   => $e->getTraceAsString()
             ]);
             return response()->json([
                 'success' => false,
