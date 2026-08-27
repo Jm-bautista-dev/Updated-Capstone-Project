@@ -212,10 +212,16 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            // Look up all delivered deliveries for this rider
-            $deliveries = Delivery::with(['order.items.product', 'order.branch'])
-                ->where('rider_id', $rider->id)
-                ->where('status', 'delivered')
+            // Look up all delivered and cancelled deliveries for this rider
+            $deliveries = Delivery::with(['order.items.product', 'order.branch', 'cancellationRequest'])
+                ->where(function ($query) use ($rider) {
+                    $query->where('rider_id', $rider->id)
+                          ->orWhereHas('cancellationRequest', function ($q) use ($rider) {
+                              $q->where('rider_id', $rider->id)
+                                ->orWhere('requested_by_rider_id', $rider->id);
+                          });
+                })
+                ->whereIn('status', ['delivered', 'completed', 'cancelled', 'failed_delivery'])
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
