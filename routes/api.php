@@ -48,8 +48,10 @@ Route::prefix('v1')->group(function () {
     // Protected Routes (Multi-Auth Support)
     Route::middleware('auth:sanctum')->group(function () {
         
-        // Profile
+        // Profile & User Management
         Route::get('user', [UserController::class, 'me']);
+        Route::match(['patch', 'put', 'post'], 'user', [UserController::class, 'update']);
+        Route::match(['patch', 'put', 'post'], 'user/password', [UserController::class, 'updatePassword']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 

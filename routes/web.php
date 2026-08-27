@@ -230,6 +230,8 @@ Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name
 // ── Root-Level API Route Fallbacks (for mobile app requests with leading slash) ──
 Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::get('/user', [App\Http\Controllers\Api\UserController::class, 'me']);
+    Route::match(['patch', 'put', 'post'], '/user', [App\Http\Controllers\Api\UserController::class, 'update']);
+    Route::match(['patch', 'put', 'post'], '/user/password', [App\Http\Controllers\Api\UserController::class, 'updatePassword']);
     
     // Order endpoints under root
     Route::get('orders/ready',     [App\Http\Controllers\Api\RiderController::class, 'getOrders']);
