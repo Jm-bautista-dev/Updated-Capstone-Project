@@ -1,6 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import health from './health'
 import errors from './errors'
+import logs from './logs'
 import maintenance from './maintenance'
 import audit from './audit'
 import apiMonitor from './api-monitor'
@@ -91,6 +92,7 @@ const superAdmin = {
     dashboard: Object.assign(dashboard, dashboard),
 health: Object.assign(health, health),
 errors: Object.assign(errors, errors),
+logs: Object.assign(logs, logs),
 maintenance: Object.assign(maintenance, maintenance),
 audit: Object.assign(audit, audit),
 apiMonitor: Object.assign(apiMonitor, apiMonitor),

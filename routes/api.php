@@ -60,6 +60,10 @@ Route::prefix('v1')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
+        // Direct Rider Orders Aliases
+        Route::get('orders/ready', [RiderController::class, 'getOrders']);
+        Route::get('orders/my',    [RiderController::class, 'getMyOrders']);
+
         // Rider Module
         Route::prefix('rider')->group(function () {
             // First-login password change

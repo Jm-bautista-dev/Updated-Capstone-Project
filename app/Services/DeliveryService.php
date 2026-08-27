@@ -181,6 +181,12 @@ class DeliveryService
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
             }
+
+            try {
+                event(new \App\Events\OrderAssigned($delivery->fresh(['sale.branch', 'order.branch', 'rider'])));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('OrderAssigned broadcast failed: ' . $e->getMessage());
+            }
         }
 
         try {
@@ -422,6 +428,12 @@ class DeliveryService
                 'rider_id'    => $rider->id,
                 'rider_name'  => $rider->name,
             ]);
+
+            try {
+                event(new \App\Events\OrderAssigned($delivery->fresh(['sale.branch', 'order.branch', 'rider'])));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('OrderAssigned broadcast failed: ' . $e->getMessage());
+            }
 
             event(new OrderStatusUpdated($delivery->fresh(), 'admin', $previousStatus ?? null));
 

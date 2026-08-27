@@ -158,9 +158,10 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            $deliveries = Delivery::with(['order.items.product', 'order.branch'])
+            $deliveries = Delivery::with(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])
                 ->where('rider_id', $rider->id)
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested']))
+                ->whereIn('status', ['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
+                ->orderByRaw("CASE WHEN status = 'in_transit' THEN 1 WHEN status = 'picked_up' THEN 2 WHEN status = 'assigned_to_rider' THEN 3 ELSE 4 END")
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
@@ -1078,12 +1079,27 @@ class RiderController extends Controller
             return response()->json(['success' => false], 403);
         }
 
-        $rider->update(['last_active_at' => now()]);
+        $requestedStatus = $request->input('rider_status') 
+            ?? $request->input('status') 
+            ?? ($request->input('is_active') !== null ? ($request->input('is_active') ? 'available' : 'offline') : null);
+
+        $status = in_array($requestedStatus, ['available', 'busy', 'offline']) 
+            ? $requestedStatus 
+            : ($rider->status ?: 'available');
+
+        $rider->update([
+            'status'         => $status,
+            'is_active'      => $status !== 'offline',
+            'last_active_at' => now(),
+        ]);
 
         return response()->json([
             'success'        => true,
             'status'         => $rider->status,
+            'rider_status'   => $rider->status,
+            'is_active'      => (bool) $rider->is_active,
             'last_active_at' => $rider->last_active_at,
+            'message'        => 'Heartbeat acknowledged',
         ]);
     }
 
@@ -1116,13 +1132,42 @@ class RiderController extends Controller
     private function formatDelivery(Delivery $delivery): array
     {
         $order = $delivery->order;
+        $sale  = $delivery->sale;
+
         $lat = $delivery->latitude ?? $order?->latitude;
         $lng = $delivery->longitude ?? $order?->longitude;
 
         $fee = (float) ($delivery->delivery_fee ?: ($order?->delivery_fee ?: 50.00));
-        $totalAmount = (float) ($order?->total_amount ?? 0);
-        $createdAt = $delivery->created_at?->toIso8601String() ?? $order?->created_at?->toIso8601String();
-        $updatedAt = $delivery->updated_at?->toIso8601String() ?? $order?->updated_at?->toIso8601String();
+        $totalAmount = (float) ($sale?->total ?? $order?->total_amount ?? 0);
+        $orderNumber = $sale?->order_number ?? $order?->order_number ?? ($delivery->tracking_number ?? 'DEL-' . $delivery->id);
+        $orderSource = $sale ? 'pos' : 'mobile';
+
+        $branch = $sale?->branch ?? $order?->branch;
+        $branchName = $branch?->name ?? 'Store Branch';
+        $branchAddress = $branch?->address ?? null;
+        $branchLat = (float) ($branch?->latitude ?? 0);
+        $branchLng = (float) ($branch?->longitude ?? 0);
+
+        $createdAt = $delivery->created_at?->toIso8601String() ?? $order?->created_at?->toIso8601String() ?? $sale?->created_at?->toIso8601String();
+        $updatedAt = $delivery->updated_at?->toIso8601String() ?? $order?->updated_at?->toIso8601String() ?? $sale?->updated_at?->toIso8601String();
+
+        // Format items from either Order or Sale
+        $items = [];
+        if ($order && $order->items) {
+            $items = $order->items->map(fn($item) => [
+                'product_name' => $item->product?->name ?? 'Item',
+                'quantity'     => $item->quantity,
+                'price'        => (float) $item->price,
+                'subtotal'     => (float) ($item->quantity * $item->price),
+            ])->values()->all();
+        } elseif ($sale && $sale->items) {
+            $items = $sale->items->map(fn($item) => [
+                'product_name' => $item->product?->name ?? 'Item',
+                'quantity'     => $item->quantity,
+                'price'        => (float) $item->unit_price,
+                'subtotal'     => (float) ($item->quantity * $item->unit_price),
+            ])->values()->all();
+        }
 
         return [
             'id'                      => $order?->id ?? $delivery->id,
@@ -1130,11 +1175,13 @@ class RiderController extends Controller
             'deliveryId'              => $delivery->id,
             'order_id'                => $delivery->order_id,
             'orderId'                 => $delivery->order_id,
-            'order_number'            => $order?->order_number,
-            'orderNumber'             => $order?->order_number,
+            'sale_id'                 => $delivery->sale_id,
+            'order_number'            => $orderNumber,
+            'orderNumber'             => $orderNumber,
+            'order_source'            => $orderSource,
             'status'                  => $delivery->status,
-            'order_status'            => $order?->status,
-            'orderStatus'             => $order?->status,
+            'order_status'            => $order?->status ?? $delivery->status,
+            'orderStatus'             => $order?->status ?? $delivery->status,
             'status_label'            => $delivery->getStatusLabel(),
             'statusLabel'             => $delivery->getStatusLabel(),
             'cancellation_status'     => $order?->cancellation_status,
@@ -1165,28 +1212,24 @@ class RiderController extends Controller
             'distance_km'             => (float) $delivery->distance_km,
             'total_amount'            => $totalAmount,
             'totalAmount'             => $totalAmount,
+            'payment_method'          => $sale?->payment_method ?? $order?->payment_method ?? 'cash',
 
             // Branch (pickup point)
-            'branch_name'             => $order?->branch?->name ?? 'N/A',
-            'branchName'              => $order?->branch?->name ?? 'N/A',
-            'branch_address'          => $order?->branch?->address ?? null,
-            'branch_latitude'         => (float) ($order?->branch?->latitude ?? 0),
-            'branch_longitude'        => (float) ($order?->branch?->longitude ?? 0),
-            'branch_maps_url'         => ($order?->branch?->latitude && $order?->branch?->longitude)
-                ? "https://www.google.com/maps/dir/?api=1&destination={$order->branch->latitude},{$order->branch->longitude}"
+            'branch_name'             => $branchName,
+            'branchName'              => $branchName,
+            'branch_address'          => $branchAddress,
+            'branch_latitude'         => $branchLat,
+            'branch_longitude'        => $branchLng,
+            'branch_maps_url'         => ($branchLat && $branchLng)
+                ? "https://www.google.com/maps/dir/?api=1&destination={$branchLat},{$branchLng}"
                 : null,
 
             // Proof of delivery
             'proof_of_delivery_url'   => $delivery->proof_of_delivery_url,
 
             // Order Items
-            'items'                   => $order?->items?->map(fn($item) => [
-                'product_name' => $item->product?->name ?? 'Item',
-                'quantity'     => $item->quantity,
-                'price'        => (float) $item->price,
-                'subtotal'     => (float) ($item->quantity * $item->price),
-            ]) ?? [],
-            'items_count'             => $order?->items?->count() ?? 0,
+            'items'                   => $items,
+            'items_count'             => count($items),
 
             'created_at'              => $createdAt,
             'createdAt'               => $createdAt,
