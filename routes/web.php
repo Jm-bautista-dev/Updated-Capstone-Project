@@ -24,7 +24,11 @@ use App\Http\Controllers\InventoryActionController;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return auth()->user()->isAdmin()
+        $user = auth()->user();
+        if ($user->isSuperAdmin()) {
+            return redirect('/super-admin');
+        }
+        return $user->isAdmin()
             ? redirect()->route('dashboard')
             : redirect()->route('pos.index');
     }

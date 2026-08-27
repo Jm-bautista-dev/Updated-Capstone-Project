@@ -204,7 +204,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     home.form = homeForm
 /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
 export const menu = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -218,7 +218,7 @@ menu.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
 menu.url = (options?: RouteQueryOptions) => {
@@ -226,7 +226,7 @@ menu.url = (options?: RouteQueryOptions) => {
 }
 
 /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
 menu.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -234,7 +234,7 @@ menu.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
 menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -243,7 +243,7 @@ menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
     const menuForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -252,7 +252,7 @@ menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
         menuForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -260,7 +260,7 @@ menu.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
- * @see routes/web.php:36
+ * @see routes/web.php:40
  * @route '/menu'
  */
         menuForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

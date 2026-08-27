@@ -18,6 +18,12 @@ class LoginResponse implements LoginResponseContract
         }
 
         // Redirect based on role
+        if ($user->role === 'super_admin' || $user->isSuperAdmin()) {
+            return $request->wantsJson()
+                ? response()->json(['two_factor' => false, 'redirect' => '/super-admin'])
+                : redirect()->intended('/super-admin');
+        }
+
         if ($user->role === 'admin') {
             return $request->wantsJson()
                 ? response()->json(['two_factor' => false])
