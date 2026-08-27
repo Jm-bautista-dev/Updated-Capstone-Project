@@ -61,4 +61,37 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return $request->expectsJson();
         });
+
+        // Force JSON for all API 401s (Unauthenticated)
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*') || $request->expectsJson()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+        });
+
+        // Force JSON for all API 404s (Route / Model Not Found)
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*') || $request->expectsJson()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => $e->getMessage() ?: 'Route not found.',
+                ], 404);
+            }
+        });
+
+        // Force JSON for all API 403s (Forbidden / Access Denied)
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*') || $request->expectsJson()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => $e->getMessage() ?: 'Access denied.',
+                ], 403);
+            }
+        });
     })->create();

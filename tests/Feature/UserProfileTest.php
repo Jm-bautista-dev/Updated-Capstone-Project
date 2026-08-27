@@ -238,4 +238,27 @@ class UserProfileTest extends TestCase
             'phone' => '09666666666',
         ]);
     }
+
+    public function test_unauthenticated_api_request_returns_json_401(): void
+    {
+        $response = $this->get('/api/v1/user', ['Accept' => 'application/json']);
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'status'  => 'error',
+                'success' => false,
+                'message' => 'Unauthenticated.',
+            ]);
+    }
+
+    public function test_invalid_api_route_returns_json_404(): void
+    {
+        $response = $this->get('/api/v1/non-existent-endpoint', ['Accept' => 'application/json']);
+
+        $response->assertStatus(404)
+            ->assertJson([
+                'status'  => 'error',
+                'success' => false,
+            ]);
+    }
 }
