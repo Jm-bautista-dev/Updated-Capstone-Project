@@ -27,7 +27,7 @@ class DeploymentController extends Controller
             'gitBranch'         => 'main',
             'gitCommitHash'     => $commitHash,
             'deploymentServer'  => 'Hostinger Shared Hosting (sg-nme-web603)',
-            'nodeEnv'           => process()->env['NODE_ENV'] ?? 'production',
+            'nodeEnv'           => env('NODE_ENV', 'production'),
             'lastDeployedAt'    => now()->subHours(2)->toIso8601String(),
             'buildTimestamp'    => date('Y-m-d H:i:s', @filemtime(public_path('build/manifest.json')) ?: time()),
         ];

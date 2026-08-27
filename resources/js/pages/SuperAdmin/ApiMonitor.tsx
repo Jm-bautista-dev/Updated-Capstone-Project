@@ -1,17 +1,18 @@
-import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Terminal, Activity, AlertTriangle, CheckCircle2, Search } from 'lucide-react';
+import { Terminal } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 
+interface Endpoint {
+    path: string;
+    method: string;
+    name: string;
+    status: string;
+}
+
 interface ApiMonitorProps {
-    endpoints: Array<{
-        path: string;
-        method: string;
-        name: string;
-        status: string;
-    }>;
-    recentEndpointErrors: Array<any>;
+    endpoints: Endpoint[];
     summary: {
         totalMonitored: number;
         activeEndpoints: number;
@@ -19,7 +20,7 @@ interface ApiMonitorProps {
     };
 }
 
-export default function ApiMonitor({ endpoints, recentEndpointErrors, summary }: ApiMonitorProps) {
+export default function ApiMonitor({ endpoints, summary }: ApiMonitorProps) {
     return (
         <SuperAdminLayout>
             <Head title="Super Admin — API Monitoring & Endpoint Performance" />

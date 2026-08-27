@@ -1,23 +1,65 @@
-import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Activity, Database, Server, HardDrive, Cpu, RefreshCw, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Activity, Cpu, Database, HardDrive, RefreshCw, Server } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+interface StorageHealth {
+    name: string;
+    status: string;
+    app_writable: boolean;
+    logs_writable: boolean;
+}
+
+interface CacheHealth {
+    name: string;
+    status: string;
+    driver: string;
+    message: string;
+}
+
+interface DatabaseHealthData {
+    name: string;
+    connection: string;
+    status: string;
+    message: string;
+    latency: number;
+}
+
+interface AppHealth {
+    name: string;
+    status: string;
+    version: string;
+    php_version: string;
+    environment: string;
+}
+
+interface ExternalHealth {
+    osrm_routing: { status: string; latency: number };
+}
+
+interface HealthData {
+    database: DatabaseHealthData;
+    application: AppHealth;
+    storage: StorageHealth;
+    cache: CacheHealth;
+    external: ExternalHealth;
+}
+
 interface SystemHealthProps {
-    initialHealth: any;
+    initialHealth: HealthData;
 }
 
 export default function SystemHealth({ initialHealth }: SystemHealthProps) {
-    const [health, setHealth] = React.useState(initialHealth);
+    const [health, setHealth] = React.useState<HealthData>(initialHealth);
     const [loading, setLoading] = React.useState(false);
 
     const refreshDiagnostics = async () => {
         setLoading(true);
         try {
             const res = await fetch('/super-admin/system-health/check');
-            const data = await res.json();
+            const data = await res.json() as { success: boolean; health: HealthData };
             if (data.success) {
                 setHealth(data.health);
             }

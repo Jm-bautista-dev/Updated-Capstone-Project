@@ -1,9 +1,9 @@
-import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Wrench, Clock, RefreshCw } from 'lucide-react';
+import { RefreshCw, Wrench } from 'lucide-react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 
-interface MaintenanceProps {
+interface MaintenanceErrorPageProps {
     title?: string;
     message?: string;
     estimatedRestorationTime?: string;
@@ -15,7 +15,7 @@ export default function Maintenance({
     message = 'We are performing scheduled maintenance to upgrade our infrastructure and operational systems. Please check back shortly.',
     estimatedRestorationTime = '30 minutes',
     applicationVersion = '2.5.0',
-}: MaintenanceProps) {
+}: MaintenanceErrorPageProps) {
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 font-sans">
             <Head title={`503 Service Unavailable — ${title}`} />
@@ -55,7 +55,6 @@ export default function Maintenance({
                 {/* Restoration Time Card */}
                 {estimatedRestorationTime && (
                     <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-center gap-2 text-xs font-semibold text-amber-400">
-                        <Clock className="size-4 shrink-0" />
                         <span>Estimated Restoration: {estimatedRestorationTime}</span>
                     </div>
                 )}

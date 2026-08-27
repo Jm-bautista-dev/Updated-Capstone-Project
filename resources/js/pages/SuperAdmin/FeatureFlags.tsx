@@ -1,12 +1,21 @@
-import React from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Flag, CheckCircle2, XCircle, Sliders } from 'lucide-react';
+import { Flag } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+interface FeatureFlagRecord {
+    id: number;
+    key: string;
+    name: string;
+    description?: string;
+    is_enabled: boolean;
+    updated_by?: { name: string };
+}
+
 interface FeatureFlagsProps {
-    flags: Array<any>;
+    flags: FeatureFlagRecord[];
 }
 
 export default function FeatureFlags({ flags }: FeatureFlagsProps) {
@@ -23,7 +32,7 @@ export default function FeatureFlags({ flags }: FeatureFlagsProps) {
                 },
                 body: JSON.stringify({ is_enabled: !currentStatus }),
             });
-            const data = await res.json();
+            const data = await res.json() as { success: boolean };
             if (data.success) {
                 router.reload();
             }
@@ -73,7 +82,7 @@ export default function FeatureFlags({ flags }: FeatureFlagsProps) {
                                 </span>
                                 <Button
                                     size="sm"
-                                    onClick={() => toggleFlag(flag.id, flag.is_enabled)}
+                                    onClick={() => void toggleFlag(flag.id, flag.is_enabled)}
                                     disabled={updating === flag.id}
                                     className={`h-8 px-4 text-xs font-bold rounded-xl transition-all ${
                                         flag.is_enabled

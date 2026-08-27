@@ -1,15 +1,31 @@
-import React from 'react';
 import { Head, router } from '@inertiajs/react';
-import { AlertTriangle, Search, Filter, CheckCircle2, XCircle, ChevronRight, Copy, Terminal, Shield } from 'lucide-react';
+import { AlertTriangle, Copy, Search } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+interface ErrorRecord {
+    id: number;
+    uuid: string;
+    exception_class: string;
+    message: string;
+    occurrences: number;
+    severity: string;
+    method?: string;
+    endpoint?: string;
+    file: string;
+    line: number;
+    trace: string;
+    is_resolved: boolean;
+    last_seen_at: string;
+}
 
 interface ErrorLogsProps {
     errors: {
-        data: Array<any>;
+        data: ErrorRecord[];
         current_page: number;
         last_page: number;
         total: number;
@@ -20,12 +36,12 @@ interface ErrorLogsProps {
         critical: number;
         resolved: number;
     };
-    filters: Record<string, any>;
+    filters: Record<string, string>;
 }
 
 export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
     const [search, setSearch] = React.useState(filters.search || '');
-    const [selectedError, setSelectedError] = React.useState<any | null>(null);
+    const [selectedError, setSelectedError] = React.useState<ErrorRecord | null>(null);
     const [copied, setCopied] = React.useState(false);
 
     const handleSearch = (e: React.FormEvent) => {
@@ -42,7 +58,7 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
                     'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
                 },
             });
-            const data = await res.json();
+            const data = await res.json() as { success: boolean; is_resolved: boolean };
             if (data.success) {
                 router.reload();
                 if (selectedError?.id === errorId) {
@@ -57,7 +73,7 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
     const copyTrace = () => {
         if (!selectedError) return;
         const text = `Exception: ${selectedError.exception_class}\nMessage: ${selectedError.message}\nFile: ${selectedError.file}:${selectedError.line}\nTrace:\n${selectedError.trace}`;
-        navigator.clipboard.writeText(text);
+        void navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -162,7 +178,7 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
                                             }`}>
                                                 {err.severity}
                                             </Badge>
-                                            <span className="font-mono font-bold text-slate-200 truncate max-w-[200px]">{err.exception_class}</span>
+                                            <span className="font-mono font-bold text-slate-200 truncate max-w-50">{err.exception_class}</span>
                                         </div>
                                     </td>
                                     <td className="p-4 max-w-xs truncate text-slate-300 font-medium">
@@ -170,7 +186,7 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
                                     </td>
                                     <td className="p-4 font-mono text-slate-400 text-[11px]">
                                         <span className="text-slate-500 font-bold mr-1">{err.method}</span>
-                                        {err.endpoint || 'CLI / Task'}
+                                        {err.endpoint ?? 'CLI / Task'}
                                     </td>
                                     <td className="p-4 font-mono font-bold text-slate-200">
                                         x{err.occurrences}
@@ -219,7 +235,7 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
                                 </div>
                                 <Button
                                     size="sm"
-                                    onClick={() => toggleResolved(selectedError.id)}
+                                    onClick={() => void toggleResolved(selectedError.id)}
                                     className={selectedError.is_resolved ? 'bg-slate-800 text-slate-300' : 'bg-emerald-500 hover:bg-emerald-600 text-white font-bold'}
                                 >
                                     {selectedError.is_resolved ? 'Mark Unresolved' : 'Mark Resolved'}

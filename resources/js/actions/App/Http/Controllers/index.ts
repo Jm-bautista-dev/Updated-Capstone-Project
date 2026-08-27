@@ -12,6 +12,7 @@ import CategoriesController from './CategoriesController'
 import WastageController from './WastageController'
 import SalesController from './SalesController'
 import InventoryActionController from './InventoryActionController'
+import SuperAdmin from './SuperAdmin'
 import Settings from './Settings'
 const Controllers = {
     Auth: Object.assign(Auth, Auth),
@@ -28,6 +29,7 @@ CategoriesController: Object.assign(CategoriesController, CategoriesController),
 WastageController: Object.assign(WastageController, WastageController),
 SalesController: Object.assign(SalesController, SalesController),
 InventoryActionController: Object.assign(InventoryActionController, InventoryActionController),
+SuperAdmin: Object.assign(SuperAdmin, SuperAdmin),
 Settings: Object.assign(Settings, Settings),
 }
 

@@ -1,16 +1,23 @@
-import React from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Settings, Save, CheckCircle2 } from 'lucide-react';
+import { Save, Settings } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+interface SystemSettingRecord {
+    key: string;
+    value?: string;
+    group?: string;
+    description?: string;
+}
+
 interface SettingsProps {
-    settings: Array<any>;
+    settings: SystemSettingRecord[];
 }
 
 export default function SettingsPage({ settings: initialSettings }: SettingsProps) {
-    const [settingsList, setSettingsList] = React.useState(initialSettings);
+    const [settingsList, setSettingsList] = React.useState<SystemSettingRecord[]>(initialSettings);
     const [saving, setSaving] = React.useState(false);
     const [message, setMessage] = React.useState<string | null>(null);
 
@@ -36,7 +43,7 @@ export default function SettingsPage({ settings: initialSettings }: SettingsProp
                     settings: settingsList.map((item) => ({ key: item.key, value: item.value })),
                 }),
             });
-            const data = await res.json();
+            const data = await res.json() as { success: boolean };
             if (data.success) {
                 setMessage('✅ System settings saved successfully.');
                 router.reload();
@@ -69,7 +76,7 @@ export default function SettingsPage({ settings: initialSettings }: SettingsProp
                     </p>
                 )}
 
-                <form onSubmit={handleSave} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+                <form onSubmit={(e) => void handleSave(e)} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
                     <div className="space-y-4">
                         {settingsList.map((item) => (
                             <div key={item.key} className="space-y-1 p-3 bg-slate-950 rounded-2xl border border-slate-800/80">
@@ -80,7 +87,7 @@ export default function SettingsPage({ settings: initialSettings }: SettingsProp
                                     <p className="text-[11px] text-slate-400 mb-1">{item.description}</p>
                                 )}
                                 <Input
-                                    value={item.value || ''}
+                                    value={item.value ?? ''}
                                     onChange={(e) => handleChange(item.key, e.target.value)}
                                     className="bg-slate-900 border-slate-800 text-white rounded-xl text-xs h-9"
                                 />

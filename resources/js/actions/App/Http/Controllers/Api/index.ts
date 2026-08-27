@@ -2,6 +2,7 @@ import TopPickController from './TopPickController'
 import PosDeliveryDistanceController from './PosDeliveryDistanceController'
 import AuthController from './AuthController'
 import VerificationController from './VerificationController'
+import SystemStatusController from './SystemStatusController'
 import ProductController from './ProductController'
 import CategoryController from './CategoryController'
 import V1 from './V1'
@@ -25,6 +26,7 @@ const Api = {
 PosDeliveryDistanceController: Object.assign(PosDeliveryDistanceController, PosDeliveryDistanceController),
 AuthController: Object.assign(AuthController, AuthController),
 VerificationController: Object.assign(VerificationController, VerificationController),
+SystemStatusController: Object.assign(SystemStatusController, SystemStatusController),
 ProductController: Object.assign(ProductController, ProductController),
 CategoryController: Object.assign(CategoryController, CategoryController),
 V1: Object.assign(V1, V1),

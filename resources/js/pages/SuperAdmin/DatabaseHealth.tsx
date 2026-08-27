@@ -1,8 +1,14 @@
-import React from 'react';
 import { Head } from '@inertiajs/react';
-import { Database, ShieldCheck, HardDrive, Layers, Server } from 'lucide-react';
+import { Database } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
+
+interface TableRecord {
+    name: string;
+    rows: number;
+    size_mb: number;
+}
 
 interface DatabaseHealthProps {
     database: {
@@ -12,11 +18,7 @@ interface DatabaseHealthProps {
         latencyMs: number;
         appliedMigrations: number;
     };
-    tables: Array<{
-        name: string;
-        rows: number;
-        size_mb: number;
-    }>;
+    tables: TableRecord[];
 }
 
 export default function DatabaseHealth({ database, tables }: DatabaseHealthProps) {

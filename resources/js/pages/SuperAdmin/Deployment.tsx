@@ -1,8 +1,7 @@
-import React from 'react';
 import { Head } from '@inertiajs/react';
-import { GitCommit, Server, Cpu, CheckCircle2, Code } from 'lucide-react';
+import { GitCommit } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
-import { Badge } from '@/components/ui/badge';
 
 interface DeploymentProps {
     deployment: {

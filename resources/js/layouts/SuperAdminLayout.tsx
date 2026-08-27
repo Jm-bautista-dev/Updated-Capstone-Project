@@ -1,34 +1,34 @@
-import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     Activity,
     AlertTriangle,
-    Shield,
-    Terminal,
     Database,
+    FileText,
     Flag,
     GitCommit,
-    Wrench,
-    FileText,
-    Settings,
     LayoutDashboard,
     LogOut,
-    UserCheck,
-    CheckCircle2,
-    Clock,
-    Server,
+    Settings,
+    Shield,
+    Terminal,
+    Wrench,
 } from 'lucide-react';
+import React from 'react';
 import { FlashMessages } from '@/components/flash-messages';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 
 interface SuperAdminLayoutProps {
     children: React.ReactNode;
-    title?: string;
 }
 
-export default function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
-    const { auth, url } = usePage().props as any;
+interface PageProps {
+    auth?: { user?: { name?: string; email?: string } };
+    url?: string;
+    [key: string]: unknown;
+}
+
+export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
+    const { auth } = usePage<PageProps>().props;
     const user = auth?.user;
 
     const navItems = [
@@ -45,7 +45,7 @@ export default function SuperAdminLayout({ children, title }: SuperAdminLayoutPr
         { label: 'System Settings', href: '/super-admin/settings', icon: Settings },
     ];
 
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : url;
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/super-admin';
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col md:flex-row">
@@ -53,7 +53,7 @@ export default function SuperAdminLayout({ children, title }: SuperAdminLayoutPr
             <aside className="w-full md:w-72 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col shrink-0">
                 {/* Brand Header */}
                 <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-                    <div className="size-11 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0">
+                    <div className="size-11 rounded-2xl bg-linear-to-br from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0">
                         <Terminal className="size-6 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">

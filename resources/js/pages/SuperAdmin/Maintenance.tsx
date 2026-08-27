@@ -1,6 +1,6 @@
-import React from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Wrench, ShieldAlert, CheckCircle2, Clock, Info } from 'lucide-react';
+import { Wrench } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,7 @@ export default function Maintenance({ maintenance }: MaintenanceProps) {
                     estimated_restoration_time: eta,
                 }),
             });
-            const data = await res.json();
+            const data = await res.json() as { success: boolean };
             if (data.success) {
                 setEnabled(newEnabledStatus);
                 router.reload();
@@ -89,7 +89,7 @@ export default function Maintenance({ maintenance }: MaintenanceProps) {
                         </div>
 
                         <Button
-                            onClick={() => handleSave(!enabled)}
+                            onClick={() => void handleSave(!enabled)}
                             disabled={saving}
                             className={`h-11 px-6 font-black text-xs rounded-2xl shadow-lg transition-all ${
                                 enabled
@@ -138,7 +138,7 @@ export default function Maintenance({ maintenance }: MaintenanceProps) {
 
                         <div className="pt-2">
                             <Button
-                                onClick={() => handleSave(enabled)}
+                                onClick={() => void handleSave(enabled)}
                                 disabled={saving}
                                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs h-10 px-6 rounded-xl border border-slate-700"
                             >

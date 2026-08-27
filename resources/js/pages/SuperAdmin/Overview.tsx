@@ -1,26 +1,26 @@
-import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import {
     Activity,
     AlertTriangle,
-    Shield,
-    Terminal,
-    Database,
+    ArrowUpRight,
+    FileText,
     Flag,
     GitCommit,
-    Wrench,
-    FileText,
-    Settings,
-    CheckCircle2,
-    Clock,
+    LayoutDashboard,
     Server,
-    Cpu,
-    ArrowUpRight,
-    Zap,
+    Shield,
+    Wrench,
 } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface Service {
+    status: string;
+    message: string;
+    latency_ms?: number;
+}
 
 interface OverviewProps {
     application: {
@@ -34,7 +34,7 @@ interface OverviewProps {
         status: 'healthy' | 'warning' | 'critical' | 'maintenance';
         isMaintenance: boolean;
     };
-    services: Record<string, { status: string; message: string; latency_ms?: number }>;
+    services: Record<string, Service>;
     stats: {
         totalUsers: number;
         superAdmins: number;
@@ -43,8 +43,22 @@ interface OverviewProps {
         enabledFlags: number;
         totalFlags: number;
     };
-    recentAuditLogs: Array<any>;
-    recentErrors: Array<any>;
+    recentAuditLogs: Array<{
+        id: number;
+        action: string;
+        actor_name: string;
+        actor_role: string;
+        created_at: string;
+    }>;
+    recentErrors: Array<{
+        id: number;
+        exception_class: string;
+        message: string;
+        occurrences: number;
+        endpoint?: string;
+        method?: string;
+        last_seen_at: string;
+    }>;
 }
 
 export default function Overview({ application, services, stats, recentAuditLogs, recentErrors }: OverviewProps) {
@@ -202,7 +216,7 @@ export default function Overview({ application, services, stats, recentAuditLogs
                                 </div>
                                 <p className="text-xs text-slate-300 line-clamp-1">{err.message}</p>
                                 <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                                    <span>{err.endpoint || 'Internal Task'}</span>
+                                    <span>{err.endpoint ?? 'Internal Task'}</span>
                                     <span>{err.last_seen_at}</span>
                                 </div>
                             </div>

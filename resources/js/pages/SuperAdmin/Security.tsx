@@ -1,22 +1,22 @@
+import { Head } from '@inertiajs/react';
+import { KeyRound, Shield, UserCheck } from 'lucide-react';
 import React from 'react';
-import { Head, router } from '@inertiajs/react';
-import { Shield, KeyRound, UserCheck, Lock, AlertTriangle } from 'lucide-react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-interface SecurityProps {
-    superAdmins: Array<any>;
-    recentSecurityLogs: Array<any>;
-    securityStats: {
-        totalSuperAdmins: number;
-        twoFactorEnabled: boolean;
-        lastPasswordChange?: string;
-    };
+interface AdminUser {
+    id: number;
+    name: string;
+    email: string;
 }
 
-export default function Security({ superAdmins, recentSecurityLogs, securityStats }: SecurityProps) {
+interface SecurityProps {
+    superAdmins: AdminUser[];
+}
+
+export default function Security({ superAdmins }: SecurityProps) {
     const [currentPassword, setCurrentPassword] = React.useState('');
     const [newPassword, setNewPassword] = React.useState('');
     const [confirmPassword, setConfirmPassword] = React.useState('');
@@ -41,14 +41,14 @@ export default function Security({ superAdmins, recentSecurityLogs, securityStat
                     password_confirmation: confirmPassword,
                 }),
             });
-            const data = await res.json();
+            const data = await res.json() as { success: boolean; message?: string };
             if (data.success) {
                 setMessage('✅ Super Admin password updated successfully.');
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
             } else {
-                setMessage(`❌ ${data.message}`);
+                setMessage(`❌ ${data.message ?? 'Password update failed.'}`);
             }
         } catch {
             setMessage('❌ Failed to update password.');
@@ -86,7 +86,7 @@ export default function Security({ superAdmins, recentSecurityLogs, securityStat
                             </p>
                         )}
 
-                        <form onSubmit={handlePasswordChange} className="space-y-3">
+                        <form onSubmit={(e) => void handlePasswordChange(e)} className="space-y-3">
                             <div>
                                 <label className="text-xs font-bold text-slate-400 block mb-1">Current Password</label>
                                 <Input

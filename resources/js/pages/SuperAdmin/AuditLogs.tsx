@@ -1,23 +1,31 @@
-import React from 'react';
 import { Head, router } from '@inertiajs/react';
-import { FileText, Search, Shield, UserCheck, Terminal } from 'lucide-react';
+import { FileText, Search } from 'lucide-react';
+import React from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+interface AuditLogRecord {
+    id: number;
+    action: string;
+    actor_name: string;
+    actor_role: string;
+    target?: string;
+    ip_address?: string;
+    created_at: string;
+}
 
 interface AuditLogsProps {
     logs: {
-        data: Array<any>;
+        data: AuditLogRecord[];
         current_page: number;
         last_page: number;
         total: number;
     };
-    actionTypes: Array<string>;
-    filters: Record<string, any>;
+    filters: Record<string, string>;
 }
 
-export default function AuditLogs({ logs, actionTypes, filters }: AuditLogsProps) {
+export default function AuditLogs({ logs, filters }: AuditLogsProps) {
     const [search, setSearch] = React.useState(filters.search || '');
 
     const handleSearch = (e: React.FormEvent) => {
@@ -77,10 +85,10 @@ export default function AuditLogs({ logs, actionTypes, filters }: AuditLogsProps
                                             {log.actor_name} <span className="text-slate-500 text-[10px]">({log.actor_role})</span>
                                         </td>
                                         <td className="p-4 text-slate-300">
-                                            {log.target || '—'}
+                                            {log.target ?? '—'}
                                         </td>
                                         <td className="p-4 text-slate-400 text-[11px]">
-                                            {log.ip_address || '127.0.0.1'}
+                                            {log.ip_address ?? '127.0.0.1'}
                                         </td>
                                         <td className="p-4 text-slate-400 text-[11px]">
                                             {new Date(log.created_at).toLocaleString()}
