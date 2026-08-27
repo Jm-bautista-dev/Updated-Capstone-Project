@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FiCheck, FiTruck, FiPhone, FiAlertCircle } from 'react-icons/fi';
+import echo from '@/echo';
 import { cn } from '@/lib/utils';
 
 export interface PosRider {
@@ -11,6 +12,14 @@ export interface PosRider {
     in_transit?: boolean;
     active_deliveries_count?: number;
     is_assignable?: boolean;
+}
+
+interface RiderStatusUpdatedEvent {
+    rider_id: number;
+    is_active?: boolean;
+    status?: 'available' | 'busy' | 'offline' | string;
+    in_transit?: boolean;
+    active_deliveries_count?: number;
 }
 
 interface PosRiderSelectorProps {
@@ -35,13 +44,11 @@ export const PosRiderSelector: React.FC<PosRiderSelectorProps> = ({
 
     // Real-time synchronization for rider availability
     useEffect(() => {
-        if (typeof window === 'undefined' || !(window as any).Echo) return;
+        if (!echo) return;
 
-        const echo = (window as any).Echo;
         const channel = echo.private('admin.orders');
 
-        channel.listen('RiderStatusUpdated', (event: any) => {
-            console.log('[PosRiderSelector] Realtime RiderStatusUpdated:', event);
+        channel.listen('RiderStatusUpdated', (event: RiderStatusUpdatedEvent) => {
             setRiders(prev => {
                 return prev.map(rider => {
                     if (rider.id === event.rider_id) {
@@ -168,7 +175,7 @@ export const PosRiderSelector: React.FC<PosRiderSelectorProps> = ({
                                                 ? "bg-[#E75480] border-[#E75480] text-white"
                                                 : "border-[#F8C8DC] dark:border-zinc-700 bg-white dark:bg-zinc-800"
                                         )}>
-                                            {isSelected && <FiCheck className="size-3 stroke-[3]" />}
+                                            {isSelected && <FiCheck className="size-3 stroke-3" />}
                                         </div>
                                     </div>
                                 </button>
