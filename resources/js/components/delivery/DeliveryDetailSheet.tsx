@@ -1,8 +1,9 @@
 import { router } from '@inertiajs/react';
 import {
     User, MapPin, Clock, Building2, Bike, Truck,
-    ExternalLink, Phone, ChevronRight, AlertCircle,
-    Package, Navigation, CheckCircle2, FileText, Image
+    Phone, ChevronRight, AlertCircle,
+    Package, Navigation, CheckCircle2, FileText, Image,
+    Maximize2, RefreshCw
 } from 'lucide-react';
 import React from 'react';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
@@ -111,16 +112,22 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 function getFormattedProofUrl(rawUrl: string): string {
     if (!rawUrl) return '';
     const trimmed = rawUrl.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
-        return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        try {
+            const parsed = new URL(trimmed);
+            if (typeof window !== 'undefined' && (parsed.hostname === window.location.hostname || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
+                return parsed.pathname;
+            }
+            return trimmed;
+        } catch {
+            return trimmed;
+        }
     }
-    if (trimmed.startsWith('storage/')) {
-        return `/${trimmed}`;
+    const clean = trimmed.replace(/^\/?(public\/)?/, '');
+    if (clean.startsWith('storage/')) {
+        return `/${clean}`;
     }
-    if (trimmed.includes('/')) {
-        return `/storage/${trimmed}`;
-    }
-    return `/storage/proof_of_delivery/${trimmed}`;
+    return `/storage/${clean}`;
 }
 
 function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
@@ -135,16 +142,18 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
     const candidateUrls = React.useMemo(() => {
         if (!url) return [];
         const raw = url.trim();
-        const base = raw.replace(/^(\/?storage\/)?(proof_of_delivery\/|delivery-proofs\/)?/, '');
+        const cleanRaw = raw.replace(/^https?:\/\/[^/]+/i, '');
+        const base = cleanRaw.replace(/^(\/?storage\/)?(proof_of_delivery\/|delivery-proofs\/)?/, '').replace(/^\/+/, '');
         
         const list = [
             getFormattedProofUrl(raw),
             `/storage/proof_of_delivery/${base}`,
             `/storage/delivery-proofs/${base}`,
             `/storage/${base}`,
+            raw,
         ];
 
-        return Array.from(new Set(list));
+        return Array.from(new Set(list.filter(Boolean)));
     }, [url]);
 
     const currentUrl = candidateUrls[retryIndex] || candidateUrls[0] || '';
@@ -157,55 +166,76 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
         }
     };
 
+    const handleRetry = () => {
+        setHasError(false);
+        setRetryIndex(0);
+    };
+
     return (
         <div className="space-y-3">
-            <div className="flex items-center gap-2">
-                <div className="size-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
-                    <Image className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="size-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
+                        <Image className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">Proof of Delivery</p>
+                        {deliveredAt && (
+                            <p className="text-xs text-(--ops-text-muted)">{formatDate(deliveredAt)} at {formatTime(deliveredAt)}</p>
+                        )}
+                    </div>
                 </div>
-                <div>
-                    <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">Proof of Delivery</p>
-                    {deliveredAt && (
-                        <p className="text-xs text-(--ops-text-muted)">{formatDate(deliveredAt)} at {formatTime(deliveredAt)}</p>
-                    )}
-                </div>
+
+                {!hasError && currentUrl && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setZoomed(true)}
+                        className="h-7 px-2.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 gap-1 rounded-lg font-bold"
+                    >
+                        <Maximize2 className="size-3" /> Full screen
+                    </Button>
+                )}
             </div>
 
-            {/* Thumbnail — click to zoom */}
-            {!hasError ? (
-                <button
+            {/* In-place Photo Card — Clickable to open full-screen view */}
+            {!hasError && currentUrl ? (
+                <div
                     onClick={() => setZoomed(true)}
-                    className="w-full rounded-2xl overflow-hidden border-2 border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md group relative bg-(--ops-surface-sunken)/20"
-                    aria-label="View proof of delivery photo"
+                    className="w-full rounded-2xl overflow-hidden border-2 border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md group relative bg-(--ops-surface-sunken)/20 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setZoomed(true); }}
+                    aria-label="Click to view full screen proof of delivery photo"
                 >
                     <img
                         src={currentUrl}
                         alt="Proof of delivery"
                         onError={handleImageError}
-                        className="w-full object-cover max-h-48 group-hover:scale-105 transition-transform duration-300"
+                        className="w-full object-cover max-h-56 group-hover:scale-[1.02] transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
-                        <div className="opacity-0 group-hover:opacity-100 bg-(--ops-surface-raised)/90 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 flex items-center gap-1.5 transition-all shadow-md">
-                            <ExternalLink className="size-3" /> Click to zoom
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center pointer-events-none">
+                        <div className="opacity-0 group-hover:opacity-100 bg-black/75 backdrop-blur-xs rounded-xl px-3 py-1.5 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-lg scale-95 group-hover:scale-100">
+                            <Maximize2 className="size-3.5" /> Click for full screen
                         </div>
                     </div>
-                </button>
+                </div>
             ) : (
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        <Image className="size-4 shrink-0" />
-                        <span>Proof photo could not be loaded</span>
+                <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        <Image className="size-4 shrink-0 opacity-70" />
+                        <span>Proof photo unavailable on server</span>
                     </div>
-                    {currentUrl && (
-                        <a
-                            href={currentUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                        >
-                            Open link <ExternalLink className="size-3" />
-                        </a>
-                    )}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRetry}
+                        className="h-7 px-2.5 text-xs gap-1 rounded-lg font-medium border-amber-300 dark:border-amber-700/50 hover:bg-amber-100/50 dark:hover:bg-amber-900/30"
+                    >
+                        <RefreshCw className="size-3" /> Retry
+                    </Button>
                 </div>
             )}
 
@@ -215,32 +245,46 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                 </p>
             )}
 
-            {/* Zoom Modal */}
+            {/* Dedicated Full Screen Modal (No new tab redirection) */}
             <Dialog open={zoomed} onOpenChange={setZoomed}>
-                <DialogContent className="max-w-3xl p-2 rounded-2xl">
-                    <DialogHeader className="p-4 pb-2">
-                        <DialogTitle className="text-sm font-black">Delivery Proof Photo</DialogTitle>
-                        <DialogDescription className="text-xs">
-                            {riderName && <>Captured by {riderName}</>}
-                            {deliveredAt && <> • {formatDate(deliveredAt)} {formatTime(deliveredAt)}</>}
-                        </DialogDescription>
+                <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border bg-background/95 backdrop-blur-md shadow-2xl">
+                    <DialogHeader className="p-4 border-b bg-muted/30">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle className="text-base font-bold flex items-center gap-2">
+                                    <Image className="size-4 text-emerald-600" />
+                                    Proof of Delivery Photo
+                                </DialogTitle>
+                                <DialogDescription className="text-xs mt-0.5">
+                                    {riderName ? `Captured by ${riderName}` : 'Delivery proof photo'}
+                                    {deliveredAt ? ` • ${formatDate(deliveredAt)} at ${formatTime(deliveredAt)}` : ''}
+                                </DialogDescription>
+                            </div>
+                        </div>
                     </DialogHeader>
-                    {!hasError ? (
+                    
+                    <div className="p-4 bg-black/90 dark:bg-black flex items-center justify-center min-h-75 max-h-[80vh] overflow-auto">
                         <img 
                             src={currentUrl} 
-                            alt="Proof of delivery full" 
+                            alt="Proof of delivery full screen" 
                             onError={handleImageError}
-                            className="w-full rounded-xl object-contain max-h-[70vh]" 
+                            className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl select-none" 
                         />
-                    ) : (
-                        <div className="py-12 text-center text-xs text-amber-600 font-semibold">
-                            Image file not found on storage server.
-                        </div>
-                    )}
-                    <div className="p-4 pt-2 flex justify-end">
-                        <a href={currentUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary flex items-center gap-1.5 hover:underline">
-                            Open original <ExternalLink className="size-3" />
-                        </a>
+                    </div>
+
+                    <div className="p-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground px-4">
+                        <span className="font-medium">
+                            {riderName ? `Rider: ${riderName}` : 'Proof verified'}
+                        </span>
+                        <Button 
+                            type="button" 
+                            size="sm" 
+                            variant="secondary" 
+                            onClick={() => setZoomed(false)}
+                            className="h-8 px-4 font-bold rounded-lg"
+                        >
+                            Close
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -250,13 +294,13 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
 
 function InfoRow({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
     return (
-        <div className="flex items-start gap-3">
-            <div className="size-9 rounded-xl bg-(--ops-surface-sunken)/20 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="flex items-start gap-3 text-sm">
+            <div className="size-8 rounded-lg bg-(--ops-surface-sunken)/40 flex items-center justify-center shrink-0 mt-0.5">
                 <Icon className="size-4 text-(--ops-text-muted)" />
             </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest mb-0.5">{label}</p>
-                <div className="text-sm">{children}</div>
+            <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">{label}</p>
+                <div className="mt-0.5 text-(--ops-text-primary)">{children}</div>
             </div>
         </div>
     );

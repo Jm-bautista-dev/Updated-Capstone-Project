@@ -238,6 +238,13 @@ class Delivery extends Model
             return null;
         }
 
+        $resolved = \App\Utils\ImageHelper::resolveUrl($this->proof_of_delivery, 'proof_of_delivery')
+            ?? \App\Utils\ImageHelper::resolveUrl($this->proof_of_delivery, 'delivery-proofs');
+
+        if ($resolved) {
+            return $resolved;
+        }
+
         $proof = trim($this->proof_of_delivery);
 
         // If already a full URL
@@ -253,28 +260,8 @@ class Delivery extends Model
             return '/' . $proof;
         }
 
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-        $disk = \Illuminate\Support\Facades\Storage::disk('public');
-
-        if ($disk->exists($proof)) {
-            return $disk->url($proof);
-        }
-
-        if ($disk->exists('proof_of_delivery/' . $proof)) {
-            return $disk->url('proof_of_delivery/' . $proof);
-        }
-
-        if ($disk->exists('delivery-proofs/' . $proof)) {
-            return $disk->url('delivery-proofs/' . $proof);
-        }
-
-        // If path contains slashes (e.g. proof_of_delivery/filename.jpg)
-        if (str_contains($proof, '/')) {
-            return $disk->url($proof);
-        }
-
-        // Default fallback
-        return $disk->url('proof_of_delivery/' . $proof);
+        // Relative fallback
+        return '/storage/' . (str_contains($proof, '/') ? ltrim($proof, '/') : 'proof_of_delivery/' . $proof);
     }
 
     public function getStatusColor(): string
