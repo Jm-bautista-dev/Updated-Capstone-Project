@@ -38,7 +38,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                 <div className={`w-1.5 shrink-0 ${delivery.is_failed ? 'bg-red-500' : (delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40') : 'bg-emerald-400/40')}`} />
 
                 <div className="flex-1 p-4 space-y-3">
-                    {/* Top row: Queue Position, Status, Order #, Amount */}
+                    {/* Top row: Queue Position, Source Badge, Status, Order #, Amount */}
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0 flex-wrap">
                             {delivery.queue_position && (
@@ -46,6 +46,14 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                     Queue #{delivery.queue_position}
                                 </Badge>
                             )}
+                            <Badge className={cn(
+                                "rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0",
+                                (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
+                                    ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900/40"
+                                    : "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40"
+                            )}>
+                                {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? '🖥️ POS' : '📱 Mobile'}
+                            </Badge>
                             <Badge className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${delivery.status_color}`}>
                                 {delivery.status_label}
                             </Badge>

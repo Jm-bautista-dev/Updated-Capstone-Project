@@ -61,7 +61,7 @@ Route::prefix('v1')->group(function () {
             Route::post('change-password', [RiderController::class, 'changePassword']);
 
             // Status & Heartbeat
-            Route::patch('status', [RiderController::class, 'updateStatus']);
+            Route::match(['patch', 'put', 'post'], 'status', [RiderController::class, 'updateStatus']);
             Route::post('ping',    [RiderController::class, 'ping']);
             Route::get('stats',    [RiderController::class, 'getStats']);
 

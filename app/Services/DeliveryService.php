@@ -102,42 +102,39 @@ class DeliveryService
      */
     public function createDelivery(array $data): Delivery
     {
-        return DB::transaction(function () use ($data) {
+        $records = DB::transaction(function () use ($data) {
             $sale = Sale::with('branch')->findOrFail($data['sale_id']);
             $branchId = $sale->branch_id;
+            /** @var Rider|null $rider */
+            $rider = null;
 
-            if ($data['delivery_type'] === 'internal') {
+            if (($data['delivery_type'] ?? 'internal') === 'internal') {
                 $riderId = $data['rider_id'] ?? null;
 
                 if ($riderId) {
+                    /** @var Rider|null $rider */
                     $rider = Rider::where('id', $riderId)
                         ->where('branch_id', $branchId)
-                        ->available()
                         ->lockForUpdate()
                         ->first();
 
                     if (! $rider) {
-                        throw new \Exception('Selected rider is no longer available. Please choose another rider.');
-                    }
-                } else {
-                    $rider = Rider::where('branch_id', $branchId)
-                        ->available()
-                        ->orderByRaw('COALESCE(last_active_at, created_at) ASC')
-                        ->orderBy('updated_at', 'ASC')
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (! $rider) {
-                        throw new \Exception('No available internal rider found for this branch.');
+                        throw new \Exception('Selected rider does not exist in this branch.');
                     }
 
-                    $data['rider_id'] = $rider->id;
+                    if (! $rider->is_active || $rider->status === 'offline') {
+                        throw new \Exception("Rider '{$rider->name}' is currently inactive/offline and cannot be assigned.");
+                    }
+
+                    if ($rider->hasInTransitDelivery()) {
+                        throw new \Exception("Rider '{$rider->name}' is currently out for delivery and cannot take additional orders.");
+                    }
+
+                    $rider->update([
+                        'status'         => 'busy',
+                        'last_active_at' => now(),
+                    ]);
                 }
-
-                $rider->update([
-                    'status'         => 'busy',
-                    'last_active_at' => now(),
-                ]);
             }
 
             $proofPath = null;
@@ -146,12 +143,14 @@ class DeliveryService
                 $this->syncToPublicStorage($proofPath);
             }
 
+            $deliveryStatus = $rider ? 'assigned_to_rider' : Delivery::STATUS_PENDING;
+
             $delivery = Delivery::create([
                 'sale_id'           => $data['sale_id'],
-                'delivery_type'     => $data['delivery_type'],
+                'delivery_type'     => $data['delivery_type'] ?? 'internal',
                 'external_service'  => $data['external_service'] ?? null,
                 'tracking_number'   => $data['tracking_number'] ?? null,
-                'rider_id'          => $data['rider_id'] ?? null,
+                'rider_id'          => $rider?->id ?? ($data['rider_id'] ?? null),
                 'customer_name'     => $data['customer_name'],
                 'customer_phone'    => $data['customer_phone'] ?? null,
                 'customer_address'  => $data['customer_address'],
@@ -160,13 +159,37 @@ class DeliveryService
                 'delivery_notes'    => $data['delivery_notes'] ?? null,
                 'external_notes'    => $data['external_notes'] ?? null,
                 'proof_of_delivery' => $proofPath,
-                'status'            => Delivery::STATUS_PENDING,
+                'status'            => $deliveryStatus,
                 'created_by'        => Auth::id(),
                 'updated_by'        => Auth::id(),
             ]);
 
-            return $delivery;
+            return [
+                'delivery' => $delivery,
+                'rider'    => $rider,
+                'sale'     => $sale,
+            ];
         });
+
+        $delivery = $records['delivery'];
+        $rider = $records['rider'];
+
+        // Real-time broadcasts strictly after DB transaction commits
+        if ($rider) {
+            try {
+                event(new RiderStatusUpdated($rider->fresh(['branch'])));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+            }
+        }
+
+        try {
+            event(new OrderStatusUpdated($delivery->fresh(['sale.branch', 'order.branch', 'rider']), 'pos', null));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('OrderStatusUpdated broadcast failed: ' . $e->getMessage());
+        }
+
+        return $delivery;
     }
 
     /**
@@ -283,17 +306,20 @@ class DeliveryService
      */
     public function assignRider(Delivery $delivery, int $riderId): Delivery
     {
-        // GUARD: Prevent assigning a rider before the order is ready for pickup
+        // Allow assigning a rider when pending, preparing, ready, or reassigning
         $assignableStatuses = [
+            Delivery::STATUS_WAITING_KITCHEN,
+            Delivery::STATUS_PENDING,
+            Delivery::STATUS_PREPARING,
             Delivery::STATUS_READY,
             Delivery::STATUS_ASSIGNED,  // reassign
             Delivery::STATUS_FAILED,    // reassign after failed delivery
+            'assigned_to_rider',
         ];
 
         if (!in_array($delivery->status, $assignableStatuses)) {
             throw new \Exception(
-                "Cannot assign a rider to a delivery in '{$delivery->status}' status. " .
-                "Order must be 'Ready for Pickup' before a rider can be assigned."
+                "Cannot assign a rider to a delivery in '{$delivery->status}' status."
             );
         }
 

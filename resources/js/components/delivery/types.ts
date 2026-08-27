@@ -3,6 +3,7 @@ export interface Delivery {
     order_id?: number | null;
     sale_id: number;
     delivery_type: 'internal' | 'external';
+    order_source?: 'pos' | 'mobile';
     external_service: 'grab' | 'lalamove' | null;
     tracking_number: string | null;
     status: string;
@@ -128,7 +129,11 @@ export type ViewMode = 'card' | 'table';
 export interface Rider {
     id: number;
     name: string;
+    phone?: string;
+    is_active?: boolean;
+    account_status?: 'active' | 'inactive';
     status: 'available' | 'busy' | 'offline';
+    branch_id?: number | null;
     branch_name: string;
     active_deliveries: number;
     active_in_transit_count?: number;

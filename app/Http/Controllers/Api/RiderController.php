@@ -458,9 +458,9 @@ class RiderController extends Controller
             }
 
             return DB::transaction(function () use ($rider, $id) {
-                $delivery = Delivery::with('order')
+                $delivery = Delivery::with(['order', 'sale'])
                     ->where(function ($q) use ($id) {
-                        $q->where('id', $id)->orWhere('order_id', $id);
+                        $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
                     })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
@@ -486,22 +486,20 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
                 }
 
-                $order = $delivery->order ?: Order::find($delivery->order_id);
-                if (!$order) {
-                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
+                if ($order) {
+                    $order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
                 }
-
-                $order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
 
                 $delivery->update(['status' => 'in_transit']);
 
-                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
                 event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
                     'message' => 'You are on your way!',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -530,9 +528,9 @@ class RiderController extends Controller
             ]);
 
             return DB::transaction(function () use ($rider, $id, $request) {
-                $delivery = Delivery::with('order')
+                $delivery = Delivery::with(['order', 'sale'])
                     ->where(function ($q) use ($id) {
-                        $q->where('id', $id)->orWhere('order_id', $id);
+                        $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
                     })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
@@ -558,12 +556,10 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
                 }
 
-                $order = $delivery->order ?: Order::find($delivery->order_id);
-                if (!$order) {
-                    return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+                $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
+                if ($order) {
+                    $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
                 }
-
-                $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
 
                 $updateData = [
                     'status'       => 'delivered',
@@ -587,21 +583,20 @@ class RiderController extends Controller
                 }
 
                 // ── POST-DELIVERY HOOK ─────────────────────────────────────
-                // Triggers inventory deduction + sales recording.
-                // Runs in its own try/catch — delivery response is NEVER broken.
-                // Idempotent: skipped automatically if already processed.
-                $this->fulfillmentService->onOrderDelivered(
-                    $order->fresh(['items.product.ingredients.stocks', 'branch']),
-                    $delivery
-                );
+                if ($order) {
+                    $this->fulfillmentService->onOrderDelivered(
+                        $order->fresh(['items.product.ingredients.stocks', 'branch']),
+                        $delivery
+                    );
+                }
 
-                event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
                 event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Delivery confirmed! Great job!',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
                 ]);
             });
         } catch (\RuntimeException $e) {

@@ -65,11 +65,21 @@ const TableRow = React.memo(function TableRow({
             onClick={() => onSelect(delivery)}
         >
             {/* 1. Order / Tracking Number */}
-            <div className="w-35 shrink-0 font-bold">
+            <div className="w-38 shrink-0 font-bold">
                 <div className="flex items-center gap-1.5">
                     <TypeIcon className={cn("size-3.5 shrink-0", typeColor)} />
                     <span className="font-mono text-xs text-[#3D2C2E] dark:text-[#F8FAFC]">
                         {delivery.sale?.order_number || delivery.order?.order_number || delivery.tracking_number || `#${delivery.id}`}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                    <span className={cn(
+                        "text-[9px] font-black uppercase px-1.5 py-0.2 rounded font-sans",
+                        (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
+                            ? "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/60"
+                            : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60"
+                    )}>
+                        {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? 'POS' : 'Mobile'}
                     </span>
                 </div>
             </div>

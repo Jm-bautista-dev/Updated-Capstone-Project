@@ -58,17 +58,35 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                         {riders.length === 0 ? (
                             <div className="text-center py-10">
                                 <AlertTriangle className="size-10 text-amber-500 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm font-bold text-[#7D6B6E] dark:text-[#94A3B8]">No active riders found.</p>
+                                <p className="text-sm font-bold text-[#7D6B6E] dark:text-[#94A3B8]">No riders registered for this branch.</p>
                             </div>
                         ) : (
                             riders.map((rider) => {
-                                const isOfflineOrInactive = rider.status === 'offline' || rider.can_be_assigned === false;
-                                const isLocked = Boolean(rider.is_out_for_delivery || isOfflineOrInactive);
-                                const isCollecting = (rider.active_pickup_count ?? 0) > 0 && !rider.is_out_for_delivery && !isOfflineOrInactive;
+                                const isAccountActive = rider.is_active !== false && rider.account_status !== 'inactive';
+                                const isOnline = isAccountActive && rider.status !== 'offline';
+                                const isDelivering = Boolean(rider.is_out_for_delivery || (rider.active_in_transit_count ?? 0) > 0);
+                                const isAvailable = isOnline && !isDelivering && rider.can_be_assigned !== false;
+                                const isLocked = !isAvailable;
+
+                                // Exact label and badges required
+                                let statusBadgeText = 'Active — Available';
+                                let statusBadgeColor = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50';
+                                let statusDotColor = 'bg-emerald-500';
+
+                                if (!isAccountActive || !isOnline) {
+                                    statusBadgeText = 'Inactive / Offline';
+                                    statusBadgeColor = 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800';
+                                    statusDotColor = 'bg-slate-500';
+                                } else if (isDelivering) {
+                                    statusBadgeText = 'Active — Currently Delivering';
+                                    statusBadgeColor = 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/50';
+                                    statusDotColor = 'bg-amber-500';
+                                }
 
                                 return (
                                     <button
                                         key={rider.id}
+                                        type="button"
                                         disabled={isLocked}
                                         onClick={() => !isLocked && setSelectedId(rider.id)}
                                         className={cn(
@@ -76,58 +94,58 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                                             isLocked
                                                 ? "opacity-60 bg-slate-50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800 cursor-not-allowed"
                                                 : selectedId === rider.id
-                                                    ? "border-[#E75480] dark:border-[#FF4F81] bg-[#FFF5F7] dark:bg-[#1C1C28] ring-1 ring-[#E75480]/20 cursor-pointer"
+                                                    ? "border-[#E75480] dark:border-[#FF4F81] bg-[#FFF5F7] dark:bg-[#1C1C28] ring-1 ring-[#E75480]/20 cursor-pointer shadow-sm"
                                                     : "border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#F8C8DC] dark:hover:border-white/20 hover:bg-[#FFF5F7]/50 dark:hover:bg-[#1C1C28]/50 cursor-pointer"
                                         )}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className={cn(
-                                                "size-12 rounded-xl flex items-center justify-center font-black text-lg",
+                                                "size-12 rounded-xl flex items-center justify-center font-black text-lg shrink-0",
                                                 isLocked
                                                     ? "bg-slate-200 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400"
                                                     : selectedId === rider.id
-                                                        ? "bg-[#E75480] text-white"
+                                                        ? "bg-[#E75480] text-white shadow-md shadow-[#E75480]/20"
                                                         : "bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8]"
                                             )}>
                                                 {rider.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{rider.name}</p>
-                                                    {rider.is_out_for_delivery && (
-                                                        <span className="text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-200/60 dark:border-rose-900/40">
+                                                    {isDelivering && (
+                                                        <span className="text-[9px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/40">
                                                             Out for Delivery (Locked)
                                                         </span>
                                                     )}
-                                                    {rider.status === 'offline' && (
+                                                    {!isOnline && (
                                                         <span className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-zinc-700">
-                                                            Inactive / Offline
-                                                        </span>
-                                                    )}
-                                                    {isCollecting && (
-                                                        <span className="text-[9px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/40">
-                                                            Collecting ({rider.active_pickup_count})
+                                                            Unavailable
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0 px-2 h-4", isLocked ? "bg-slate-100 text-slate-700 dark:text-slate-400 border-slate-200" : riderStatusConfig[rider.status]?.color || riderStatusConfig.available.color)}>
-                                                        <span className={cn("size-1.5 rounded-full mr-1", isLocked ? "bg-slate-500" : riderStatusConfig[rider.status]?.dot || riderStatusConfig.available.dot)} />
-                                                        {rider.is_out_for_delivery ? 'out for delivery' : rider.status}
+                                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0.5 px-2", statusBadgeColor)}>
+                                                        <span className={cn("size-1.5 rounded-full mr-1.5 shrink-0", statusDotColor)} />
+                                                        {statusBadgeText}
                                                     </Badge>
                                                     <span className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">• {rider.branch_name}</span>
+                                                    {rider.phone && (
+                                                        <span className="text-[10px] font-mono text-[#7D6B6E] dark:text-[#94A3B8]">• {rider.phone}</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] tracking-widest">Active Tasks</p>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] tracking-widest">Active Orders</p>
                                             <p className={cn(
                                                 "text-lg font-black font-mono tabular-nums",
-                                                isLocked
-                                                    ? "text-rose-600 dark:text-rose-400"
-                                                    : rider.active_deliveries > 0
-                                                        ? "text-amber-600 dark:text-amber-400"
-                                                        : "text-emerald-600 dark:text-emerald-400"
+                                                isDelivering
+                                                    ? "text-amber-600 dark:text-amber-400"
+                                                    : !isOnline
+                                                        ? "text-slate-400"
+                                                        : rider.active_deliveries > 0
+                                                            ? "text-amber-600 dark:text-amber-400"
+                                                            : "text-emerald-600 dark:text-emerald-400"
                                             )}>
                                                 {rider.active_deliveries}
                                             </p>

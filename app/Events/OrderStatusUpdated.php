@@ -102,12 +102,16 @@ class OrderStatusUpdated implements ShouldBroadcastNow
         };
 
         $proofOfDeliveryUrl = $this->delivery->proof_of_delivery_url;
+        $orderSource = $this->delivery->sale_id ? 'pos' : 'mobile';
+        $totalAmount = (float) ($this->delivery->sale?->total ?? $this->delivery->order?->total_amount ?? 0);
+        $paymentMethod = $this->delivery->sale?->payment_method ?? $this->delivery->order?->payment_method ?? 'cash';
 
         return [
             'event'                 => 'order-status-updated',
             'delivery_id'           => $this->delivery->id,
             'order_id'              => $this->delivery->order_id ?? $this->delivery->sale_id,
             'order_number'          => $orderNumber,
+            'order_source'          => $orderSource,
             'tracking_number'       => $this->delivery->tracking_number,
             'status'                => $this->delivery->status,
             'status_label'          => $statusLabel,
@@ -118,7 +122,11 @@ class OrderStatusUpdated implements ShouldBroadcastNow
             'branch_name'           => $branchName,
             'customer_id'           => $this->delivery->order?->user_id,
             'customer_name'         => $this->delivery->customer_name,
+            'customer_phone'        => $this->delivery->customer_phone,
             'customer_address'      => $this->delivery->customer_address,
+            'total_amount'          => $totalAmount,
+            'delivery_fee'          => (float) $this->delivery->delivery_fee,
+            'payment_method'        => $paymentMethod,
             'updated_by'            => $this->updatedByRole,
             'proof_of_delivery_url' => $proofOfDeliveryUrl,
             'timestamp'             => now()->toIso8601String(),

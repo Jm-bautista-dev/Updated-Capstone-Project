@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
 const getLiveRiderLocations054d85beb9c8c410feec91746240edf6 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
 getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.url = (options?: RouteQuer
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
 getLiveRiderLocations054d85beb9c8c410feec91746240edf6.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.get = (options?: RouteQuer
 })
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
 getLiveRiderLocations054d85beb9c8c410feec91746240edf6.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.head = (options?: RouteQue
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
     const getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.head = (options?: RouteQue
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
         getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.head = (options?: RouteQue
         })
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/api/v1/deliveries/live-riders'
  */
         getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ getLiveRiderLocations054d85beb9c8c410feec91746240edf6.head = (options?: RouteQue
     getLiveRiderLocations054d85beb9c8c410feec91746240edf6.form = getLiveRiderLocations054d85beb9c8c410feec91746240edf6Form
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
 const getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -94,7 +94,7 @@ getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
 getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.url = (options?: RouteQuer
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
 getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -112,7 +112,7 @@ getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.get = (options?: RouteQuer
 })
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
 getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -122,7 +122,7 @@ getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.head = (options?: RouteQue
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
     const getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -132,7 +132,7 @@ getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.head = (options?: RouteQue
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
         getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -141,7 +141,7 @@ getLiveRiderLocations85a34385fd96f61867bbfea3d5390bcc.head = (options?: RouteQue
         })
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getLiveRiderLocations
- * @see app/Http/Controllers/Admin/DeliveryController.php:455
+ * @see app/Http/Controllers/Admin/DeliveryController.php:471
  * @route '/deliveries/live-riders'
  */
         getLiveRiderLocations85a34385fd96f61867bbfea3d5390bccForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -163,7 +163,7 @@ export const getLiveRiderLocations = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
 const getRoute39812b5e1fe2ef106ff477c170250c7d = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -178,7 +178,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
 getRoute39812b5e1fe2ef106ff477c170250c7d.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -206,7 +206,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.url = (args: { id: string | number } | 
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
 getRoute39812b5e1fe2ef106ff477c170250c7d.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -215,7 +215,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.get = (args: { id: string | number } | 
 })
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
 getRoute39812b5e1fe2ef106ff477c170250c7d.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -225,7 +225,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.head = (args: { id: string | number } |
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
     const getRoute39812b5e1fe2ef106ff477c170250c7dForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -235,7 +235,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.head = (args: { id: string | number } |
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
         getRoute39812b5e1fe2ef106ff477c170250c7dForm.get = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -244,7 +244,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.head = (args: { id: string | number } |
         })
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/api/v1/deliveries/{id}/route'
  */
         getRoute39812b5e1fe2ef106ff477c170250c7dForm.head = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -260,7 +260,7 @@ getRoute39812b5e1fe2ef106ff477c170250c7d.head = (args: { id: string | number } |
     getRoute39812b5e1fe2ef106ff477c170250c7d.form = getRoute39812b5e1fe2ef106ff477c170250c7dForm
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
 const getRoute5dbb1d26137d8c6ecff249c86828ce00 = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -275,7 +275,7 @@ getRoute5dbb1d26137d8c6ecff249c86828ce00.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
 getRoute5dbb1d26137d8c6ecff249c86828ce00.url = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -303,7 +303,7 @@ getRoute5dbb1d26137d8c6ecff249c86828ce00.url = (args: { delivery: string | numbe
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
 getRoute5dbb1d26137d8c6ecff249c86828ce00.get = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -312,7 +312,7 @@ getRoute5dbb1d26137d8c6ecff249c86828ce00.get = (args: { delivery: string | numbe
 })
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
 getRoute5dbb1d26137d8c6ecff249c86828ce00.head = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -322,7 +322,7 @@ getRoute5dbb1d26137d8c6ecff249c86828ce00.head = (args: { delivery: string | numb
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
     const getRoute5dbb1d26137d8c6ecff249c86828ce00Form = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -332,7 +332,7 @@ getRoute5dbb1d26137d8c6ecff249c86828ce00.head = (args: { delivery: string | numb
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
         getRoute5dbb1d26137d8c6ecff249c86828ce00Form.get = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -341,7 +341,7 @@ getRoute5dbb1d26137d8c6ecff249c86828ce00.head = (args: { delivery: string | numb
         })
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::getRoute
- * @see app/Http/Controllers/Admin/DeliveryController.php:573
+ * @see app/Http/Controllers/Admin/DeliveryController.php:589
  * @route '/deliveries/{delivery}/route'
  */
         getRoute5dbb1d26137d8c6ecff249c86828ce00Form.head = (args: { delivery: string | number } | [delivery: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -441,7 +441,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::store
- * @see app/Http/Controllers/Admin/DeliveryController.php:321
+ * @see app/Http/Controllers/Admin/DeliveryController.php:337
  * @route '/deliveries'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -456,7 +456,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::store
- * @see app/Http/Controllers/Admin/DeliveryController.php:321
+ * @see app/Http/Controllers/Admin/DeliveryController.php:337
  * @route '/deliveries'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -465,7 +465,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::store
- * @see app/Http/Controllers/Admin/DeliveryController.php:321
+ * @see app/Http/Controllers/Admin/DeliveryController.php:337
  * @route '/deliveries'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -475,7 +475,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::store
- * @see app/Http/Controllers/Admin/DeliveryController.php:321
+ * @see app/Http/Controllers/Admin/DeliveryController.php:337
  * @route '/deliveries'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -485,7 +485,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::store
- * @see app/Http/Controllers/Admin/DeliveryController.php:321
+ * @see app/Http/Controllers/Admin/DeliveryController.php:337
  * @route '/deliveries'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -496,7 +496,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::updateStatus
- * @see app/Http/Controllers/Admin/DeliveryController.php:331
+ * @see app/Http/Controllers/Admin/DeliveryController.php:347
  * @route '/deliveries/{delivery}/status'
  */
 export const updateStatus = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -511,7 +511,7 @@ updateStatus.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::updateStatus
- * @see app/Http/Controllers/Admin/DeliveryController.php:331
+ * @see app/Http/Controllers/Admin/DeliveryController.php:347
  * @route '/deliveries/{delivery}/status'
  */
 updateStatus.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -544,7 +544,7 @@ updateStatus.url = (args: { delivery: number | { id: number } } | [delivery: num
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::updateStatus
- * @see app/Http/Controllers/Admin/DeliveryController.php:331
+ * @see app/Http/Controllers/Admin/DeliveryController.php:347
  * @route '/deliveries/{delivery}/status'
  */
 updateStatus.put = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -554,7 +554,7 @@ updateStatus.put = (args: { delivery: number | { id: number } } | [delivery: num
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::updateStatus
- * @see app/Http/Controllers/Admin/DeliveryController.php:331
+ * @see app/Http/Controllers/Admin/DeliveryController.php:347
  * @route '/deliveries/{delivery}/status'
  */
     const updateStatusForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -569,7 +569,7 @@ updateStatus.put = (args: { delivery: number | { id: number } } | [delivery: num
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::updateStatus
- * @see app/Http/Controllers/Admin/DeliveryController.php:331
+ * @see app/Http/Controllers/Admin/DeliveryController.php:347
  * @route '/deliveries/{delivery}/status'
  */
         updateStatusForm.put = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -585,7 +585,7 @@ updateStatus.put = (args: { delivery: number | { id: number } } | [delivery: num
     updateStatus.form = updateStatusForm
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::cancel
- * @see app/Http/Controllers/Admin/DeliveryController.php:344
+ * @see app/Http/Controllers/Admin/DeliveryController.php:360
  * @route '/deliveries/{delivery}/cancel'
  */
 export const cancel = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -600,7 +600,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::cancel
- * @see app/Http/Controllers/Admin/DeliveryController.php:344
+ * @see app/Http/Controllers/Admin/DeliveryController.php:360
  * @route '/deliveries/{delivery}/cancel'
  */
 cancel.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -633,7 +633,7 @@ cancel.url = (args: { delivery: number | { id: number } } | [delivery: number | 
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::cancel
- * @see app/Http/Controllers/Admin/DeliveryController.php:344
+ * @see app/Http/Controllers/Admin/DeliveryController.php:360
  * @route '/deliveries/{delivery}/cancel'
  */
 cancel.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -643,7 +643,7 @@ cancel.post = (args: { delivery: number | { id: number } } | [delivery: number |
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::cancel
- * @see app/Http/Controllers/Admin/DeliveryController.php:344
+ * @see app/Http/Controllers/Admin/DeliveryController.php:360
  * @route '/deliveries/{delivery}/cancel'
  */
     const cancelForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -653,7 +653,7 @@ cancel.post = (args: { delivery: number | { id: number } } | [delivery: number |
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::cancel
- * @see app/Http/Controllers/Admin/DeliveryController.php:344
+ * @see app/Http/Controllers/Admin/DeliveryController.php:360
  * @route '/deliveries/{delivery}/cancel'
  */
         cancelForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -664,7 +664,7 @@ cancel.post = (args: { delivery: number | { id: number } } | [delivery: number |
     cancel.form = cancelForm
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::failDelivery
- * @see app/Http/Controllers/Admin/DeliveryController.php:392
+ * @see app/Http/Controllers/Admin/DeliveryController.php:408
  * @route '/deliveries/{delivery}/fail'
  */
 export const failDelivery = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -679,7 +679,7 @@ failDelivery.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::failDelivery
- * @see app/Http/Controllers/Admin/DeliveryController.php:392
+ * @see app/Http/Controllers/Admin/DeliveryController.php:408
  * @route '/deliveries/{delivery}/fail'
  */
 failDelivery.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -712,7 +712,7 @@ failDelivery.url = (args: { delivery: number | { id: number } } | [delivery: num
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::failDelivery
- * @see app/Http/Controllers/Admin/DeliveryController.php:392
+ * @see app/Http/Controllers/Admin/DeliveryController.php:408
  * @route '/deliveries/{delivery}/fail'
  */
 failDelivery.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -722,7 +722,7 @@ failDelivery.post = (args: { delivery: number | { id: number } } | [delivery: nu
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::failDelivery
- * @see app/Http/Controllers/Admin/DeliveryController.php:392
+ * @see app/Http/Controllers/Admin/DeliveryController.php:408
  * @route '/deliveries/{delivery}/fail'
  */
     const failDeliveryForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -732,7 +732,7 @@ failDelivery.post = (args: { delivery: number | { id: number } } | [delivery: nu
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::failDelivery
- * @see app/Http/Controllers/Admin/DeliveryController.php:392
+ * @see app/Http/Controllers/Admin/DeliveryController.php:408
  * @route '/deliveries/{delivery}/fail'
  */
         failDeliveryForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -743,7 +743,7 @@ failDelivery.post = (args: { delivery: number | { id: number } } | [delivery: nu
     failDelivery.form = failDeliveryForm
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::assignRider
- * @see app/Http/Controllers/Admin/DeliveryController.php:282
+ * @see app/Http/Controllers/Admin/DeliveryController.php:298
  * @route '/deliveries/{delivery}/assign-rider'
  */
 export const assignRider = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -758,7 +758,7 @@ assignRider.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::assignRider
- * @see app/Http/Controllers/Admin/DeliveryController.php:282
+ * @see app/Http/Controllers/Admin/DeliveryController.php:298
  * @route '/deliveries/{delivery}/assign-rider'
  */
 assignRider.url = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -791,7 +791,7 @@ assignRider.url = (args: { delivery: number | { id: number } } | [delivery: numb
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::assignRider
- * @see app/Http/Controllers/Admin/DeliveryController.php:282
+ * @see app/Http/Controllers/Admin/DeliveryController.php:298
  * @route '/deliveries/{delivery}/assign-rider'
  */
 assignRider.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -801,7 +801,7 @@ assignRider.post = (args: { delivery: number | { id: number } } | [delivery: num
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::assignRider
- * @see app/Http/Controllers/Admin/DeliveryController.php:282
+ * @see app/Http/Controllers/Admin/DeliveryController.php:298
  * @route '/deliveries/{delivery}/assign-rider'
  */
     const assignRiderForm = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -811,7 +811,7 @@ assignRider.post = (args: { delivery: number | { id: number } } | [delivery: num
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::assignRider
- * @see app/Http/Controllers/Admin/DeliveryController.php:282
+ * @see app/Http/Controllers/Admin/DeliveryController.php:298
  * @route '/deliveries/{delivery}/assign-rider'
  */
         assignRiderForm.post = (args: { delivery: number | { id: number } } | [delivery: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -822,7 +822,7 @@ assignRider.post = (args: { delivery: number | { id: number } } | [delivery: num
     assignRider.form = assignRiderForm
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
 export const recommend = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -837,7 +837,7 @@ recommend.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
 recommend.url = (options?: RouteQueryOptions) => {
@@ -846,7 +846,7 @@ recommend.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
 recommend.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -855,7 +855,7 @@ recommend.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
 recommend.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -865,7 +865,7 @@ recommend.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
     const recommendForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -875,7 +875,7 @@ recommend.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
         recommendForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -884,7 +884,7 @@ recommend.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\DeliveryController::recommend
- * @see app/Http/Controllers/Admin/DeliveryController.php:424
+ * @see app/Http/Controllers/Admin/DeliveryController.php:440
  * @route '/deliveries/recommend'
  */
         recommendForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

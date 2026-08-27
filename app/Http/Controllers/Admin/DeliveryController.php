@@ -193,32 +193,48 @@ class DeliveryController extends Controller
             return $delivery;
         });
 
-        // Get all active riders for manual assignment
-        $availableRiders = Rider::where('is_active', true)
+        // Get riders for manual assignment and real-time fleet view
+        $riderQuery = Rider::query();
+        if (!$user->isAdmin() && $user->branch_id) {
+            $riderQuery->where(function ($q) use ($user) {
+                $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+            });
+        }
+
+        $availableRiders = $riderQuery
+            ->with(['branch'])
             ->withCount([
                 'deliveries as active_deliveries_count' => function ($q) {
                     $q->whereNotIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED]);
                 },
                 'deliveries as active_in_transit_count' => function ($q) {
-                    $q->where('status', Delivery::STATUS_OUT_FOR_DELIVERY);
+                    $q->whereIn('status', [Delivery::STATUS_OUT_FOR_DELIVERY, 'in_transit']);
                 },
                 'deliveries as active_pickup_count' => function ($q) {
-                    $q->whereIn('status', [Delivery::STATUS_ASSIGNED, Delivery::STATUS_PICKED_UP]);
+                    $q->whereIn('status', [Delivery::STATUS_ASSIGNED, Delivery::STATUS_PICKED_UP, 'assigned_to_rider', 'picked_up']);
                 }
             ])
+            ->orderBy('name')
             ->get()
             ->map(function ($rider) {
                 $isOutForDelivery = $rider->active_in_transit_count > 0;
+                $isOnline = (bool) $rider->is_active && $rider->status !== 'offline';
+                $canBeAssigned = $isOnline && !$isOutForDelivery;
+
                 return [
                     'id'                     => $rider->id,
                     'name'                   => $rider->name,
-                    'status'                 => $isOutForDelivery ? 'busy' : $rider->status,
+                    'phone'                  => $rider->phone,
+                    'is_active'              => (bool) $rider->is_active,
+                    'account_status'         => $rider->is_active ? 'active' : 'inactive',
+                    'status'                 => $isOutForDelivery ? 'busy' : ($rider->status ?: ($rider->is_active ? 'available' : 'offline')),
+                    'branch_id'              => $rider->branch_id,
                     'branch_name'            => $rider->branch?->name ?? 'Global',
                     'active_deliveries'      => $rider->active_deliveries_count,
                     'active_in_transit_count'=> $rider->active_in_transit_count,
                     'active_pickup_count'    => $rider->active_pickup_count,
                     'is_out_for_delivery'    => $isOutForDelivery,
-                    'can_be_assigned'        => !$isOutForDelivery && $rider->is_active && $rider->status !== 'offline',
+                    'can_be_assigned'        => $canBeAssigned,
                 ];
             });
 
