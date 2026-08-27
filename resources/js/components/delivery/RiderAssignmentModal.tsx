@@ -32,12 +32,6 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
         }
     };
 
-    const riderStatusConfig = {
-        available: { color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50', dot: 'bg-emerald-500' },
-        busy: { color: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/50', dot: 'bg-amber-500' },
-        offline: { color: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-900/50', dot: 'bg-slate-500' },
-    };
-
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
             <DialogContent className="sm:max-w-125 rounded-3xl p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl font-['Outfit']">
