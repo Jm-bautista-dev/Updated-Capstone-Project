@@ -238,30 +238,15 @@ class Delivery extends Model
             return null;
         }
 
-        $resolved = \App\Utils\ImageHelper::resolveUrl($this->proof_of_delivery, 'proof_of_delivery')
-            ?? \App\Utils\ImageHelper::resolveUrl($this->proof_of_delivery, 'delivery-proofs');
-
-        if ($resolved) {
-            return $resolved;
-        }
-
         $proof = trim($this->proof_of_delivery);
 
-        // If already a full URL
+        // If already a full URL (external CDN / S3)
         if (str_starts_with($proof, 'http://') || str_starts_with($proof, 'https://')) {
             return $proof;
         }
 
-        // If already starts with leading slash or /storage/
-        if (str_starts_with($proof, '/storage/')) {
-            return $proof;
-        }
-        if (str_starts_with($proof, 'storage/')) {
-            return '/' . $proof;
-        }
-
-        // Relative fallback
-        return '/storage/' . (str_contains($proof, '/') ? ltrim($proof, '/') : 'proof_of_delivery/' . $proof);
+        return \App\Utils\ImageHelper::resolveUrl($proof, 'proof_of_delivery')
+            ?? \App\Utils\ImageHelper::resolveUrl($proof, 'delivery-proofs');
     }
 
     public function getStatusColor(): string

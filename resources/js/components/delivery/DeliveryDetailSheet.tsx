@@ -109,67 +109,37 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 }
 
 /** Zoomable proof-of-delivery image viewer */
-function getFormattedProofUrl(rawUrl: string): string {
-    if (!rawUrl) return '';
-    const trimmed = rawUrl.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        try {
-            const parsed = new URL(trimmed);
-            if (typeof window !== 'undefined' && (parsed.hostname === window.location.hostname || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
-                return parsed.pathname;
-            }
-            return trimmed;
-        } catch {
-            return trimmed;
-        }
-    }
-    const clean = trimmed.replace(/^\/?(public\/)?/, '');
-    if (clean.startsWith('storage/')) {
-        return `/${clean}`;
-    }
-    return `/storage/${clean}`;
-}
-
 function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
-    url: string;
+    url?: string | null;
     deliveredAt?: string | null;
     riderName?: string;
 }) {
     const [zoomed, setZoomed] = React.useState(false);
     const [hasError, setHasError] = React.useState(false);
-    const [retryIndex, setRetryIndex] = React.useState(0);
 
-    const candidateUrls = React.useMemo(() => {
-        if (!url) return [];
-        const raw = url.trim();
-        const cleanRaw = raw.replace(/^https?:\/\/[^/]+/i, '');
-        const base = cleanRaw.replace(/^(\/?storage\/)?(proof_of_delivery\/|delivery-proofs\/)?/, '').replace(/^\/+/, '');
-        
-        const list = [
-            getFormattedProofUrl(raw),
-            `/storage/proof_of_delivery/${base}`,
-            `/storage/delivery-proofs/${base}`,
-            `/storage/${base}`,
-            raw,
-        ];
-
-        return Array.from(new Set(list.filter(Boolean)));
+    // Format single valid URL (without trial loops)
+    const formattedUrl = React.useMemo(() => {
+        if (!url) return null;
+        const trimmed = url.trim();
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            try {
+                const parsed = new URL(trimmed);
+                if (typeof window !== 'undefined' && (parsed.hostname === window.location.hostname || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
+                    return parsed.pathname;
+                }
+                return trimmed;
+            } catch {
+                return trimmed;
+            }
+        }
+        const clean = trimmed.replace(/^\/?(public\/)?/, '');
+        if (clean.startsWith('storage/')) {
+            return `/${clean}`;
+        }
+        return `/storage/${clean}`;
     }, [url]);
 
-    const currentUrl = candidateUrls[retryIndex] || candidateUrls[0] || '';
-
-    const handleImageError = () => {
-        if (retryIndex + 1 < candidateUrls.length) {
-            setRetryIndex(prev => prev + 1);
-        } else {
-            setHasError(true);
-        }
-    };
-
-    const handleRetry = () => {
-        setHasError(false);
-        setRetryIndex(0);
-    };
+    const showPhoto = Boolean(formattedUrl) && !hasError;
 
     return (
         <div className="space-y-3">
@@ -186,13 +156,13 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                     </div>
                 </div>
 
-                {!hasError && currentUrl && (
+                {showPhoto && (
                     <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => setZoomed(true)}
-                        className="h-7 px-2.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 gap-1 rounded-lg font-bold"
+                        className="h-7 px-2.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 gap-1 rounded-lg font-bold cursor-pointer"
                     >
                         <Maximize2 className="size-3" /> Full screen
                     </Button>
@@ -200,7 +170,7 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
             </div>
 
             {/* In-place Photo Card — Clickable to open full-screen view */}
-            {!hasError && currentUrl ? (
+            {showPhoto ? (
                 <div
                     onClick={() => setZoomed(true)}
                     className="w-full rounded-2xl overflow-hidden border-2 border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 transition-all shadow-sm hover:shadow-md group relative bg-(--ops-surface-sunken)/20 cursor-pointer"
@@ -210,9 +180,9 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                     aria-label="Click to view full screen proof of delivery photo"
                 >
                     <img
-                        src={currentUrl}
+                        src={formattedUrl!}
                         alt="Proof of delivery"
-                        onError={handleImageError}
+                        onError={() => setHasError(true)}
                         className="w-full object-cover max-h-56 group-hover:scale-[1.02] transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center pointer-events-none">
@@ -227,15 +197,17 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                         <Image className="size-4 shrink-0 opacity-70" />
                         <span>Proof photo unavailable on server</span>
                     </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRetry}
-                        className="h-7 px-2.5 text-xs gap-1 rounded-lg font-medium border-amber-300 dark:border-amber-700/50 hover:bg-amber-100/50 dark:hover:bg-amber-900/30"
-                    >
-                        <RefreshCw className="size-3" /> Retry
-                    </Button>
+                    {Boolean(url) && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setHasError(false)}
+                            className="h-7 px-2.5 text-xs gap-1 rounded-lg font-medium border-amber-300 dark:border-amber-700/50 hover:bg-amber-100/50 dark:hover:bg-amber-900/30"
+                        >
+                            <RefreshCw className="size-3" /> Retry
+                        </Button>
+                    )}
                 </div>
             )}
 
@@ -264,12 +236,18 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
                     </DialogHeader>
                     
                     <div className="p-4 bg-black/90 dark:bg-black flex items-center justify-center min-h-75 max-h-[80vh] overflow-auto">
-                        <img 
-                            src={currentUrl} 
-                            alt="Proof of delivery full screen" 
-                            onError={handleImageError}
-                            className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl select-none" 
-                        />
+                        {formattedUrl && !hasError ? (
+                            <img 
+                                src={formattedUrl} 
+                                alt="Proof of delivery full screen" 
+                                onError={() => setHasError(true)}
+                                className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-2xl select-none" 
+                            />
+                        ) : (
+                            <div className="py-12 text-center text-xs text-amber-500 font-semibold">
+                                Photo file is unavailable on server.
+                            </div>
+                        )}
                     </div>
 
                     <div className="p-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground px-4">
@@ -579,7 +557,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         {/* Proof of Delivery — shown when delivered */}
                         {(delivery.proof_of_delivery_url || delivery.proof_of_delivery) ? (
                             <ProofOfDeliveryViewer
-                                url={delivery.proof_of_delivery_url || delivery.proof_of_delivery || ''}
+                                url={delivery.proof_of_delivery_url}
                                 deliveredAt={delivery.delivered_at}
                                 riderName={delivery.rider?.name}
                             />
