@@ -1,9 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { Activity, Cpu, Database, HardDrive, RefreshCw, Server } from 'lucide-react';
 import React from 'react';
-import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface StorageHealth {
     name: string;

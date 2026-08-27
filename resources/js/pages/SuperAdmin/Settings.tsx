@@ -1,9 +1,9 @@
 import { Head, router } from '@inertiajs/react';
 import { Save, Settings } from 'lucide-react';
 import React from 'react';
-import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface SystemSettingRecord {
     key: string;

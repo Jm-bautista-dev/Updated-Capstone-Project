@@ -1,11 +1,11 @@
 import { Head, router } from '@inertiajs/react';
 import { AlertTriangle, Copy, Search } from 'lucide-react';
 import React from 'react';
-import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface ErrorRecord {
     id: number;

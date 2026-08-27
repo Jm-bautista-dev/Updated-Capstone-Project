@@ -45,6 +45,30 @@ class SuperAdminSystemTest extends TestCase
         $apiResponse->assertStatus(403);
     }
 
+    public function test_existing_admin_account_remains_admin_and_cannot_access_super_admin()
+    {
+        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+
+        $adminUser = User::where('email', 'jmbautista0228@gmail.com')->first();
+        $this->assertNotNull($adminUser);
+        $this->assertEquals('admin', $adminUser->role);
+        $this->assertFalse($adminUser->isSuperAdmin());
+
+        // Admin account must get 403 Forbidden when accessing /super-admin
+        $response = $this->actingAs($adminUser)->get('/super-admin');
+        $response->assertStatus(403);
+
+        // Separate Super Admin account must exist
+        $superAdminUser = User::where('email', 'superadmin@makidesu')->first();
+        $this->assertNotNull($superAdminUser);
+        $this->assertEquals('super_admin', $superAdminUser->role);
+        $this->assertTrue($superAdminUser->isSuperAdmin());
+
+        // Super Admin account can access /super-admin
+        $superAdminResponse = $this->actingAs($superAdminUser)->get('/super-admin');
+        $superAdminResponse->assertStatus(200);
+    }
+
     public function test_super_admin_can_access_super_admin_dashboard()
     {
         $superAdmin = User::where('role', User::ROLE_SUPER_ADMIN)->first();

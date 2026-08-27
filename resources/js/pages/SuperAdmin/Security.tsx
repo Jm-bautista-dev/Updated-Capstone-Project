@@ -1,10 +1,10 @@
 import { Head } from '@inertiajs/react';
 import { KeyRound, Shield, UserCheck } from 'lucide-react';
 import React from 'react';
-import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface AdminUser {
     id: number;

@@ -12,9 +12,9 @@ import {
     Wrench,
 } from 'lucide-react';
 import React from 'react';
-import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import SuperAdminLayout from '@/layouts/SuperAdminLayout';
 
 interface Service {
     status: string;
