@@ -31,13 +31,19 @@ class User extends Authenticatable
         'must_change_password',
     ];
 
-    const ROLE_ADMIN    = 'admin';
-    const ROLE_CASHIER  = 'cashier';
-    const ROLE_CUSTOMER = 'customer';
+    const ROLE_SUPER_ADMIN = 'super_admin';
+    const ROLE_ADMIN       = 'admin';
+    const ROLE_CASHIER     = 'cashier';
+    const ROLE_CUSTOMER    = 'customer';
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
 
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return $this->role === self::ROLE_ADMIN || $this->role === self::ROLE_SUPER_ADMIN;
     }
 
     public function isCashier(): bool

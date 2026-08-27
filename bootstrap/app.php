@@ -35,10 +35,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'role'                 => \App\Http\Middleware\RoleMiddleware::class,
             'must_change_password' => \App\Http\Middleware\MustChangePassword::class,
+            'super_admin'          => \App\Http\Middleware\SuperAdminMiddleware::class,
+            'system_maintenance'   => \App\Http\Middleware\SystemMaintenanceMiddleware::class,
         ]);
 
+        $middleware->append(\App\Http\Middleware\SystemMaintenanceMiddleware::class);
         $middleware->append(\App\Http\Middleware\NetworkTraceMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -92,6 +95,65 @@ return Application::configure(basePath: dirname(__DIR__))
                     'success' => false,
                     'message' => $e->getMessage() ?: 'Access denied.',
                 ], 403);
+            }
+        });
+
+        // Automatically capture application errors into SystemErrorLog table
+        $exceptions->reportable(function (\Throwable $e) {
+            try {
+                // Ignore standard HTTP 404 / 401 exceptions if needed
+                if ($e instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+                    return;
+                }
+
+                $file = $e->getFile();
+                $line = $e->getLine();
+                $exceptionClass = get_class($e);
+                $fingerprint = md5($exceptionClass . ':' . $file . ':' . $line);
+
+                $request   = request();
+                $endpoint  = $request->path();
+                $method    = $request->method();
+                $user      = $request->user();
+                $requestId = $request->header('X-Request-ID') ?? (string) \Illuminate\Support\Str::uuid();
+
+                $statusCode = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : ($e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 500);
+                $severity   = $statusCode >= 500 ? 'critical' : ($statusCode >= 400 ? 'warning' : 'error');
+
+                $sanitizedTrace = \App\Services\AuditLogger::sanitize(
+                    array_slice($e->getTrace(), 0, 15)
+                );
+
+                $existing = \App\Models\SystemErrorLog::where('error_fingerprint', $fingerprint)
+                    ->where('is_resolved', false)
+                    ->first();
+
+                if ($existing) {
+                    $existing->increment('occurrences', 1, [
+                        'last_seen_at' => now(),
+                        'message'      => substr($e->getMessage(), 0, 1000),
+                    ]);
+                } else {
+                    \App\Models\SystemErrorLog::create([
+                        'error_fingerprint' => $fingerprint,
+                        'severity'          => $severity,
+                        'exception_class'   => $exceptionClass,
+                        'message'           => substr($e->getMessage(), 0, 1000),
+                        'status_code'       => $statusCode,
+                        'endpoint'          => $endpoint,
+                        'method'            => $method,
+                        'file'              => $file,
+                        'line'              => $line,
+                        'trace'             => json_encode($sanitizedTrace, JSON_PRETTY_PRINT),
+                        'request_id'        => $requestId,
+                        'user_id'           => $user?->id,
+                        'user_role'         => $user?->role,
+                        'first_seen_at'     => now(),
+                        'last_seen_at'      => now(),
+                    ]);
+                }
+            } catch (\Throwable $loggingError) {
+                // Ignore errors during error logging to avoid infinite loops
             }
         });
     })->create();

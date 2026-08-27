@@ -222,6 +222,50 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/inventory-sales-history', [InventoryActionController::class, 'history'])->name('inventory-sale.history');
         }); // end role:admin,cashier
 
+        // ─────────────────────────────────────────────────────────────────
+        // SUPER ADMIN / DEVELOPER OPERATIONS ROUTES (Strict super_admin role)
+        // ─────────────────────────────────────────────────────────────────
+        Route::middleware(['super_admin'])->prefix('super-admin')->name('super-admin.')->group(function () {
+            Route::get('/', [App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('dashboard');
+            
+            // System Health Diagnostics
+            Route::get('/system-health', [App\Http\Controllers\SuperAdmin\SystemHealthController::class, 'index'])->name('health.index');
+            Route::get('/system-health/check', [App\Http\Controllers\SuperAdmin\SystemHealthController::class, 'check'])->name('health.check');
+            
+            // Application Error Logs
+            Route::get('/errors', [App\Http\Controllers\SuperAdmin\ErrorLogController::class, 'index'])->name('errors.index');
+            Route::post('/errors/{id}/resolve', [App\Http\Controllers\SuperAdmin\ErrorLogController::class, 'toggleResolve'])->name('errors.resolve');
+            Route::post('/errors/clear-resolved', [App\Http\Controllers\SuperAdmin\ErrorLogController::class, 'clearResolved'])->name('errors.clear-resolved');
+            
+            // Maintenance Mode Control Panel
+            Route::get('/maintenance', [App\Http\Controllers\SuperAdmin\MaintenanceController::class, 'index'])->name('maintenance.index');
+            Route::post('/maintenance/toggle', [App\Http\Controllers\SuperAdmin\MaintenanceController::class, 'toggle'])->name('maintenance.toggle');
+            
+            // Immutable Audit Logs
+            Route::get('/audit-logs', [App\Http\Controllers\SuperAdmin\AuditLogController::class, 'index'])->name('audit.index');
+            
+            // API Performance Monitoring
+            Route::get('/api-monitor', [App\Http\Controllers\SuperAdmin\ApiMonitorController::class, 'index'])->name('api-monitor.index');
+            
+            // Read-Only Database Health
+            Route::get('/database', [App\Http\Controllers\SuperAdmin\DatabaseHealthController::class, 'index'])->name('database.index');
+            
+            // Controlled Feature Flags Matrix
+            Route::get('/features', [App\Http\Controllers\SuperAdmin\FeatureFlagController::class, 'index'])->name('features.index');
+            Route::post('/features/{id}/toggle', [App\Http\Controllers\SuperAdmin\FeatureFlagController::class, 'toggle'])->name('features.toggle');
+            
+            // Deployment & Version Information
+            Route::get('/deployment', [App\Http\Controllers\SuperAdmin\DeploymentController::class, 'index'])->name('deployment.index');
+            
+            // Security Dashboard & Password Security
+            Route::get('/security', [App\Http\Controllers\SuperAdmin\SecurityController::class, 'index'])->name('security.index');
+            Route::post('/security/password', [App\Http\Controllers\SuperAdmin\SecurityController::class, 'updatePassword'])->name('security.password');
+            
+            // Developer System Settings
+            Route::get('/settings', [App\Http\Controllers\SuperAdmin\SettingsController::class, 'index'])->name('settings.index');
+            Route::post('/settings/update', [App\Http\Controllers\SuperAdmin\SettingsController::class, 'update'])->name('settings.update');
+        });
+
     }); // end must_change_password
 
 }); // end auth,verified

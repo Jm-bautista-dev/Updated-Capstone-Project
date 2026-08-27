@@ -34,6 +34,10 @@ Route::prefix('v1')->group(function () {
     Route::post('verify-otp', [VerificationController::class, 'verifyOtp']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
+    // Public System Status & Maintenance API
+    Route::get('system/status', [App\Http\Controllers\Api\SystemStatusController::class, 'status']);
+    Route::get('system/health', [App\Http\Controllers\Api\SystemStatusController::class, 'status']);
+
     // Public Data & Top Picks
     Route::get('top-picks',      [TopPickController::class, 'index']);
     Route::get('branches',       [BranchController::class, 'apiIndex']);
