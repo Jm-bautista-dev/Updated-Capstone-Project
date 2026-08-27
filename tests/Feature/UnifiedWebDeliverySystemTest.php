@@ -513,6 +513,7 @@ class UnifiedWebDeliverySystemTest extends TestCase
         $response = $this->post('/pos', $payload);
         $response->assertSessionHas('success');
 
+        /** @var Delivery $delivery */
         $delivery = Delivery::where('customer_name', 'Walk-in Customer John')->first();
         $this->assertNotNull($delivery);
         $this->assertNotNull($delivery->sale_id);
