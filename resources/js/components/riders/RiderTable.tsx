@@ -109,10 +109,10 @@ export function RiderTable({ riders, onEdit, onDelete, onSelectRider }: RiderTab
                                     </span>
                                 </td>
 
-                                {/* Status */}
-                                <td className="py-4 px-6">
-                                    <RiderStatusBadge status={rider.status} />
-                                </td>
+                                 {/* Status */}
+                                 <td className="py-4 px-6">
+                                     <RiderStatusBadge status={rider.status} isActive={rider.is_active} />
+                                 </td>
 
                                 {/* Actions Menu */}
                                 <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>

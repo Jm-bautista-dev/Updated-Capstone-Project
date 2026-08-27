@@ -15,6 +15,7 @@ class Sale extends Model
     use HasFactory, BelongsToBranch;
 
     protected $fillable = [
+        'order_id',
         'order_number',
         'user_id',
         'branch_id',
@@ -29,6 +30,11 @@ class Sale extends Model
         'created_at',
         'updated_at',
     ];
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
 
     public function branch()
     {

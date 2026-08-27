@@ -117,15 +117,19 @@ class AnalyticsController extends Controller
 
     private function buildHeatmapData(Carbon $startDate): \Illuminate\Support\Collection
     {
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $dayExpression = $isSqlite ? "CAST(strftime('%w', created_at) AS INTEGER) + 1" : 'DAYOFWEEK(created_at)';
+        $hourExpression = $isSqlite ? "CAST(strftime('%H', created_at) AS INTEGER)" : 'HOUR(created_at)';
+
         return Sale::where('status', 'completed')
             ->where('created_at', '>=', $startDate)
-            ->selectRaw('DAYOFWEEK(created_at) as dow, HOUR(created_at) as hr, COUNT(*) as volume')
+            ->selectRaw("{$dayExpression} as dow, {$hourExpression} as hr, COUNT(*) as volume")
             ->groupBy('dow', 'hr')
             ->get()
             ->map(fn($r) => [
-                'day'    => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][$r->dow - 1],
-                'hour'   => $r->hr,
-                'volume' => $r->volume,
+                'day'    => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][((int) $r->dow - 1 + 7) % 7] ?? 'Mon',
+                'hour'   => (int) $r->hr,
+                'volume' => (int) $r->volume,
             ]);
     }
 

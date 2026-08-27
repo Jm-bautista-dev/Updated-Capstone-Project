@@ -47,6 +47,10 @@ class Delivery extends Model
         'cancelled_at' => 'datetime',
     ];
 
+    protected $attributes = [
+        'delivery_type' => 'internal',
+    ];
+
     /* ── Status Constants ──────────────────────────── */
 
     // Full internal delivery flow (aligned with Order state machine)

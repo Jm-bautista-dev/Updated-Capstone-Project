@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Rider;
 use App\Models\Branch;
 use App\Mail\RiderCredentialsMail;
+use App\Events\RiderStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -125,13 +126,33 @@ class RiderController extends Controller
             unset($validated['password']);
         }
 
+        if (!$validated['is_active']) {
+            $validated['status'] = 'offline';
+        } elseif ($validated['is_active'] && $rider->status === 'offline') {
+            $validated['status'] = 'available';
+        }
+
         $rider->update($validated);
+
+        try {
+            event(new RiderStatusUpdated($rider->fresh(['branch'])));
+        } catch (\Throwable $e) {
+            Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+        }
 
         return back()->with('success', 'Rider updated successfully.');
     }
 
     public function destroy(Rider $rider)
     {
+        $rider->update(['is_active' => false, 'status' => 'offline']);
+
+        try {
+            event(new RiderStatusUpdated($rider->fresh(['branch'])));
+        } catch (\Throwable $e) {
+            Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+        }
+
         $rider->delete();
         return back()->with('success', 'Rider removed successfully.');
     }
@@ -144,7 +165,7 @@ class RiderController extends Controller
         $request->validate(['branch_id' => 'required|exists:branches,id']);
 
         $riders = Rider::where('branch_id', $request->input('branch_id'))
-            ->available()
+            ->availableForAssignment()
             ->get(['id', 'name', 'phone']);
 
         return response()->json($riders);

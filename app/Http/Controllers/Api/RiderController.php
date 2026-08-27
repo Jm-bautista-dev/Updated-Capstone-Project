@@ -12,6 +12,7 @@ use App\Services\InventoryService;
 use App\Models\OrderCancellationRequest;
 use App\Events\OrderStatusUpdated;
 use App\Events\CancellationRequested;
+use App\Events\RiderStatusUpdated;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -561,7 +562,10 @@ class RiderController extends Controller
 
                 $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
 
-                $updateData = ['status' => 'delivered'];
+                $updateData = [
+                    'status'       => 'delivered',
+                    'delivered_at' => now(),
+                ];
 
                 // Store proof of delivery photo if provided
                 if ($request->hasFile('proof_of_delivery')) {
@@ -875,27 +879,119 @@ class RiderController extends Controller
 
     /**
      * PATCH /api/v1/rider/status
+     * Updates rider account status (active/inactive) and operational status (available/busy/offline).
+     * Broadcasts RiderStatusUpdated to admin and branch private channels in real-time.
      */
     public function updateStatus(Request $request): JsonResponse
     {
         try {
-            $request->validate(['status' => 'required|in:available,busy,offline']);
+            $request->validate([
+                'status'         => 'nullable|string|in:active,inactive,ACTIVE,INACTIVE,available,busy,offline',
+                'account_status' => 'nullable|string|in:active,inactive,ACTIVE,INACTIVE',
+                'is_active'      => 'nullable|boolean',
+            ]);
+
             $rider = $this->resolveRider($request);
 
             if (!$rider) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            $rider->update([
-                'status'         => $request->status,
-                'last_active_at' => now(),
-            ]);
+            // Determine target account status (is_active) and operational status
+            $currentIsActive = (bool) $rider->is_active;
+            $currentStatus   = $rider->status ?: 'offline';
+
+            $targetIsActive = $currentIsActive;
+            $targetStatus   = $currentStatus;
+
+            // 1. Check explicit is_active boolean
+            if ($request->has('is_active')) {
+                $targetIsActive = $request->boolean('is_active');
+            }
+
+            // 2. Check account_status string
+            if ($request->filled('account_status')) {
+                $targetIsActive = strtolower($request->account_status) === 'active';
+            }
+
+            // 3. Check status string
+            if ($request->filled('status')) {
+                $statusInput = strtolower($request->status);
+                if ($statusInput === 'active') {
+                    $targetIsActive = true;
+                    if ($targetStatus === 'offline') {
+                        $targetStatus = 'available';
+                    }
+                } elseif ($statusInput === 'inactive') {
+                    $targetIsActive = false;
+                    $targetStatus = 'offline';
+                } elseif ($statusInput === 'available') {
+                    $targetIsActive = true;
+                    $targetStatus = 'available';
+                } elseif ($statusInput === 'offline') {
+                    $targetIsActive = false;
+                    $targetStatus = 'offline';
+                } elseif ($statusInput === 'busy') {
+                    $targetStatus = 'busy';
+                }
+            }
+
+            // Harmonize status with account activity
+            if (!$targetIsActive) {
+                $targetStatus = 'offline';
+            } elseif ($targetIsActive && $targetStatus === 'offline') {
+                $targetStatus = 'available';
+            }
+
+            // Execute update inside DB transaction to guarantee consistency
+            DB::transaction(function () use ($rider, $targetIsActive, $targetStatus) {
+                $rider->update([
+                    'is_active'      => $targetIsActive,
+                    'status'         => $targetStatus,
+                    'last_active_at' => now(),
+                ]);
+            });
+
+            $freshRider = $rider->fresh(['branch']);
+
+            // Broadcast real-time event only after DB transaction commits
+            try {
+                event(new RiderStatusUpdated($freshRider));
+            } catch (\Throwable $broadcastError) {
+                Log::warning('RiderStatusUpdated broadcast failed: ' . $broadcastError->getMessage());
+            }
+
+            $isOutForDelivery = $freshRider->hasInTransitDelivery();
+            $canBeAssigned    = (bool) ($freshRider->is_active && $freshRider->status !== 'offline' && !$isOutForDelivery);
 
             return response()->json([
-                'success' => true,
-                'status'  => $rider->status,
+                'success'        => true,
+                'message'        => 'Rider status updated successfully.',
+                'is_active'      => (bool) $freshRider->is_active,
+                'account_status' => $freshRider->is_active ? 'active' : 'inactive',
+                'status'         => $freshRider->status,
+                'rider'          => [
+                    'id'                  => $freshRider->id,
+                    'name'                => $freshRider->name,
+                    'branch_id'           => $freshRider->branch_id,
+                    'branch_name'         => $freshRider->branch?->name ?? 'Global',
+                    'is_active'           => (bool) $freshRider->is_active,
+                    'account_status'      => $freshRider->is_active ? 'active' : 'inactive',
+                    'status'              => $freshRider->status,
+                    'is_out_for_delivery' => $isOutForDelivery,
+                    'can_be_assigned'     => $canBeAssigned,
+                    'active_deliveries'   => $freshRider->activeDeliveriesCount(),
+                    'last_active_at'      => $freshRider->last_active_at?->toIso8601String(),
+                ],
             ]);
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors'  => $ve->errors(),
+            ], 422);
         } catch (\Throwable $e) {
+            Log::error('Rider::updateStatus failed', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Update failed'], 500);
         }
     }

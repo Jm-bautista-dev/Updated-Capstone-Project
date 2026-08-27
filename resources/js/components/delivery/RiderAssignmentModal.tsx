@@ -62,8 +62,9 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                             </div>
                         ) : (
                             riders.map((rider) => {
-                                const isLocked = rider.is_out_for_delivery || rider.can_be_assigned === false;
-                                const isCollecting = (rider.active_pickup_count ?? 0) > 0 && !isLocked;
+                                const isOfflineOrInactive = rider.status === 'offline' || rider.can_be_assigned === false;
+                                const isLocked = Boolean(rider.is_out_for_delivery || isOfflineOrInactive);
+                                const isCollecting = (rider.active_pickup_count ?? 0) > 0 && !rider.is_out_for_delivery && !isOfflineOrInactive;
 
                                 return (
                                     <button
@@ -83,7 +84,7 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                                             <div className={cn(
                                                 "size-12 rounded-xl flex items-center justify-center font-black text-lg",
                                                 isLocked
-                                                    ? "bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
+                                                    ? "bg-slate-200 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400"
                                                     : selectedId === rider.id
                                                         ? "bg-[#E75480] text-white"
                                                         : "bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8]"
@@ -93,9 +94,14 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <p className="font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{rider.name}</p>
-                                                    {isLocked && (
+                                                    {rider.is_out_for_delivery && (
                                                         <span className="text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-200/60 dark:border-rose-900/40">
                                                             Out for Delivery (Locked)
+                                                        </span>
+                                                    )}
+                                                    {rider.status === 'offline' && (
+                                                        <span className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-zinc-700">
+                                                            Inactive / Offline
                                                         </span>
                                                     )}
                                                     {isCollecting && (
@@ -105,9 +111,9 @@ export default function RiderAssignmentModal({ open, onClose, onAssign, riders, 
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0 px-2 h-4", isLocked ? "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200" : riderStatusConfig[rider.status]?.color || riderStatusConfig.available.color)}>
-                                                        <span className={cn("size-1.5 rounded-full mr-1", isLocked ? "bg-rose-500" : riderStatusConfig[rider.status]?.dot || riderStatusConfig.available.dot)} />
-                                                        {isLocked ? 'out for delivery' : rider.status}
+                                                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase py-0 px-2 h-4", isLocked ? "bg-slate-100 text-slate-700 dark:text-slate-400 border-slate-200" : riderStatusConfig[rider.status]?.color || riderStatusConfig.available.color)}>
+                                                        <span className={cn("size-1.5 rounded-full mr-1", isLocked ? "bg-slate-500" : riderStatusConfig[rider.status]?.dot || riderStatusConfig.available.dot)} />
+                                                        {rider.is_out_for_delivery ? 'out for delivery' : rider.status}
                                                     </Badge>
                                                     <span className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">• {rider.branch_name}</span>
                                                 </div>

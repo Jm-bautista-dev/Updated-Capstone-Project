@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 export const summary = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ summary.definition = {
 
 /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 summary.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ summary.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 summary.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ summary.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 summary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ summary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
     const summaryForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ summary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
         summaryForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ summary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\SalesController::summary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
         summaryForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

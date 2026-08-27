@@ -92,6 +92,13 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
     const userRole = (auth?.user?.role || '').toLowerCase();
     const activeBranchId = (filters.branch_id && filters.branch_id !== 'all') ? filters.branch_id : auth?.user?.branch_id;
 
+    // Local reactive available riders state
+    const [localAvailableRiders, setLocalAvailableRiders] = useState<Rider[]>(availableRiders);
+
+    useEffect(() => {
+        setLocalAvailableRiders(availableRiders);
+    }, [availableRiders]);
+
     // Real-time updates via Pusher / Reverb (Strict Branch Isolated)
     useEffect(() => {
         if (!echo) return;
@@ -148,8 +155,71 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             } as Parameters<typeof router.reload>[0]);
         };
 
+        const handleRiderUpdate = (e: {
+            rider_id?: number;
+            id?: number;
+            name?: string;
+            is_active?: boolean;
+            account_status?: string;
+            status?: 'available' | 'busy' | 'offline';
+            branch_name?: string;
+            is_out_for_delivery?: boolean;
+            can_be_assigned?: boolean;
+            active_deliveries?: number;
+            active_in_transit_count?: number;
+            active_pickup_count?: number;
+        }) => {
+            console.log('Real-time rider status update received in Deliveries page:', e);
+            const riderId = e.rider_id || e.id;
+            if (riderId) {
+                setLocalAvailableRiders(prev => {
+                    const exists = prev.some(r => r.id === riderId);
+                    if (exists) {
+                        return prev.map(r => {
+                            if (r.id === riderId) {
+                                return {
+                                    ...r,
+                                    name: e.name || r.name,
+                                    status: e.status || r.status,
+                                    branch_name: e.branch_name || r.branch_name,
+                                    is_out_for_delivery: e.is_out_for_delivery !== undefined ? e.is_out_for_delivery : r.is_out_for_delivery,
+                                    can_be_assigned: e.can_be_assigned !== undefined ? e.can_be_assigned : r.can_be_assigned,
+                                    active_deliveries: e.active_deliveries !== undefined ? e.active_deliveries : r.active_deliveries,
+                                };
+                            }
+                            return r;
+                        });
+                    } else if (e.is_active && e.name) {
+                        return [
+                            ...prev,
+                            {
+                                id: riderId,
+                                name: e.name,
+                                status: e.status || 'available',
+                                branch_name: e.branch_name || 'Global',
+                                active_deliveries: e.active_deliveries || 0,
+                                active_in_transit_count: e.active_in_transit_count || 0,
+                                active_pickup_count: e.active_pickup_count || 0,
+                                is_out_for_delivery: Boolean(e.is_out_for_delivery),
+                                can_be_assigned: e.can_be_assigned !== undefined ? e.can_be_assigned : true,
+                            }
+                        ];
+                    }
+                    return prev;
+                });
+            }
+
+            router.reload({
+                only: ['deliveries', 'availableRiders', 'allRiders', 'stats'],
+                preserveScroll: true,
+                preserveState: true,
+            } as Parameters<typeof router.reload>[0]);
+        };
+
         channel.listen('.order-status-updated', handleStatusUpdate)
-               .listen('OrderStatusUpdated', handleStatusUpdate);
+               .listen('OrderStatusUpdated', handleStatusUpdate)
+               .listen('.rider.status.updated', handleRiderUpdate)
+               .listen('RiderStatusUpdated', handleRiderUpdate);
 
         return () => {
             echo?.leave(targetChannelName);
@@ -429,7 +499,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                 <LiveRiderMap />
 
                 {/* 7. ASSIGNED RIDERS SECTION */}
-                <RiderFleetSection riders={availableRiders} />
+                <RiderFleetSection riders={localAvailableRiders} />
 
                 {/* 8. RECENT DELIVERY ACTIVITY TIMELINE */}
                 <DeliveryTimelineSection
@@ -459,7 +529,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                 open={!!assigningDelivery}
                 onClose={() => setAssigningDelivery(null)}
                 onAssign={executeAssignment}
-                riders={availableRiders}
+                riders={localAvailableRiders}
                 delivery={assigningDelivery}
                 processing={isAssigning}
             />

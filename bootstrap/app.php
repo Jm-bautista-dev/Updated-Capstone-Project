@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
             'sanctum/*',
             'v1/*',
+            'broadcasting/*',
         ]);
 
         $middleware->web(append: [
@@ -42,7 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, $e) {
-            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*')) {
+            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*') || $request->is('broadcasting/*')) {
                 // Diagnostic: Log 403 reasons
                 if ($e instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException || $e->getCode() == 403) {
                     \Illuminate\Support\Facades\Log::warning('[SECURITY DEBUG] 403 Forbidden', [

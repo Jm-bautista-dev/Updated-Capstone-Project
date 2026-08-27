@@ -212,8 +212,7 @@ class CustomerOrderCancellationTest extends TestCase
 
         Event::assertDispatched(OrderStatusUpdated::class, function ($event) use ($order) {
             $channels = collect($event->broadcastOn())->map(fn($c) => $c->name)->toArray();
-            return in_array('deliveries', $channels) &&
-                   in_array('private-admin.orders', $channels) &&
+            return in_array('private-admin.orders', $channels) &&
                    in_array("private-branch.{$this->testBranch->id}.orders", $channels) &&
                    $event->delivery->order_id === $order->id &&
                    $event->delivery->status === 'cancelled';

@@ -134,7 +134,7 @@ export function RiderCard({ rider, onEdit, onDelete, onSelectRider }: RiderCardP
 
             {/* Footer: Status Badge & Account state */}
             <div className="pt-3 border-t border-[#F8C8DC]/30 dark:border-white/10 flex items-center justify-between gap-2">
-                <RiderStatusBadge status={rider.status} />
+                <RiderStatusBadge status={rider.status} isActive={rider.is_active} />
 
                 <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${

@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 export const exportSummary = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -94,7 +94,7 @@ exportSummary.definition = {
 
 /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 exportSummary.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ exportSummary.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 exportSummary.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -112,7 +112,7 @@ exportSummary.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
 exportSummary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -122,7 +122,7 @@ exportSummary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
 
     /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
     const exportSummaryForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -132,7 +132,7 @@ exportSummary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
 
             /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
         exportSummaryForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -141,7 +141,7 @@ exportSummary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
         })
             /**
 * @see \App\Http\Controllers\SalesController::exportSummary
- * @see app/Http/Controllers/SalesController.php:130
+ * @see app/Http/Controllers/SalesController.php:153
  * @route '/sales/export/summary'
  */
         exportSummaryForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -157,7 +157,7 @@ exportSummary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
     exportSummary.form = exportSummaryForm
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
 export const exportCsv = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -172,7 +172,7 @@ exportCsv.definition = {
 
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
 exportCsv.url = (options?: RouteQueryOptions) => {
@@ -181,7 +181,7 @@ exportCsv.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
 exportCsv.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -190,7 +190,7 @@ exportCsv.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
 exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -200,7 +200,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
     const exportCsvForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -210,7 +210,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
         exportCsvForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -219,7 +219,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:171
+ * @see app/Http/Controllers/SalesController.php:194
  * @route '/sales/export'
  */
         exportCsvForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -235,7 +235,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     exportCsv.form = exportCsvForm
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
 export const updateStatus = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -250,7 +250,7 @@ updateStatus.definition = {
 
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
 updateStatus.url = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -283,7 +283,7 @@ updateStatus.url = (args: { sale: number | { id: number } } | [sale: number | { 
 
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
 updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -292,7 +292,7 @@ updateStatus.put = (args: { sale: number | { id: number } } | [sale: number | { 
 })
 /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
 updateStatus.patch = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -302,7 +302,7 @@ updateStatus.patch = (args: { sale: number | { id: number } } | [sale: number | 
 
     /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
     const updateStatusForm = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -317,7 +317,7 @@ updateStatus.patch = (args: { sale: number | { id: number } } | [sale: number | 
 
             /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
         updateStatusForm.put = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -331,7 +331,7 @@ updateStatus.patch = (args: { sale: number | { id: number } } | [sale: number | 
         })
             /**
 * @see \App\Http\Controllers\SalesController::updateStatus
- * @see app/Http/Controllers/SalesController.php:62
+ * @see app/Http/Controllers/SalesController.php:74
  * @route '/sales/{sale}/status'
  */
         updateStatusForm.patch = (args: { sale: number | { id: number } } | [sale: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

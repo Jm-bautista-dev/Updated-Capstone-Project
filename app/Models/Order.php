@@ -22,6 +22,7 @@ class Order extends Model
         'longitude',
         'landmark',
         'notes',
+        'payment_method',
         'total_amount',
         'status',
         'is_cancellation_pending',
@@ -154,6 +155,11 @@ class Order extends Model
     public function delivery()
     {
         return $this->hasOne(Delivery::class);
+    }
+
+    public function sale()
+    {
+        return $this->hasOne(Sale::class);
     }
 
     public function auditLogs()

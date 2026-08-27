@@ -1,19 +1,29 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-export type RiderStatus = 'available' | 'busy' | 'offline' | string;
+export type RiderStatus = 'available' | 'busy' | 'offline' | 'active' | 'inactive' | string;
 
 interface RiderStatusBadgeProps {
     status: RiderStatus;
+    isActive?: boolean;
     className?: string;
 }
 
-export function RiderStatusBadge({ status, className }: RiderStatusBadgeProps) {
+export function RiderStatusBadge({ status, isActive, className }: RiderStatusBadgeProps) {
     const normalizeStatus = status?.toLowerCase() || 'offline';
 
     const getStatusDetails = (s: string) => {
+        if (isActive === false || s === 'inactive') {
+            return {
+                label: 'Inactive',
+                style: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 dark:border-rose-500/30',
+                dot: 'bg-rose-500',
+            };
+        }
+
         switch (s) {
             case 'available':
+            case 'active':
                 return {
                     label: 'Available',
                     style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 dark:border-emerald-500/30',

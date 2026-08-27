@@ -70,23 +70,40 @@ export function useRealTime(branchId?: number | null) {
         if (echo && (branchId || auth?.user?.branch_id)) {
             const targetId = branchId || auth?.user?.branch_id;
             
+            const handleSaleCreated = (e: Record<string, unknown>) => {
+                console.log('Real-time: New Sale in Branch', e);
+                router.reload({ 
+                    only: ['products', 'summary', 'recentOrders', 'sales', 'stats', 'branchStats', 'salesOverTime', 'topProductCosts', 'salesByPaymentMethod'],
+                });
+            };
+
             echo.private(`branch.${targetId}`)
-                .listen('SaleCreated', (e: Record<string, unknown>) => {
-                    console.log('Real-time: New Sale in Branch', e);
-                    router.reload({ 
-                        only: ['products', 'summary', 'recentOrders', 'sales'],
-                    });
-                })
+                .listen('SaleCreated', handleSaleCreated)
+                .listen('.SaleCreated', handleSaleCreated)
+                .listen('App\\Events\\SaleCreated', handleSaleCreated)
+                .listen('.App\\Events\\SaleCreated', handleSaleCreated)
                 .listen('StockUpdated', (e: Record<string, unknown>) => {
                     console.log('Real-time: Stock Level Changed', e);
                     router.reload({ 
-                        only: ['products', 'ingredients', 'summary'],
+                        only: ['products', 'ingredients', 'summary', 'stats'],
                     });
                 })
                 .listen('ProductUpdated', (e: Record<string, unknown>) => {
                     console.log('Real-time: Product Data Sync', e);
                     router.reload({ 
                         only: ['products'],
+                    });
+                })
+                .listen('RiderStatusUpdated', (e: Record<string, unknown>) => {
+                    console.log('Real-time: Rider Status Sync', e);
+                    router.reload({ 
+                        only: ['riders', 'availableRiders', 'allRiders', 'stats', 'branchStats'],
+                    });
+                })
+                .listen('.rider.status.updated', (e: Record<string, unknown>) => {
+                    console.log('Real-time: Rider Status Sync', e);
+                    router.reload({ 
+                        only: ['riders', 'availableRiders', 'allRiders', 'stats', 'branchStats'],
                     });
                 });
         }
@@ -327,6 +344,20 @@ export function useRealTime(branchId?: number | null) {
                 });
             };
 
+            const handleRiderStatusUpdate = (e: {
+                rider_id?: number;
+                id?: number;
+                name?: string;
+                is_active?: boolean;
+                status?: string;
+                branch_id?: number;
+            }) => {
+                console.log('Real-time: Rider Status Sync', e);
+                router.reload({
+                    only: ['riders', 'availableRiders', 'allRiders', 'stats', 'branchStats'],
+                });
+            };
+
             const userRole = (auth?.user?.role || '').toLowerCase();
             const userBranchId = branchId || auth?.user?.branch_id;
 
@@ -345,7 +376,12 @@ export function useRealTime(branchId?: number | null) {
                     .listen('App\\Events\\CancellationResolved', handleCancellationResolved)
                     .listen('.App\\Events\\CancellationResolved', handleCancellationResolved)
                     .listen('OrderStatusUpdated', handleStatusUpdate)
-                    .listen('.order-status-updated', handleStatusUpdate);
+                    .listen('.order-status-updated', handleStatusUpdate)
+                    .listen('RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('.RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('App\\Events\\RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('.App\\Events\\RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('.rider.status.updated', handleRiderStatusUpdate);
             }
 
             if (userBranchId) {
@@ -363,7 +399,12 @@ export function useRealTime(branchId?: number | null) {
                     .listen('App\\Events\\CancellationResolved', handleCancellationResolved)
                     .listen('.App\\Events\\CancellationResolved', handleCancellationResolved)
                     .listen('OrderStatusUpdated', handleStatusUpdate)
-                    .listen('.order-status-updated', handleStatusUpdate);
+                    .listen('.order-status-updated', handleStatusUpdate)
+                    .listen('RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('.RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('App\\Events\\RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('.App\\Events\\RiderStatusUpdated', handleRiderStatusUpdate)
+                    .listen('.rider.status.updated', handleRiderStatusUpdate);
             }
         }
 

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
- * @see app/Http/Controllers/InventoryController.php:357
+ * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
 export const bulkDelete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -16,7 +16,7 @@ bulkDelete.definition = {
 
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
- * @see app/Http/Controllers/InventoryController.php:357
+ * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
 bulkDelete.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ bulkDelete.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
- * @see app/Http/Controllers/InventoryController.php:357
+ * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
 bulkDelete.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -35,7 +35,7 @@ bulkDelete.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => 
 
     /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
- * @see app/Http/Controllers/InventoryController.php:357
+ * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
     const bulkDeleteForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -50,7 +50,7 @@ bulkDelete.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => 
 
             /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
- * @see app/Http/Controllers/InventoryController.php:357
+ * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
         bulkDeleteForm.delete = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -66,7 +66,7 @@ bulkDelete.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => 
     bulkDelete.form = bulkDeleteForm
 /**
 * @see \App\Http\Controllers\InventoryController::store
- * @see app/Http/Controllers/InventoryController.php:125
+ * @see app/Http/Controllers/InventoryController.php:130
  * @route '/inventory'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -81,7 +81,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\InventoryController::store
- * @see app/Http/Controllers/InventoryController.php:125
+ * @see app/Http/Controllers/InventoryController.php:130
  * @route '/inventory'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -90,7 +90,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\InventoryController::store
- * @see app/Http/Controllers/InventoryController.php:125
+ * @see app/Http/Controllers/InventoryController.php:130
  * @route '/inventory'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -100,7 +100,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\InventoryController::store
- * @see app/Http/Controllers/InventoryController.php:125
+ * @see app/Http/Controllers/InventoryController.php:130
  * @route '/inventory'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -110,7 +110,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\InventoryController::store
- * @see app/Http/Controllers/InventoryController.php:125
+ * @see app/Http/Controllers/InventoryController.php:130
  * @route '/inventory'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -121,7 +121,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\InventoryController::update
- * @see app/Http/Controllers/InventoryController.php:232
+ * @see app/Http/Controllers/InventoryController.php:237
  * @route '/inventory/{id}'
  */
 export const update = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -136,7 +136,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\InventoryController::update
- * @see app/Http/Controllers/InventoryController.php:232
+ * @see app/Http/Controllers/InventoryController.php:237
  * @route '/inventory/{id}'
  */
 update.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -164,7 +164,7 @@ update.url = (args: { id: string | number } | [id: string | number ] | string | 
 
 /**
 * @see \App\Http\Controllers\InventoryController::update
- * @see app/Http/Controllers/InventoryController.php:232
+ * @see app/Http/Controllers/InventoryController.php:237
  * @route '/inventory/{id}'
  */
 update.put = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -174,7 +174,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
 
     /**
 * @see \App\Http\Controllers\InventoryController::update
- * @see app/Http/Controllers/InventoryController.php:232
+ * @see app/Http/Controllers/InventoryController.php:237
  * @route '/inventory/{id}'
  */
     const updateForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -189,7 +189,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
 
             /**
 * @see \App\Http\Controllers\InventoryController::update
- * @see app/Http/Controllers/InventoryController.php:232
+ * @see app/Http/Controllers/InventoryController.php:237
  * @route '/inventory/{id}'
  */
         updateForm.put = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -205,7 +205,7 @@ update.put = (args: { id: string | number } | [id: string | number ] | string | 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\InventoryController::destroy
- * @see app/Http/Controllers/InventoryController.php:307
+ * @see app/Http/Controllers/InventoryController.php:315
  * @route '/inventory/{id}'
  */
 export const destroy = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -220,7 +220,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\InventoryController::destroy
- * @see app/Http/Controllers/InventoryController.php:307
+ * @see app/Http/Controllers/InventoryController.php:315
  * @route '/inventory/{id}'
  */
 destroy.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -248,7 +248,7 @@ destroy.url = (args: { id: string | number } | [id: string | number ] | string |
 
 /**
 * @see \App\Http\Controllers\InventoryController::destroy
- * @see app/Http/Controllers/InventoryController.php:307
+ * @see app/Http/Controllers/InventoryController.php:315
  * @route '/inventory/{id}'
  */
 destroy.delete = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -258,7 +258,7 @@ destroy.delete = (args: { id: string | number } | [id: string | number ] | strin
 
     /**
 * @see \App\Http\Controllers\InventoryController::destroy
- * @see app/Http/Controllers/InventoryController.php:307
+ * @see app/Http/Controllers/InventoryController.php:315
  * @route '/inventory/{id}'
  */
     const destroyForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -273,7 +273,7 @@ destroy.delete = (args: { id: string | number } | [id: string | number ] | strin
 
             /**
 * @see \App\Http\Controllers\InventoryController::destroy
- * @see app/Http/Controllers/InventoryController.php:307
+ * @see app/Http/Controllers/InventoryController.php:315
  * @route '/inventory/{id}'
  */
         destroyForm.delete = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

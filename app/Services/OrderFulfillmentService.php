@@ -77,50 +77,68 @@ class OrderFulfillmentService
     }
 
     /**
-     * Record the delivered order as a Sale record for the analytics dashboard.
-     * Uses the same pattern as DeliveryService::recordOrderAsSale to stay consistent.
+     * Record the delivered order as an authoritative Sale record for Sales, Reports, and Dashboard.
      *
-     * Idempotent: checks for existing order_number before inserting.
+     * Idempotent: Enforces uniqueness via permanent internal order_id.
      */
     private function recordAsSale(Order $order, Delivery $delivery): void
     {
-        $orderNum = $order->order_number ?: ('MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT));
-
-        // ── Guard: Prevent duplicate sales records ───────────────────────
-        if ($delivery->sale_id && Sale::where('id', $delivery->sale_id)->exists()) {
-            Log::info('OrderFulfillment: sale already recorded for delivery, skipping.', [
-                'order_id'     => $order->id,
-                'sale_id'      => $delivery->sale_id,
-            ]);
-            return;
-        }
-
-        if (Sale::where('order_number', $orderNum)->exists()) {
-            $existingSale = Sale::where('order_number', $orderNum)->first();
-            if ($existingSale && !$delivery->sale_id) {
-                $delivery->update(['sale_id' => $existingSale->id]);
+        // ── Guard: Prevent duplicate sales records via permanent Order ID & Delivery Link ─────
+        if ($delivery->sale_id) {
+            $existingSale = Sale::find($delivery->sale_id);
+            if ($existingSale) {
+                Log::info('OrderFulfillment: sale already recorded for delivery, skipping.', [
+                    'order_id' => $order->id,
+                    'sale_id'  => $delivery->sale_id,
+                ]);
+                return;
             }
-            Log::info('OrderFulfillment: sale already recorded, skipping.', [
-                'order_id'     => $order->id,
-                'order_number' => $orderNum,
+        }
+
+        $existingSaleByOrderId = Sale::where('order_id', $order->id)->first();
+        if ($existingSaleByOrderId) {
+            if ($delivery->sale_id !== $existingSaleByOrderId->id) {
+                $delivery->update(['sale_id' => $existingSaleByOrderId->id]);
+            }
+            Log::info('OrderFulfillment: sale already exists for order_id, linked delivery and skipped.', [
+                'order_id' => $order->id,
+                'sale_id'  => $existingSaleByOrderId->id,
             ]);
             return;
         }
+
+        $orderNum = $order->order_number ?: ('ORD-' . $order->id);
 
         // Load relationships needed for cost calculation
-        $order->loadMissing(['items.product', 'branch']);
+        $order->loadMissing(['items.product.ingredients.stocks', 'branch']);
 
-        // ── Calculate cost and profit ────────────────────────────────────
+        // ── Calculate accurate product recipe cost and profit ────────────
         $costTotal = 0;
+        $itemsData = [];
+        $saleDate  = $delivery->delivered_at ?? now();
+
         foreach ($order->items as $item) {
-            $itemCost   = (float) ($item->product->computeProductCost($order->branch_id) ?? 0);
-            $costTotal += $itemCost * $item->quantity;
+            $product  = $item->product;
+            $itemCost = $product ? (float) ($product->computeProductCost($order->branch_id) ?? 0) : 0;
+            $costTotal += $itemCost * (float) $item->quantity;
+
+            $itemsData[] = [
+                'product_id' => $item->product_id,
+                'quantity'   => $item->quantity,
+                'unit_price' => $item->price,
+                'cost_price' => $itemCost,
+                'subtotal'   => (float) $item->price * (float) $item->quantity,
+                'profit'     => ((float) $item->price - $itemCost) * (float) $item->quantity,
+                'created_at' => $saleDate,
+                'updated_at' => now(),
+            ];
         }
 
         $profit = (float) $order->total_amount - $costTotal;
 
-        // ── Create Sale record ───────────────────────────────────────────
+        // ── Create authoritative Sale record ─────────────────────────────
         $sale = Sale::create([
+            'order_id'       => $order->id,
             'order_number'   => $orderNum,
             'user_id'        => $order->user_id ?? 1,
             'branch_id'      => $order->branch_id,
@@ -132,36 +150,34 @@ class OrderFulfillmentService
             'change_amount'  => 0,
             'payment_method' => $order->payment_method ?? 'online',
             'status'         => 'completed',
-            'created_at'     => $order->created_at, // preserve original order date
+            'created_at'     => $saleDate,
             'updated_at'     => now(),
         ]);
 
         // ── Create Sale Items ────────────────────────────────────────────
-        foreach ($order->items as $item) {
-            $itemCost = (float) ($item->product->computeProductCost($order->branch_id) ?? 0);
-
-            SaleItem::create([
-                'sale_id'    => $sale->id,
-                'product_id' => $item->product_id,
-                'quantity'   => $item->quantity,
-                'unit_price' => $item->price,
-                'cost_price' => $itemCost,
-                'subtotal'   => $item->price * $item->quantity,
-                'profit'     => ($item->price - $itemCost) * $item->quantity,
-                'created_at' => $order->created_at,
-            ]);
+        foreach ($itemsData as $itemData) {
+            $itemData['sale_id'] = $sale->id;
+            SaleItem::create($itemData);
         }
 
         // ── Link Sale back to the Delivery record ────────────────────────
-        if (!$delivery->sale_id) {
-            $delivery->update(['sale_id' => $sale->id]);
+        $delivery->update(['sale_id' => $sale->id]);
+
+        // ── 🔥 Real-time Broadcast & Cache Clearing ──────────────────────
+        try {
+            broadcast(new \App\Events\SaleCreated($sale))->toOthers();
+            \App\Services\TopPickService::clearCache();
+        } catch (\Throwable $e) {
+            Log::warning('OrderFulfillment: SaleCreated broadcast warning: ' . $e->getMessage());
         }
 
-        Log::info('OrderFulfillment: sale recorded.', [
+        Log::info('OrderFulfillment: sale recorded successfully.', [
             'order_id'     => $order->id,
             'sale_id'      => $sale->id,
             'order_number' => $orderNum,
+            'branch_id'    => $order->branch_id,
             'total'        => $order->total_amount,
+            'cogs'         => $costTotal,
             'profit'       => $profit,
         ]);
     }

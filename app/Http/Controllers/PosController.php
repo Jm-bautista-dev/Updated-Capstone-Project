@@ -73,7 +73,7 @@ class PosController extends Controller
         $availableRiders = [];
         if ($branchId) {
             $availableRiders = Rider::where('branch_id', $branchId)
-                ->available()
+                ->availableForAssignment()
                 ->get(['id', 'name', 'phone']);
         }
 

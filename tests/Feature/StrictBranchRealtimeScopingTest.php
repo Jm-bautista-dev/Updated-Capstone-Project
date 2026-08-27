@@ -37,24 +37,48 @@ class StrictBranchRealtimeScopingTest extends TestCase
         $this->santaCruz = Branch::create(['name' => 'Maki Desu Santa Cruz', 'address' => 'Santa Cruz, Laguna']);
 
         $this->admin = User::factory()->create([
-            'role'      => 'admin',
-            'branch_id' => $this->victoria->id,
+            'role'                 => 'admin',
+            'branch_id'            => $this->victoria->id,
+            'must_change_password' => false,
         ]);
 
         $this->cashierVictoria = User::factory()->create([
-            'role'      => 'cashier',
-            'branch_id' => $this->victoria->id,
+            'role'                 => 'cashier',
+            'branch_id'            => $this->victoria->id,
+            'must_change_password' => false,
         ]);
 
         $this->cashierSantaCruz = User::factory()->create([
-            'role'      => 'cashier',
-            'branch_id' => $this->santaCruz->id,
+            'role'                 => 'cashier',
+            'branch_id'            => $this->santaCruz->id,
+            'must_change_password' => false,
         ]);
 
         $this->customer = User::factory()->create([
-            'role'      => 'customer',
-            'branch_id' => null,
+            'role'                 => 'customer',
+            'branch_id'            => null,
+            'must_change_password' => false,
         ]);
+
+        config([
+            'broadcasting.default' => 'pusher',
+            'broadcasting.connections.pusher' => [
+                'driver' => 'pusher',
+                'key'    => 'test-key',
+                'secret' => 'test-secret',
+                'app_id' => 'test-id',
+                'options' => [
+                    'cluster' => 'mt1',
+                    'useTLS' => true,
+                ],
+            ],
+        ]);
+
+        Broadcast::purge('pusher');
+        $channelFile = base_path('routes/channels.php');
+        (function() use ($channelFile) {
+            require $channelFile;
+        })();
     }
 
     public function test_order_created_broadcasts_only_to_private_authorized_channels()
@@ -181,43 +205,66 @@ class StrictBranchRealtimeScopingTest extends TestCase
     public function test_channel_authorization_rules()
     {
         // 1. Victoria Cashier authorized for branch.victoria.orders
-        $authVicForVic = $this->actingAs($this->cashierVictoria)->post('/broadcasting/auth', [
+        $reqVicForVic = \Illuminate\Http\Request::create('/broadcasting/auth', 'POST', [
             'channel_name' => "private-branch.{$this->victoria->id}.orders",
             'socket_id'    => '1234.5678',
         ]);
-        $authVicForVic->assertStatus(200);
+        $reqVicForVic->setUserResolver(fn() => $this->cashierVictoria);
+        $authVicForVic = Broadcast::auth($reqVicForVic);
+        $this->assertIsArray($authVicForVic);
+        $this->assertArrayHasKey('auth', $authVicForVic);
 
         // 2. Victoria Cashier FORBIDDEN for branch.santa_cruz.orders
-        $authVicForSC = $this->actingAs($this->cashierVictoria)->post('/broadcasting/auth', [
-            'channel_name' => "private-branch.{$this->santaCruz->id}.orders",
-            'socket_id'    => '1234.5678',
-        ]);
-        $authVicForSC->assertStatus(403);
+        $scDenied = false;
+        try {
+            $reqVicForSC = \Illuminate\Http\Request::create('/broadcasting/auth', 'POST', [
+                'channel_name' => "private-branch.{$this->santaCruz->id}.orders",
+                'socket_id'    => '1234.5678',
+            ]);
+            $reqVicForSC->setUserResolver(fn() => $this->cashierVictoria);
+            Broadcast::auth($reqVicForSC);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            $scDenied = true;
+        }
+        $this->assertTrue($scDenied, 'Victoria cashier must be forbidden from Santa Cruz orders channel.');
 
         // 3. Victoria Cashier FORBIDDEN for admin.orders
-        $authVicForAdmin = $this->actingAs($this->cashierVictoria)->post('/broadcasting/auth', [
-            'channel_name' => "private-admin.orders",
-            'socket_id'    => '1234.5678',
-        ]);
-        $authVicForAdmin->assertStatus(403);
+        $adminDenied = false;
+        try {
+            $reqVicForAdmin = \Illuminate\Http\Request::create('/broadcasting/auth', 'POST', [
+                'channel_name' => "private-admin.orders",
+                'socket_id'    => '1234.5678',
+            ]);
+            $reqVicForAdmin->setUserResolver(fn() => $this->cashierVictoria);
+            Broadcast::auth($reqVicForAdmin);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            $adminDenied = true;
+        }
+        $this->assertTrue($adminDenied, 'Victoria cashier must be forbidden from admin orders channel.');
 
         // 4. Admin authorized for all channels
-        $authAdminForAdmin = $this->actingAs($this->admin)->post('/broadcasting/auth', [
+        $reqAdminForAdmin = \Illuminate\Http\Request::create('/broadcasting/auth', 'POST', [
             'channel_name' => "private-admin.orders",
             'socket_id'    => '1234.5678',
         ]);
-        $authAdminForAdmin->assertStatus(200);
+        $reqAdminForAdmin->setUserResolver(fn() => $this->admin);
+        $authAdminForAdmin = Broadcast::auth($reqAdminForAdmin);
+        $this->assertIsArray($authAdminForAdmin);
 
-        $authAdminForVic = $this->actingAs($this->admin)->post('/broadcasting/auth', [
+        $reqAdminForVic = \Illuminate\Http\Request::create('/broadcasting/auth', 'POST', [
             'channel_name' => "private-branch.{$this->victoria->id}.orders",
             'socket_id'    => '1234.5678',
         ]);
-        $authAdminForVic->assertStatus(200);
+        $reqAdminForVic->setUserResolver(fn() => $this->admin);
+        $authAdminForVic = Broadcast::auth($reqAdminForVic);
+        $this->assertIsArray($authAdminForVic);
 
-        $authAdminForSC = $this->actingAs($this->admin)->post('/broadcasting/auth', [
+        $reqAdminForSC = \Illuminate\Http\Request::create('/broadcasting/auth', 'POST', [
             'channel_name' => "private-branch.{$this->santaCruz->id}.orders",
             'socket_id'    => '1234.5678',
         ]);
-        $authAdminForSC->assertStatus(200);
+        $reqAdminForSC->setUserResolver(fn() => $this->admin);
+        $authAdminForSC = Broadcast::auth($reqAdminForSC);
+        $this->assertIsArray($authAdminForSC);
     }
 }

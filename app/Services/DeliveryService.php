@@ -11,6 +11,7 @@ use App\Models\SaleItem;
 use App\Services\InventoryService;
 use App\Services\OrderFulfillmentService;
 use App\Events\OrderStatusUpdated;
+use App\Events\RiderStatusUpdated;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -255,6 +256,11 @@ class DeliveryService
                 $rider = Rider::find($delivery->rider_id);
                 if ($rider && $rider->activeDeliveriesCount() === 0) {
                     $rider->markAvailable();
+                    try {
+                        event(new RiderStatusUpdated($rider->fresh(['branch'])));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+                    }
                 }
             }
 
@@ -265,67 +271,11 @@ class DeliveryService
     }
 
     /**
-     * Convert an Order to a Sale record for analytics.
+     * Convert an Order to a Sale record for analytics (delegates to OrderFulfillmentService).
      */
     private function recordOrderAsSale($order, $delivery)
     {
-        $orderNum = $order->order_number ?: ('MOB-' . str_pad($order->id, 6, '0', STR_PAD_LEFT));
-
-        // Prevent duplicate sales for the same order
-        if ($delivery->sale_id && Sale::where('id', $delivery->sale_id)->exists()) {
-            return;
-        }
-
-        if (Sale::where('order_number', $orderNum)->exists()) {
-            $existingSale = Sale::where('order_number', $orderNum)->first();
-            if ($existingSale && !$delivery->sale_id) {
-                $delivery->update(['sale_id' => $existingSale->id]);
-            }
-            return;
-        }
-
-        // Calculate cost and profit
-        $costTotal = 0;
-        foreach ($order->items as $item) {
-            $itemCost = $item->product->computeProductCost($order->branch_id) ?? 0;
-            $costTotal += $itemCost * $item->quantity;
-        }
-
-        $profit = (float) $order->total_amount - (float) $costTotal;
-
-        // Create Sale
-        $sale = Sale::create([
-            'order_number'   => $orderNum,
-            'user_id'        => Auth::id() ?? $order->user_id ?? 1,
-            'branch_id'      => $order->branch_id,
-            'type'           => 'delivery',
-            'total'          => $order->total_amount,
-            'cost_total'     => $costTotal,
-            'profit'         => $profit,
-            'paid_amount'    => $order->total_amount,
-            'change_amount'  => 0,
-            'payment_method' => 'online',
-            'status'         => 'completed',
-            'created_at'     => $order->created_at,
-        ]);
-
-        // Create Sale Items
-        foreach ($order->items as $item) {
-            $itemCost = $item->product->computeProductCost($order->branch_id) ?? 0;
-            SaleItem::create([
-                'sale_id'    => $sale->id,
-                'product_id' => $item->product_id,
-                'quantity'   => $item->quantity,
-                'unit_price' => $item->price,
-                'cost_price' => $itemCost,
-                'subtotal'   => $item->price * $item->quantity,
-                'profit'     => ($item->price - $itemCost) * $item->quantity,
-                'created_at' => $order->created_at,
-            ]);
-        }
-
-        // Link delivery to this sale
-        $delivery->update(['sale_id' => $sale->id]);
+        $this->fulfillmentService->onOrderDelivered($order, $delivery);
     }
     /**
      * Manually assign a rider to a delivery.
@@ -349,11 +299,27 @@ class DeliveryService
 
         return DB::transaction(function () use ($delivery, $riderId) {
             $previousStatus = $delivery->status;
-            /** @var Rider $rider */
+            /** @var Rider|null $rider */
             $rider = Rider::where('id', $riderId)
-                ->where('is_active', true)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+
+            if (!$rider) {
+                throw new \Exception("Rider not found.");
+            }
+
+            if (!$rider->is_active) {
+                throw new \Exception("Rider '{$rider->name}' is currently inactive and cannot be assigned a new delivery.");
+            }
+
+            if ($rider->status === 'offline') {
+                throw new \Exception("Rider '{$rider->name}' is currently offline and cannot be assigned a new delivery.");
+            }
+
+            $orderBranchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+            if ($orderBranchId && (int) $rider->branch_id !== (int) $orderBranchId) {
+                throw new \Exception("Rider '{$rider->name}' belongs to a different branch and cannot take this delivery.");
+            }
 
             // CRITICAL BUSINESS RULE: Rider cannot be assigned if they are OUT FOR DELIVERY (in_transit)
             if ($rider->hasInTransitDelivery()) {
@@ -374,6 +340,11 @@ class DeliveryService
                         ->count();
                     if ($remainingActive === 0) {
                         $oldRider->markAvailable();
+                        try {
+                            event(new RiderStatusUpdated($oldRider->fresh(['branch'])));
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+                        }
                     }
                 }
             }
@@ -412,6 +383,12 @@ class DeliveryService
                 'status'         => 'busy',
                 'last_active_at' => now(),
             ]);
+
+            try {
+                event(new RiderStatusUpdated($rider->fresh(['branch'])));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+            }
 
             \Illuminate\Support\Facades\Log::info('Rider assigned successfully', [
                 'delivery_id' => $delivery->id,

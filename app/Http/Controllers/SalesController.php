@@ -19,12 +19,24 @@ class SalesController extends Controller
         $rawBranchId = $request->input('branch_id');
         $branchId = ($rawBranchId === '' || $rawBranchId === 'all' || $rawBranchId === null) ? null : $rawBranchId;
 
-        $query = Sale::with(['items.product', 'cashier', 'branch'])
+        $query = Sale::with(['items.product', 'cashier', 'branch', 'delivery.rider', 'order'])
             ->when($status && $status !== 'all', function ($q) use ($status) {
                 return $q->where('status', $status);
             })
             ->when($search, function ($q) use ($search) {
-                return $q->where('order_number', 'like', "%{$search}%");
+                return $q->where(function ($sub) use ($search) {
+                    $sub->where('order_number', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhereHas('delivery', function ($dq) use ($search) {
+                            $dq->where('customer_name', 'like', "%{$search}%")
+                               ->orWhere('customer_phone', 'like', "%{$search}%")
+                               ->orWhere('tracking_no', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('order', function ($oq) use ($search) {
+                            $oq->where('customer_name', 'like', "%{$search}%")
+                               ->orWhere('contact_number', 'like', "%{$search}%");
+                        });
+                });
             });
 
         // Scope the main query and stats
@@ -88,9 +100,20 @@ class SalesController extends Controller
                 $sale->update($validated);
             }
 
+            // Sync linked Order status if present
+            if ($validated['status'] === 'cancelled' && $sale->order_id) {
+                $order = \App\Models\Order::find($sale->order_id);
+                if ($order && $order->status !== 'cancelled') {
+                    $order->update([
+                        'status'       => 'cancelled',
+                        'cancelled_at' => now(),
+                    ]);
+                }
+            }
+
             // Sync linked Delivery status if present & broadcast real-time event
             /** @var \App\Models\Delivery|null $delivery */
-            $delivery = \App\Models\Delivery::where('sale_id', $sale->id)->first();
+            $delivery = \App\Models\Delivery::where('sale_id', $sale->id)->orWhere('order_id', $sale->order_id)->first();
             if ($delivery) {
                 $mappedDeliveryStatus = match ($validated['status']) {
                     'pending'   => 'pending',

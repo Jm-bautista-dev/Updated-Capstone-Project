@@ -91,6 +91,7 @@ class ApiOrderController extends Controller
                 'longitude'      => 'required|numeric|between:-180,180',
                 'landmark'       => 'nullable|string|max:255',
                 'notes'          => 'nullable|string',
+                'payment_method' => 'nullable|string|max:50',
                 'branch_id'      => 'nullable|exists:branches,id'
             ]);
 
@@ -179,6 +180,7 @@ class ApiOrderController extends Controller
                     'longitude'      => $validated['longitude'],
                     'landmark'       => $validated['landmark'] ?? null,
                     'notes'          => $validated['notes'] ?? null,
+                    'payment_method' => $validated['payment_method'] ?? 'online',
                     'total_amount'   => $itemsTotal + $deliveryFee, // Accurately calculate total from items + fee
                     'status'         => 'pending',
                 ]);
