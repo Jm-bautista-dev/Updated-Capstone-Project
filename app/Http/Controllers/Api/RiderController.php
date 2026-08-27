@@ -370,57 +370,69 @@ class RiderController extends Controller
                     ], 422);
                 }
 
-                // Look up order by id, order_number, or delivery ID
-                $order = Order::with(['items.product', 'branch', 'delivery'])
-                    ->where('id', $id)
-                    ->orWhere('order_number', $id)
-                    ->orWhereHas('delivery', fn($dq) => $dq->where('id', $id))
+                // Look up delivery by Delivery id, Order id, or Sale id
+                $delivery = Delivery::with(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])
+                    ->where(function ($q) use ($id) {
+                        $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
+                    })
+                    ->where('rider_id', $rider->id)
                     ->lockForUpdate()
                     ->first();
 
-                if (!$order) {
-                    $delivery = Delivery::with(['order.items.product', 'order.branch'])->find($id);
-                    $order = $delivery?->order;
+                if (!$delivery) {
+                    $order = Order::with(['items.product', 'branch', 'delivery'])
+                        ->where('id', $id)
+                        ->orWhere('order_number', $id)
+                        ->first();
+
+                    if ($order) {
+                        if ($order->rider_id && $order->rider_id != $rider->id) {
+                            return response()->json(['success' => false, 'message' => 'Order is assigned to another rider.'], 403);
+                        }
+
+                        $delivery = Delivery::firstOrCreate(
+                            ['order_id' => $order->id],
+                            [
+                                'rider_id'         => $rider->id,
+                                'status'           => $order->status,
+                                'customer_name'    => $order->customer_name,
+                                'customer_phone'   => $order->contact_number,
+                                'customer_address' => $order->address,
+                            ]
+                        );
+                    }
                 }
 
-                if (!$order) {
-                    return response()->json(['success' => false, 'message' => 'Order or delivery not found.'], 404);
+                if (!$delivery) {
+                    return response()->json(['success' => false, 'message' => "Delivery #{$id} not found or not assigned to your account."], 404);
                 }
 
-                // Authorization check
-                if ($order->rider_id && $order->rider_id != $rider->id) {
-                    return response()->json(['success' => false, 'message' => 'Order is assigned to another rider.'], 403);
+                if ($delivery->order) {
+                    $delivery->order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
+                    $delivery->order->update([
+                        'rider_id' => $rider->id,
+                        'status'   => 'picked_up',
+                    ]);
                 }
 
-                $order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
-                $order->update([
-                    'rider_id' => $rider->id,
-                    'status'   => 'picked_up',
-                ]);
-
-                $delivery = Delivery::firstOrCreate(
-                    ['order_id' => $order->id],
-                    [
-                        'rider_id'         => $rider->id,
-                        'status'           => 'picked_up',
-                        'customer_name'    => $order->customer_name,
-                        'customer_phone'   => $order->contact_number,
-                        'customer_address' => $order->address,
-                    ]
-                );
+                if ($delivery->sale) {
+                    $delivery->sale->update(['status' => 'picked_up']);
+                }
 
                 $delivery->update([
-                    'rider_id' => $rider->id,
-                    'status'   => 'picked_up',
+                    'rider_id'     => $rider->id,
+                    'status'       => 'picked_up',
+                    'picked_up_at' => now(),
                 ]);
 
-                event(new OrderStatusUpdated($delivery->fresh(['order.items.product', 'order.branch']), 'rider'));
+                event(new OrderStatusUpdated($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch']), 'rider'));
                 event(new RiderStatusUpdated($rider->fresh(['branch'])));
 
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Order picked up! Now head to the customer.',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch'])),
+                    'success'  => true,
+                    'message'  => 'Order marked as picked up! Please head to the customer.',
+                    'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
+                    'delivery' => $delivery,
                 ]);
             });
         } catch (\RuntimeException $e) {
@@ -566,6 +578,13 @@ class RiderController extends Controller
                 $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
                 if ($order) {
                     $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
+                }
+
+                if ($delivery->sale) {
+                    $delivery->sale->update([
+                        'status'       => 'delivered',
+                        'delivered_at' => now(),
+                    ]);
                 }
 
                 $updateData = [

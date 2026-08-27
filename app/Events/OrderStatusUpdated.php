@@ -107,9 +107,11 @@ class OrderStatusUpdated implements ShouldBroadcastNow
         $paymentMethod = $this->delivery->sale?->payment_method ?? $this->delivery->order?->payment_method ?? 'cash';
 
         return [
+            'id'                    => $this->delivery->id,
             'event'                 => 'order-status-updated',
             'delivery_id'           => $this->delivery->id,
-            'order_id'              => $this->delivery->order_id ?? $this->delivery->sale_id,
+            'order_id'              => $this->delivery->order_id,
+            'sale_id'               => $this->delivery->sale_id,
             'order_number'          => $orderNumber,
             'order_source'          => $orderSource,
             'tracking_number'       => $this->delivery->tracking_number,
