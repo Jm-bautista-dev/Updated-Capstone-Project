@@ -240,6 +240,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/errors', [App\Http\Controllers\SuperAdmin\ErrorLogController::class, 'index'])->name('errors.index');
             Route::post('/errors/{id}/resolve', [App\Http\Controllers\SuperAdmin\ErrorLogController::class, 'toggleResolve'])->name('errors.resolve');
             Route::post('/errors/clear-resolved', [App\Http\Controllers\SuperAdmin\ErrorLogController::class, 'clearResolved'])->name('errors.clear-resolved');
+
+            // Developer Log Viewer (Laravel logs, PHP logs, queue, scheduler)
+            Route::get('/logs', [App\Http\Controllers\SuperAdmin\LogViewerController::class, 'index'])->name('logs.index');
+            Route::get('/logs/entries', [App\Http\Controllers\SuperAdmin\LogViewerController::class, 'entries'])->name('logs.entries');
+            Route::get('/logs/live', [App\Http\Controllers\SuperAdmin\LogViewerController::class, 'live'])->name('logs.live');
+            Route::get('/logs/sources', [App\Http\Controllers\SuperAdmin\LogViewerController::class, 'sources'])->name('logs.sources');
+            Route::get('/logs/download', [App\Http\Controllers\SuperAdmin\LogViewerController::class, 'download'])->name('logs.download');
             
             // Maintenance Mode Control Panel
             Route::get('/maintenance', [App\Http\Controllers\SuperAdmin\MaintenanceController::class, 'index'])->name('maintenance.index');

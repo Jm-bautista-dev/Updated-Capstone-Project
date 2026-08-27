@@ -7,6 +7,7 @@ import {
     Flag,
     GitCommit,
     LayoutDashboard,
+    ScrollText,
     Settings,
     Shield,
     Terminal,
@@ -30,6 +31,7 @@ export const SuperAdminSidebar: React.FC = () => {
         {
             group: 'DIAGNOSTICS',
             items: [
+                { label: 'Log Viewer', href: '/super-admin/logs', icon: ScrollText },
                 { label: 'Error Logs', href: '/super-admin/errors', icon: AlertTriangle },
                 { label: 'Audit Logs', href: '/super-admin/audit-logs', icon: FileText },
                 { label: 'Security Center', href: '/super-admin/security', icon: Shield },
