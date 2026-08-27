@@ -46,6 +46,11 @@ class OrderCancellationRequest extends Model
         return $this->belongsTo(Rider::class, 'requested_by_rider_id');
     }
 
+    public function rider(): BelongsTo
+    {
+        return $this->belongsTo(Rider::class, 'requested_by_rider_id');
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

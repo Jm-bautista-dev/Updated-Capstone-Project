@@ -36,7 +36,13 @@ Broadcast::channel('customer.order.{orderId}', function ($user, $orderId) {
     }
 
     $order = \App\Models\Order::find($orderId);
-    return $order && (int) $order->user_id === (int) $user->id;
+    if (!$order) {
+        return false;
+    }
+
+    return (int) $order->user_id === (int) $user->id
+        || (int) $order->rider_id === (int) $user->id
+        || (int) ($order->customer_id ?? 0) === (int) $user->id;
 });
 
 Broadcast::channel('user.{id}', function ($user, $id) {

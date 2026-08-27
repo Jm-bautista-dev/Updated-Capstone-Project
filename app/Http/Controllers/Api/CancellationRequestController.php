@@ -171,9 +171,9 @@ class CancellationRequestController extends Controller
 
                 // 5. Post-Commit Real-Time Broadcasts
                 try {
-                    broadcast(new CancellationResolved($req->fresh()));
+                    event(new CancellationResolved($req->fresh()));
                     if ($delivery) {
-                        broadcast(new OrderStatusUpdated($delivery->fresh(), 'cashier'));
+                        event(new OrderStatusUpdated($delivery->fresh(), 'cashier'));
                     }
                 } catch (\Throwable $e) {
                     Log::warning('Broadcast failed during cancellation accept: ' . $e->getMessage());
@@ -266,12 +266,12 @@ class CancellationRequestController extends Controller
 
                 // 4. Post-Commit Real-Time Broadcasts
                 try {
-                    broadcast(new CancellationResolved($req->fresh()));
+                    event(new CancellationResolved($req->fresh()));
                     if ($order) {
-                        broadcast(new \App\Events\CancellationRejectedEvent($req, $order->fresh()));
+                        event(new \App\Events\CancellationRejectedEvent($req, $order->fresh()));
                     }
                     if ($delivery) {
-                        broadcast(new OrderStatusUpdated($delivery->fresh(), 'cashier'));
+                        event(new OrderStatusUpdated($delivery->fresh(), 'cashier'));
                     }
                 } catch (\Throwable $e) {
                     Log::warning('Broadcast failed during cancellation reject: ' . $e->getMessage());
@@ -287,5 +287,65 @@ class CancellationRequestController extends Controller
             Log::error('CancellationRequestController::reject failed', ['error' => $e->getMessage(), 'id' => $id]);
             return response()->json(['success' => false, 'message' => 'Failed to reject cancellation request'], 500);
         }
+    }
+
+    /**
+     * Unified resolve endpoint for POS / Cashier review.
+     * POST /api/v1/pos/cancellation-requests/{id}/resolve
+     * Payload: { "decision": "approved" | "rejected", "resolution_notes": "..." }
+     */
+    public function resolve(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'decision'         => 'required|in:approved,rejected,accept,reject',
+            'resolution_notes' => 'nullable|string|max:1000',
+        ]);
+
+        $decision = in_array($request->input('decision'), ['approved', 'accept']) ? 'approved' : 'rejected';
+
+        if ($decision === 'approved') {
+            return $this->accept($request, $id);
+        }
+
+        $request->merge(['rejection_reason' => $request->input('resolution_notes') ?? $request->input('rejection_reason')]);
+        return $this->reject($request, $id);
+    }
+
+    /**
+     * GET /api/v1/rider/cancellation-requests
+     * Return authenticated rider's cancellation requests.
+     */
+    public function riderRequests(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $requests = OrderCancellationRequest::with(['order', 'delivery'])
+            ->where('requested_by_rider_id', $user->id)
+            ->latest('requested_at')
+            ->get()
+            ->map(function ($req) {
+                return [
+                    'id'                      => $req->id,
+                    'order_id'                => $req->order_id,
+                    'order_number'            => $req->order?->order_number ?? ("ORD-" . $req->order_id),
+                    'delivery_id'             => $req->delivery_id,
+                    'reason'                  => $req->reason,
+                    'notes'                   => $req->notes,
+                    'status'                  => $req->status,
+                    'rejection_reason'        => $req->rejection_reason,
+                    'resolution_notes'        => $req->rejection_reason,
+                    'requested_at'            => $req->requested_at ? $req->requested_at->toIso8601String() : null,
+                    'reviewed_at'             => $req->reviewed_at ? $req->reviewed_at->toIso8601String() : null,
+                ];
+            });
+
+        return response()->json([
+            'success'  => true,
+            'requests' => $requests,
+            'data'     => $requests,
+        ]);
     }
 }

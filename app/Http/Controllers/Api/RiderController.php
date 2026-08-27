@@ -720,8 +720,8 @@ class RiderController extends Controller
 
                 // Real-Time Broadcasts
                 try {
-                    broadcast(new CancellationRequested($cancellationRequest->fresh()));
-                    broadcast(new OrderStatusUpdated($delivery->fresh(), 'rider'));
+                    event(new CancellationRequested($cancellationRequest->fresh()));
+                    event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
                 } catch (\Throwable $e) {
                     Log::warning('Broadcast failed for CancellationRequested: ' . $e->getMessage());
                 }

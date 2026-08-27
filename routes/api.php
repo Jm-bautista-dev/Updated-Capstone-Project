@@ -76,7 +76,8 @@ Route::prefix('v1')->group(function () {
             Route::get('transactions',     [RiderController::class, 'getCompletedOrders']);
             Route::get('past-transactions',[RiderController::class, 'getCompletedOrders']);
             Route::get('stats',            [RiderController::class, 'getStats']);
-            Route::get('earnings',         [RiderController::class, 'getStats']);
+            // Cancellation Requests for Rider
+            Route::get('cancellation-requests', [App\Http\Controllers\Api\CancellationRequestController::class, 'riderRequests']);
 
             // WORKFLOW ENDPOINTS (Both strict actions and generic status transitions)
             Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);
@@ -108,6 +109,8 @@ Route::prefix('v1')->group(function () {
         Route::get('cancellation-requests/pending', [App\Http\Controllers\Api\CancellationRequestController::class, 'pending']);
         Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept']);
         Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject']);
+        Route::post('cancellation-requests/{id}/resolve', [App\Http\Controllers\Api\CancellationRequestController::class, 'resolve']);
+        Route::post('pos/cancellation-requests/{id}/resolve', [App\Http\Controllers\Api\CancellationRequestController::class, 'resolve']);
 
         // POS / Branch Manager Routes
         Route::prefix('branch')->group(function () {

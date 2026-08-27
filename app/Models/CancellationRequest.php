@@ -14,17 +14,23 @@ class CancellationRequest extends Model
 
     protected $fillable = [
         'order_id',
+        'delivery_id',
         'rider_id',
         'reason',
         'notes',
         'status',
-        'reviewed_by',
+        'idempotency_key',
+        'requested_at',
         'reviewed_at',
+        'reviewed_by',
+        'reviewed_by_name',
+        'resolution_notes',
         'manager_notes',
     ];
 
     protected $casts = [
-        'reviewed_at' => 'datetime',
+        'requested_at' => 'datetime',
+        'reviewed_at'  => 'datetime',
     ];
 
     public function order(): BelongsTo
@@ -32,9 +38,19 @@ class CancellationRequest extends Model
         return $this->belongsTo(Order::class);
     }
 
+    public function delivery(): BelongsTo
+    {
+        return $this->belongsTo(Delivery::class);
+    }
+
     public function rider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rider_id');
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     public function reviewedBy(): BelongsTo

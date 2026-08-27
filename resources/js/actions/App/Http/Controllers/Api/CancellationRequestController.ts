@@ -385,6 +385,160 @@ export const reject = {
     '/cancellation-requests/{id}/reject': rejectda0bb5a251ee02f9aff9b76104331520,
 }
 
-const CancellationRequestController = { pending, accept, reject }
+/**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/cancellation-requests/{id}/resolve'
+ */
+const resolvebaea192fb3c53d2a7a06d614b5269147 = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resolvebaea192fb3c53d2a7a06d614b5269147.url(args, options),
+    method: 'post',
+})
+
+resolvebaea192fb3c53d2a7a06d614b5269147.definition = {
+    methods: ["post"],
+    url: '/api/v1/cancellation-requests/{id}/resolve',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/cancellation-requests/{id}/resolve'
+ */
+resolvebaea192fb3c53d2a7a06d614b5269147.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return resolvebaea192fb3c53d2a7a06d614b5269147.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/cancellation-requests/{id}/resolve'
+ */
+resolvebaea192fb3c53d2a7a06d614b5269147.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resolvebaea192fb3c53d2a7a06d614b5269147.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/cancellation-requests/{id}/resolve'
+ */
+    const resolvebaea192fb3c53d2a7a06d614b5269147Form = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: resolvebaea192fb3c53d2a7a06d614b5269147.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/cancellation-requests/{id}/resolve'
+ */
+        resolvebaea192fb3c53d2a7a06d614b5269147Form.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: resolvebaea192fb3c53d2a7a06d614b5269147.url(args, options),
+            method: 'post',
+        })
+    
+    resolvebaea192fb3c53d2a7a06d614b5269147.form = resolvebaea192fb3c53d2a7a06d614b5269147Form
+    /**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/pos/cancellation-requests/{id}/resolve'
+ */
+const resolvefb44ba020fb4e11da53eb0ea725e80eb = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resolvefb44ba020fb4e11da53eb0ea725e80eb.url(args, options),
+    method: 'post',
+})
+
+resolvefb44ba020fb4e11da53eb0ea725e80eb.definition = {
+    methods: ["post"],
+    url: '/api/v1/pos/cancellation-requests/{id}/resolve',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/pos/cancellation-requests/{id}/resolve'
+ */
+resolvefb44ba020fb4e11da53eb0ea725e80eb.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { id: args }
+    }
+
+    
+    if (Array.isArray(args)) {
+        args = {
+                    id: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        id: args.id,
+                }
+
+    return resolvefb44ba020fb4e11da53eb0ea725e80eb.definition.url
+            .replace('{id}', parsedArgs.id.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/pos/cancellation-requests/{id}/resolve'
+ */
+resolvefb44ba020fb4e11da53eb0ea725e80eb.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resolvefb44ba020fb4e11da53eb0ea725e80eb.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/pos/cancellation-requests/{id}/resolve'
+ */
+    const resolvefb44ba020fb4e11da53eb0ea725e80ebForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: resolvefb44ba020fb4e11da53eb0ea725e80eb.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CancellationRequestController::resolve
+ * @see app/Http/Controllers/Api/CancellationRequestController.php:297
+ * @route '/api/v1/pos/cancellation-requests/{id}/resolve'
+ */
+        resolvefb44ba020fb4e11da53eb0ea725e80ebForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: resolvefb44ba020fb4e11da53eb0ea725e80eb.url(args, options),
+            method: 'post',
+        })
+    
+    resolvefb44ba020fb4e11da53eb0ea725e80eb.form = resolvefb44ba020fb4e11da53eb0ea725e80ebForm
+
+export const resolve = {
+    '/api/v1/cancellation-requests/{id}/resolve': resolvebaea192fb3c53d2a7a06d614b5269147,
+    '/api/v1/pos/cancellation-requests/{id}/resolve': resolvefb44ba020fb4e11da53eb0ea725e80eb,
+}
+
+const CancellationRequestController = { pending, accept, reject, resolve }
 
 export default CancellationRequestController

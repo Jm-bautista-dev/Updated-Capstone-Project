@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Models\CancellationRequest;
 use App\Models\OrderCancellationRequest;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -16,21 +17,26 @@ class CancellationRequested implements ShouldBroadcastNow
 
     public $cancellationRequest;
 
-    public function __construct(OrderCancellationRequest $cancellationRequest)
+    public function __construct($cancellationRequest)
     {
-        $this->cancellationRequest = $cancellationRequest->loadMissing([
-            'order.branch',
-            'delivery',
-            'requestedByRider',
-            'branch',
-        ]);
+        if (method_exists($cancellationRequest, 'loadMissing')) {
+            $this->cancellationRequest = $cancellationRequest->loadMissing([
+                'order.branch',
+                'delivery',
+                'rider',
+                'branch',
+            ]);
+        } else {
+            $this->cancellationRequest = $cancellationRequest;
+        }
     }
 
     public function broadcastOn(): array
     {
-        $order = $this->cancellationRequest->order;
-        $branchId = $this->cancellationRequest->branch_id ?? $order?->branch_id;
-        $riderId = $this->cancellationRequest->requested_by_rider_id;
+        $req = $this->cancellationRequest;
+        $order = $req->order ?? ($req->order_id ? \App\Models\Order::find($req->order_id) : null);
+        $branchId = $req->branch_id ?? $order?->branch_id;
+        $riderId = $req->rider_id ?? $req->requested_by_rider_id ?? $order?->rider_id;
 
         $channels = [
             new PrivateChannel('admin.orders'),
@@ -59,24 +65,26 @@ class CancellationRequested implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         $req = $this->cancellationRequest;
-        $order = $req->order;
+        $order = $req->order ?? ($req->order_id ? \App\Models\Order::find($req->order_id) : null);
         $orderNum = $order?->order_number ?? ("ORD-" . $req->order_id);
+        $riderId = $req->rider_id ?? $req->requested_by_rider_id ?? $order?->rider_id;
+        $deliveryId = $req->delivery_id ?? $order?->delivery?->id;
 
         return [
             'cancellation_request_id' => $req->id,
             'order_id'                => $req->order_id,
             'order_number'            => $orderNum,
-            'delivery_id'             => $req->delivery_id,
-            'rider_id'                => $req->requested_by_rider_id,
-            'rider_name'              => $req->requestedByRider?->name ?? 'Rider',
+            'delivery_id'             => $deliveryId,
+            'rider_id'                => $riderId,
+            'rider_name'              => $req->rider?->name ?? $req->requestedByRider?->name ?? 'Rider',
             'customer_name'           => $order?->customer_name ?? 'Customer',
-            'branch_id'               => $req->branch_id,
+            'branch_id'               => $req->branch_id ?? $order?->branch_id,
             'branch_name'             => $req->branch?->name ?? $order?->branch?->name ?? 'Branch',
             'reason'                  => $req->reason,
             'notes'                   => $req->notes,
-            'status'                  => $req->status,
-            'requested_at'            => $req->requested_at ? $req->requested_at->toDateTimeString() : now()->toDateTimeString(),
-            'timestamp'               => now()->toDateTimeString(),
+            'status'                  => $req->status ?? 'pending',
+            'requested_at'            => $req->requested_at ? (is_string($req->requested_at) ? $req->requested_at : $req->requested_at->toIso8601String()) : now()->toIso8601String(),
+            'timestamp'               => now()->toIso8601String(),
             'message'                 => "Cancellation requested for Order #{$orderNum}",
         ];
     }
