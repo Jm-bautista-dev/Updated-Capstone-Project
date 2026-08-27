@@ -536,7 +536,7 @@ class UnifiedWebDeliverySystemTest extends TestCase
             ->assertJsonPath('data.status', 'picked_up');
 
         $this->assertEquals('picked_up', $delivery->fresh()->status);
-        $this->assertEquals('picked_up', $delivery->fresh()->sale->status);
+        $this->assertEquals('completed', $delivery->fresh()->sale->status);
 
         // 4. Rider executes START TRANSIT
         $transitRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/transit");
@@ -545,7 +545,7 @@ class UnifiedWebDeliverySystemTest extends TestCase
             ->assertJsonPath('data.status', 'in_transit');
 
         $this->assertEquals('in_transit', $delivery->fresh()->status);
-        $this->assertEquals('in_transit', $delivery->fresh()->sale->status);
+        $this->assertEquals('completed', $delivery->fresh()->sale->status);
 
         // 5. Rider executes DELIVER (complete)
         $deliverRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/deliver", [
@@ -555,7 +555,7 @@ class UnifiedWebDeliverySystemTest extends TestCase
             ->assertJsonPath('success', true);
 
         $this->assertEquals('delivered', $delivery->fresh()->status);
-        $this->assertEquals('delivered', $delivery->fresh()->sale->status);
+        $this->assertEquals('completed', $delivery->fresh()->sale->status);
         $this->assertNotNull($delivery->fresh()->delivered_at);
         $this->assertEquals('available', $this->riderAvailable->fresh()->status);
     }

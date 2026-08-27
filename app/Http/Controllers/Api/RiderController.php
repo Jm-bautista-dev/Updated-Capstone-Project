@@ -323,12 +323,6 @@ class RiderController extends Controller
                     ]);
                 }
 
-                if ($delivery->sale) {
-                    $delivery->sale->update([
-                        'status' => 'assigned_to_rider',
-                    ]);
-                }
-
                 // Assign rider to delivery record
                 $delivery->update([
                     'rider_id' => $rider->id,
@@ -424,10 +418,6 @@ class RiderController extends Controller
                     ]);
                 }
 
-                if ($delivery->sale) {
-                    $delivery->sale->update(['status' => 'picked_up']);
-                }
-
                 $delivery->update([
                     'rider_id'     => $rider->id,
                     'status'       => 'picked_up',
@@ -520,10 +510,6 @@ class RiderController extends Controller
                     $order->update(['status' => 'in_transit']);
                 }
 
-                if ($delivery->sale) {
-                    $delivery->sale->update(['status' => 'in_transit']);
-                }
-
                 $delivery->update([
                     'status'     => 'in_transit',
                     'transit_at' => now(),
@@ -597,11 +583,8 @@ class RiderController extends Controller
                     $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
                 }
 
-                if ($delivery->sale) {
-                    $delivery->sale->update([
-                        'status'       => 'delivered',
-                        'delivered_at' => now(),
-                    ]);
+                if ($delivery->sale && $delivery->sale->status !== 'completed') {
+                    $delivery->sale->update(['status' => 'completed']);
                 }
 
                 $updateData = [
