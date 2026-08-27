@@ -72,6 +72,7 @@ class UserController extends Controller
                 'role'          => $user->role ?? 'customer',
                 'mobile_number' => $phone,
                 'phone'         => $phone,
+                'avatar_id'     => $user->avatar_id ?? 1,
                 'branch_id'     => $branchId,
                 'branch_name'   => $branchName,
             ];
@@ -207,6 +208,7 @@ class UserController extends Controller
                 'role'          => $user->role ?? 'customer',
                 'mobile_number' => $phone,
                 'phone'         => $phone,
+                'avatar_id'     => $user->avatar_id ?? 1,
                 'branch_id'     => $branchId,
                 'branch_name'   => $branchName,
             ];

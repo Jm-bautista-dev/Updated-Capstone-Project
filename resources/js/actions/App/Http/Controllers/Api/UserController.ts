@@ -242,7 +242,7 @@ export const me = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
 const update805096a867627d4e728c2c6a0e1529bb = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -257,7 +257,7 @@ update805096a867627d4e728c2c6a0e1529bb.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
 update805096a867627d4e728c2c6a0e1529bb.url = (options?: RouteQueryOptions) => {
@@ -266,7 +266,7 @@ update805096a867627d4e728c2c6a0e1529bb.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
 update805096a867627d4e728c2c6a0e1529bb.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -275,7 +275,7 @@ update805096a867627d4e728c2c6a0e1529bb.patch = (options?: RouteQueryOptions): Ro
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
 update805096a867627d4e728c2c6a0e1529bb.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -284,7 +284,7 @@ update805096a867627d4e728c2c6a0e1529bb.put = (options?: RouteQueryOptions): Rout
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
 update805096a867627d4e728c2c6a0e1529bb.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -294,7 +294,7 @@ update805096a867627d4e728c2c6a0e1529bb.post = (options?: RouteQueryOptions): Rou
 
     /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
     const update805096a867627d4e728c2c6a0e1529bbForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -309,7 +309,7 @@ update805096a867627d4e728c2c6a0e1529bb.post = (options?: RouteQueryOptions): Rou
 
             /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
         update805096a867627d4e728c2c6a0e1529bbForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -323,7 +323,7 @@ update805096a867627d4e728c2c6a0e1529bb.post = (options?: RouteQueryOptions): Rou
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
         update805096a867627d4e728c2c6a0e1529bbForm.put = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -337,7 +337,7 @@ update805096a867627d4e728c2c6a0e1529bb.post = (options?: RouteQueryOptions): Rou
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/api/v1/user'
  */
         update805096a867627d4e728c2c6a0e1529bbForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -348,7 +348,7 @@ update805096a867627d4e728c2c6a0e1529bb.post = (options?: RouteQueryOptions): Rou
     update805096a867627d4e728c2c6a0e1529bb.form = update805096a867627d4e728c2c6a0e1529bbForm
     /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
 const update4f74708015d25e186d2d80ed42af2d9a = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -363,7 +363,7 @@ update4f74708015d25e186d2d80ed42af2d9a.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
 update4f74708015d25e186d2d80ed42af2d9a.url = (options?: RouteQueryOptions) => {
@@ -372,7 +372,7 @@ update4f74708015d25e186d2d80ed42af2d9a.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
 update4f74708015d25e186d2d80ed42af2d9a.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -381,7 +381,7 @@ update4f74708015d25e186d2d80ed42af2d9a.patch = (options?: RouteQueryOptions): Ro
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
 update4f74708015d25e186d2d80ed42af2d9a.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -390,7 +390,7 @@ update4f74708015d25e186d2d80ed42af2d9a.put = (options?: RouteQueryOptions): Rout
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
 update4f74708015d25e186d2d80ed42af2d9a.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -400,7 +400,7 @@ update4f74708015d25e186d2d80ed42af2d9a.post = (options?: RouteQueryOptions): Rou
 
     /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
     const update4f74708015d25e186d2d80ed42af2d9aForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -415,7 +415,7 @@ update4f74708015d25e186d2d80ed42af2d9a.post = (options?: RouteQueryOptions): Rou
 
             /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
         update4f74708015d25e186d2d80ed42af2d9aForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -429,7 +429,7 @@ update4f74708015d25e186d2d80ed42af2d9a.post = (options?: RouteQueryOptions): Rou
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
         update4f74708015d25e186d2d80ed42af2d9aForm.put = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -443,7 +443,7 @@ update4f74708015d25e186d2d80ed42af2d9a.post = (options?: RouteQueryOptions): Rou
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::update
- * @see app/Http/Controllers/Api/UserController.php:104
+ * @see app/Http/Controllers/Api/UserController.php:105
  * @route '/user'
  */
         update4f74708015d25e186d2d80ed42af2d9aForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -460,7 +460,7 @@ export const update = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
 const updatePassword9b2966bb4355755e9686e4f7798f57cb = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -475,7 +475,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
 updatePassword9b2966bb4355755e9686e4f7798f57cb.url = (options?: RouteQueryOptions) => {
@@ -484,7 +484,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.url = (options?: RouteQueryOption
 
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
 updatePassword9b2966bb4355755e9686e4f7798f57cb.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -493,7 +493,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.patch = (options?: RouteQueryOpti
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
 updatePassword9b2966bb4355755e9686e4f7798f57cb.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -502,7 +502,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.put = (options?: RouteQueryOption
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
 updatePassword9b2966bb4355755e9686e4f7798f57cb.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -512,7 +512,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.post = (options?: RouteQueryOptio
 
     /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
     const updatePassword9b2966bb4355755e9686e4f7798f57cbForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -527,7 +527,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.post = (options?: RouteQueryOptio
 
             /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
         updatePassword9b2966bb4355755e9686e4f7798f57cbForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -541,7 +541,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.post = (options?: RouteQueryOptio
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
         updatePassword9b2966bb4355755e9686e4f7798f57cbForm.put = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -555,7 +555,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.post = (options?: RouteQueryOptio
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/api/v1/user/password'
  */
         updatePassword9b2966bb4355755e9686e4f7798f57cbForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -566,7 +566,7 @@ updatePassword9b2966bb4355755e9686e4f7798f57cb.post = (options?: RouteQueryOptio
     updatePassword9b2966bb4355755e9686e4f7798f57cb.form = updatePassword9b2966bb4355755e9686e4f7798f57cbForm
     /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
 const updatePassword5c31ea537ec820666676eac122affc36 = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -581,7 +581,7 @@ updatePassword5c31ea537ec820666676eac122affc36.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
 updatePassword5c31ea537ec820666676eac122affc36.url = (options?: RouteQueryOptions) => {
@@ -590,7 +590,7 @@ updatePassword5c31ea537ec820666676eac122affc36.url = (options?: RouteQueryOption
 
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
 updatePassword5c31ea537ec820666676eac122affc36.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -599,7 +599,7 @@ updatePassword5c31ea537ec820666676eac122affc36.patch = (options?: RouteQueryOpti
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
 updatePassword5c31ea537ec820666676eac122affc36.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -608,7 +608,7 @@ updatePassword5c31ea537ec820666676eac122affc36.put = (options?: RouteQueryOption
 })
 /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
 updatePassword5c31ea537ec820666676eac122affc36.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -618,7 +618,7 @@ updatePassword5c31ea537ec820666676eac122affc36.post = (options?: RouteQueryOptio
 
     /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
     const updatePassword5c31ea537ec820666676eac122affc36Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -633,7 +633,7 @@ updatePassword5c31ea537ec820666676eac122affc36.post = (options?: RouteQueryOptio
 
             /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
         updatePassword5c31ea537ec820666676eac122affc36Form.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -647,7 +647,7 @@ updatePassword5c31ea537ec820666676eac122affc36.post = (options?: RouteQueryOptio
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
         updatePassword5c31ea537ec820666676eac122affc36Form.put = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -661,7 +661,7 @@ updatePassword5c31ea537ec820666676eac122affc36.post = (options?: RouteQueryOptio
         })
             /**
 * @see \App\Http\Controllers\Api\UserController::updatePassword
- * @see app/Http/Controllers/Api/UserController.php:242
+ * @see app/Http/Controllers/Api/UserController.php:244
  * @route '/user/password'
  */
         updatePassword5c31ea537ec820666676eac122affc36Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
