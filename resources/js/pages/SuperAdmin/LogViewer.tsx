@@ -298,7 +298,7 @@ export default function LogViewer({
     const handleApplyFilters = (e: React.FormEvent) => {
         e.preventDefault();
         setNewCount(0);
-        void fetchEntries(1, true);
+        void fetchEntries(1);
     };
 
     const handleSourceChange = (newSource: string) => {
