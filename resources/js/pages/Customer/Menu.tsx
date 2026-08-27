@@ -46,10 +46,15 @@ export default function Menu() {
                 const catData = await catRes.json();
                 const prodData = await prodRes.json();
 
-                setCategories(catData);
-                setProducts(prodData);
+                const safeCats = Array.isArray(catData) ? catData : (catData?.categories || catData?.data || []);
+                const safeProds = Array.isArray(prodData) ? prodData : (prodData?.products || prodData?.data || []);
+
+                setCategories(safeCats);
+                setProducts(safeProds);
             } catch (error) {
                 console.error('Failed to fetch initial menu data:', error);
+                setCategories([]);
+                setProducts([]);
             } finally {
                 setIsLoading(false);
             }
@@ -72,9 +77,11 @@ export default function Menu() {
 
             const res = await fetch(url);
             const data = await res.json();
-            setProducts(data);
+            const safeProds = Array.isArray(data) ? data : (data?.products || data?.data || []);
+            setProducts(safeProds);
         } catch (error) {
             console.error('Failed to filter products:', error);
+            setProducts([]);
         } finally {
             setIsMenuLoading(false);
         }
@@ -86,6 +93,8 @@ export default function Menu() {
             currency: 'PHP',
         }).format(price);
     };
+
+    const safeProductsList = Array.isArray(products) ? products : [];
 
     return (
         <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A]">
@@ -120,7 +129,7 @@ export default function Menu() {
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-bold flex items-center gap-2">
                         {activeCategory === 'all' ? 'Featured Items' : `${activeCategory.replace(/-/g, ' ')} Items`}
-                        <Badge variant="secondary" className="font-bold">{products.length}</Badge>
+                        <Badge variant="secondary" className="font-bold">{safeProductsList.length}</Badge>
                     </h2>
                 </div>
 
@@ -145,8 +154,8 @@ export default function Menu() {
                             transition={{ duration: 0.4 }}
                             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
                         >
-                            {products.length > 0 ? (
-                                products.map((product: Product) => {
+                            {safeProductsList.length > 0 ? (
+                                safeProductsList.map((product: Product) => {
                                     const isOutOfStock = product.is_available === false || (product.stock !== undefined && product.stock <= 0) || (product.available_to_sell !== undefined && product.available_to_sell <= 0);
 
                                     return (
@@ -208,33 +217,14 @@ export default function Menu() {
                                     <div className="p-6 rounded-full bg-muted w-20 h-20 flex items-center justify-center mx-auto mb-4 italic opacity-50">
                                         ?
                                     </div>
-                                    <h3 className="text-lg font-bold">No items found</h3>
-                                    <p className="text-muted-foreground text-sm">Try choosing another category.</p>
+                                    <h3 className="font-bold text-lg text-foreground mb-1">No products found</h3>
+                                    <p className="text-sm text-muted-foreground">Try selecting a different category.</p>
                                 </div>
                             )}
                         </motion.div>
                     )}
                 </AnimatePresence>
             </main>
-
-            {/* Cart Suggestion (Bonus sticky bottom) */}
-            <div className="fixed bottom-6 left-0 right-0 px-4 z-70 pointer-events-none">
-                <motion.div
-                    initial={{ y: 100 }}
-                    animate={{ y: 0 }}
-                    className="max-w-md mx-auto pointer-events-auto"
-                >
-                    <button className="w-full bg-primary text-primary-foreground h-16 rounded-full shadow-2xl flex items-center justify-between px-8 group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center text-xs font-bold">0</div>
-                            <span className="font-bold tracking-tight">View Cart Items</span>
-                        </div>
-                        <span className="text-lg font-black">₱0.00</span>
-                    </button>
-                </motion.div>
-            </div>
-
-            <div className="h-24" /> {/* Spacer */}
         </div>
     );
 }

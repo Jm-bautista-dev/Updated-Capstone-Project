@@ -49,10 +49,11 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
         );
     }
 
-    // Add "All" category at the beginning
+    // Ensure categories is an array before spreading
+    const safeCategories = Array.isArray(categories) ? categories : [];
     const allCategories: Category[] = [
         { id: 'all', name: 'All', slug: 'all', image: null },
-        ...categories
+        ...safeCategories
     ];
 
     return (
