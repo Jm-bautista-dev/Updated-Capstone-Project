@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\Branch;
+use App\Models\Ingredient;
 use App\Models\MenuItemIngredient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -41,7 +42,7 @@ class ProductService
             // Create recipe (Optional)
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $item) {
-                    $ingredient = \App\Models\Ingredient::find($item['ingredient_id']);
+                    $ingredient = Ingredient::find($item['ingredient_id']);
                     if ($ingredient) {
                         $inputUnit = $item['unit'] ?? $ingredient->unit;
                         $baseUnit = UnitConverter::normalizeUnit($ingredient->unit);
@@ -69,7 +70,7 @@ class ProductService
             if ($product->branch_id) {
                 broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
             } else {
-                $branches = \App\Models\Branch::all();
+                $branches = Branch::all();
                 foreach ($branches as $b) {
                     broadcast(new ProductUpdated($product->id, $b->id))->toOthers();
                 }
@@ -109,7 +110,7 @@ class ProductService
             MenuItemIngredient::where('menu_item_id', $product->id)->delete();
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $item) {
-                    $ingredient = \App\Models\Ingredient::find($item['ingredient_id']);
+                    $ingredient = Ingredient::find($item['ingredient_id']);
                     if ($ingredient) {
                         $inputUnit = $item['unit'] ?? $ingredient->unit;
                         $baseUnit = UnitConverter::normalizeUnit($ingredient->unit);
@@ -138,7 +139,7 @@ class ProductService
                 broadcast(new ProductUpdated($product->id, $product->branch_id))->toOthers();
                 broadcast(new StockUpdated($product->branch_id, Product::class, $product->id))->toOthers();
             } else {
-                $branches = \App\Models\Branch::all();
+                $branches = Branch::all();
                 foreach ($branches as $b) {
                     broadcast(new ProductUpdated($product->id, $b->id))->toOthers();
                     broadcast(new StockUpdated($b->id, Product::class, $product->id))->toOthers();
