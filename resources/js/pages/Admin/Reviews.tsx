@@ -161,6 +161,8 @@ export default function Reviews({
 
     const [search, setSearch] = useState(filters.search || '');
     const [productSearch, setProductSearch] = useState('');
+    const [productListPage, setProductListPage] = useState(1);
+    const productsPerPage = 6;
     const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
     const [ratingFilter, setRatingFilter] = useState(filters.rating || 'all');
     const [seenFilter, setSeenFilter] = useState(filters.seen_status || 'all');
@@ -274,6 +276,7 @@ export default function Reviews({
     const clearFilters = () => {
         setSearch('');
         setProductSearch('');
+        setProductListPage(1);
         setStatusFilter('all');
         setRatingFilter('all');
         setSeenFilter('all');
@@ -285,7 +288,7 @@ export default function Reviews({
         router.get('/admin/reviews', { page: 1, per_page: 10 }, { replace: true });
     };
 
-    // Selecting a Product (Resets to page 1)
+    // Selecting a Product (Resets review page to 1)
     const handleSelectProduct = (product: ProductItem | null) => {
         setSelectedProduct(product);
         setPageError(null);
@@ -434,6 +437,12 @@ export default function Reviews({
             p.category_name.toLowerCase().includes(q)
         );
     });
+
+    const totalProductPages = Math.max(1, Math.ceil(filteredProductList.length / productsPerPage));
+    const paginatedProducts = filteredProductList.slice(
+        (productListPage - 1) * productsPerPage,
+        productListPage * productsPerPage
+    );
 
     // Helper: Star rendering
     const renderStars = (rating: number, size = 'size-4') => {
@@ -630,10 +639,10 @@ export default function Reviews({
                 </div>
 
                 {/* ── SEARCH & FILTER TOOLBAR ───────────────────────────────── */}
-                <Card className="rounded-3xl border border-white/80 dark:border-white/10 shadow-lg bg-white/80 dark:bg-[#121218]/80 backdrop-blur-xl p-4">
-                    <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2.5">
+                <Card className="rounded-3xl border border-white/80 dark:border-white/10 shadow-lg bg-white/80 dark:bg-[#121218]/80 backdrop-blur-xl p-4 overflow-hidden">
+                    <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-2.5">
                         {/* Search Input */}
-                        <div className="relative lg:col-span-2">
+                        <div className="relative flex-1 min-w-55">
                             <Search className="absolute left-3.5 top-2.5 size-4 text-slate-400" />
                             <Input
                                 placeholder="Search product, customer, order #, comment..."
@@ -644,85 +653,93 @@ export default function Reviews({
                         </div>
 
                         {/* Status Filter */}
-                        <Select
-                            value={statusFilter}
-                            onValueChange={(val) => {
-                                setStatusFilter(val);
-                                applyFilter('status', val);
-                            }}
-                        >
-                            <SelectTrigger className="h-9 rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
-                                <SelectValue placeholder="All Statuses" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl">
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="published">Published</SelectItem>
-                                <SelectItem value="hidden">Hidden</SelectItem>
-                                <SelectItem value="flagged">Flagged</SelectItem>
-                                <SelectItem value="pending">Pending</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="w-full sm:w-32.5">
+                            <Select
+                                value={statusFilter}
+                                onValueChange={(val) => {
+                                    setStatusFilter(val);
+                                    applyFilter('status', val);
+                                }}
+                            >
+                                <SelectTrigger className="h-9 w-full rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                                    <SelectValue placeholder="All Statuses" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl">
+                                    <SelectItem value="all">All Statuses</SelectItem>
+                                    <SelectItem value="published">Published</SelectItem>
+                                    <SelectItem value="hidden">Hidden</SelectItem>
+                                    <SelectItem value="flagged">Flagged</SelectItem>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         {/* Rating Filter */}
-                        <Select
-                            value={ratingFilter}
-                            onValueChange={(val) => {
-                                setRatingFilter(val);
-                                applyFilter('rating', val);
-                            }}
-                        >
-                            <SelectTrigger className="h-9 rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
-                                <SelectValue placeholder="All Ratings" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl">
-                                <SelectItem value="all">All Ratings</SelectItem>
-                                <SelectItem value="5">5 Stars ★★★★★</SelectItem>
-                                <SelectItem value="4">4 Stars ★★★★</SelectItem>
-                                <SelectItem value="3">3 Stars ★★★</SelectItem>
-                                <SelectItem value="2">2 Stars ★★</SelectItem>
-                                <SelectItem value="1">1 Star ★</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="w-full sm:w-32.5">
+                            <Select
+                                value={ratingFilter}
+                                onValueChange={(val) => {
+                                    setRatingFilter(val);
+                                    applyFilter('rating', val);
+                                }}
+                            >
+                                <SelectTrigger className="h-9 w-full rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                                    <SelectValue placeholder="All Ratings" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl">
+                                    <SelectItem value="all">All Ratings</SelectItem>
+                                    <SelectItem value="5">5 Stars ★★★★★</SelectItem>
+                                    <SelectItem value="4">4 Stars ★★★★</SelectItem>
+                                    <SelectItem value="3">3 Stars ★★★</SelectItem>
+                                    <SelectItem value="2">2 Stars ★★</SelectItem>
+                                    <SelectItem value="1">1 Star ★</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         {/* Seen / Unseen Filter */}
-                        <Select
-                            value={seenFilter}
-                            onValueChange={(val) => {
-                                setSeenFilter(val);
-                                applyFilter('seen_status', val);
-                            }}
-                        >
-                            <SelectTrigger className="h-9 rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
-                                <SelectValue placeholder="All Read States" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl">
-                                <SelectItem value="all">All Read States</SelectItem>
-                                <SelectItem value="unseen">🔴 Unseen (New)</SelectItem>
-                                <SelectItem value="seen">✓ Viewed</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="w-full sm:w-33.75">
+                            <Select
+                                value={seenFilter}
+                                onValueChange={(val) => {
+                                    setSeenFilter(val);
+                                    applyFilter('seen_status', val);
+                                }}
+                            >
+                                <SelectTrigger className="h-9 w-full rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                                    <SelectValue placeholder="All Read States" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl">
+                                    <SelectItem value="all">All Read States</SelectItem>
+                                    <SelectItem value="unseen">🔴 Unseen (New)</SelectItem>
+                                    <SelectItem value="seen">✓ Viewed</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         {/* Verified Purchase Filter */}
-                        <Select
-                            value={verifiedFilter}
-                            onValueChange={(val) => {
-                                setVerifiedFilter(val);
-                                applyFilter('verified_purchase', val);
-                            }}
-                        >
-                            <SelectTrigger className="h-9 rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
-                                <SelectValue placeholder="All Purchases" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl">
-                                <SelectItem value="all">All Purchases</SelectItem>
-                                <SelectItem value="verified">Verified Purchases Only</SelectItem>
-                                <SelectItem value="unverified">Unverified Only</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="w-full sm:w-38.75">
+                            <Select
+                                value={verifiedFilter}
+                                onValueChange={(val) => {
+                                    setVerifiedFilter(val);
+                                    applyFilter('verified_purchase', val);
+                                }}
+                            >
+                                <SelectTrigger className="h-9 w-full rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                                    <SelectValue placeholder="All Purchases" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl">
+                                    <SelectItem value="all">All Purchases</SelectItem>
+                                    <SelectItem value="verified">Verified Purchases Only</SelectItem>
+                                    <SelectItem value="unverified">Unverified Only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                        {/* Branch Filter or Reset Button */}
-                        <div className="flex items-center gap-1.5">
-                            {isAdmin && (
+                        {/* Branch Filter (Admin only) */}
+                        {isAdmin && (
+                            <div className="w-full sm:w-35">
                                 <Select
                                     value={branchFilter}
                                     onValueChange={(val) => {
@@ -730,7 +747,7 @@ export default function Reviews({
                                         applyFilter('branch_id', val);
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold flex-1">
+                                    <SelectTrigger className="h-9 w-full rounded-2xl bg-white dark:bg-[#181824] border-slate-200 dark:border-slate-800 text-xs font-semibold">
                                         <SelectValue placeholder="All Branches" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl">
@@ -742,18 +759,19 @@ export default function Reviews({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                            )}
+                            </div>
+                        )}
 
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="h-9 rounded-2xl font-bold flex items-center justify-center gap-1.5 text-xs shrink-0 px-3 cursor-pointer"
-                                onClick={clearFilters}
-                                title="Reset all filters"
-                            >
-                                <RefreshCw className="size-3.5" /> Reset
-                            </Button>
-                        </div>
+                        {/* Reset Button */}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 rounded-2xl font-bold flex items-center justify-center gap-1.5 text-xs px-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                            onClick={clearFilters}
+                            title="Reset all filters"
+                        >
+                            <RefreshCw className="size-3.5" /> Reset
+                        </Button>
                     </form>
                 </Card>
 
@@ -804,14 +822,14 @@ export default function Reviews({
                             </div>
                         </div>
 
-                        <div className="space-y-2 max-h-180 overflow-y-auto pr-1">
-                            {filteredProductList.length === 0 ? (
+                        <div className="space-y-2">
+                            {paginatedProducts.length === 0 ? (
                                 <Card className="p-6 text-center rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
                                     <Package className="size-7 mx-auto mb-1.5 text-slate-300 opacity-40" />
                                     <p className="text-xs font-bold text-slate-400">No products match search criteria.</p>
                                 </Card>
                             ) : (
-                                filteredProductList.map((product) => {
+                                paginatedProducts.map((product) => {
                                     const isSelected = selectedProduct?.id === product.id;
                                     const hasUnseen = product.unseen_count > 0;
 
@@ -888,6 +906,70 @@ export default function Reviews({
                                 })
                             )}
                         </div>
+
+                        {/* Product Catalog Pagination Footer */}
+                        {filteredProductList.length > 0 && (
+                            <div className="flex items-center justify-between gap-2 pt-2 px-1 text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 select-none">
+                                <span className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                                    {(productListPage - 1) * productsPerPage + 1}–{Math.min(productListPage * productsPerPage, filteredProductList.length)} of {filteredProductList.length} products
+                                </span>
+
+                                {totalProductPages > 1 && (
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setProductListPage((p) => Math.max(1, p - 1))}
+                                            disabled={productListPage <= 1}
+                                            className="h-7 px-2 rounded-xl text-[10px] font-bold gap-0.5 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            <ChevronLeft className="size-3" />
+                                            <span>Prev</span>
+                                        </Button>
+
+                                        {Array.from({ length: totalProductPages }, (_, i) => i + 1)
+                                            .filter((page) => page === 1 || page === totalProductPages || Math.abs(page - productListPage) <= 1)
+                                            .map((pageNum, idx, arr) => {
+                                                const prev = arr[idx - 1];
+                                                const showEllipsis = prev && pageNum - prev > 1;
+
+                                                return (
+                                                    <React.Fragment key={pageNum}>
+                                                        {showEllipsis && <span className="text-[10px] text-slate-400 px-0.5">...</span>}
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant={pageNum === productListPage ? 'default' : 'outline'}
+                                                            onClick={() => setProductListPage(pageNum)}
+                                                            className={cn(
+                                                                'size-7 p-0 rounded-xl text-[10px] font-mono font-black transition-all cursor-pointer',
+                                                                pageNum === productListPage
+                                                                    ? 'bg-linear-to-r from-[#E75480] to-[#FF4F81] text-white shadow-xs border-0 scale-105'
+                                                                    : 'border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-white/5'
+                                                            )}
+                                                        >
+                                                            {pageNum}
+                                                        </Button>
+                                                    </React.Fragment>
+                                                );
+                                            })}
+
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setProductListPage((p) => Math.min(totalProductPages, p + 1))}
+                                            disabled={productListPage >= totalProductPages}
+                                            className="h-7 px-2 rounded-xl text-[10px] font-bold gap-0.5 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] hover:bg-[#FFF5F7] dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            <span>Next</span>
+                                            <ChevronRight className="size-3" />
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* ── RIGHT COLUMN: REVIEWS DETAIL PANEL ──────────────────── */}
