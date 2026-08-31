@@ -213,7 +213,7 @@ class ReportController extends Controller
     {
         $dateFrom  = $request->date_from;
         $dateTo    = $request->date_to;
-        $fallback  = now()->subDays(14)->startOfDay(); // default window when no filter set
+        $fallback  = now()->subDays(14)->startOfDay();
 
         $metricsService = new \App\Services\FinancialMetricsService();
         $startDate = $dateFrom ?: $fallback;
@@ -221,17 +221,47 @@ class ReportController extends Controller
 
         $metrics = $metricsService->getSummaryMetrics($startDate, $endDate, $branchId);
 
-        // ── 1. Daily revenue / profit trend ───────────────────────────────────
-        $salesQuery = Sale::with(['items.product.ingredients.stocks'])
+        // 1. Daily revenue / profit trend
+        $trendData = $this->buildDailyTrend($branchId, $dateFrom, $dateTo, $fallback);
+
+        // 2. Top products and category breakdown
+        [$categoryData, $topProduct] = $this->buildCategoryAndTopProductData($branchId, $dateFrom, $dateTo, $fallback);
+
+        // 3. Peak day & cancellations
+        $peakDay = $trendData->sortByDesc('Revenue')->first();
+        $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
+
+        return [
+            'trend_data'         => $trendData->values(),
+            'category_data'      => $categoryData->values(),
+            'top_product'        => $topProduct,
+            'peak_day'           => $peakDay ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']] : null,
+            'total_revenue'      => $metrics['revenue'],
+            'cogs'               => $metrics['cogs'],
+            'operating_expenses' => $metrics['operating_expenses'],
+            'total_expenses'     => $metrics['total_expenses'],
+            'total_profit'       => $metrics['net_profit'],
+            'gross_profit'       => $metrics['gross_profit'],
+            'profit_margin'      => $metrics['net_margin'],
+            'total_orders'       => $metrics['total_orders'],
+            'cancelled_count'    => $cancelledCount,
+        ];
+    }
+
+    /**
+     * Build daily revenue and profit trend collection.
+     */
+    private function buildDailyTrend(?int $branchId, ?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback)
+    {
+        $sales = Sale::with(['items.product.ingredients.stocks'])
             ->where('status', 'completed')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
             ->when($dateTo,   fn($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback));
+            ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback))
+            ->get();
 
-        $sales = $salesQuery->get();
         $dailyTrendMap = [];
-
         foreach ($sales as $sale) {
             $dateKey = $sale->created_at->toDateString();
             if (!isset($dailyTrendMap[$dateKey])) {
@@ -268,7 +298,14 @@ class ReportController extends Controller
             ]);
         }
 
-        // ── 2. Top products by revenue (for pie chart) ────────────────────────
+        return $trendData;
+    }
+
+    /**
+     * Build top product metrics and category pie chart dataset.
+     */
+    private function buildCategoryAndTopProductData(?int $branchId, ?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback): array
+    {
         $topProducts = DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales',    'sale_items.sale_id',    '=', 'sales.id')
@@ -285,7 +322,7 @@ class ReportController extends Controller
             ->limit(6)
             ->get();
 
-        $pieColors           = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#ef4444'];
+        $pieColors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#ef4444'];
         $totalProductRevenue = $topProducts->sum('revenue') ?: 1;
 
         $categoryData = $topProducts->values()->map(fn($p, int $i) => [
@@ -294,30 +331,10 @@ class ReportController extends Controller
             'color' => $pieColors[$i % 6],
         ]);
 
-        // ── 3. Top performer & peak day ───────────────────────────────────────
-        $topProduct = $topProducts->sortByDesc('total_sold')->first();
-        $peakDay    = $trendData->sortByDesc('Revenue')->first();
-        $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
+        $bestSeller = $topProducts->sortByDesc('total_sold')->first();
+        $topProduct = $bestSeller ? ['name' => $bestSeller->name, 'units' => (int) $bestSeller->total_sold] : null;
 
-        return [
-            'trend_data'         => $trendData->values(),
-            'category_data'      => $categoryData->values(),
-            'top_product'        => $topProduct
-                ? ['name' => $topProduct->name, 'units' => (int) $topProduct->total_sold]
-                : null,
-            'peak_day'           => $peakDay
-                ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']]
-                : null,
-            'total_revenue'      => $metrics['revenue'],
-            'cogs'               => $metrics['cogs'],
-            'operating_expenses' => $metrics['operating_expenses'],
-            'total_expenses'     => $metrics['total_expenses'],
-            'total_profit'       => $metrics['net_profit'],
-            'gross_profit'       => $metrics['gross_profit'],
-            'profit_margin'      => $metrics['net_margin'],
-            'total_orders'       => $metrics['total_orders'],
-            'cancelled_count'    => $cancelledCount,
-        ];
+        return [$categoryData, $topProduct];
     }
 
     /**
