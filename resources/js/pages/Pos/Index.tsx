@@ -23,10 +23,10 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import { toast } from 'sonner';
+import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
+import type { PosRider } from '@/components/pos/PosRiderSelector';
 import { ResultModal } from '@/components/result-modal';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
-import { PosDeliverySection, PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
-import { PosRider } from '@/components/pos/PosRiderSelector';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -60,13 +60,6 @@ type Product = {
 
 type CartItem = Product & { quantity: number };
 
-interface Rider {
-  id: number;
-  name: string;
-  phone?: string;
-  status?: string;
-}
-
 interface ActiveShift {
   id: number;
   opening_balance: number;
@@ -87,7 +80,7 @@ interface PosPageProps {
   products?: Product[];
   categories?: Category[];
   branch?: BranchInfo;
-  availableRiders?: Rider[];
+  availableRiders?: PosRider[];
   allRiders?: PosRider[];
   activeShift?: ActiveShift | null;
   [key: string]: unknown;
@@ -100,7 +93,7 @@ function generateOfflineId(): string {
 }
 
 export default function PosIndex() {
-  const { products = [], categories = [], branch, availableRiders = [], allRiders = [], activeShift } = usePage().props as unknown as PosPageProps;
+  const { products = [], categories = [], branch, allRiders = [], activeShift } = usePage().props as unknown as PosPageProps;
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
