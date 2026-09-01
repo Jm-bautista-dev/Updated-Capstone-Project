@@ -37,7 +37,7 @@ class AccountGovernanceController extends Controller
 
         // 1. Query Users (if role filter is empty or not strictly 'rider')
         if (!$roleFilter || $roleFilter !== 'rider') {
-            $userQuery = User::with('branch:id,name,code');
+            $userQuery = User::with('branch:id,name');
 
             if ($roleFilter) {
                 $userQuery->where('role', $roleFilter);
@@ -78,7 +78,7 @@ class AccountGovernanceController extends Controller
         // 2. Query Riders (if role filter is empty or strictly 'rider')
         $riders = collect();
         if (!$roleFilter || $roleFilter === 'rider') {
-            $riderQuery = Rider::with('branch:id,name,code');
+            $riderQuery = Rider::with('branch:id,name');
 
             if ($statusFilter) {
                 $riderQuery->where('account_status', $statusFilter);
@@ -127,7 +127,7 @@ class AccountGovernanceController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        $branches = Branch::where('is_active', true)->get(['id', 'name', 'code']);
+        $branches = Branch::all(['id', 'name']);
 
         if ($request->wantsJson()) {
             return response()->json([
