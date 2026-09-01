@@ -33,9 +33,9 @@ class AccountGovernanceController extends Controller
         $branchFilter = $request->input('branch_id');
         $search = $request->input('search');
 
-        $users = collect();
+        $accountList = [];
 
-        // 1. Query Users (if role filter is empty or not strictly 'rider')
+        // 1. Query Users
         if (!$roleFilter || $roleFilter !== 'rider') {
             $userQuery = User::with('branch:id,name');
 
@@ -56,27 +56,12 @@ class AccountGovernanceController extends Controller
                 });
             }
 
-            $users = $userQuery->latest()->get()->map(function (User $u) {
-                return [
-                    'id'                     => $u->id,
-                    'type'                   => 'user',
-                    'name'                   => $u->name,
-                    'email'                  => $u->email,
-                    'phone'                  => $u->mobile_number,
-                    'role'                   => $u->role,
-                    'account_status'         => $u->account_status ?? 'active',
-                    'status_reason'          => $u->status_reason,
-                    'branch'                 => $u->branch?->name ?? 'All Branches',
-                    'branch_id'              => $u->branch_id,
-                    'is_order_restricted'    => (bool) $u->is_order_restricted,
-                    'is_delivery_restricted' => false,
-                    'created_at'             => $u->created_at?->toIso8601String(),
-                ];
-            });
+            foreach ($userQuery->latest()->get() as $u) {
+                $accountList[] = $this->formatUserAccount($u);
+            }
         }
 
-        // 2. Query Riders (if role filter is empty or strictly 'rider')
-        $riders = collect();
+        // 2. Query Riders
         if (!$roleFilter || $roleFilter === 'rider') {
             $riderQuery = Rider::with('branch:id,name');
 
@@ -94,27 +79,12 @@ class AccountGovernanceController extends Controller
                 });
             }
 
-            $riders = $riderQuery->latest()->get()->map(function (Rider $r) {
-                return [
-                    'id'                     => $r->id,
-                    'type'                   => 'rider',
-                    'name'                   => $r->name,
-                    'email'                  => $r->email,
-                    'phone'                  => $r->phone,
-                    'role'                   => 'rider',
-                    'account_status'         => $r->account_status ?? 'active',
-                    'status_reason'          => $r->status_reason,
-                    'branch'                 => $r->branch?->name ?? 'Unassigned',
-                    'branch_id'              => $r->branch_id,
-                    'is_order_restricted'    => false,
-                    'is_delivery_restricted' => (bool) $r->is_delivery_restricted,
-                    'active_deliveries'      => $r->activeDeliveriesCount(),
-                    'created_at'             => $r->created_at?->toIso8601String(),
-                ];
-            });
+            foreach ($riderQuery->latest()->get() as $r) {
+                $accountList[] = $this->formatRiderAccount($r);
+            }
         }
 
-        $allAccounts = $users->concat($riders)->sortByDesc('created_at')->values();
+        $allAccounts = collect($accountList)->sortByDesc('created_at')->values();
 
         // Paginate collection manually
         $perPage = 25;
@@ -141,6 +111,51 @@ class AccountGovernanceController extends Controller
             'branches' => $branches,
             'filters'  => $request->only(['role', 'status', 'branch_id', 'search']),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatUserAccount(User $u): array
+    {
+        return [
+            'id'                     => $u->id,
+            'type'                   => 'user',
+            'name'                   => $u->name,
+            'email'                  => $u->email,
+            'phone'                  => $u->mobile_number,
+            'role'                   => $u->role,
+            'account_status'         => $u->account_status ?? 'active',
+            'status_reason'          => $u->status_reason,
+            'branch'                 => $u->branch?->name ?? 'All Branches',
+            'branch_id'              => $u->branch_id,
+            'is_order_restricted'    => (bool) $u->is_order_restricted,
+            'is_delivery_restricted' => false,
+            'created_at'             => $u->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatRiderAccount(Rider $r): array
+    {
+        return [
+            'id'                     => $r->id,
+            'type'                   => 'rider',
+            'name'                   => $r->name,
+            'email'                  => $r->email,
+            'phone'                  => $r->phone,
+            'role'                   => 'rider',
+            'account_status'         => $r->account_status ?? 'active',
+            'status_reason'          => $r->status_reason,
+            'branch'                 => $r->branch?->name ?? 'Unassigned',
+            'branch_id'              => $r->branch_id,
+            'is_order_restricted'    => false,
+            'is_delivery_restricted' => (bool) $r->is_delivery_restricted,
+            'active_deliveries'      => $r->activeDeliveriesCount(),
+            'created_at'             => $r->created_at?->toIso8601String(),
+        ];
     }
 
     /**
