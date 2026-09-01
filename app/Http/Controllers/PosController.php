@@ -152,7 +152,22 @@ class PosController extends Controller
 
             $printJob = $sale->printJob ?? null;
 
-            if ($request->wantsJson() || $request->ajax()) {
+            // 1. Inertia requests MUST receive a valid Inertia response (redirect back with session flash)
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()
+                    ->with('success', 'Order processed successfully')
+                    ->with('print_job', $printJob ? [
+                        'id'                => $printJob->id,
+                        'job_uuid'          => $printJob->job_uuid,
+                        'order_number'      => $printJob->order_number,
+                        'paper_width'       => $printJob->paper_width,
+                        'raw_escpos_base64' => $printJob->raw_escpos_base64,
+                        'formatted_text'    => $printJob->formatted_text,
+                    ] : null);
+            }
+
+            // 2. Pure API / non-Inertia requests receive JSON response
+            if ($request->wantsJson() || $request->is('api/*')) {
                 return response()->json([
                     'success'   => true,
                     'message'   => 'Order processed successfully',
@@ -172,7 +187,10 @@ class PosController extends Controller
                     'formatted_text'    => $printJob->formatted_text,
                 ] : null);
         } catch (\Exception $e) {
-            if ($request->wantsJson() || $request->ajax()) {
+            if ($request->header('X-Inertia')) {
+                return back()->withErrors(['error' => $e->getMessage()]);
+            }
+            if ($request->wantsJson() || $request->is('api/*')) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
             }
             return back()->withErrors(['error' => $e->getMessage()]);
