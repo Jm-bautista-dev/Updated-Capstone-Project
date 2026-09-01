@@ -1437,30 +1437,39 @@ class RiderController extends Controller
             default             => 'unassigned',
         };
 
+        $pickupLocation = [
+            'branch_id' => $branch?->id,
+            'name'      => $branchName,
+            'address'   => $branchAddress,
+            'latitude'  => $branchLat,
+            'longitude' => $branchLng,
+            'maps_url'  => ($branchLat && $branchLng)
+                ? "https://www.google.com/maps/dir/?api=1&destination={$branchLat},{$branchLng}"
+                : null,
+        ];
+
+        $customerDestination = [
+            'customer_name'    => $customerName,
+            'customer_phone'   => $customerPhone,
+            'customer_address' => $customerAddress,
+            'latitude'         => $lat,
+            'longitude'        => $lng,
+            'landmark'         => $delivery->landmark ?? $order?->landmark,
+            'maps_url'         => ($lat && $lng)
+                ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
+                : null,
+        ];
+
         $routeDestination = match ($routePhase) {
-            'rider_to_store' => [
-                'type'      => 'store',
-                'name'      => $branchName,
-                'address'   => $branchAddress,
-                'latitude'  => $branchLat,
-                'longitude' => $branchLng,
-                'maps_url'  => ($branchLat && $branchLng)
-                    ? "https://www.google.com/maps/dir/?api=1&destination={$branchLat},{$branchLng}"
-                    : null,
-            ],
-            'store_to_customer', 'rider_to_customer' => [
-                'type'      => 'customer',
-                'name'      => $customerName,
-                'phone'     => $customerPhone,
-                'address'   => $customerAddress,
-                'latitude'  => $lat,
-                'longitude' => $lng,
-                'landmark'  => $delivery->landmark ?? $order?->landmark,
-                'maps_url'  => ($lat && $lng)
-                    ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
-                    : null,
-            ],
-            default => null,
+            'rider_to_store'                         => $pickupLocation,
+            'store_to_customer', 'rider_to_customer' => $customerDestination,
+            default                                  => null,
+        };
+
+        $activeMapsUrl = match ($routePhase) {
+            'rider_to_store'                         => $pickupLocation['maps_url'],
+            'store_to_customer', 'rider_to_customer' => $customerDestination['maps_url'],
+            default                                  => null,
         };
 
         return [
@@ -1489,6 +1498,11 @@ class RiderController extends Controller
             'route_phase'             => $routePhase,
             'routePhase'              => $routePhase,
             'route_destination'       => $routeDestination,
+            'active_destination'      => $routeDestination,
+            'pickup'                  => $pickupLocation,
+            'pickup_location'         => $pickupLocation,
+            'pickup_branch'           => $pickupLocation,
+            'customer_destination'    => $customerDestination,
             'rider_id'                => $delivery->rider_id,
             'rider_name'              => $delivery->rider?->name,
             'accepted_at'             => $delivery->accepted_at?->toIso8601String(),
@@ -1512,9 +1526,8 @@ class RiderController extends Controller
             'longitude'               => $lng,
             'landmark'                => $delivery->landmark ?? $order?->landmark,
             'notes'                   => $isUnassigned ? null : ($delivery->notes ?? $order?->notes),
-            'maps_url'                => ($lat && $lng)
-                ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
-                : null,
+            'maps_url'                => $activeMapsUrl ?? (($lat && $lng) ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}" : null),
+            'customer_maps_url'       => ($lat && $lng) ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}" : null,
 
             // Financial & Earnings
             'delivery_fee'            => $fee,
@@ -1533,9 +1546,7 @@ class RiderController extends Controller
             'branch_address'          => $branchAddress,
             'branch_latitude'         => $branchLat,
             'branch_longitude'        => $branchLng,
-            'branch_maps_url'         => ($branchLat && $branchLng)
-                ? "https://www.google.com/maps/dir/?api=1&destination={$branchLat},{$branchLng}"
-                : null,
+            'branch_maps_url'         => $pickupLocation['maps_url'],
 
             // Proof of delivery
             'proof_of_delivery_url'   => $delivery->proof_of_delivery_url,

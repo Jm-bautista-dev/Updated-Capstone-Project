@@ -82,10 +82,44 @@ class OrderStatusUpdated implements ShouldBroadcastNow
      */
     public function broadcastWith(): array
     {
-        $branchId = $this->delivery->sale?->branch_id ?? $this->delivery->order?->branch_id;
-        $branchName = $this->delivery->sale?->branch?->name ?? $this->delivery->order?->branch?->name ?? 'HQ Branch';
-        $orderNumber = $this->delivery->sale?->order_number ?? $this->delivery->order?->order_number ?? ($this->delivery->tracking_number ?? 'ORD-' . $this->delivery->id);
+        $branch = $this->delivery->sale?->branch ?? $this->delivery->order?->branch;
+        $branchId = $branch?->id;
+        $branchName = $branch?->name ?? 'HQ Branch';
+        $branchAddress = $branch?->address;
+        $branchLat = $branch?->latitude ? (float) $branch->latitude : null;
+        $branchLng = $branch?->longitude ? (float) $branch->longitude : null;
 
+        $destLat = $this->delivery->latitude ? (float) $this->delivery->latitude : ($this->delivery->order?->latitude ? (float) $this->delivery->order->latitude : null);
+        $destLng = $this->delivery->longitude ? (float) $this->delivery->longitude : ($this->delivery->order?->longitude ? (float) $this->delivery->order->longitude : null);
+
+        $routePhase = match ($this->delivery->status) {
+            'ready_for_pickup'  => 'unassigned',
+            'assigned_to_rider' => 'rider_to_store',
+            'picked_up'         => 'store_to_customer',
+            'in_transit'        => 'rider_to_customer',
+            'delivered'         => 'completed',
+            default             => 'unassigned',
+        };
+
+        $pickupBranch = [
+            'id'        => $branchId,
+            'name'      => $branchName,
+            'address'   => $branchAddress,
+            'latitude'  => $branchLat,
+            'longitude' => $branchLng,
+        ];
+
+        $customerDestination = [
+            'customer_name'    => $this->delivery->customer_name,
+            'customer_phone'   => $this->delivery->customer_phone,
+            'customer_address' => $this->delivery->customer_address,
+            'latitude'         => $destLat,
+            'longitude'        => $destLng,
+            'landmark'         => $this->delivery->landmark ?? $this->delivery->order?->landmark,
+        ];
+
+        $orderNumber = $this->delivery->sale?->order_number ?? $this->delivery->order?->order_number ?? ($this->delivery->tracking_number ?? 'ORD-' . $this->delivery->id);
+        $orderSource = $this->delivery->sale_id ? 'pos' : 'mobile';
         $statusLabel = match ($this->delivery->status) {
             'waiting_for_kitchen' => 'Waiting for Kitchen',
             'pending'             => 'Pending',
@@ -100,11 +134,15 @@ class OrderStatusUpdated implements ShouldBroadcastNow
             'failed_delivery'     => 'Failed Delivery',
             default               => ucfirst(str_replace('_', ' ', $this->delivery->status)),
         };
-
-        $proofOfDeliveryUrl = $this->delivery->proof_of_delivery_url;
-        $orderSource = $this->delivery->sale_id ? 'pos' : 'mobile';
         $totalAmount = (float) ($this->delivery->sale?->total ?? $this->delivery->order?->total_amount ?? 0);
         $paymentMethod = $this->delivery->sale?->payment_method ?? $this->delivery->order?->payment_method ?? 'cash';
+        $proofOfDeliveryUrl = $this->delivery->proof_of_delivery_url;
+
+        $activeDestination = match ($routePhase) {
+            'rider_to_store' => $pickupBranch,
+            'store_to_customer', 'rider_to_customer' => $customerDestination,
+            default => null,
+        };
 
         return [
             'id'                    => $this->delivery->id,
@@ -118,6 +156,10 @@ class OrderStatusUpdated implements ShouldBroadcastNow
             'status'                => $this->delivery->status,
             'status_label'          => $statusLabel,
             'previous_status'       => $this->previousStatus,
+            'route_phase'           => $routePhase,
+            'active_destination'    => $activeDestination,
+            'pickup_branch'         => $pickupBranch,
+            'customer_destination'  => $customerDestination,
             'rider_id'              => $this->delivery->rider_id,
             'rider_name'            => $this->delivery->rider?->name,
             'branch_id'             => $branchId,

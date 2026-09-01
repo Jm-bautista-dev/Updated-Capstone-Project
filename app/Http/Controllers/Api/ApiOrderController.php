@@ -459,14 +459,64 @@ class ApiOrderController extends Controller
 
             $proofOfDeliveryUrl = $delivery->proof_of_delivery_url;
 
+            $branch = $order->branch;
+            $branchId = $branch?->id;
+            $branchName = $branch?->name ?? 'Store Branch';
+            $branchAddress = $branch?->address;
+            $branchLat = $branch?->latitude ? (float) $branch->latitude : null;
+            $branchLng = $branch?->longitude ? (float) $branch->longitude : null;
+
+            $pickupBranch = [
+                'id'        => $branchId,
+                'name'      => $branchName,
+                'address'   => $branchAddress,
+                'latitude'  => $branchLat,
+                'longitude' => $branchLng,
+                'maps_url'  => ($branchLat && $branchLng)
+                    ? "https://www.google.com/maps/dir/?api=1&destination={$branchLat},{$branchLng}"
+                    : null,
+            ];
+
+            $customerDestination = [
+                'customer_name'    => $delivery->customer_name ?? $order->customer_name,
+                'customer_phone'   => $delivery->customer_phone ?? $order->contact_number,
+                'customer_address' => $delivery->customer_address ?? $order->address,
+                'latitude'         => $destinationLat,
+                'longitude'        => $destinationLng,
+                'landmark'         => $delivery->landmark ?? $order->landmark,
+                'maps_url'         => ($destinationLat && $destinationLng)
+                    ? "https://www.google.com/maps/dir/?api=1&destination={$destinationLat},{$destinationLng}"
+                    : null,
+            ];
+
+            $routePhase = match ($deliveryStatus) {
+                'ready_for_pickup'  => 'unassigned',
+                'assigned_to_rider' => 'rider_to_store',
+                'picked_up'         => 'store_to_customer',
+                'in_transit'        => 'rider_to_customer',
+                'delivered'         => 'completed',
+                default             => 'unassigned',
+            };
+
+            $activeDestination = match ($routePhase) {
+                'rider_to_store' => $pickupBranch,
+                'store_to_customer', 'rider_to_customer' => $customerDestination,
+                default => null,
+            };
+
             $routeData = null;
-            if ($isTrackingAvailable && $rider && $rider->latitude && $rider->longitude && $destinationLat && $destinationLng) {
-                $routeData = app(\App\Services\RoutingService::class)->getRoute(
-                    (float) $rider->latitude,
-                    (float) $rider->longitude,
-                    (float) $destinationLat,
-                    (float) $destinationLng
-                );
+            if ($isTrackingAvailable && $rider && $rider->latitude && $rider->longitude) {
+                $targetLat = ($routePhase === 'rider_to_store' && $branchLat) ? $branchLat : $destinationLat;
+                $targetLng = ($routePhase === 'rider_to_store' && $branchLng) ? $branchLng : $destinationLng;
+
+                if ($targetLat && $targetLng) {
+                    $routeData = app(\App\Services\RoutingService::class)->getRoute(
+                        (float) $rider->latitude,
+                        (float) $rider->longitude,
+                        (float) $targetLat,
+                        (float) $targetLng
+                    );
+                }
             }
 
             return response()->json([
@@ -481,21 +531,13 @@ class ApiOrderController extends Controller
                     'delivery_type'         => $delivery->delivery_type,
                     'is_tracking_available' => $isTrackingAvailable,
                     'tracking_state'        => $trackingState,
+                    'route_phase'           => $routePhase,
+                    'active_destination'    => $activeDestination,
+                    'pickup_branch'         => $pickupBranch,
+                    'customer_destination'  => $customerDestination,
                     'rider'                 => $riderData,
-                    'destination' => [
-                        'customer_name'    => $delivery->customer_name ?? $order->customer_name,
-                        'customer_phone'   => $delivery->customer_phone ?? $order->contact_number,
-                        'customer_address' => $delivery->customer_address ?? $order->address,
-                        'latitude'         => $destinationLat,
-                        'longitude'        => $destinationLng,
-                        'landmark'         => $delivery->landmark ?? $order->landmark,
-                    ],
-                    'branch' => [
-                        'id'        => $order->branch?->id,
-                        'name'      => $order->branch?->name,
-                        'latitude'  => $order->branch?->latitude ? (float) $order->branch->latitude : null,
-                        'longitude' => $order->branch?->longitude ? (float) $order->branch->longitude : null,
-                    ],
+                    'destination'           => $customerDestination,
+                    'branch'                => $pickupBranch,
                     'route'                 => $routeData,
                     'realtime' => [
                         'channel'      => 'private-customer.order.' . $order->id,
@@ -568,33 +610,64 @@ class ApiOrderController extends Controller
             $destLat = $delivery->latitude ? (float) $delivery->latitude : ($order->latitude ? (float) $order->latitude : null);
             $destLng = $delivery->longitude ? (float) $delivery->longitude : ($order->longitude ? (float) $order->longitude : null);
 
-            if (!$destLat || !$destLng) {
+            $branchLat = $branch?->latitude ? (float) $branch->latitude : null;
+            $branchLng = $branch?->longitude ? (float) $branch->longitude : null;
+
+            $pickupBranch = [
+                'id'        => $branch?->id,
+                'name'      => $branch?->name ?? 'Store Branch',
+                'address'   => $branch?->address,
+                'latitude'  => $branchLat,
+                'longitude' => $branchLng,
+            ];
+
+            $customerDestination = [
+                'customer_name'    => $delivery->customer_name ?? $order->customer_name,
+                'customer_address' => $delivery->customer_address ?? $order->address,
+                'latitude'         => $destLat,
+                'longitude'        => $destLng,
+            ];
+
+            $routePhase = match ($delivery->status) {
+                'ready_for_pickup', 'assigned_to_rider' => 'rider_to_store',
+                'picked_up', 'in_transit'               => 'rider_to_customer',
+                'delivered'                             => 'completed',
+                default                                 => 'rider_to_store',
+            };
+
+            // In Phase 1 (assigned_to_rider), the destination of the route is the STORE
+            // In Phase 2 (picked_up, in_transit), the destination of the route is the CUSTOMER
+            $targetLat = ($routePhase === 'rider_to_store' && $branchLat) ? $branchLat : $destLat;
+            $targetLng = ($routePhase === 'rider_to_store' && $branchLng) ? $branchLng : $destLng;
+
+            if (!$targetLat || !$targetLng) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Destination coordinates are not set for this delivery.',
+                    'message' => 'Destination coordinates are not set for this delivery phase.',
                 ], 422);
             }
 
-            $routeResult = $routingService->getRoute($originLat, $originLng, $destLat, $destLng);
+            $routeResult = $routingService->getRoute($originLat, $originLng, $targetLat, $targetLng);
+
+            $activeDestination = ($routePhase === 'rider_to_store') ? $pickupBranch : $customerDestination;
 
             return response()->json([
-                'success'      => true,
-                'order_id'     => $order->id,
-                'order_number' => $order->order_number ?? "ORD-{$order->id}",
-                'status'       => $delivery->status,
-                'rider'        => [
+                'success'              => true,
+                'order_id'             => $order->id,
+                'order_number'         => $order->order_number ?? "ORD-{$order->id}",
+                'status'               => $delivery->status,
+                'route_phase'          => $routePhase,
+                'active_destination'   => $activeDestination,
+                'pickup_branch'        => $pickupBranch,
+                'customer_destination' => $customerDestination,
+                'rider'                => [
                     'id'        => $rider?->id,
                     'name'      => $rider?->name ?? 'Assigned Rider',
                     'latitude'  => $originLat,
                     'longitude' => $originLng,
                 ],
-                'destination'  => [
-                    'customer_name'    => $delivery->customer_name ?? $order->customer_name,
-                    'customer_address' => $delivery->customer_address ?? $order->address,
-                    'latitude'         => $destLat,
-                    'longitude'        => $destLng,
-                ],
-                'route'        => $routeResult,
+                'destination'          => $activeDestination,
+                'route'                => $routeResult,
             ]);
         } catch (\Throwable $e) {
             Log::error('Order API Route Calculation Failure', [

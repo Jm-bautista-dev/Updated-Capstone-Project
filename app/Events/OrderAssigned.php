@@ -61,26 +61,57 @@ class OrderAssigned implements ShouldBroadcastNow
 
         $orderSource = $this->delivery->sale_id ? 'pos' : 'mobile';
         $totalAmount = (float) ($this->delivery->sale?->total ?? $this->delivery->order?->total_amount ?? 0);
-        $branchName = $this->delivery->sale?->branch?->name ?? $this->delivery->order?->branch?->name ?? 'Store Branch';
 
-        return [
-            'event'            => 'OrderAssigned',
-            'delivery_id'      => $this->delivery->id,
-            'order_id'         => $this->delivery->order_id ?? $this->delivery->sale_id,
-            'order_number'     => $orderNumber,
-            'order_source'     => $orderSource,
-            'tracking_number'  => $this->delivery->tracking_number,
-            'status'           => $this->delivery->status,
-            'status_label'     => $this->delivery->getStatusLabel(),
-            'rider_id'         => $this->delivery->rider_id,
-            'rider_name'       => $this->delivery->rider?->name,
+        $branch = $this->delivery->sale?->branch ?? $this->delivery->order?->branch;
+        $branchId = $branch?->id;
+        $branchName = $branch?->name ?? 'Store Branch';
+        $branchAddress = $branch?->address;
+        $branchLat = $branch?->latitude ? (float) $branch->latitude : null;
+        $branchLng = $branch?->longitude ? (float) $branch->longitude : null;
+
+        $destLat = $this->delivery->latitude ? (float) $this->delivery->latitude : ($this->delivery->order?->latitude ? (float) $this->delivery->order->latitude : null);
+        $destLng = $this->delivery->longitude ? (float) $this->delivery->longitude : ($this->delivery->order?->longitude ? (float) $this->delivery->order->longitude : null);
+
+        $pickupBranch = [
+            'id'        => $branchId,
+            'name'      => $branchName,
+            'address'   => $branchAddress,
+            'latitude'  => $branchLat,
+            'longitude' => $branchLng,
+        ];
+
+        $customerDestination = [
             'customer_name'    => $this->delivery->customer_name,
             'customer_phone'   => $this->delivery->customer_phone,
             'customer_address' => $this->delivery->customer_address,
-            'total_amount'     => $totalAmount,
-            'delivery_fee'     => (float) $this->delivery->delivery_fee,
-            'branch_name'      => $branchName,
-            'timestamp'        => now()->toIso8601String(),
+            'latitude'         => $destLat,
+            'longitude'        => $destLng,
+            'landmark'         => $this->delivery->landmark ?? $this->delivery->order?->landmark,
+        ];
+
+        return [
+            'event'                => 'OrderAssigned',
+            'delivery_id'          => $this->delivery->id,
+            'order_id'             => $this->delivery->order_id ?? $this->delivery->sale_id,
+            'order_number'         => $orderNumber,
+            'order_source'         => $orderSource,
+            'tracking_number'      => $this->delivery->tracking_number,
+            'status'               => $this->delivery->status,
+            'status_label'         => $this->delivery->getStatusLabel(),
+            'route_phase'          => 'rider_to_store',
+            'active_destination'   => $pickupBranch,
+            'pickup_branch'        => $pickupBranch,
+            'customer_destination' => $customerDestination,
+            'rider_id'             => $this->delivery->rider_id,
+            'rider_name'           => $this->delivery->rider?->name,
+            'customer_name'        => $this->delivery->customer_name,
+            'customer_phone'       => $this->delivery->customer_phone,
+            'customer_address'     => $this->delivery->customer_address,
+            'total_amount'         => $totalAmount,
+            'delivery_fee'         => (float) $this->delivery->delivery_fee,
+            'branch_id'            => $branchId,
+            'branch_name'          => $branchName,
+            'timestamp'            => now()->toIso8601String(),
         ];
     }
 }
