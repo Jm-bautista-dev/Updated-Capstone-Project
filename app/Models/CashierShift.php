@@ -25,9 +25,55 @@ class CashierShift extends Model
     ];
 
     protected $casts = [
-        'opened_at' => 'datetime',
-        'closed_at' => 'datetime',
+        'opened_at'        => 'datetime',
+        'closed_at'        => 'datetime',
+        'opening_balance'  => 'decimal:2',
+        'closing_balance'  => 'decimal:2',
+        'expected_balance' => 'decimal:2',
+        'total_cash_sales' => 'decimal:2',
+        'cash_in'          => 'decimal:2',
+        'cash_out'         => 'decimal:2',
+        'variance'         => 'decimal:2',
     ];
+
+    protected $appends = [
+        'opening_cash',
+        'expected_cash',
+        'actual_cash',
+        'difference',
+        'starting_cash',
+    ];
+
+    public function getOpeningCashAttribute(): float
+    {
+        return (float) ($this->opening_balance ?? 0.0);
+    }
+
+    public function getStartingCashAttribute(): float
+    {
+        return (float) ($this->opening_balance ?? 0.0);
+    }
+
+    public function getExpectedCashAttribute(): float
+    {
+        return (float) ($this->expected_balance ?? 0.0);
+    }
+
+    public function getActualCashAttribute(): ?float
+    {
+        return $this->closing_balance !== null ? (float) $this->closing_balance : null;
+    }
+
+    public function getDifferenceAttribute(): ?float
+    {
+        if ($this->variance !== null) {
+            return (float) $this->variance;
+        }
+        if ($this->closing_balance !== null) {
+            return (float) ($this->closing_balance - $this->expected_balance);
+        }
+        return null;
+    }
 
     public function cashier()
     {

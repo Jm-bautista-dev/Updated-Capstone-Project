@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { Wrench } from 'lucide-react';
 import React, { useState } from 'react';
 import { ConfirmDangerDialog } from '@/components/super-admin/ConfirmDangerDialog';
@@ -34,21 +35,13 @@ export default function Maintenance({ maintenance }: MaintenanceProps) {
     const handleSave = async (newEnabledStatus: boolean) => {
         setSaving(true);
         try {
-            const res = await fetch('/super-admin/maintenance/toggle', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                },
-                body: JSON.stringify({
-                    enabled: newEnabledStatus,
-                    title,
-                    message,
-                    estimated_restoration_time: eta,
-                }),
+            const res = await axios.post('/super-admin/maintenance/toggle', {
+                enabled: newEnabledStatus,
+                title,
+                message,
+                estimated_restoration_time: eta,
             });
-            const data = (await res.json()) as { success: boolean };
-            if (data.success) {
+            if (res.data?.success) {
                 setEnabled(newEnabledStatus);
                 setIsConfirmOpen(false);
                 router.reload();

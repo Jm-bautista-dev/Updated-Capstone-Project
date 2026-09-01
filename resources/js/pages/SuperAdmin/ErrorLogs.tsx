@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
 import { ErrorDetailDrawer } from '@/components/super-admin/ErrorDetailDrawer';
@@ -21,7 +22,11 @@ interface ErrorLogsProps {
         critical: number;
         resolved: number;
     };
-    filters: Record<string, string>;
+    filters: {
+        severity?: string;
+        status?: string;
+        search?: string;
+    };
 }
 
 export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
@@ -35,18 +40,11 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
 
     const toggleResolved = async (errorId: number) => {
         try {
-            const res = await fetch(`/super-admin/errors/${errorId}/resolve`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                },
-            });
-            const data = (await res.json()) as { success: boolean; is_resolved: boolean };
-            if (data.success) {
+            const res = await axios.post(`/super-admin/errors/${errorId}/resolve`);
+            if (res.data?.success) {
                 router.reload();
                 if (selectedError?.id === errorId) {
-                    setSelectedError({ ...selectedError, is_resolved: data.is_resolved });
+                    setSelectedError({ ...selectedError, is_resolved: res.data.is_resolved });
                 }
             }
         } catch {
@@ -76,12 +74,7 @@ export default function ErrorLogs({ errors, stats, filters }: ErrorLogsProps) {
                         size="sm"
                         onClick={async () => {
                             if (confirm('Clear all resolved error logs?')) {
-                                await fetch('/super-admin/errors/clear-resolved', {
-                                    method: 'POST',
-                                    headers: {
-                                        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                                    },
-                                });
+                                await axios.post('/super-admin/errors/clear-resolved');
                                 router.reload();
                             }
                         }}

@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { Flag } from 'lucide-react';
 import React, { useState } from 'react';
 import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
@@ -24,16 +25,10 @@ export default function FeatureFlags({ flags }: FeatureFlagsProps) {
     const toggleFlag = async (id: number, currentStatus: boolean) => {
         setUpdating(id);
         try {
-            const res = await fetch(`/super-admin/features/${id}/toggle`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                },
-                body: JSON.stringify({ is_enabled: !currentStatus }),
+            const res = await axios.post(`/super-admin/features/${id}/toggle`, {
+                is_enabled: !currentStatus,
             });
-            const data = (await res.json()) as { success: boolean };
-            if (data.success) {
+            if (res.data?.success) {
                 router.reload();
             }
         } catch {

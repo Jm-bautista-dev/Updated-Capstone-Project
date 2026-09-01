@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { Save, Settings } from 'lucide-react';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -33,18 +34,10 @@ export default function SettingsPage({ settings: initialSettings }: SettingsProp
         setMessage(null);
 
         try {
-            const res = await fetch('/super-admin/settings/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                },
-                body: JSON.stringify({
-                    settings: settingsList.map((item) => ({ key: item.key, value: item.value })),
-                }),
+            const res = await axios.post('/super-admin/settings/update', {
+                settings: settingsList.map((item) => ({ key: item.key, value: item.value })),
             });
-            const data = (await res.json()) as { success: boolean };
-            if (data.success) {
+            if (res.data?.success) {
                 setMessage('✅ System configuration settings saved successfully.');
                 router.reload();
             }

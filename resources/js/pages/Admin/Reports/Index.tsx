@@ -396,9 +396,19 @@ interface ShiftItem {
     cashier?: { name: string };
     opened_at?: string;
     closed_at?: string;
-    opening_cash: number;
-    expected_cash: number;
-    actual_cash: number;
+    opening_cash?: number;
+    expected_cash?: number;
+    actual_cash?: number | null;
+    opening_balance?: number;
+    closing_balance?: number | null;
+    expected_balance?: number;
+    total_cash_sales?: number;
+    cash_in?: number;
+    cash_out?: number;
+    variance?: number | null;
+    difference?: number | null;
+    status?: 'open' | 'closed';
+    notes?: string;
 }
 
 interface PaginatedData<T> {
@@ -496,15 +506,26 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                     profit: formatCurrency(sale.profit)
                 }));
             } else {
-                rows = (shifts.data || []).map((s: ShiftItem) => ({
-                    cashier: s.cashier?.name ?? 'N/A',
-                    opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
-                    closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
-                    opening: formatCurrency(s.opening_cash),
-                    ending: formatCurrency(s.expected_cash),
-                    actual: formatCurrency(s.actual_cash),
-                    diff: formatCurrency(s.actual_cash - s.expected_cash)
-                }));
+                rows = (shifts.data || []).map((s: ShiftItem) => {
+                    const opening = Number(s.opening_cash ?? s.opening_balance ?? 0);
+                    const expected = Number(s.expected_cash ?? s.expected_balance ?? 0);
+                    const actual = s.actual_cash !== null && s.actual_cash !== undefined 
+                        ? Number(s.actual_cash) 
+                        : (s.closing_balance !== null && s.closing_balance !== undefined ? Number(s.closing_balance) : null);
+                    const diff = s.difference !== null && s.difference !== undefined 
+                        ? Number(s.difference) 
+                        : (s.variance !== null && s.variance !== undefined ? Number(s.variance) : (actual !== null ? actual - expected : null));
+
+                    return {
+                        cashier: s.cashier?.name ?? 'N/A',
+                        opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
+                        closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
+                        opening: formatCurrency(opening),
+                        ending: formatCurrency(expected),
+                        actual: actual !== null ? formatCurrency(actual) : 'Active',
+                        diff: diff !== null ? formatCurrency(diff) : '—',
+                    };
+                });
             }
         }
 
@@ -901,19 +922,41 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                             </thead>
                             <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
                                 {shifts.data.map((s: ShiftItem) => {
-                                    const diff = s.actual_cash - s.expected_cash;
+                                    const opening = Number(s.opening_cash ?? s.opening_balance ?? 0);
+                                    const expected = Number(s.expected_cash ?? s.expected_balance ?? 0);
+                                    const actual = s.actual_cash !== null && s.actual_cash !== undefined 
+                                        ? Number(s.actual_cash) 
+                                        : (s.closing_balance !== null && s.closing_balance !== undefined ? Number(s.closing_balance) : null);
+                                    const diff = s.difference !== null && s.difference !== undefined 
+                                        ? Number(s.difference) 
+                                        : (s.variance !== null && s.variance !== undefined 
+                                            ? Number(s.variance) 
+                                            : (actual !== null ? actual - expected : null));
+                                    const isOpen = s.status === 'open' || !s.closed_at;
+
                                     return (
                                         <tr key={s.id} className="hover:bg-[#FFF5F7]/40 dark:hover:bg-white/5 transition-colors">
-                                            <td className="py-3.5 px-5 font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{s.cashier?.name}</td>
+                                            <td className="py-3.5 px-5 font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{s.cashier?.name ?? 'Staff'}</td>
                                             <td className="py-3.5 px-5 font-mono text-[#7D6B6E] dark:text-[#94A3B8]">{s.opened_at ? format(new Date(s.opened_at), 'MMM dd, HH:mm') : 'N/A'}</td>
                                             <td className="py-3.5 px-5 font-mono text-[#7D6B6E] dark:text-[#94A3B8]">
-                                                {s.closed_at ? format(new Date(s.closed_at), 'MMM dd, HH:mm') : <Badge className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 font-bold text-[10px]">Active Shift</Badge>}
+                                                {isOpen ? (
+                                                    <Badge className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 font-bold text-[10px]">Active Shift</Badge>
+                                                ) : (
+                                                    s.closed_at ? format(new Date(s.closed_at), 'MMM dd, HH:mm') : 'Closed'
+                                                )}
                                             </td>
-                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(s.opening_cash)}</td>
-                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(s.expected_cash)}</td>
-                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(s.actual_cash)}</td>
-                                            <td className={cn('py-3.5 px-5 text-right font-mono font-black', diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
-                                                {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(opening)}</td>
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(expected)}</td>
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                {actual !== null ? formatCurrency(actual) : <span className="text-zinc-400 text-[11px] italic">In Progress</span>}
+                                            </td>
+                                            <td className={cn(
+                                                'py-3.5 px-5 text-right font-mono font-black',
+                                                diff === null
+                                                    ? 'text-[#7D6B6E] dark:text-[#94A3B8]'
+                                                    : diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                                            )}>
+                                                {diff !== null ? `${diff >= 0 ? '+' : ''}${formatCurrency(diff)}` : '—'}
                                             </td>
                                         </tr>
                                     );
@@ -1013,15 +1056,26 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
                     total: formatCurrency(sale.total)
                 }));
             } else {
-                rows = (shifts.data || []).map((s: ShiftItem) => ({
-                    cashier: s.cashier?.name ?? 'N/A',
-                    opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
-                    closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
-                    opening: formatCurrency(s.opening_cash),
-                    ending: formatCurrency(s.expected_cash),
-                    actual: formatCurrency(s.actual_cash),
-                    diff: formatCurrency(s.actual_cash - s.expected_cash)
-                }));
+                rows = (shifts.data || []).map((s: ShiftItem) => {
+                    const opening = Number(s.opening_cash ?? s.opening_balance ?? 0);
+                    const expected = Number(s.expected_cash ?? s.expected_balance ?? 0);
+                    const actual = s.actual_cash !== null && s.actual_cash !== undefined 
+                        ? Number(s.actual_cash) 
+                        : (s.closing_balance !== null && s.closing_balance !== undefined ? Number(s.closing_balance) : null);
+                    const diff = s.difference !== null && s.difference !== undefined 
+                        ? Number(s.difference) 
+                        : (s.variance !== null && s.variance !== undefined ? Number(s.variance) : (actual !== null ? actual - expected : null));
+
+                    return {
+                        cashier: s.cashier?.name ?? 'N/A',
+                        opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
+                        closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
+                        opening: formatCurrency(opening),
+                        ending: formatCurrency(expected),
+                        actual: actual !== null ? formatCurrency(actual) : 'Active',
+                        diff: diff !== null ? formatCurrency(diff) : '—',
+                    };
+                });
             }
         }
 
@@ -1182,7 +1236,7 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
 
                     <Select value={status} onValueChange={(v) => {
                         setStatus(v);
-                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : v }, { preserveState: true });
+                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : status }, { preserveState: true });
                     }}>
                         <SelectTrigger className="h-10 w-full lg:w-40 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
                             <SelectValue placeholder="Status" />
@@ -1203,62 +1257,141 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
 
                 <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
                     <Search className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                    <span>Analyzing <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{sales.total}</strong> Orders</span>
+                    {activeTab === 'sales' ? (
+                        <span>Analyzing <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{sales.total || 0}</strong> Orders</span>
+                    ) : (
+                        <span>Analyzing <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{shifts.total || 0}</strong> Shifts</span>
+                    )}
                 </div>
             </div>
 
             {/* Table */}
             <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 p-6 sm:p-7 space-y-5">
-                <div className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 overflow-hidden">
-                    <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr className="border-b border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/70 dark:bg-[#181824]/70 backdrop-blur-md font-black uppercase text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
-                                <th className="py-3.5 px-5">Order #</th>
-                                <th className="py-3.5 px-5">Date</th>
-                                <th className="py-3.5 px-5">Cashier</th>
-                                <th className="py-3.5 px-5">Status</th>
-                                <th className="py-3.5 px-5 text-right">Total Sales</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
-                            {sales.data.map((sale: SaleItem) => (
-                                <tr key={sale.id} className="hover:bg-[#FFF5F7]/40 dark:hover:bg-white/5 transition-colors">
-                                    <td className="py-3.5 px-5 font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{sale.order_number}</td>
-                                    <td className="py-3.5 px-5 font-mono text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">{format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}</td>
-                                    <td className="py-3.5 px-5 font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{sale.cashier?.name || 'N/A'}</td>
-                                    <td className="py-3.5 px-5">
-                                        <Badge className={cn(
-                                            'capitalize font-extrabold text-[10px]',
-                                            sale.status === 'completed' && 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50',
-                                            sale.status === 'cancelled' && 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50',
-                                            sale.status === 'pending' && 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50'
-                                        )}>
-                                            {sale.status}
-                                        </Badge>
-                                    </td>
-                                    <td className="py-3.5 px-5 text-right font-mono font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(sale.total)}</td>
+                {activeTab === 'sales' ? (
+                    <div className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 overflow-hidden">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className="border-b border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/70 dark:bg-[#181824]/70 backdrop-blur-md font-black uppercase text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <th className="py-3.5 px-5">Order #</th>
+                                    <th className="py-3.5 px-5">Date</th>
+                                    <th className="py-3.5 px-5">Cashier</th>
+                                    <th className="py-3.5 px-5">Status</th>
+                                    <th className="py-3.5 px-5 text-right">Total Sales</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="flex items-center justify-between text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] font-mono pt-1">
-                    <span>Showing {sales.from || 0} to {sales.to || 0} of {sales.total || 0} results</span>
-                    <div className="flex items-center gap-1">
-                        {sales.links.map((link, i) => (
-                            <Button
-                                key={i}
-                                variant={link.active ? 'default' : 'outline'}
-                                size="sm"
-                                disabled={!link.url}
-                                onClick={() => link.url && router.get(link.url)}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                                className={cn('h-8 min-w-8 px-2 text-[10px] rounded-xl border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer', link.active && 'bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent')}
-                            />
-                        ))}
+                            </thead>
+                            <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
+                                {(sales.data || []).map((sale: SaleItem) => (
+                                    <tr key={sale.id} className="hover:bg-[#FFF5F7]/40 dark:hover:bg-white/5 transition-colors">
+                                        <td className="py-3.5 px-5 font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{sale.order_number}</td>
+                                        <td className="py-3.5 px-5 font-mono text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">{format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm')}</td>
+                                        <td className="py-3.5 px-5 font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{sale.cashier?.name || 'N/A'}</td>
+                                        <td className="py-3.5 px-5">
+                                            <Badge className={cn(
+                                                'capitalize font-extrabold text-[10px]',
+                                                sale.status === 'completed' && 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50',
+                                                sale.status === 'cancelled' && 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50',
+                                                sale.status === 'pending' && 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50'
+                                            )}>
+                                                {sale.status}
+                                            </Badge>
+                                        </td>
+                                        <td className="py-3.5 px-5 text-right font-mono font-black text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(sale.total)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
+                ) : (
+                    <div className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 overflow-hidden">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className="border-b border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/70 dark:bg-[#181824]/70 backdrop-blur-md font-black uppercase text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <th className="py-3.5 px-5">Shift ID</th>
+                                    <th className="py-3.5 px-5">Opened</th>
+                                    <th className="py-3.5 px-5">Closed</th>
+                                    <th className="py-3.5 px-5">Status</th>
+                                    <th className="py-3.5 px-5 text-right">Opening Cash</th>
+                                    <th className="py-3.5 px-5 text-right">Cash Sales</th>
+                                    <th className="py-3.5 px-5 text-right">Expected Cash</th>
+                                    <th className="py-3.5 px-5 text-right">Actual Cash</th>
+                                    <th className="py-3.5 px-5 text-right">Variance</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
+                                {(shifts.data || []).map((s: ShiftItem) => {
+                                    const opening = Number(s.opening_cash ?? s.opening_balance ?? 0);
+                                    const cashSales = Number(s.total_cash_sales ?? 0);
+                                    const expected = Number(s.expected_cash ?? s.expected_balance ?? 0);
+                                    const actual = s.actual_cash !== null && s.actual_cash !== undefined 
+                                        ? Number(s.actual_cash) 
+                                        : (s.closing_balance !== null && s.closing_balance !== undefined ? Number(s.closing_balance) : null);
+                                    const diff = s.difference !== null && s.difference !== undefined 
+                                        ? Number(s.difference) 
+                                        : (s.variance !== null && s.variance !== undefined 
+                                            ? Number(s.variance) 
+                                            : (actual !== null ? actual - expected : null));
+                                    const isOpen = s.status === 'open' || !s.closed_at;
+
+                                    return (
+                                        <tr key={s.id} className="hover:bg-[#FFF5F7]/40 dark:hover:bg-white/5 transition-colors">
+                                            <td className="py-3.5 px-5 font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">#{s.id}</td>
+                                            <td className="py-3.5 px-5 font-mono text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">{s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A'}</td>
+                                            <td className="py-3.5 px-5 font-mono text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                {s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : '—'}
+                                            </td>
+                                            <td className="py-3.5 px-5">
+                                                <Badge className={cn(
+                                                    'font-bold text-[10px] uppercase',
+                                                    isOpen
+                                                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50'
+                                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
+                                                )}>
+                                                    {isOpen ? 'Active Shift' : 'Closed'}
+                                                </Badge>
+                                            </td>
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(opening)}</td>
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(cashSales)}</td>
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(expected)}</td>
+                                            <td className="py-3.5 px-5 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                {actual !== null ? formatCurrency(actual) : <span className="text-zinc-400 text-[11px] italic">In Progress</span>}
+                                            </td>
+                                            <td className={cn(
+                                                'py-3.5 px-5 text-right font-mono font-black',
+                                                diff === null 
+                                                    ? 'text-[#7D6B6E] dark:text-[#94A3B8]' 
+                                                    : diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                                            )}>
+                                                {diff !== null ? `${diff >= 0 ? '+' : ''}${formatCurrency(diff)}` : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {(() => {
+                    const currentPagination = activeTab === 'sales' ? sales : shifts;
+                    return (
+                        <div className="flex items-center justify-between text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] font-mono pt-1">
+                            <span>Showing {currentPagination.from || 0} to {currentPagination.to || 0} of {currentPagination.total || 0} results</span>
+                            <div className="flex items-center gap-1">
+                                {currentPagination.links.map((link, i) => (
+                                    <Button
+                                        key={i}
+                                        variant={link.active ? 'default' : 'outline'}
+                                        size="sm"
+                                        disabled={!link.url}
+                                        onClick={() => link.url && router.get(link.url)}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                        className={cn('h-8 min-w-8 px-2 text-[10px] rounded-xl border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer', link.active && 'bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent')}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             <ExportModal 

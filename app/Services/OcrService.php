@@ -52,33 +52,35 @@ class OcrService
             }
         }
 
-        // 2. Fallback: Local Tesseract OCR binary (if installed on OS)
-        try {
-            $hasTesseract = false;
-            @exec('tesseract --version', $versionOutput, $returnCode);
-            if ($returnCode === 0) {
-                $hasTesseract = true;
-            }
-
-            if ($hasTesseract) {
-                $outputPath = tempnam(sys_get_temp_dir(), 'ocr_');
-                $cmd = "tesseract " . escapeshellarg($filePath) . " " . escapeshellarg($outputPath) . " --oem 1 -l eng 2>&1";
-                @exec($cmd, $execOutput, $execCode);
-
-                $generatedFile = $outputPath . '.txt';
-                if (file_exists($generatedFile)) {
-                    $text = file_get_contents($generatedFile);
-                    @unlink($generatedFile);
-                    @unlink($outputPath);
-                    if (!empty(trim($text))) {
-                        Log::info('Tesseract OCR completed successfully.');
-                        return $text;
-                    }
+        // 2. Fallback: Local Tesseract OCR binary (if installed on OS and exec is enabled)
+        if (function_exists('exec')) {
+            try {
+                $hasTesseract = false;
+                @exec('tesseract --version', $versionOutput, $returnCode);
+                if (isset($returnCode) && $returnCode === 0) {
+                    $hasTesseract = true;
                 }
-                @unlink($outputPath);
+
+                if ($hasTesseract) {
+                    $outputPath = tempnam(sys_get_temp_dir(), 'ocr_');
+                    $cmd = "tesseract " . escapeshellarg($filePath) . " " . escapeshellarg($outputPath) . " --oem 1 -l eng 2>&1";
+                    @exec($cmd, $execOutput, $execCode);
+
+                    $generatedFile = $outputPath . '.txt';
+                    if (file_exists($generatedFile)) {
+                        $text = file_get_contents($generatedFile);
+                        @unlink($generatedFile);
+                        @unlink($outputPath);
+                        if (!empty(trim($text))) {
+                            Log::info('Tesseract OCR completed successfully.');
+                            return $text;
+                        }
+                    }
+                    @unlink($outputPath);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Tesseract OCR Fallback Exception: ' . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            Log::warning('Tesseract OCR Fallback Exception: ' . $e->getMessage());
         }
 
         // 3. Fallback: If text content is embedded in file (e.g. plain text or test fixture)

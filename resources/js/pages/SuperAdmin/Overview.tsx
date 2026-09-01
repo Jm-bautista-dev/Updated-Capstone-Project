@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import axios from 'axios';
 import {
     Activity,
     AlertTriangle,
@@ -66,13 +67,7 @@ export default function Overview({
 
     const handleToggleResolved = async (errorId: number) => {
         try {
-            await fetch(`/super-admin/errors/${errorId}/resolve`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                },
-            });
+            await axios.post(`/super-admin/errors/${errorId}/resolve`);
             setSelectedError(null);
             window.location.reload();
         } catch {

@@ -104,7 +104,7 @@ class ReviewController extends Controller
      * Build the master product list with review metric aggregations.
      * Uses efficient single aggregate query and avoids heavy Product model appends.
      */
-    private function buildProductList(?int $userBranchId, string $search, string $branchFilter, bool $isAdmin)
+    private function buildProductList(?int $userBranchId, ?string $search = '', ?string $branchFilter = 'all', bool $isAdmin = true)
     {
         $productsQuery = Product::query()
             ->select(['id', 'name', 'sku', 'selling_price', 'category_id', 'branch_id', 'image_path'])
@@ -180,16 +180,16 @@ class ReviewController extends Controller
      * Build the filtered reviews paginator with eager loaded relationships.
      */
     private function buildFilteredReviews(
-        ?int $selectedProductId,
-        ?int $userBranchId,
-        string $ratingFilter,
-        string $statusFilter,
-        string $seenFilter,
-        string $verifiedFilter,
-        string $branchFilter,
-        ?string $dateFrom,
-        ?string $dateTo,
-        string $search,
+        ?int $selectedProductId = null,
+        ?int $userBranchId = null,
+        ?string $ratingFilter = 'all',
+        ?string $statusFilter = 'all',
+        ?string $seenFilter = 'all',
+        ?string $verifiedFilter = 'all',
+        ?string $branchFilter = 'all',
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $search = '',
         int $perPage = 10,
         int $page = 1
     ) {
@@ -321,7 +321,7 @@ class ReviewController extends Controller
     /**
      * Compute system-wide overall review statistics.
      */
-    private function buildOverallStats(?int $userBranchId, string $branchFilter, bool $isAdmin, int $totalProducts): array
+    private function buildOverallStats(?int $userBranchId = null, ?string $branchFilter = 'all', bool $isAdmin = true, int $totalProducts = 0): array
     {
         $baseStatsQuery = ProductReview::query()
             ->when($userBranchId, fn($q) => $q->where('branch_id', $userBranchId))

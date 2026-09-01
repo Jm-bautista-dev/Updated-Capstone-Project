@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import axios from 'axios';
 import { KeyRound, Shield, UserCheck } from 'lucide-react';
 import React, { useState } from 'react';
 import { SystemStatusBadge } from '@/components/super-admin/SystemStatusBadge';
@@ -29,26 +30,18 @@ export default function Security({ superAdmins }: SecurityProps) {
         setMessage(null);
 
         try {
-            const res = await fetch('/super-admin/security/password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                },
-                body: JSON.stringify({
-                    current_password: currentPassword,
-                    password: newPassword,
-                    password_confirmation: confirmPassword,
-                }),
+            const res = await axios.post('/super-admin/security/password', {
+                current_password: currentPassword,
+                password: newPassword,
+                password_confirmation: confirmPassword,
             });
-            const data = (await res.json()) as { success: boolean; message?: string };
-            if (data.success) {
+            if (res.data?.success) {
                 setMessage('✅ Super Admin password updated successfully.');
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
             } else {
-                setMessage(`❌ ${data.message ?? 'Password update failed.'}`);
+                setMessage(`❌ ${res.data?.message ?? 'Password update failed.'}`);
             }
         } catch {
             setMessage('❌ Failed to update password.');
