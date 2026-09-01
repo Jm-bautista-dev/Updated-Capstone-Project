@@ -198,6 +198,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept'])->name('cancellation-requests.accept');
             Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject'])->name('cancellation-requests.reject');
 
+            // Pickups Management & Kitchen Preparation Queue
+            Route::get('pickups', [App\Http\Controllers\Admin\PickupOrderController::class, 'index'])->name('pickups.index');
+            Route::get('admin/pickups', [App\Http\Controllers\Admin\PickupOrderController::class, 'index'])->name('admin.pickups.index');
+            Route::post('pickups/manual', [App\Http\Controllers\Admin\PickupOrderController::class, 'storeManual'])->name('pickups.manual');
+            Route::post('pickups/{id}/status', [App\Http\Controllers\Admin\PickupOrderController::class, 'updateStatus'])->name('pickups.update-status');
+            Route::post('pickups/{id}/verify-complete', [App\Http\Controllers\Admin\PickupOrderController::class, 'verifyComplete'])->name('pickups.verify-complete');
+            Route::post('pickups/{id}/reschedule', [App\Http\Controllers\Admin\PickupOrderController::class, 'reschedule'])->name('pickups.reschedule');
+
             Route::get('customers', fn() => Inertia::render('Customers/Index'))->name('customers.index');
 
             // Reviews & Ratings Management

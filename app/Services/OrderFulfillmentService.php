@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Delivery;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -183,6 +184,127 @@ class OrderFulfillmentService
             'total'        => $order->total_amount,
             'cogs'         => $costTotal,
             'profit'       => $profit,
+        ]);
+    }
+
+    /**
+     * Main entry point for pickup orders when they reach 'completed' state.
+     * Idempotently deducts inventory and records sale.
+     *
+     * @param Order $order
+     * @param User|null $actor
+     */
+    public function onOrderPickedUp(Order $order, ?User $actor = null): void
+    {
+        try {
+            DB::transaction(function () use ($order, $actor) {
+                // ── Step 1: Deduct branch inventory ──────────────────────
+                if (!$order->inventory_deducted) {
+                    $this->inventoryService->deductForOrder($order);
+                    Log::info('OrderFulfillment: pickup inventory deducted.', [
+                        'order_id'  => $order->id,
+                        'branch_id' => $order->branch_id,
+                    ]);
+                } else {
+                    Log::info('OrderFulfillment: pickup inventory already deducted, skipping.', [
+                        'order_id' => $order->id,
+                    ]);
+                }
+
+                // ── Step 2: Record as authoritative Sale ─────────────────
+                $this->recordPickupAsSale($order, $actor);
+            });
+        } catch (\Throwable $e) {
+            Log::error('OrderFulfillment: post-pickup hook failed.', [
+                'order_id' => $order->id,
+                'error'    => $e->getMessage(),
+                'trace'    => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    /**
+     * Record pickup order as an authoritative Sale record.
+     */
+    private function recordPickupAsSale(Order $order, ?User $actor = null): void
+    {
+        // Guard against duplicate sale
+        $existingSale = Sale::where('order_id', $order->id)->first();
+        if ($existingSale) {
+            Log::info('OrderFulfillment: sale already exists for pickup order_id, skipping.', [
+                'order_id' => $order->id,
+                'sale_id'  => $existingSale->id,
+            ]);
+            return;
+        }
+
+        $orderNum = $order->order_number ?: ('ORD-' . $order->id);
+
+        // Load relationships needed for cost calculation
+        $order->loadMissing(['items.product.ingredients.stocks', 'branch']);
+
+        $costTotal = 0;
+        $itemsData = [];
+        $saleDate  = $order->pickup_completed_at ?? now();
+
+        foreach ($order->items as $item) {
+            $product  = $item->product;
+            $itemCost = $product ? (float) ($product->computeProductCost($order->branch_id) ?? 0) : 0;
+            $costTotal += $itemCost * (float) $item->quantity;
+
+            $itemsData[] = [
+                'product_id' => $item->product_id,
+                'quantity'   => $item->quantity,
+                'unit_price' => $item->price,
+                'cost_price' => $itemCost,
+                'subtotal'   => (float) $item->price * (float) $item->quantity,
+                'profit'     => ((float) $item->price - $itemCost) * (float) $item->quantity,
+                'created_at' => $saleDate,
+                'updated_at' => now(),
+            ];
+        }
+
+        $productSubtotal = array_sum(array_column($itemsData, 'subtotal'));
+        $profit          = $productSubtotal - $costTotal;
+
+        // Create Sale record
+        $sale = Sale::create([
+            'order_id'       => $order->id,
+            'order_number'   => $orderNum,
+            'user_id'        => $actor?->id ?? $order->user_id ?? 1,
+            'branch_id'      => $order->branch_id,
+            'type'           => 'pickup',
+            'subtotal'       => $productSubtotal,
+            'delivery_fee'   => 0.00,
+            'total'          => $order->total_amount,
+            'cost_total'     => $costTotal,
+            'profit'         => $profit,
+            'paid_amount'    => $order->total_amount,
+            'change_amount'  => 0,
+            'payment_method' => $order->payment_method ?? 'cash',
+            'status'         => 'completed',
+            'created_at'     => $saleDate,
+            'updated_at'     => now(),
+        ]);
+
+        foreach ($itemsData as $itemData) {
+            $itemData['sale_id'] = $sale->id;
+            SaleItem::create($itemData);
+        }
+
+        try {
+            event(new \App\Events\SaleCreated($sale->fresh(['branch'])));
+            \App\Services\TopPickService::clearCache();
+        } catch (\Throwable $e) {
+            Log::warning('OrderFulfillment: SaleCreated broadcast warning: ' . $e->getMessage());
+        }
+
+        Log::info('OrderFulfillment: pickup sale recorded successfully.', [
+            'order_id'     => $order->id,
+            'sale_id'      => $sale->id,
+            'order_number' => $orderNum,
+            'branch_id'    => $order->branch_id,
+            'total'        => $order->total_amount,
         ]);
     }
 }

@@ -10,6 +10,7 @@ import {
     LayoutGrid,
     MapPin,
     Navigation,
+    ShoppingBag,
     ShoppingCart,
     Star,
     TrendingUp,
@@ -98,6 +99,11 @@ const mainNavItems: NavItem[] = [
         title: 'Delivery',
         href: '/deliveries',
         icon: Navigation,
+    },
+    {
+        title: 'Pickup Orders',
+        href: '/pickups',
+        icon: ShoppingBag,
     },
     {
         title: 'Riders',

@@ -10,9 +10,26 @@ class Order extends Model
 {
     use HasFactory;
 
+    const FULFILLMENT_DELIVERY = 'delivery';
+    const FULFILLMENT_PICKUP   = 'pickup';
+
+    const SOURCE_MOBILE_APP         = 'mobile_app';
+    const SOURCE_FACEBOOK_MESSENGER = 'facebook_messenger';
+    const SOURCE_WALK_IN            = 'walk_in';
+    const SOURCE_WEB_POS            = 'web_pos';
+    const SOURCE_PHONE_CALL         = 'phone_call';
+    const SOURCE_OTHER              = 'other';
+
+    const PAYMENT_STATUS_UNPAID = 'unpaid';
+    const PAYMENT_STATUS_PAID   = 'paid';
+    const PAYMENT_STATUS_REFUNDED = 'refunded';
+
     protected $fillable = [
         'order_number',
         'idempotency_key',
+        'fulfillment_type',
+        'order_source',
+        'source_reference',
         'user_id',
         'rider_id',
         'branch_id',
@@ -23,7 +40,17 @@ class Order extends Model
         'longitude',
         'landmark',
         'notes',
+        'pickup_notes',
+        'internal_notes',
         'payment_method',
+        'payment_status',
+        'paid_at',
+        'scheduled_pickup_at',
+        'estimated_prep_time_minutes',
+        'prep_start_at',
+        'actual_customer_arrival_at',
+        'pickup_completed_at',
+        'pickup_verification_code',
         'is_cod',
         'risk_level',
         'total_amount',
@@ -36,10 +63,17 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'is_cod'                  => 'boolean',
-        'is_cancellation_pending' => 'boolean',
-        'cancelled_at'            => 'datetime',
-        'total_amount'            => 'decimal:2',
+        'inventory_deducted'         => 'boolean',
+        'is_cod'                     => 'boolean',
+        'is_cancellation_pending'    => 'boolean',
+        'cancelled_at'               => 'datetime',
+        'paid_at'                    => 'datetime',
+        'scheduled_pickup_at'        => 'datetime',
+        'prep_start_at'              => 'datetime',
+        'actual_customer_arrival_at' => 'datetime',
+        'pickup_completed_at'        => 'datetime',
+        'total_amount'               => 'decimal:2',
+        'estimated_prep_time_minutes'=> 'integer',
     ];
 
     /*
@@ -48,11 +82,14 @@ class Order extends Model
     |--------------------------------------------------------------------------
     | No skipping states. No reverting. Backend is the SINGLE SOURCE OF TRUTH.
     |
-    | Flow:
+    | Delivery Flow:
     |   pending → confirmed → preparing → ready_for_pickup
     |          → assigned_to_rider → picked_up → in_transit → delivered
     |
-    | Any state can transition to 'cancelled'.
+    | Pickup Flow:
+    |   pending → confirmed → preparing → ready_for_pickup
+    |          → customer_arrived → completed (or direct ready_for_pickup → completed)
+    |          Exceptions: no_show, cancelled
     */
 
     /** All valid states in order */
@@ -61,16 +98,19 @@ class Order extends Model
         'confirmed',
         'preparing',
         'ready_for_pickup',
+        'customer_arrived',
         'assigned_to_rider',
         'picked_up',
         'in_transit',
         'cancellation_requested',
         'delivered',
+        'completed',
+        'no_show',
         'cancelled',
     ];
 
-    /** Allowed forward transitions (from → [allowed next states]) */
-    const TRANSITIONS = [
+    /** Allowed delivery transitions */
+    const DELIVERY_TRANSITIONS = [
         'pending'                => ['confirmed', 'cancelled'],
         'confirmed'              => ['preparing', 'cancelled'],
         'preparing'              => ['ready_for_pickup', 'cancelled'],
@@ -83,6 +123,26 @@ class Order extends Model
         'cancelled'              => [],
     ];
 
+    /** Allowed pickup transitions */
+    const PICKUP_TRANSITIONS = [
+        'pending'                => ['confirmed', 'cancelled'],
+        'confirmed'              => ['preparing', 'cancelled'],
+        'preparing'              => ['ready_for_pickup', 'cancelled'],
+        'ready_for_pickup'       => ['customer_arrived', 'completed', 'no_show', 'cancelled'],
+        'customer_arrived'       => ['completed', 'no_show', 'cancelled'],
+        'completed'              => [],
+        'no_show'                => [],
+        'cancelled'              => [],
+    ];
+
+    /**
+     * Get allowed transitions for this order instance based on fulfillment type.
+     */
+    public function getAllowedTransitions(): array
+    {
+        return $this->isPickup() ? self::PICKUP_TRANSITIONS : self::DELIVERY_TRANSITIONS;
+    }
+
     /**
      * Transition the order to a new status.
      * Throws \RuntimeException if the transition is invalid.
@@ -91,17 +151,37 @@ class Order extends Model
     public function transitionTo(string $newStatus, ?string $reason = null, $actorUserId = null, $actorRiderId = null): void
     {
         $currentStatus = $this->status;
-        $allowed = self::TRANSITIONS[$currentStatus] ?? [];
+        $transitions = $this->getAllowedTransitions();
+        $allowed = $transitions[$currentStatus] ?? [];
 
         if (!in_array($newStatus, $allowed)) {
             throw new \RuntimeException(
-                "Invalid state transition from '{$currentStatus}' to '{$newStatus}'. " .
+                "Invalid state transition from '{$currentStatus}' to '{$newStatus}' for {$this->fulfillment_type} order. " .
                 "Allowed next states: [" . implode(', ', $allowed) . "]"
             );
         }
 
+        $updates = ['status' => $newStatus];
+
+        if ($newStatus === 'customer_arrived' && !$this->actual_customer_arrival_at) {
+            $updates['actual_customer_arrival_at'] = now();
+        } elseif ($newStatus === 'completed') {
+            if (!$this->pickup_completed_at) {
+                $updates['pickup_completed_at'] = now();
+            }
+            if ($this->isPickup() && $this->payment_status === self::PAYMENT_STATUS_UNPAID) {
+                $updates['payment_status'] = self::PAYMENT_STATUS_PAID;
+                $updates['paid_at'] = now();
+            }
+        } elseif ($newStatus === 'cancelled' && !$this->cancelled_at) {
+            $updates['cancelled_at'] = now();
+            if ($reason && !$this->cancellation_reason) {
+                $updates['cancellation_reason'] = $reason;
+            }
+        }
+
         // Update the order status
-        $this->update(['status' => $newStatus]);
+        $this->update($updates);
 
         // Write audit log
         OrderAuditLog::create([
@@ -121,8 +201,41 @@ class Order extends Model
      */
     public function canTransitionTo(string $newStatus): bool
     {
-        $allowed = self::TRANSITIONS[$this->status] ?? [];
+        $transitions = $this->getAllowedTransitions();
+        $allowed = $transitions[$this->status] ?? [];
         return in_array($newStatus, $allowed);
+    }
+
+    /* ── Helper Methods ────────────────────────────── */
+
+    public function isPickup(): bool
+    {
+        return ($this->fulfillment_type ?? self::FULFILLMENT_DELIVERY) === self::FULFILLMENT_PICKUP;
+    }
+
+    public function isDelivery(): bool
+    {
+        return ($this->fulfillment_type ?? self::FULFILLMENT_DELIVERY) === self::FULFILLMENT_DELIVERY;
+    }
+
+    public function isPaid(): bool
+    {
+        return ($this->payment_status ?? self::PAYMENT_STATUS_UNPAID) === self::PAYMENT_STATUS_PAID;
+    }
+
+    public function isReadyForPickup(): bool
+    {
+        return $this->status === 'ready_for_pickup';
+    }
+
+    public function isPreparing(): bool
+    {
+        return $this->status === 'preparing';
+    }
+
+    public function isCompleted(): bool
+    {
+        return in_array($this->status, ['completed', 'delivered']);
     }
 
     /*

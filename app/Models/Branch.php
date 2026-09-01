@@ -21,15 +21,27 @@ class Branch extends Model
         'has_internal_riders',
         'base_delivery_fee',
         'per_km_fee',
+        'pickup_enabled',
+        'pickup_lead_time_minutes',
+        'pickup_slot_interval_minutes',
+        'pickup_max_orders_per_slot',
+        'pickup_opening_time',
+        'pickup_closing_time',
+        'pickup_cutoff_before_close_minutes',
     ];
 
     protected $casts = [
-        'has_internal_riders' => 'boolean',
-        'latitude'            => 'decimal:7',
-        'longitude'           => 'decimal:7',
-        'delivery_radius_km'  => 'decimal:2',
-        'base_delivery_fee'   => 'decimal:2',
-        'per_km_fee'          => 'decimal:2',
+        'has_internal_riders'                => 'boolean',
+        'pickup_enabled'                     => 'boolean',
+        'pickup_lead_time_minutes'           => 'integer',
+        'pickup_slot_interval_minutes'       => 'integer',
+        'pickup_max_orders_per_slot'         => 'integer',
+        'pickup_cutoff_before_close_minutes' => 'integer',
+        'latitude'                           => 'decimal:7',
+        'longitude'                          => 'decimal:7',
+        'delivery_radius_km'                 => 'decimal:2',
+        'base_delivery_fee'                  => 'decimal:2',
+        'per_km_fee'                         => 'decimal:2',
     ];
 
     /* ── Boot ──────────────────────────────────────── */

@@ -50,6 +50,12 @@ Route::prefix('v1')->group(function () {
     Route::post('delivery/check-fee', [DeliveryFeeController::class, 'checkFee']);
     Route::get('products/{id}/reviews', [App\Http\Controllers\Api\ReviewController::class, 'getProductReviews']);
 
+    // Pickup Scheduling & Branch Discovery (Public)
+    Route::get('customer/pickup-branches', [App\Http\Controllers\Api\ApiPickupController::class, 'branches']);
+    Route::get('customer/pickup-slots',    [App\Http\Controllers\Api\ApiPickupController::class, 'slots']);
+    Route::get('pickup-branches',          [App\Http\Controllers\Api\ApiPickupController::class, 'branches']);
+    Route::get('pickup-slots',             [App\Http\Controllers\Api\ApiPickupController::class, 'slots']);
+
     // Protected Routes (Multi-Auth Support)
     Route::middleware('auth:sanctum')->group(function () {
         
@@ -188,6 +194,8 @@ Route::prefix('v1')->group(function () {
         Route::post('customer/check-cod-eligibility', [CustomerOrderController::class, 'getCodEligibility']);
         Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
         Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
+        Route::get('orders/{id}/pickup-status', [App\Http\Controllers\Api\ApiPickupController::class, 'status'])->whereNumber('id');
+        Route::get('customer/orders/{id}/pickup-status', [App\Http\Controllers\Api\ApiPickupController::class, 'status'])->whereNumber('id');
         Route::get('orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
         Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
         Route::post('orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel'])->middleware('throttle:10,1');

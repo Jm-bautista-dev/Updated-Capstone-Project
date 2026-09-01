@@ -78,23 +78,29 @@ class ApiOrderController extends Controller
         Log::info('Order submission payload', $request->all());
 
         try {
+            $fulfillmentType = $request->input('fulfillment_type', Order::FULFILLMENT_DELIVERY);
+            $isPickup = ($fulfillmentType === Order::FULFILLMENT_PICKUP);
+
             $validated = $request->validate([
-                'customer_name'  => 'required|string|max:255',
-                'mobile_number'  => 'required|string|max:20',
-                'address'        => 'required|string',
-                'items'          => 'required|array|min:1',
-                'items.*.product_id' => 'required|exists:products,id',
-                'items.*.quantity'   => 'required|numeric|min:0.1',
-                'items.*.price'      => 'required|numeric|min:0',
-                'total_amount'   => 'required|numeric|min:0',
-                'delivery_fee'   => 'nullable|numeric|min:0',
-                'distance_km'    => 'nullable|numeric|min:0',
-                'latitude'       => 'required|numeric|between:-90,90',
-                'longitude'      => 'required|numeric|between:-180,180',
-                'landmark'       => 'nullable|string|max:255',
-                'notes'          => 'nullable|string',
-                'payment_method' => 'nullable|string|max:50',
-                'branch_id'      => 'nullable|exists:branches,id'
+                'fulfillment_type'    => 'nullable|string|in:delivery,pickup',
+                'scheduled_pickup_at' => $isPickup ? 'required' : 'nullable',
+                'pickup_notes'        => 'nullable|string',
+                'customer_name'       => 'required|string|max:255',
+                'mobile_number'       => 'required|string|max:20',
+                'address'             => $isPickup ? 'nullable|string' : 'required|string',
+                'items'               => 'required|array|min:1',
+                'items.*.product_id'  => 'required|exists:products,id',
+                'items.*.quantity'    => 'required|numeric|min:0.1',
+                'items.*.price'       => 'required|numeric|min:0',
+                'total_amount'        => 'required|numeric|min:0',
+                'delivery_fee'        => 'nullable|numeric|min:0',
+                'distance_km'         => 'nullable|numeric|min:0',
+                'latitude'            => $isPickup ? 'nullable|numeric|between:-90,90' : 'required|numeric|between:-90,90',
+                'longitude'           => $isPickup ? 'nullable|numeric|between:-180,180' : 'required|numeric|between:-180,180',
+                'landmark'            => 'nullable|string|max:255',
+                'notes'               => 'nullable|string',
+                'payment_method'      => 'nullable|string|max:50',
+                'branch_id'           => 'nullable|exists:branches,id'
             ]);
 
             $branchId = $validated['branch_id'] ?? 1;
@@ -151,15 +157,15 @@ class ApiOrderController extends Controller
                 }
             }
 
-            // --- 1. DYNAMIC DISTANCE & AUTHORITATIVE FEE CALCULATION ---
-            $distanceKm = $validated['distance_km'] ?? null;
-            $deliveryFee = 0.0;
-            
             /** @var \App\Models\Branch|null $branch */
             $branch = \App\Models\Branch::find($branchId);
 
-            if ($branch && $branch->latitude && $branch->longitude) {
-                // Haversine Formula
+            // --- 1. DYNAMIC DISTANCE & AUTHORITATIVE FEE CALCULATION ---
+            $distanceKm = 0.0;
+            $deliveryFee = 0.0;
+
+            if (!$isPickup && $branch && $branch->latitude && $branch->longitude && isset($validated['latitude'], $validated['longitude'])) {
+                // Haversine Formula for Delivery
                 $earthRadius = 6371; // km
                 $latFrom = deg2rad((float) $branch->latitude);
                 $lonFrom = deg2rad((float) $branch->longitude);
@@ -223,33 +229,37 @@ class ApiOrderController extends Controller
             // --- 3. COD & PAYMENT METHOD FRAUD ELIGIBILITY CHECK ---
             $paymentMethod = strtolower((string) ($validated['payment_method'] ?? 'online'));
             $isCod = in_array($paymentMethod, ['cash', 'cod', 'cash_on_delivery']);
+            $riskLevel = 'LOW_RISK';
 
-            $codEligibilityService = new \App\Services\CodEligibilityService(
-                new \App\Services\CustomerRiskService(new \App\Services\CustomerTrustService())
-            );
-
-            $eligibility = $codEligibilityService->checkEligibility($user ?? $userId, $authoritativeTotal, $mobileNumber);
-            $riskLevel = $eligibility['risk_level'];
-
-            if ($isCod && !$eligibility['eligible']) {
-                \App\Services\SecurityAuditLogger::logSecurityEvent(
-                    event: 'COD_ORDER_REJECTED',
-                    target: "user:" . ($userId ?? $mobileNumber),
-                    details: [
-                        'order_amount' => $authoritativeTotal,
-                        'risk_level'   => $riskLevel,
-                        'reason'       => $eligibility['reason'],
-                    ],
-                    level: 'warning'
+            // Only run delivery-specific COD eligibility checks on delivery orders
+            if (!$isPickup && $isCod) {
+                $codEligibilityService = new \App\Services\CodEligibilityService(
+                    new \App\Services\CustomerRiskService(new \App\Services\CustomerTrustService())
                 );
 
-                return response()->json([
-                    'success'               => false,
-                    'cod_eligible'          => false,
-                    'risk_level'            => $riskLevel,
-                    'requires_verification' => $eligibility['requires_verification'],
-                    'message'               => $eligibility['reason'],
-                ], 422);
+                $eligibility = $codEligibilityService->checkEligibility($user ?? $userId, $authoritativeTotal, $mobileNumber);
+                $riskLevel = $eligibility['risk_level'];
+
+                if (!$eligibility['eligible']) {
+                    \App\Services\SecurityAuditLogger::logSecurityEvent(
+                        event: 'COD_ORDER_REJECTED',
+                        target: "user:" . ($userId ?? $mobileNumber),
+                        details: [
+                            'order_amount' => $authoritativeTotal,
+                            'risk_level'   => $riskLevel,
+                            'reason'       => $eligibility['reason'],
+                        ],
+                        level: 'warning'
+                    );
+
+                    return response()->json([
+                        'success'               => false,
+                        'cod_eligible'          => false,
+                        'risk_level'            => $riskLevel,
+                        'requires_verification' => $eligibility['requires_verification'],
+                        'message'               => $eligibility['reason'],
+                    ], 422);
+                }
             }
 
             // --- 4. STRICT BATCH STOCK & INGREDIENT VALIDATION ---
@@ -272,10 +282,30 @@ class ApiOrderController extends Controller
                 }
             }
 
-            // --- 6. TRANSACTIONAL CREATION WITH ROW-LEVEL LOCKS ---
+            // --- 6. SCHEDULED PICKUP DETAILS ---
+            $scheduledPickupAt = null;
+            $prepStartAt = null;
+            $verificationCode = null;
+            $prepTimeMinutes = 20;
+
+            if ($isPickup) {
+                $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+                $scheduledPickupAt = \Carbon\Carbon::parse($validated['scheduled_pickup_at'], $tz);
+                $prepTimeMinutes = (int) ($branch?->pickup_lead_time_minutes ?? 20);
+                $prepStartAt = $scheduledPickupAt->copy()->subMinutes($prepTimeMinutes);
+
+                $pickupService = new \App\Services\PickupOrderService(
+                    new \App\Services\InventoryService(),
+                    new \App\Services\OrderFulfillmentService(new \App\Services\InventoryService())
+                );
+                $verificationCode = $pickupService->generateVerificationCode();
+            }
+
+            // --- 7. TRANSACTIONAL CREATION WITH ROW-LEVEL LOCKS ---
             $records = DB::transaction(function () use (
                 $validated, $branchId, $userId, $distanceKm, $deliveryFee,
-                $resolvedItems, $authoritativeTotal, $isCod, $riskLevel, $idempotencyKey
+                $resolvedItems, $authoritativeTotal, $isCod, $riskLevel, $idempotencyKey,
+                $fulfillmentType, $isPickup, $scheduledPickupAt, $prepStartAt, $prepTimeMinutes, $verificationCode
             ) {
                 // Strict row-level lock on ingredient stocks during transaction
                 $lockedBatchCheck = Product::validateBatchStock($branchId, $validated['items'], true);
@@ -287,77 +317,97 @@ class ApiOrderController extends Controller
                 $customerOrderNumber = $orderNumberService->allocateForBranch($branchId);
 
                 $order = Order::create([
-                    'order_number'    => $customerOrderNumber,
-                    'idempotency_key' => $idempotencyKey,
-                    'user_id'         => $userId,
-                    'branch_id'       => $branchId,
-                    'customer_name'   => $validated['customer_name'],
-                    'contact_number'  => $validated['mobile_number'],
-                    'address'         => $validated['address'],
-                    'latitude'        => $validated['latitude'],
-                    'longitude'       => $validated['longitude'],
-                    'landmark'        => $validated['landmark'] ?? null,
-                    'notes'           => $validated['notes'] ?? null,
-                    'payment_method'  => $validated['payment_method'] ?? 'cash',
-                    'is_cod'          => $isCod,
-                    'risk_level'      => $riskLevel,
-                    'total_amount'    => $authoritativeTotal,
-                    'status'          => 'pending',
+                    'order_number'                => $customerOrderNumber,
+                    'idempotency_key'             => $idempotencyKey,
+                    'fulfillment_type'            => $fulfillmentType,
+                    'order_source'                => Order::SOURCE_MOBILE_APP,
+                    'user_id'                     => $userId,
+                    'branch_id'                   => $branchId,
+                    'customer_name'               => $validated['customer_name'],
+                    'contact_number'              => $validated['mobile_number'],
+                    'address'                     => $validated['address'] ?? null,
+                    'latitude'                    => $validated['latitude'] ?? null,
+                    'longitude'                   => $validated['longitude'] ?? null,
+                    'landmark'                    => $validated['landmark'] ?? null,
+                    'notes'                       => $validated['notes'] ?? null,
+                    'pickup_notes'                => $validated['pickup_notes'] ?? null,
+                    'payment_method'              => $validated['payment_method'] ?? 'cash',
+                    'payment_status'              => Order::PAYMENT_STATUS_UNPAID,
+                    'is_cod'                      => $isCod,
+                    'risk_level'                  => $riskLevel,
+                    'total_amount'                => $authoritativeTotal,
+                    'scheduled_pickup_at'         => $scheduledPickupAt,
+                    'estimated_prep_time_minutes' => $prepTimeMinutes,
+                    'prep_start_at'               => $prepStartAt,
+                    'pickup_verification_code'    => $verificationCode,
+                    'status'                      => 'pending',
                 ]);
 
                 foreach ($resolvedItems as $resolved) {
                     $order->items()->create($resolved);
                 }
 
-                $delivery = Delivery::create([
-                    'order_id'         => $order->id,
-                    'customer_name'    => $validated['customer_name'],
-                    'customer_phone'   => $validated['mobile_number'],
-                    'customer_address' => $validated['address'],
-                    'latitude'         => $validated['latitude'],
-                    'longitude'        => $validated['longitude'],
-                    'landmark'         => $validated['landmark'] ?? null,
-                    'notes'            => $validated['notes'] ?? null,
-                    'delivery_type'    => 'internal',
-                    'delivery_fee'     => $deliveryFee,
-                    'distance_km'      => $distanceKm,
-                    'status'           => 'waiting_for_kitchen',
-                ]);
+                $delivery = null;
+                if (!$isPickup) {
+                    $delivery = Delivery::create([
+                        'order_id'         => $order->id,
+                        'customer_name'    => $validated['customer_name'],
+                        'customer_phone'   => $validated['mobile_number'],
+                        'customer_address' => $validated['address'],
+                        'latitude'         => $validated['latitude'],
+                        'longitude'        => $validated['longitude'],
+                        'landmark'         => $validated['landmark'] ?? null,
+                        'notes'            => $validated['notes'] ?? null,
+                        'delivery_fee'     => $deliveryFee,
+                        'distance_km'      => $distanceKm,
+                        'status'           => Delivery::STATUS_PENDING,
+                        'is_active'        => true,
+                    ]);
+                }
 
-                return [
-                    'order'    => $order,
-                    'delivery' => $delivery,
-                ];
+                return ['order' => $order, 'delivery' => $delivery];
             });
 
-            if ($isCod) {
-                \App\Services\SecurityAuditLogger::logSecurityEvent(
-                    event: 'COD_ORDER_CREATED',
-                    target: "order:{$records['order']->id}",
-                    details: [
-                        'order_number' => $records['order']->order_number,
-                        'total_amount' => $authoritativeTotal,
-                        'risk_level'   => $riskLevel,
-                        'user_id'      => $userId,
-                    ],
-                    level: 'info'
-                );
-            }
+            $order = $records['order'];
+            $delivery = $records['delivery'];
 
-            // --- 7. POST-COMMIT REALTIME BROADCASTING ---
+            // --- 8. AUDIT LOGGING ---
+            \App\Services\SecurityAuditLogger::logSecurityEvent(
+                event: $isPickup ? 'PICKUP_ORDER_CREATED' : 'COD_ORDER_CREATED',
+                target: "order:{$order->id}",
+                details: [
+                    'order_number'        => $order->order_number,
+                    'fulfillment_type'    => $fulfillmentType,
+                    'total_amount'        => (float) $authoritativeTotal,
+                    'risk_level'          => $riskLevel,
+                    'user_id'             => $userId,
+                    'scheduled_pickup_at' => $scheduledPickupAt?->toIso8601String(),
+                ],
+                level: 'info'
+            );
+
+            // --- 9. POST-COMMIT REALTIME BROADCASTING ---
             try {
-                broadcast(new OrderCreated($records['order']->load('branch')));
-                broadcast(new \App\Events\OrderStatusUpdated($records['delivery']->fresh(), 'customer', null));
+                event(new OrderCreated($order->load('branch')));
+                if ($delivery) {
+                    event(new \App\Events\OrderStatusUpdated($delivery->fresh(), 'customer', null));
+                }
             } catch (\Throwable $e) {
                 Log::warning('Broadcast failed but order saved: ' . $e->getMessage());
             }
 
             return response()->json([
-                'success'      => true,
-                'message'      => 'Order placed successfully',
-                'order_id'     => $records['order']->id,
-                'order_number' => $records['order']->order_number,
-                'total_amount' => $records['order']->total_amount,
+                'success'                  => true,
+                'message'                  => $isPickup ? 'Pickup order placed successfully.' : 'Order placed successfully',
+                'order_id'                 => $order->id,
+                'order_number'             => $order->order_number,
+                'fulfillment_type'         => $order->fulfillment_type,
+                'scheduled_pickup_at'      => $order->scheduled_pickup_at?->toIso8601String(),
+                'pickup_verification_code' => $order->pickup_verification_code,
+                'status'                   => $order->status,
+                'total_amount'             => (float) $order->total_amount,
+                'delivery_fee'             => (float) $deliveryFee,
+                'delivery_id'              => $delivery?->id,
             ], 201);
 
         } catch (\Throwable $e) {
