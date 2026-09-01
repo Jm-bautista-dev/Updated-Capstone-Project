@@ -33,6 +33,11 @@ interface Props {
     stats: DeliveryStatsData;
 }
 
+const breadcrumbs = [
+    { title: 'Logistics', href: '/deliveries' },
+    { title: 'Deliveries & Operations', href: '/deliveries' },
+];
+
 export default function DeliveryIndex({ deliveries, availableRiders, allRiders = [], branches, filters, stats }: Props) {
     const [assigningDelivery, setAssigningDelivery] = useState<Delivery | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
@@ -434,9 +439,9 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
 
             <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-[calc(100vh-4rem)]">
                 {/* 1. HEADER (Title, Metrics Toggles, Action Buttons) */}
-                <DeliveryHeader
-                    stats={stats}
-                    availableRidersCount={localAvailableRiders.filter(r => r.can_be_assigned).length}
+                <DeliveryHero
+                    currentStatusFilter={filters.status || 'all'}
+                    onStatusFilterChange={(status) => handleFilterChange({ status })}
                     groupByStatus={groupByStatus}
                     onToggleGroupByStatus={() => setGroupByStatus(!groupByStatus)}
                 />

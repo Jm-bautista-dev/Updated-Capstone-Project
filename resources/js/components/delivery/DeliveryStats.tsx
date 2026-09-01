@@ -5,10 +5,11 @@ import type { DeliveryStatsData } from './types';
 
 interface DeliveryStatsProps {
     stats: DeliveryStatsData;
+    activeStatusFilter?: string;
     onStatusFilterClick?: (status: string) => void;
 }
 
-export default function DeliveryStats({ stats, onStatusFilterClick }: DeliveryStatsProps) {
+export default function DeliveryStats({ stats, activeStatusFilter, onStatusFilterClick }: DeliveryStatsProps) {
     const pipelineItems = [
         {
             key: 'waiting_for_kitchen',
@@ -91,7 +92,7 @@ export default function DeliveryStats({ stats, onStatusFilterClick }: DeliverySt
                         key={item.key}
                         whileHover={{ y: -2 }}
                         onClick={() => onStatusFilterClick?.(item.key)}
-                        className={`p-3 sm:p-3.5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border ${item.border} shadow-xs backdrop-blur-xl flex flex-col justify-between transition-all cursor-pointer group min-w-0 w-full`}
+                        className={`p-3 sm:p-3.5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border ${item.border} ${item.key === activeStatusFilter ? 'ring-2 ring-[#E75480] shadow-md' : 'shadow-xs'} backdrop-blur-xl flex flex-col justify-between transition-all cursor-pointer group min-w-0 w-full`}
                     >
                         <div className="flex items-center justify-between gap-1.5">
                             <span className="text-[10px] font-black uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">
