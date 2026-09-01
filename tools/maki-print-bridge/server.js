@@ -70,38 +70,26 @@ function getWindowsPrinters() {
 }
 
 /**
- * Print raw binary or text to a printer on Windows
+ * Print raw binary or text to a printer on Windows using native Win32 RAW Spooler
  */
 async function printJobOnWindows(buffer, printerName) {
   return new Promise((resolve, reject) => {
     const tmpFile = path.join(TEMP_DIR, `job_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.bin`);
     fs.writeFileSync(tmpFile, buffer);
 
-    let targetPrinter = printerName;
-    const printScript = targetPrinter 
-      ? `powershell -NoProfile -Command "Get-Content -Path '${tmpFile}' -Raw -Encoding Byte | Out-Printer -Name '${targetPrinter}'"`
-      : `powershell -NoProfile -Command "Get-Content -Path '${tmpFile}' -Raw -Encoding Byte | Out-Printer"`;
+    const scriptPath = path.join(__dirname, 'print-raw.ps1');
+    const targetPrinter = printerName || '';
 
-    // Try Windows Raw Print via PowerShell
-    exec(printScript, { timeout: 10000 }, (err, stdout, stderr) => {
+    const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}" -PrinterName "${targetPrinter}" -FilePath "${tmpFile}"`;
+
+    exec(cmd, { timeout: 10000 }, (err, stdout, stderr) => {
       // Clean up temp file safely
       try { fs.unlinkSync(tmpFile); } catch {}
 
       if (err) {
-        // Fallback: If Out-Printer byte streaming fails on older PowerShell, write directly via Print command
-        const fallbackCmd = targetPrinter 
-          ? `print /D:"${targetPrinter}" "${tmpFile}"`
-          : `print "${tmpFile}"`;
-
-        exec(fallbackCmd, { timeout: 10000 }, (fallbackErr) => {
-          if (fallbackErr) {
-            return reject(new Error(`Print spooling failed: ${stderr || err.message}`));
-          }
-          resolve(true);
-        });
-      } else {
-        resolve(true);
+        return reject(new Error(`Print spooling failed: ${stderr || stdout || err.message}`));
       }
+      resolve(true);
     });
   });
 }
