@@ -40,7 +40,9 @@ class DeliveryController extends Controller
             'cancellationRequest.requestedByRider',
             'rider',
             'creator',
-            'cancelledBy'
+            'cancelledBy',
+            'attempts.rider',
+            'order.deliveryAttempts.rider'
         ]);
 
         // ── Branch Isolation: Cashiers only see their own branch ────────────

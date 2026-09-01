@@ -275,6 +275,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Developer System Settings
             Route::get('/settings', [App\Http\Controllers\SuperAdmin\SettingsController::class, 'index'])->name('settings.index');
             Route::post('/settings/update', [App\Http\Controllers\SuperAdmin\SettingsController::class, 'update'])->name('settings.update');
+
+            // Customer COD Risk Management & Manual Overrides
+            Route::get('/customer-risk', [App\Http\Controllers\SuperAdmin\CustomerRiskController::class, 'index'])->name('customer-risk.index');
+            Route::get('/customer-risk/{id}', [App\Http\Controllers\SuperAdmin\CustomerRiskController::class, 'show'])->name('customer-risk.show');
+            Route::post('/customer-risk/{id}/override', [App\Http\Controllers\SuperAdmin\CustomerRiskController::class, 'overrideCod'])->name('customer-risk.override');
         });
 
     }); // end must_change_password
