@@ -714,4 +714,71 @@ class RiderSelfAssignmentFinalE2ETest extends TestCase
         $resTransit->assertStatus(200);
         $this->assertEquals('in_transit', $delivery->fresh()->status);
     }
+
+    /**
+     * TEST 16 — POS WALK-IN DELIVERIES IN MY-ORDERS QUERY
+     * Verifies that when a rider accepts a POS walk-in delivery (sale_id),
+     * GET /api/v1/rider/my-orders and GET /api/v1/orders/my both return the delivery.
+     */
+    public function test_pos_walk_in_deliveries_query_in_my_orders_endpoints(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'POS Query Rider',
+            'email'     => 'posquery@example.com',
+            'password'  => Hash::make('password123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'available',
+            'is_active' => true,
+        ]);
+
+        $sale = Sale::create([
+            'order_number'   => 'POS-WALKIN-999',
+            'branch_id'      => $this->victoria->id,
+            'user_id'        => $this->cashier->id,
+            'type'           => 'delivery',
+            'total'          => 450.00,
+            'subtotal'       => 400.00,
+            'delivery_fee'   => 50.00,
+            'cost_total'     => 150.00,
+            'profit'         => 250.00,
+            'paid_amount'    => 450.00,
+            'payment_method' => 'cash',
+            'status'         => 'completed',
+        ]);
+
+        $delivery = Delivery::create([
+            'sale_id'          => $sale->id,
+            'rider_id'         => null,
+            'customer_name'    => 'POS Customer Test',
+            'customer_address' => 'Victoria Plaza Laguna',
+            'status'           => 'ready_for_pickup',
+            'delivery_type'    => 'internal',
+            'delivery_fee'     => 50.00,
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        // Rider accepts the POS delivery
+        $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept")->assertStatus(200);
+
+        // Query GET /api/v1/rider/my-orders
+        $myOrdersRes = $this->getJson('/api/v1/rider/my-orders');
+        $myOrdersRes->assertStatus(200);
+        $myOrdersRes->assertJsonFragment([
+            'delivery_id'  => $delivery->id,
+            'order_number' => 'POS-WALKIN-999',
+            'order_source' => 'pos',
+            'status'       => 'assigned_to_rider',
+        ]);
+
+        // Query GET /api/v1/orders/my alias
+        $ordersMyRes = $this->getJson('/api/v1/orders/my');
+        $ordersMyRes->assertStatus(200);
+        $ordersMyRes->assertJsonFragment([
+            'delivery_id'  => $delivery->id,
+            'order_number' => 'POS-WALKIN-999',
+            'order_source' => 'pos',
+            'status'       => 'assigned_to_rider',
+        ]);
+    }
 }
