@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiUser, FiMapPin, FiTruck } from 'react-icons/fi';
 import { Input } from '@/components/ui/input';
 import { PosMiniMap } from './PosMiniMap';
@@ -9,9 +9,12 @@ export interface PosDeliveryInfo {
     customer_phone: string;
     customer_address: string;
     delivery_type: 'internal' | 'external';
+    external_service?: string;
     rider_id?: string | number | null;
+    tracking_number?: string;
     distance_km?: number | string;
     delivery_fee?: number | string;
+    external_notes?: string;
     latitude?: number | null;
     longitude?: number | null;
 }
@@ -99,8 +102,9 @@ export const PosDeliverySection: React.FC<PosDeliverySectionProps> = ({
             } else {
                 setRouteError(response.data?.message || 'Unable to calculate road route.');
             }
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.message || 'Unable to locate this address. Please verify spelling.';
+        } catch (err: unknown) {
+            const axiosErr = axios.isAxiosError(err) ? err : null;
+            const errorMsg = (axiosErr?.response?.data as { message?: string } | undefined)?.message || 'Unable to locate this address. Please verify spelling.';
             setRouteError(errorMsg);
         } finally {
             setIsCalculatingRoute(false);

@@ -24,6 +24,7 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import { toast } from 'sonner';
+import { NotificationBell } from '@/components/notification-bell';
 import { ApplyDiscountModal, type PosDiscount } from '@/components/pos/ApplyDiscountModal';
 import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
 import { ResultModal } from '@/components/result-modal';
@@ -77,6 +78,14 @@ interface BranchInfo {
   per_km_fee?: string | number;
 }
 
+interface PosRider {
+  id: number;
+  name: string;
+  phone?: string;
+  status?: string;
+  is_active?: boolean;
+}
+
 interface PosPageProps {
   products?: Product[];
   categories?: Category[];
@@ -94,7 +103,7 @@ function generateOfflineId(): string {
 }
 
 export default function PosIndex() {
-  const { products = [], categories = [], branch, allRiders = [], activeShift } = usePage().props as unknown as PosPageProps;
+  const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -481,7 +490,7 @@ export default function PosIndex() {
   };
 
   return (
-    <AppLayout breadcrumbs={[{ title: 'POS Kiosk', href: '/pos' }]}>
+    <AppLayout breadcrumbs={[{ title: 'POS Kiosk', href: '/pos' }]} hideFloatingBell={true}>
       <Head title="Point of Sale Kiosk" />
 
       {/* Main Kiosk Container: Responsive Light & Dark Mode */}
@@ -503,7 +512,7 @@ export default function PosIndex() {
             </div>
           </div>
 
-          {/* Operational Shift Controls */}
+          {/* Operational Shift & Notification Controls */}
           <div className="flex items-center gap-3">
             {activeShift && (
               <div className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#1E1E21] p-1.5 rounded-2xl border border-[#F8C8DC]/60 dark:border-[#26262A]">
@@ -531,6 +540,7 @@ export default function PosIndex() {
                 </Button>
               </div>
             )}
+            <NotificationBell />
           </div>
         </header>
 
