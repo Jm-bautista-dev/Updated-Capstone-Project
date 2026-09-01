@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/core';
 import { Head, usePage, useForm } from '@inertiajs/react';
-import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
@@ -13,10 +12,8 @@ import {
   FiPackage, 
   FiLock, 
   FiUnlock, 
-  FiActivity,
-  FiCheckCircle, 
+  FiActivity, 
   FiPrinter, 
-  FiPlusCircle,
   FiArrowLeft,
   FiCreditCard,
   FiDollarSign,
@@ -42,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
 import { usePrinterStatus, sendToLocalPrintBridge, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
-import { cn, formatReceiptBranchHeading } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 type Category = {
   id: number;
@@ -107,7 +104,7 @@ export default function PosIndex() {
   const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
 
   // --- Real-time Printer Status Hook ---
-  const { status: _printerStatus, isConnected: isPrinterReady, checkNow: checkPrinterNow } = usePrinterStatus();
+  const { isConnected: isPrinterReady, checkNow: checkPrinterNow } = usePrinterStatus();
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -128,13 +125,11 @@ export default function PosIndex() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
   // Modal States
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [alertModal, setAlertModal] = useState<{ type: 'error' | 'warning'; title: string; message: string }>({
     type: 'warning', title: '', message: '',
   });
   const [cashReceived, setCashReceived] = useState('');
-  const [lastSale, setLastSale] = useState<Record<string, unknown> | null>(null);
 
   // Shift Management States
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(!activeShift);
@@ -487,28 +482,6 @@ export default function PosIndex() {
         setIsAlertModalOpen(true);
       }
     });
-  };
-
-  const handleNewOrder = () => {
-    setIsSuccessModalOpen(false);
-    setLastSale(null);
-    setCart([]);
-    setActiveDiscount(null);
-    setCashReceived('');
-    setProofFile(null);
-    setDeliveryInfo(prev => ({
-      ...prev,
-      customer_name: '',
-      customer_phone: '',
-      customer_address: '',
-      rider_id: '',
-      tracking_number: '',
-      distance_km: '',
-      delivery_fee: 0,
-      delivery_notes: '',
-      external_notes: ''
-    }));
-    setKioskStep('browse');
   };
 
   const formatCurrency = (amount: number) => {

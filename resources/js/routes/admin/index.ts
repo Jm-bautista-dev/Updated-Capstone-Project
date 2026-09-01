@@ -1,5 +1,5 @@
-import salesData from './sales-data'
 import reviews from './reviews'
+import salesData from './sales-data'
 const admin = {
     salesData: Object.assign(salesData, salesData),
 reviews: Object.assign(reviews, reviews),

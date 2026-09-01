@@ -23,7 +23,7 @@ export function formatReceiptBranchHeading(branchName?: string | null): string {
     const trimmed = branchName.trim();
 
     // Strip "MAKI DESU" prefixes, suffixes, and trailing "Branch"
-    let cleaned = trimmed
+    const cleaned = trimmed
         .replace(/^MAKI\s*DESU\s*[-–—:]*\s*/i, '')
         .replace(/\s*[-–—:]*\s*MAKI\s*DESU$/i, '')
         .replace(/\s+Branch$/i, '')

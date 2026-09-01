@@ -1,15 +1,15 @@
+import ApiMonitorController from './ApiMonitorController'
+import AuditLogController from './AuditLogController'
 import DashboardController from './DashboardController'
-import SystemHealthController from './SystemHealthController'
+import DatabaseHealthController from './DatabaseHealthController'
+import DeploymentController from './DeploymentController'
 import ErrorLogController from './ErrorLogController'
+import FeatureFlagController from './FeatureFlagController'
 import LogViewerController from './LogViewerController'
 import MaintenanceController from './MaintenanceController'
-import AuditLogController from './AuditLogController'
-import ApiMonitorController from './ApiMonitorController'
-import DatabaseHealthController from './DatabaseHealthController'
-import FeatureFlagController from './FeatureFlagController'
-import DeploymentController from './DeploymentController'
 import SecurityController from './SecurityController'
 import SettingsController from './SettingsController'
+import SystemHealthController from './SystemHealthController'
 const SuperAdmin = {
     DashboardController: Object.assign(DashboardController, DashboardController),
 SystemHealthController: Object.assign(SystemHealthController, SystemHealthController),
