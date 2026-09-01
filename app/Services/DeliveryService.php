@@ -262,11 +262,9 @@ class DeliveryService
                         $this->inventoryService->deductForOrder($order);
                     }
 
-                    // Auto-assign rider ONLY when food is ready
+                    // Food is ready for pickup: stays unassigned for rider self-acceptance pool
                     if ($newStatus === Delivery::STATUS_READY) {
-                        if ($delivery->isInternal() && !$delivery->rider_id) {
-                            $this->autoAssign($delivery);
-                        }
+                        // Order is available for rider self-acceptance in the job pool
                     }
 
                     // Record as Sale if DELIVERED
@@ -383,9 +381,10 @@ class DeliveryService
 
             // Update the Delivery record
             $delivery->update([
-                'rider_id'   => $rider->id,
-                'status'     => 'assigned_to_rider',
-                'updated_by' => Auth::id(),
+                'rider_id'    => $rider->id,
+                'status'      => 'assigned_to_rider',
+                'accepted_at' => now(),
+                'updated_by'  => Auth::id(),
             ]);
 
             // Also update the parent Order
@@ -410,6 +409,19 @@ class DeliveryService
                     ]);
                 }
             }
+
+            // Write audit record to DeliveryAssignmentLog
+            \App\Models\DeliveryAssignmentLog::create([
+                'delivery_id'         => $delivery->id,
+                'order_id'            => $delivery->order_id,
+                'sale_id'             => $delivery->sale_id,
+                'rider_id'            => $rider->id,
+                'assigned_by_type'    => 'admin_manual',
+                'assigned_by_user_id' => Auth::id(),
+                'previous_status'     => $previousStatus,
+                'new_status'          => 'assigned_to_rider',
+                'notes'               => 'Admin manually assigned rider: ' . $rider->name,
+            ]);
 
             $rider->update([
                 'status'         => 'busy',
@@ -439,6 +451,159 @@ class DeliveryService
 
             return $delivery->fresh(['rider']);
         });
+    }
+
+    /**
+     * Atomically claim/self-accept a delivery by an authenticated rider.
+     * Concurrency safe: only one rider can win race conditions.
+     * Idempotent: rapid double taps by the same rider succeed cleanly.
+     */
+    public function acceptDelivery(Delivery $delivery, Rider $rider): array
+    {
+        // 1. Rider Eligibility Checks
+        if (!$rider->is_active) {
+            throw new \RuntimeException("Rider account is inactive and cannot accept deliveries.", 422);
+        }
+
+        if ($rider->status === 'offline') {
+            throw new \RuntimeException("You are currently offline. Set your status to active to accept deliveries.", 422);
+        }
+
+        // Strict Business Rule: Rider cannot accept orders if they are currently OUT FOR DELIVERY (in_transit)
+        if ($rider->hasInTransitDelivery()) {
+            throw new \RuntimeException(
+                "You are currently out for delivery on an active route and cannot accept additional orders until your delivery route is completed.",
+                422
+            );
+        }
+
+        // Branch Isolation: Match delivery branch with rider branch
+        $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+        if ($branchId && $rider->branch_id && (int) $rider->branch_id !== (int) $branchId) {
+            throw new \RuntimeException("This delivery belongs to another branch and cannot be accepted.", 422);
+        }
+
+        $deliveryToBroadcast = null;
+        $riderToBroadcast = null;
+        $previousStatus = null;
+
+        $result = DB::transaction(function () use ($delivery, $rider, &$deliveryToBroadcast, &$riderToBroadcast, &$previousStatus) {
+            /** @var Delivery|null $lockedDelivery */
+            $lockedDelivery = Delivery::with(['order', 'sale'])
+                ->where('id', $delivery->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$lockedDelivery) {
+                throw new \RuntimeException("Delivery not found.", 404);
+            }
+
+            // IDEMPOTENCY: If already assigned to THIS EXACT RIDER
+            if ($lockedDelivery->rider_id === $rider->id) {
+                $deliveryToBroadcast = $lockedDelivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $riderToBroadcast = $rider->fresh(['branch']);
+                return [
+                    'success'  => true,
+                    'message'  => 'Delivery is already assigned to you.',
+                    'delivery' => $deliveryToBroadcast,
+                    'already_assigned_to_me' => true,
+                ];
+            }
+
+            // CONFLICT: Another rider already won the race condition
+            if ($lockedDelivery->rider_id !== null && $lockedDelivery->rider_id !== $rider->id) {
+                throw new \RuntimeException("Delivery already accepted by another rider.", 409);
+            }
+
+            // VALID STATUS: Must be ready_for_pickup (or failed_delivery for reassignment)
+            $acceptableStatuses = [
+                Delivery::STATUS_READY,
+                'ready_for_pickup',
+                Delivery::STATUS_FAILED,
+            ];
+
+            if (!in_array($lockedDelivery->status, $acceptableStatuses)) {
+                throw new \RuntimeException("Delivery is no longer available for acceptance (current status: {$lockedDelivery->status}).", 422);
+            }
+
+            $previousStatus = $lockedDelivery->status;
+
+            // Update parent Order if linked
+            if ($lockedDelivery->order_id) {
+                $order = Order::where('id', $lockedDelivery->order_id)->lockForUpdate()->first();
+                if ($order) {
+                    if ($order->canTransitionTo('assigned_to_rider')) {
+                        $order->transitionTo('assigned_to_rider', 'Rider self-accepted delivery', null, $rider->id);
+                    }
+                    $order->update([
+                        'rider_id' => $rider->id,
+                        'status'   => 'assigned_to_rider',
+                    ]);
+                }
+            }
+
+            // Update Delivery
+            $lockedDelivery->update([
+                'rider_id'    => $rider->id,
+                'status'      => 'assigned_to_rider',
+                'accepted_at' => now(),
+                'updated_by'  => $rider->id,
+            ]);
+
+            // Mark Rider Busy
+            $rider->update([
+                'status'         => 'busy',
+                'last_active_at' => now(),
+            ]);
+
+            // Audit Trail
+            \App\Models\DeliveryAssignmentLog::create([
+                'delivery_id'         => $lockedDelivery->id,
+                'order_id'            => $lockedDelivery->order_id,
+                'sale_id'             => $lockedDelivery->sale_id,
+                'rider_id'            => $rider->id,
+                'assigned_by_type'    => 'rider_self_accept',
+                'assigned_by_user_id' => null,
+                'previous_status'     => $previousStatus,
+                'new_status'          => 'assigned_to_rider',
+                'notes'               => "Self-accepted by rider {$rider->name} (#{$rider->id})",
+            ]);
+
+            $deliveryToBroadcast = $lockedDelivery->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
+            $riderToBroadcast = $rider->fresh(['branch']);
+
+            return [
+                'success'  => true,
+                'message'  => 'Order accepted! Please head to the branch for pickup.',
+                'delivery' => $deliveryToBroadcast,
+                'already_assigned_to_me' => false,
+            ];
+        });
+
+        // ── Real-Time Broadcasts strictly after database transaction commits ──
+        if ($deliveryToBroadcast) {
+            try {
+                event(new \App\Events\OrderAssigned($deliveryToBroadcast));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('OrderAssigned broadcast failed: ' . $e->getMessage());
+            }
+
+            try {
+                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider', $previousStatus));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('OrderStatusUpdated broadcast failed: ' . $e->getMessage());
+            }
+        }
+
+        if ($riderToBroadcast) {
+            try {
+                event(new RiderStatusUpdated($riderToBroadcast));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast failed: ' . $e->getMessage());
+            }
+        }
+
+        return $result;
     }
 
     /**

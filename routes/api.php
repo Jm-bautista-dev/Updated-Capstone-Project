@@ -78,17 +78,19 @@ Route::prefix('v1')->group(function () {
             Route::post('location', [RiderController::class, 'updateLocation']);
 
             // Order Feed Tabs & History
-            Route::get('orders',           [RiderController::class, 'getOrders']);          // Available (ready_for_pickup)
-            Route::get('my-orders',        [RiderController::class, 'getMyOrders']);        // Active (assigned/picking/transit)
-            Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']); // Done (paginated)
-            Route::get('history',          [RiderController::class, 'getCompletedOrders']); // Alias
-            Route::get('transactions',     [RiderController::class, 'getCompletedOrders']);
-            Route::get('past-transactions',[RiderController::class, 'getCompletedOrders']);
-            Route::get('stats',            [RiderController::class, 'getStats']);
+            Route::get('available-deliveries', [RiderController::class, 'availableDeliveries']); // Available jobs (ready_for_pickup)
+            Route::get('orders',               [RiderController::class, 'getOrders']);          // Available (ready_for_pickup)
+            Route::get('my-orders',            [RiderController::class, 'getMyOrders']);        // Active (assigned/picking/transit)
+            Route::get('completed-orders',     [RiderController::class, 'getCompletedOrders']); // Done (paginated)
+            Route::get('history',              [RiderController::class, 'getCompletedOrders']); // Alias
+            Route::get('transactions',         [RiderController::class, 'getCompletedOrders']);
+            Route::get('past-transactions',    [RiderController::class, 'getCompletedOrders']);
+            Route::get('stats',                [RiderController::class, 'getStats']);
             // Cancellation Requests for Rider
             Route::get('cancellation-requests', [App\Http\Controllers\Api\CancellationRequestController::class, 'riderRequests']);
 
             // WORKFLOW ENDPOINTS (Both strict actions and generic status transitions)
+            Route::post('deliveries/{id}/accept',     [RiderController::class, 'acceptOrder']);
             Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);
             Route::post('accept/{id}',                [RiderController::class, 'acceptOrder']);
             Route::post('orders/{id}/pickup',         [RiderController::class, 'pickupOrder']);
@@ -219,10 +221,12 @@ Route::middleware(['auth:sanctum,web'])->prefix('rider')->group(function () {
     Route::get('stats',    [RiderController::class, 'getStats']);
     Route::post('location', [RiderController::class, 'updateLocation']);
 
-    Route::get('orders',           [RiderController::class, 'getOrders']);
-    Route::get('my-orders',        [RiderController::class, 'getMyOrders']);
-    Route::get('completed-orders', [RiderController::class, 'getCompletedOrders']);
-    Route::get('history',          [RiderController::class, 'getCompletedOrders']);
+    Route::get('available-deliveries', [RiderController::class, 'availableDeliveries']);
+    Route::get('orders',               [RiderController::class, 'getOrders']);
+    Route::get('my-orders',            [RiderController::class, 'getMyOrders']);
+    Route::get('completed-orders',     [RiderController::class, 'getCompletedOrders']);
+    Route::get('history',              [RiderController::class, 'getCompletedOrders']);
+    Route::post('deliveries/{id}/accept',     [RiderController::class, 'acceptOrder']);
     Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);
     Route::post('accept/{id}',                [RiderController::class, 'acceptOrder']);
     Route::post('orders/{id}/pickup',         [RiderController::class, 'pickupOrder']);

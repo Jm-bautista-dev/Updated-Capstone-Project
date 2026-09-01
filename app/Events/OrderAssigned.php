@@ -36,6 +36,15 @@ class OrderAssigned implements ShouldBroadcastNow
             $channels[] = new PrivateChannel('branch.' . $branchId . '.orders');
         }
 
+        $userId = $this->delivery->order?->user_id;
+        if ($userId) {
+            $channels[] = new PrivateChannel('user.' . $userId);
+        }
+
+        if ($this->delivery->order_id) {
+            $channels[] = new PrivateChannel('customer.order.' . $this->delivery->order_id);
+        }
+
         return $channels;
     }
 

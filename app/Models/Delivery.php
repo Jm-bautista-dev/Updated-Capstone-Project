@@ -34,6 +34,7 @@ class Delivery extends Model
         'external_notes',
         'proof_of_delivery',
         'status',
+        'accepted_at',
         'picked_up_at',
         'transit_at',
         'delivered_at',
@@ -45,6 +46,7 @@ class Delivery extends Model
     ];
 
     protected $casts = [
+        'accepted_at'  => 'datetime',
         'picked_up_at' => 'datetime',
         'transit_at'   => 'datetime',
         'delivered_at' => 'datetime',
@@ -143,6 +145,11 @@ class Delivery extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    public function assignmentLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DeliveryAssignmentLog::class);
+    }
+
     /* ── Helpers ───────────────────────────────────── */
 
     public function isInternal(): bool
@@ -163,6 +170,11 @@ class Delivery extends Model
     public function isCancelled(): bool
     {
         return $this->status === self::STATUS_CANCELLED;
+    }
+
+    public function isAvailableForRiders(): bool
+    {
+        return $this->isInternal() && $this->status === self::STATUS_READY && $this->rider_id === null;
     }
 
     /**

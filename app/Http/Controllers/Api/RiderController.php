@@ -69,10 +69,11 @@ class RiderController extends Controller
     */
 
     /**
+     * GET /api/v1/rider/available-deliveries
      * GET /api/v1/rider/orders
-     * Returns all orders in 'ready_for_pickup' state — available for any rider to accept.
+     * Returns all orders in 'ready_for_pickup' state with rider_id = null — available for eligible riders to accept.
      */
-    public function getOrders(Request $request): JsonResponse
+    public function availableDeliveries(Request $request): JsonResponse
     {
         try {
             $rider = $this->resolveRider($request);
@@ -80,21 +81,55 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
+            if (!$rider->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your rider account is inactive. Please contact your branch administrator.',
+                    'data'    => [],
+                ], 403);
+            }
+
+            if ($rider->status === 'offline') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are currently offline. Change your status to available to view and accept delivery jobs.',
+                    'data'    => [],
+                ], 422);
+            }
+
+            if ($rider->hasInTransitDelivery()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are currently on an active delivery route. Complete your route before viewing new jobs.',
+                    'data'    => [],
+                ], 422);
+            }
+
             $riderBranchId = $rider->branch_id;
 
-            $deliveries = Delivery::with(['order.items.product', 'order.branch'])
+            $deliveries = Delivery::with([
+                'order.items.product',
+                'order.branch',
+                'sale.items.product',
+                'sale.branch'
+            ])
+                ->where('delivery_type', 'internal')
+                ->where('status', Delivery::STATUS_READY)
                 ->whereNull('rider_id')
-                ->whereHas('order', function ($q) use ($riderBranchId) {
-                    $q->whereIn('status', ['ready_for_pickup', 'preparing'])
-                      ->whereNull('rider_id')
-                      ->when($riderBranchId, fn($bq) => $bq->where('branch_id', $riderBranchId));
+                ->where(function ($query) use ($riderBranchId) {
+                    if ($riderBranchId) {
+                        $query->where(function ($q) use ($riderBranchId) {
+                            $q->whereHas('order', fn($oq) => $oq->where('branch_id', $riderBranchId))
+                              ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $riderBranchId));
+                        });
+                    }
                 })
                 ->orderBy('created_at', 'asc')
                 ->get();
 
-            // Check unlinked orders
+            // Check unlinked ready_for_pickup orders
             $unlinkedOrders = Order::with(['items.product', 'branch'])
-                ->whereIn('status', ['ready_for_pickup', 'preparing'])
+                ->where('status', 'ready_for_pickup')
                 ->whereNull('rider_id')
                 ->when($riderBranchId, fn($bq) => $bq->where('branch_id', $riderBranchId))
                 ->whereDoesntHave('delivery')
@@ -105,35 +140,46 @@ class RiderController extends Controller
                     ['order_id' => $uo->id],
                     [
                         'rider_id'         => null,
-                        'status'           => $uo->status,
+                        'status'           => 'ready_for_pickup',
                         'customer_name'    => $uo->customer_name,
                         'customer_phone'   => $uo->contact_number,
                         'customer_address' => $uo->address,
+                        'latitude'         => $uo->latitude,
+                        'longitude'        => $uo->longitude,
+                        'landmark'         => $uo->landmark,
+                        'notes'            => $uo->notes,
                     ]
                 );
-                $deliveries->push($d->load(['order.items.product', 'order.branch']));
+                $deliveries->push($d->load(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch']));
             }
 
             $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
 
             return response()->json([
-                'success'    => true,
-                'data'       => $formatted,
-                'deliveries' => $formatted,
-                'orders'     => $formatted,
+                'success'              => true,
+                'data'                 => $formatted,
+                'deliveries'           => $formatted,
+                'orders'               => $formatted,
+                'available_deliveries' => $formatted,
+                'count'                => $formatted->count(),
             ]);
         } catch (\Throwable $e) {
-            Log::error('Rider::getOrders failed', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Failed to fetch orders'], 500);
+            Log::error('Rider::availableDeliveries failed', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Failed to fetch available deliveries'], 500);
         }
     }
 
     /**
-     * Aliases for external store conventions
+     * Aliases for external and mobile app conventions
      */
+    public function getOrders(Request $request): JsonResponse
+    {
+        return $this->availableDeliveries($request);
+    }
+
     public function availableOrders(Request $request): JsonResponse
     {
-        return $this->getOrders($request);
+        return $this->availableDeliveries($request);
     }
 
     public function myOrders(Request $request): JsonResponse
@@ -264,8 +310,9 @@ class RiderController extends Controller
 
     /**
      * POST /api/v1/rider/orders/{id}/accept
+     * POST /api/v1/rider/deliveries/{id}/accept
      * Transition: ready_for_pickup → assigned_to_rider
-     * Rider accepts an available order. Locked with DB transaction.
+     * Rider claims/self-accepts an available delivery job.
      */
     public function acceptOrder(Request $request, $id): JsonResponse
     {
@@ -275,89 +322,59 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            $deliveryToBroadcast = null;
-            $riderToBroadcast = null;
+            /** @var Delivery|null $delivery */
+            $delivery = Delivery::with(['order', 'sale'])
+                ->where(function ($q) use ($id) {
+                    $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
+                })
+                ->first();
 
-            $response = DB::transaction(function () use ($rider, $id, &$deliveryToBroadcast, &$riderToBroadcast) {
-                // Strict Business Rule: Rider cannot accept orders if they are currently OUT FOR DELIVERY (in_transit)
-                if ($rider->hasInTransitDelivery()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You are currently out for delivery on an active route and cannot accept additional orders until your delivery route is completed.',
-                    ], 422);
-                }
-
-                // Pessimistic lock — prevents two riders accepting the same order simultaneously
-                $delivery = Delivery::with(['order', 'sale'])
-                    ->where(function ($q) use ($id) {
-                        $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
-                    })
-                    ->whereNull('rider_id')
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$delivery) {
-                    $order = Order::where('id', $id)->whereNull('rider_id')->first();
-                    if ($order) {
-                        $delivery = Delivery::firstOrCreate(
-                            ['order_id' => $order->id],
-                            [
-                                'rider_id'         => null,
-                                'status'           => $order->status,
-                                'customer_name'    => $order->customer_name,
-                                'customer_phone'   => $order->contact_number,
-                                'customer_address' => $order->address,
-                            ]
-                        );
-                    }
-                }
-
-                if (!$delivery) {
-                    return response()->json(['success' => false, 'message' => 'Delivery not available'], 404);
-                }
-
-                $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
+            if (!$delivery) {
+                $order = Order::where('id', $id)->orWhere('order_number', $id)->first();
                 if ($order) {
-                    // Enforce state machine for mobile order
-                    $order->transitionTo('assigned_to_rider', 'Rider accepted order', null, $rider->id);
-                    $order->update([
-                        'rider_id' => $rider->id,
-                        'status'   => 'assigned_to_rider',
-                    ]);
+                    $delivery = Delivery::firstOrCreate(
+                        ['order_id' => $order->id],
+                        [
+                            'rider_id'         => null,
+                            'status'           => $order->status,
+                            'customer_name'    => $order->customer_name,
+                            'customer_phone'   => $order->contact_number,
+                            'customer_address' => $order->address,
+                            'latitude'         => $order->latitude,
+                            'longitude'        => $order->longitude,
+                            'landmark'         => $order->landmark,
+                            'notes'            => $order->notes,
+                        ]
+                    );
                 }
-
-                // Assign rider to delivery record
-                $delivery->update([
-                    'rider_id' => $rider->id,
-                    'status'   => 'assigned_to_rider',
-                ]);
-
-                // Mark rider busy
-                $rider->update(['status' => 'busy']);
-
-                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
-                $riderToBroadcast = $rider->fresh(['branch']);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Order accepted! Please head to the branch for pickup.',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
-                    'delivery' => $delivery,
-                ]);
-            });
-
-            // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
-            if ($deliveryToBroadcast) {
-                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider'));
-            }
-            if ($riderToBroadcast) {
-                event(new RiderStatusUpdated($riderToBroadcast));
             }
 
-            return $response;
+            if (!$delivery) {
+                return response()->json(['success' => false, 'message' => "Delivery #{$id} not found."], 404);
+            }
+
+            $deliveryService = app(\App\Services\DeliveryService::class);
+            $result = $deliveryService->acceptDelivery($delivery, $rider);
+
+            $freshDelivery = $result['delivery']->fresh([
+                'order.items.product',
+                'order.branch',
+                'sale.items.product',
+                'sale.branch',
+                'rider',
+            ]);
+
+            return response()->json([
+                'success'  => true,
+                'message'  => $result['message'],
+                'data'     => $this->formatDelivery($freshDelivery),
+                'delivery' => $freshDelivery,
+                'order'    => $freshDelivery->order,
+            ], 200);
         } catch (\RuntimeException $e) {
-            // State machine violation
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            $code = $e->getCode();
+            $statusCode = ($code >= 400 && $code < 600) ? $code : 422;
+            return response()->json(['success' => false, 'message' => $e->getMessage()], $statusCode);
         } catch (\Throwable $e) {
             Log::error('Rider::acceptOrder failed', ['error' => $e->getMessage(), 'id' => $id]);
             return response()->json(['success' => false, 'message' => 'Failed to accept order'], 500);
@@ -1297,6 +1314,13 @@ class RiderController extends Controller
             ])->values()->all();
         }
 
+        $isUnassigned = ($delivery->rider_id === null);
+        $customerName = $delivery->customer_name;
+        $customerPhone = $isUnassigned ? null : $delivery->customer_phone;
+        $customerAddress = $isUnassigned 
+            ? ($delivery->landmark ? "Near {$delivery->landmark}" : ($delivery->customer_address ? explode(',', $delivery->customer_address)[0] : 'Customer Location'))
+            : $delivery->customer_address;
+
         return [
             'id'                      => $order?->id ?? $delivery->id,
             'delivery_id'             => $delivery->id,
@@ -1312,22 +1336,28 @@ class RiderController extends Controller
             'orderStatus'             => $order?->status ?? $delivery->status,
             'status_label'            => $delivery->getStatusLabel(),
             'statusLabel'             => $delivery->getStatusLabel(),
+            'is_available'            => $delivery->isAvailableForRiders(),
+            'isAvailable'             => $delivery->isAvailableForRiders(),
+            'rider_id'                => $delivery->rider_id,
+            'rider_name'              => $delivery->rider?->name,
+            'accepted_at'             => $delivery->accepted_at?->toIso8601String(),
             'cancellation_status'     => $order?->cancellation_status,
             'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
 
-            // Customer Info
-            'customer_name'           => $delivery->customer_name,
-            'customerName'            => $delivery->customer_name,
-            'customer_phone'          => $delivery->customer_phone,
-            'customerPhone'           => $delivery->customer_phone,
-            'customer_address'        => $delivery->customer_address,
-            'customerAddress'         => $delivery->customer_address,
+            // Customer Info (safeguarded before acceptance)
+            'customer_name'           => $customerName,
+            'customerName'            => $customerName,
+            'customer_phone'          => $customerPhone,
+            'customerPhone'           => $customerPhone,
+            'customer_address'        => $customerAddress,
+            'customerAddress'         => $customerAddress,
+            'full_customer_address'   => $isUnassigned ? null : $delivery->customer_address,
 
             // Location for maps
             'latitude'                => $lat,
             'longitude'               => $lng,
             'landmark'                => $delivery->landmark ?? $order?->landmark,
-            'notes'                   => $delivery->notes ?? $order?->notes,
+            'notes'                   => $isUnassigned ? null : ($delivery->notes ?? $order?->notes),
             'maps_url'                => ($lat && $lng)
                 ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
                 : null,
@@ -1343,6 +1373,7 @@ class RiderController extends Controller
             'payment_method'          => $sale?->payment_method ?? $order?->payment_method ?? 'cash',
 
             // Branch (pickup point)
+            'branch_id'               => $branch?->id,
             'branch_name'             => $branchName,
             'branchName'              => $branchName,
             'branch_address'          => $branchAddress,
