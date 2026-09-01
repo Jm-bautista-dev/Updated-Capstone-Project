@@ -149,6 +149,7 @@ class AccountGovernanceController extends Controller
      */
     public function show(Request $request, string $type, $id): JsonResponse
     {
+        /** @var User|Rider|null $target */
         $target = $type === 'rider'
             ? Rider::with(['branch', 'moderationCases.reportedBy', 'moderationCases.resolvedBy'])->find($id)
             : User::with(['branch', 'moderationCases.reportedBy', 'moderationCases.resolvedBy'])->find($id);
@@ -219,6 +220,7 @@ class AccountGovernanceController extends Controller
 
         $admin = $request->user();
 
+        /** @var User|Rider|null $target */
         $target = $type === 'rider' ? Rider::find($id) : User::find($id);
 
         if (!$target) {
@@ -254,6 +256,8 @@ class AccountGovernanceController extends Controller
     public function restore(Request $request, string $type, $id): JsonResponse
     {
         $admin = $request->user();
+
+        /** @var User|Rider|null $target */
         $target = $type === 'rider' ? Rider::find($id) : User::find($id);
 
         if (!$target) {
@@ -288,6 +292,8 @@ class AccountGovernanceController extends Controller
         ]);
 
         $admin = $request->user();
+
+        /** @var User|Rider|null $target */
         $target = $type === 'rider' ? Rider::find($id) : User::find($id);
 
         if (!$target) {
