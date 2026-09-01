@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     Activity,
+    AlertOctagon,
     AlertTriangle,
     Database,
     FileText,
@@ -10,7 +11,9 @@ import {
     ScrollText,
     Settings,
     Shield,
+    Sliders,
     Terminal,
+    Users,
     Wrench,
 } from 'lucide-react';
 import React from 'react';
@@ -26,6 +29,14 @@ export const SuperAdminSidebar: React.FC = () => {
                 { label: 'Overview', href: '/super-admin', icon: LayoutDashboard, exact: true },
                 { label: 'System Health', href: '/super-admin/system-health', icon: Activity },
                 { label: 'API Monitor', href: '/super-admin/api-monitor', icon: Terminal },
+            ],
+        },
+        {
+            group: 'GOVERNANCE',
+            items: [
+                { label: 'Account Governance', href: '/super-admin/accounts', icon: Users },
+                { label: 'Moderation Cases', href: '/super-admin/moderation-cases', icon: AlertOctagon },
+                { label: 'Customer COD Risk', href: '/super-admin/customer-risk', icon: Sliders },
             ],
         },
         {
