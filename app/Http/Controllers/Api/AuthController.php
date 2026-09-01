@@ -109,10 +109,27 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
+            return response()->json([
+                'status'         => 'error',
+                'account_status' => 'suspended',
+                'message'        => 'Your account has been suspended. Please contact MAKI DESU support.',
+            ], 403);
+        }
+
+        if (method_exists($user, 'isDeactivated') && $user->isDeactivated()) {
+            return response()->json([
+                'status'         => 'error',
+                'account_status' => 'deactivated',
+                'message'        => 'This account is currently inactive. Please contact MAKI DESU support.',
+            ], 403);
+        }
+
         if (isset($user->is_active) && !$user->is_active) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Your account has been deactivated.',
+                'status'         => 'error',
+                'account_status' => 'deactivated',
+                'message'        => 'This account is currently inactive.',
             ], 403);
         }
 

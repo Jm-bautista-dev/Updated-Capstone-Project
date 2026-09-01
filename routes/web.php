@@ -224,6 +224,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/pos/weight', [InventoryActionController::class, 'pos'])->name('pos.weight');
             Route::post('/pos/inventory-sale', [InventoryActionController::class, 'processSale'])->name('inventory-sale.store');
             Route::get('/inventory-sales-history', [InventoryActionController::class, 'history'])->name('inventory-sale.history');
+
+            // Account Flagging / Reporting (Admins & Staff)
+            Route::post('/accounts/flag', [App\Http\Controllers\Admin\AccountFlagController::class, 'store'])->name('admin.accounts.flag');
         }); // end role:admin,cashier
 
         // ─────────────────────────────────────────────────────────────────
@@ -280,6 +283,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/customer-risk', [App\Http\Controllers\SuperAdmin\CustomerRiskController::class, 'index'])->name('customer-risk.index');
             Route::get('/customer-risk/{id}', [App\Http\Controllers\SuperAdmin\CustomerRiskController::class, 'show'])->name('customer-risk.show');
             Route::post('/customer-risk/{id}/override', [App\Http\Controllers\SuperAdmin\CustomerRiskController::class, 'overrideCod'])->name('customer-risk.override');
+
+            // Account Governance, Moderation, & Suspensions
+            Route::get('/accounts', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'index'])->name('accounts.index');
+            Route::get('/accounts/{type}/{id}', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'show'])->name('accounts.show');
+            Route::post('/accounts/{type}/{id}/status', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'updateStatus'])->name('accounts.update-status');
+            Route::post('/accounts/{type}/{id}/restore', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'restore'])->name('accounts.restore');
+            Route::delete('/accounts/{type}/{id}', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'destroy'])->name('accounts.destroy');
+
+            // Moderation Cases Workflow
+            Route::get('/moderation-cases', [App\Http\Controllers\SuperAdmin\ModerationCaseController::class, 'index'])->name('moderation-cases.index');
+            Route::get('/moderation-cases/{id}', [App\Http\Controllers\SuperAdmin\ModerationCaseController::class, 'show'])->name('moderation-cases.show');
+            Route::post('/moderation-cases/{id}/resolve', [App\Http\Controllers\SuperAdmin\ModerationCaseController::class, 'resolve'])->name('moderation-cases.resolve');
         });
 
     }); // end must_change_password

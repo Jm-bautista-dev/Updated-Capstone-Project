@@ -160,6 +160,9 @@ Route::prefix('v1')->group(function () {
         // Rider Cancellation Requests Ledger
         Route::get('rider/cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);
 
+        // Account Flagging / Reporting API
+        Route::post('admin/accounts/flag', [App\Http\Controllers\Admin\AccountFlagController::class, 'store']);
+
         // Deliveries Live Tracking
         Route::get('deliveries/live-riders', [App\Http\Controllers\Admin\DeliveryController::class, 'getLiveRiderLocations']);
 

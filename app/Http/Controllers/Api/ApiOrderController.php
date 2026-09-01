@@ -102,6 +102,31 @@ class ApiOrderController extends Controller
             $userId = $user?->id;
             $mobileNumber = $validated['mobile_number'];
 
+            // --- 0. ACCOUNT GOVERNANCE & RESTRICTION CHECK ---
+            if ($user) {
+                if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
+                    return response()->json([
+                        'success'        => false,
+                        'account_status' => 'suspended',
+                        'message'        => 'Your account has been suspended. Please contact MAKI DESU support.',
+                    ], 403);
+                }
+                if (method_exists($user, 'isDeactivated') && $user->isDeactivated()) {
+                    return response()->json([
+                        'success'        => false,
+                        'account_status' => 'deactivated',
+                        'message'        => 'This account is currently inactive. Please contact MAKI DESU support.',
+                    ], 403);
+                }
+                if (!empty($user->is_order_restricted)) {
+                    return response()->json([
+                        'success'        => false,
+                        'account_status' => 'restricted',
+                        'message'        => 'Order placement is temporarily restricted on your account. Please contact support.',
+                    ], 403);
+                }
+            }
+
             // --- 0. IDEMPOTENCY CHECK ---
             $idempotencyService = new \App\Services\IdempotencyService();
             $idempotencyKey = $idempotencyService->extractKey($request);

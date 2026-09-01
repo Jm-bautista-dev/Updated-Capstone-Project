@@ -29,6 +29,13 @@ class Rider extends Authenticatable
         'phone',
         'branch_id',
         'status',
+        'account_status',
+        'status_reason',
+        'restricted_at',
+        'suspended_at',
+        'deactivated_at',
+        'status_changed_by',
+        'is_delivery_restricted',
         'is_active',
         'role',
         'last_active_at',
@@ -41,25 +48,88 @@ class Rider extends Authenticatable
         'location_updated_at',
     ];
 
+    const STATUS_ACTIVE       = 'active';
+    const STATUS_UNDER_REVIEW = 'under_review';
+    const STATUS_RESTRICTED   = 'restricted';
+    const STATUS_SUSPENDED    = 'suspended';
+    const STATUS_DEACTIVATED  = 'deactivated';
+
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
     protected $casts = [
-        'password'             => 'hashed',
-        'is_active'            => 'boolean',
-        'last_active_at'       => 'datetime',
-        'location_updated_at'  => 'datetime',
-        'must_change_password' => 'boolean',
-        'latitude'             => 'float',
-        'longitude'            => 'float',
-        'accuracy'             => 'float',
-        'speed'                => 'float',
-        'heading'              => 'float',
+        'password'               => 'hashed',
+        'is_active'              => 'boolean',
+        'is_delivery_restricted' => 'boolean',
+        'restricted_at'          => 'datetime',
+        'suspended_at'           => 'datetime',
+        'deactivated_at'         => 'datetime',
+        'last_active_at'         => 'datetime',
+        'location_updated_at'    => 'datetime',
+        'must_change_password'   => 'boolean',
+        'latitude'               => 'float',
+        'longitude'              => 'float',
+        'accuracy'               => 'float',
+        'speed'                  => 'float',
+        'heading'                => 'float',
     ];
 
+    /* ── Governance Helpers ────────────────────────── */
+
+    public function isActive(): bool
+    {
+        return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_ACTIVE;
+    }
+
+    public function isUnderReview(): bool
+    {
+        return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_UNDER_REVIEW;
+    }
+
+    public function isRestricted(): bool
+    {
+        return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_RESTRICTED;
+    }
+
+    public function isSuspended(): bool
+    {
+        return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_SUSPENDED;
+    }
+
+    public function isDeactivated(): bool
+    {
+        return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_DEACTIVATED;
+    }
+
+    public function canLogin(): bool
+    {
+        return !$this->isSuspended() && !$this->isDeactivated() && (bool) $this->is_active;
+    }
+
+    public function canAcceptDeliveries(): bool
+    {
+        return $this->canLogin() && !(bool) $this->is_delivery_restricted;
+    }
+
+    public function hasHistoricalBusinessRecords(): bool
+    {
+        return $this->deliveries()->exists()
+            || \App\Models\DeliveryAttempt::where('rider_id', $this->id)->exists();
+    }
+
     /* ── Relationships ─────────────────────────────── */
+
+    public function statusChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'status_changed_by');
+    }
+
+    public function moderationCases(): HasMany
+    {
+        return $this->hasMany(ModerationCase::class, 'target_id')->where('target_type', 'rider');
+    }
 
     public function branch(): BelongsTo
     {

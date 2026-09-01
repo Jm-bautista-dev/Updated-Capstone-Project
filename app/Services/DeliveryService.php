@@ -461,6 +461,10 @@ class DeliveryService
     public function acceptDelivery(Delivery $delivery, Rider $rider): array
     {
         // 1. Rider Eligibility Checks
+        if (method_exists($rider, 'canAcceptDeliveries') && !$rider->canAcceptDeliveries()) {
+            throw new \RuntimeException("Your rider account is currently restricted from accepting new deliveries. Please contact management.", 403);
+        }
+
         if (!$rider->is_active) {
             throw new \RuntimeException("Rider account is inactive and cannot accept deliveries.", 422);
         }

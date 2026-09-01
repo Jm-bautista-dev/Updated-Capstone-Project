@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             \App\Http\Middleware\SetSecurityHeaders::class,
             AddLinkHeadersForPreloadedAssets::class,
+            \App\Http\Middleware\CheckAccountStatusMiddleware::class,
         ]);
 
         $middleware->alias([
@@ -39,10 +40,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'must_change_password' => \App\Http\Middleware\MustChangePassword::class,
             'super_admin'          => \App\Http\Middleware\SuperAdminMiddleware::class,
             'system_maintenance'   => \App\Http\Middleware\SystemMaintenanceMiddleware::class,
+            'account_status'       => \App\Http\Middleware\CheckAccountStatusMiddleware::class,
         ]);
 
         $middleware->append(\App\Http\Middleware\SystemMaintenanceMiddleware::class);
         $middleware->append(\App\Http\Middleware\NetworkTraceMiddleware::class);
+        $middleware->append(\App\Http\Middleware\CheckAccountStatusMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, $e) {

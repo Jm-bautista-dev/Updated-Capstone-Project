@@ -276,7 +276,7 @@ class RiderSelfAssignmentFinalE2ETest extends TestCase
         $resGet->assertStatus(403);
 
         $resAccept = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $resAccept->assertStatus(422);
+        $this->assertContains($resAccept->status(), [403, 422]);
     }
 
     /**

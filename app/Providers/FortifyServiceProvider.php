@@ -44,6 +44,26 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        Fortify::authenticateUsing(function (Request $request) {
+            $user = \App\Models\User::where('email', strtolower(trim((string) $request->email)))->first();
+
+            if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+                if ($user->isSuspended()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        Fortify::username() => 'Your account has been suspended. Please contact MAKI DESU support.',
+                    ]);
+                }
+                if ($user->isDeactivated()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        Fortify::username() => 'This account is currently inactive. Please contact MAKI DESU support.',
+                    ]);
+                }
+                return $user;
+            }
+
+            return null;
+        });
     }
 
     /**
