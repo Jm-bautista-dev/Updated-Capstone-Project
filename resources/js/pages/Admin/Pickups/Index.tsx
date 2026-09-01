@@ -33,6 +33,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import echo from '@/echo';
 import AppLayout from '@/layouts/app-layout';
 
 interface ProductItem {
@@ -157,14 +158,45 @@ export default function PickupDashboard({
 
     // Real-time Echo updates
     useEffect(() => {
-        const win = window as unknown as { Echo?: { channel: (c: string) => { listen: (e: string, cb: () => void) => void } } };
-        if (win.Echo) {
-            const channel = win.Echo.channel('orders');
-            channel.listen('OrderCreated', () => {
-                router.reload({ only: ['pickups', 'stats'] });
-            });
+        if (!echo) return;
+
+        const channelsToSubscribe: string[] = [];
+        if (isAdmin) {
+            channelsToSubscribe.push('admin.orders');
+            if (filters.branch_id && filters.branch_id !== 'all') {
+                channelsToSubscribe.push(`branch.${filters.branch_id}.orders`);
+            }
+        } else if (authBranchId) {
+            channelsToSubscribe.push(`branch.${authBranchId}.orders`);
         }
-    }, []);
+        channelsToSubscribe.push('orders');
+
+        const handlePickupEvent = (e: unknown) => {
+            const eventData = e as { fulfillment_type?: string; is_pickup?: boolean };
+            if (eventData?.fulfillment_type === 'delivery' && !eventData?.is_pickup) {
+                // Ignore delivery orders in Pickup queue
+                return;
+            }
+            router.reload({ only: ['pickups', 'stats'] });
+        };
+
+        const activeChannels = channelsToSubscribe.map(chName => {
+            const ch = echo!.private ? echo.private(chName) : echo.channel(chName);
+            ch.listen('.OrderCreated', handlePickupEvent)
+              .listen('OrderCreated', handlePickupEvent)
+              .listen('App\\Events\\OrderCreated', handlePickupEvent)
+              .listen('.order-status-updated', handlePickupEvent)
+              .listen('OrderStatusUpdated', handlePickupEvent)
+              .listen('App\\Events\\OrderStatusUpdated', handlePickupEvent);
+            return chName;
+        });
+
+        return () => {
+            activeChannels.forEach(chName => {
+                echo?.leave(chName);
+            });
+        };
+    }, [isAdmin, filters.branch_id, authBranchId]);
 
     // Filter apply helper
     const applyFilter = (key: string, value: string | number) => {

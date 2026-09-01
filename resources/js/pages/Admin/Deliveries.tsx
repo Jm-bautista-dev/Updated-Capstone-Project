@@ -123,7 +123,12 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
         if (channelsToSubscribe.length === 0) return;
 
         const handleNewOrder = (e: unknown) => {
-            console.log('Real-time new order received in Deliveries page:', e);
+            const eventData = e as { fulfillment_type?: string; is_pickup?: boolean };
+            if (eventData?.fulfillment_type === 'pickup' || eventData?.is_pickup) {
+                // Ignore pickup orders in Delivery queue (handled on Pickups page)
+                return;
+            }
+            console.log('Real-time new delivery received in Deliveries page:', e);
             router.reload({
                 only: ['deliveries', 'stats', 'availableRiders', 'allRiders'],
                 preserveScroll: true,
@@ -332,25 +337,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
     const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<number | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const executeStatusUpdate = useCallback((id: number, explicitStatus?: string) => {
+    const executeStatusUpdate = useCallback((id: number) => {
         setIsUpdating(true);
-        const item = accumulatedDeliveries.find(d => d.id === id);
-
-        if (item?.is_pickup) {
-            const nextStatus = explicitStatus || item.next_statuses?.[0] || 'preparing';
-            router.post(`/deliveries/pickup/${id}/status`, { status: nextStatus }, {
-                preserveState: true,
-                onSuccess: () => {
-                    setConfirmingDeliveryId(null);
-                    if (selectedDelivery?.id === id) {
-                        setSelectedDelivery(null);
-                    }
-                },
-                onFinish: () => setIsUpdating(false),
-            });
-            return;
-        }
-
         router.put(`/deliveries/${id}/status`, {}, {
             preserveState: true,
             onSuccess: () => {
@@ -361,17 +349,17 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             },
             onFinish: () => setIsUpdating(false),
         });
-    }, [accumulatedDeliveries, selectedDelivery]);
+    }, [selectedDelivery]);
 
-    const handleUpdateStatus = useCallback((id: number, explicitStatus?: string) => {
+    const handleUpdateStatus = useCallback((id: number) => {
         const delivery = accumulatedDeliveries.find(d => d.id === id);
 
-        if (delivery && delivery.status === 'pending' && !delivery.is_pickup) {
+        if (delivery && delivery.status === 'pending') {
             setConfirmingDeliveryId(id);
             return;
         }
 
-        executeStatusUpdate(id, explicitStatus);
+        executeStatusUpdate(id);
     }, [accumulatedDeliveries, executeStatusUpdate]);
 
     const handleFailDelivery = useCallback((id: number) => {

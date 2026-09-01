@@ -20,22 +20,20 @@ use Illuminate\Support\Facades\Auth;
 class DeliveryController extends Controller
 {
     protected DeliveryService $deliveryService;
-    protected PickupOrderService $pickupService;
 
-    public function __construct(DeliveryService $deliveryService, PickupOrderService $pickupService)
+    public function __construct(DeliveryService $deliveryService)
     {
         $this->deliveryService = $deliveryService;
-        $this->pickupService = $pickupService;
     }
 
     /**
-     * Delivery & Operations dashboard — paginated list with unified Delivery & Pickup support.
+     * Delivery & Operations dashboard — paginated list for Delivery orders ONLY.
      */
     public function index(Request $request)
     {
         $user = Auth::user();
         $view = $request->input('view', 'today');
-        $filterType = $request->input('fulfillment_type') ?? $request->input('type', 'all'); // 'all' | 'delivery' | 'pickup' | 'internal' | 'external'
+        $filterType = $request->input('type', 'all'); // 'all' | 'internal' | 'external'
         $branchIdFilter = ($request->filled('branch_id') && $request->branch_id !== 'all') ? $request->branch_id : null;
         $statusFilter = ($request->filled('status') && $request->status !== 'all') ? $request->status : null;
         $riderIdFilter = ($request->filled('rider_id') && $request->rider_id !== 'all') ? $request->rider_id : null;
@@ -54,23 +52,12 @@ class DeliveryController extends Controller
             'failed_delivery',
         ];
 
-        $activePickupStatuses = [
-            'pending',
-            'confirmed',
-            'preparing',
-            'ready_for_pickup',
-            'customer_arrived',
-        ];
-
-        // 1. Fetch Deliveries & Pickups via helper methods
+        // 1. Fetch Deliveries ONLY
         $deliveriesCollection = $this->fetchDeliveriesCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activeDeliveryStatuses);
-        $pickupsCollection = $this->fetchPickupsCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activePickupStatuses);
 
-        // 2. Merge, Sort & Paginate
-        $allMerged = $deliveriesCollection->concat($pickupsCollection);
-
+        // 2. Sort & Paginate
         if ($view === 'today') {
-            $sortedMerged = $allMerged->sort(function ($a, $b) {
+            $sortedDeliveries = $deliveriesCollection->sort(function ($a, $b) {
                 $aActive = $a->is_active_op ? 0 : 1;
                 $bActive = $b->is_active_op ? 0 : 1;
                 if ($aActive !== $bActive) {
@@ -79,32 +66,32 @@ class DeliveryController extends Controller
                 return strtotime((string) $a->created_at) <=> strtotime((string) $b->created_at);
             })->values();
         } else {
-            $sortedMerged = $allMerged->sortByDesc('created_at')->values();
+            $sortedDeliveries = $deliveriesCollection->sortByDesc('created_at')->values();
         }
 
         // Assign queue position numbers to active items
         $queuePos = 1;
-        $sortedMerged->transform(function ($item) use (&$queuePos) {
+        $sortedDeliveries->transform(function ($item) use (&$queuePos) {
             $item->queue_position = $item->is_active_op ? $queuePos++ : null;
             return $item;
         });
 
         $page = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 50;
-        $pagedItems = $sortedMerged->slice(($page - 1) * $perPage, $perPage)->values();
+        $pagedItems = $sortedDeliveries->slice(($page - 1) * $perPage, $perPage)->values();
 
         $deliveries = new LengthAwarePaginator(
             $pagedItems,
-            $sortedMerged->count(),
+            $sortedDeliveries->count(),
             $perPage,
             $page,
             ['path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->query()]
         );
 
-        // 3. Fleet & Unified Statistics
+        // 3. Fleet & Delivery Statistics
         $availableRiders = $this->getAvailableRidersData($user);
         $allRiders = Rider::orderBy('name')->get(['id', 'name']);
-        $stats = $this->calculateUnifiedStats($user, $activeDeliveryStatuses, $activePickupStatuses);
+        $stats = $this->calculateDeliveryStats($user, $activeDeliveryStatuses);
 
         return Inertia::render('Admin/Deliveries', [
             'deliveries'     => $deliveries,
@@ -260,179 +247,6 @@ class DeliveryController extends Controller
     }
 
     /**
-     * Query and format Pickup orders for operations queue.
-     */
-    private function fetchPickupsCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activePickupStatuses): \Illuminate\Support\Collection
-    {
-        if (!in_array($filterType, ['all', 'pickup'])) {
-            return collect();
-        }
-
-        $pkQuery = Order::with(['items.product', 'branch', 'user'])
-            ->where('fulfillment_type', Order::FULFILLMENT_PICKUP);
-
-        if (!$user->isAdmin()) {
-            $pkQuery->where('branch_id', $user->branch_id);
-        } elseif ($branchIdFilter) {
-            $pkQuery->where('branch_id', $branchIdFilter);
-        }
-
-        if ($view === 'today') {
-            $pkQuery->where(function ($q) use ($activePickupStatuses) {
-                $q->whereIn('status', $activePickupStatuses)
-                  ->orWhere(function ($subQ) {
-                      $subQ->whereIn('status', ['completed', 'cancelled', 'no_show'])
-                           ->where(function ($dateQ) {
-                               $dateQ->whereDate('pickup_completed_at', today())
-                                     ->orWhereDate('cancelled_at', today())
-                                     ->orWhereDate('created_at', today());
-                           });
-                  });
-            });
-        } else {
-            if ($statusFilter) {
-                $pkQuery->where('status', $statusFilter);
-            } else {
-                $pkQuery->whereIn('status', ['completed', 'cancelled', 'no_show']);
-            }
-
-            if ($riderIdFilter) {
-                $pkQuery->whereRaw('1 = 0');
-            }
-
-            if ($datePreset === 'today') {
-                $pkQuery->where(function ($dq) {
-                    $dq->whereDate('pickup_completed_at', today())
-                       ->orWhereDate('cancelled_at', today())
-                       ->orWhereDate('created_at', today());
-                });
-            } elseif ($datePreset === 'yesterday') {
-                $yesterday = today()->subDay();
-                $pkQuery->where(function ($dq) use ($yesterday) {
-                    $dq->whereDate('pickup_completed_at', $yesterday)
-                       ->orWhereDate('cancelled_at', $yesterday)
-                       ->orWhereDate('created_at', $yesterday);
-                });
-            } elseif ($datePreset === 'last_7_days') {
-                $sevenDaysAgo = today()->subDays(7);
-                $pkQuery->where('created_at', '>=', $sevenDaysAgo);
-            } elseif ($datePreset === 'this_month') {
-                $pkQuery->whereMonth('created_at', today()->month)->whereYear('created_at', today()->year);
-            } elseif ($datePreset === 'custom' && $request->filled('start_date')) {
-                $startDate = $request->start_date;
-                $endDate = $request->input('end_date', $startDate);
-                $pkQuery->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
-            }
-        }
-
-        if ($view !== 'archive' && $statusFilter) {
-            $pkQuery->where('status', $statusFilter);
-        }
-
-        if ($search) {
-            $pkQuery->where(function ($q) use ($search) {
-                $q->where('customer_name', 'like', "%{$search}%")
-                  ->orWhere('contact_number', 'like', "%{$search}%")
-                  ->orWhere('pickup_verification_code', 'like', "%{$search}%")
-                  ->orWhere('order_number', 'like', "%{$search}%")
-                  ->orWhere('id', 'like', "%{$search}%");
-            });
-        }
-
-        return $pkQuery->get()->map(function (Order $order) use ($activePickupStatuses) {
-            $isActiveOp = in_array($order->status, $activePickupStatuses);
-            $statusLabel = match ($order->status) {
-                'pending'          => 'Pending',
-                'confirmed'        => 'Confirmed',
-                'preparing'        => 'Preparing',
-                'ready_for_pickup' => 'Ready for Pickup',
-                'customer_arrived' => 'Customer Arrived',
-                'completed'        => 'Completed',
-                'no_show'          => 'No Show',
-                'cancelled'        => 'Cancelled',
-                default            => ucfirst(str_replace('_', ' ', $order->status)),
-            };
-
-            $statusColor = match ($order->status) {
-                'pending'          => 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-                'confirmed'        => 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
-                'preparing'        => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400',
-                'ready_for_pickup' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-                'customer_arrived' => 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400',
-                'completed'        => 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400',
-                'cancelled'        => 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
-                'no_show'          => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
-                default            => 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-            };
-
-            $transitions = $order->getAllowedTransitions();
-            $nextStatuses = $transitions[$order->status] ?? [];
-
-            return (object) [
-                'id'                          => $order->id,
-                'order_id'                    => $order->id,
-                'sale_id'                     => null,
-                'fulfillment_type'            => 'pickup',
-                'is_pickup'                   => true,
-                'delivery_type'               => 'pickup',
-                'order_source'                => $order->order_source ?? 'mobile',
-                'external_service'            => null,
-                'tracking_number'             => null,
-                'status'                      => $order->status,
-                'status_label'                => $statusLabel,
-                'status_color'                => $statusColor,
-                'customer_name'               => $order->customer_name,
-                'customer_address'            => $order->address ?? 'Store Pickup',
-                'customer_phone'              => $order->contact_number,
-                'distance_km'                 => 0,
-                'delivery_fee'                => 0,
-                'created_at'                  => $order->created_at?->toISOString() ?? now()->toISOString(),
-                'updated_at'                  => $order->updated_at?->toISOString() ?? now()->toISOString(),
-                'delivered_at'                => $order->pickup_completed_at?->toISOString(),
-                'next_statuses'               => $nextStatuses,
-                'is_cancelled'                => $order->status === 'cancelled',
-                'is_delivered'                => $order->status === 'completed',
-                'is_failed'                   => $order->status === 'no_show',
-                'can_mark_failed'             => false,
-                'waiting_minutes'             => (int) now()->diffInMinutes($order->created_at),
-                'is_active_op'                => $isActiveOp,
-                'cancellation_reason'         => $order->cancellation_reason,
-                'cancelled_at'                => $order->cancelled_at?->toISOString(),
-                'cancelled_by_name'           => null,
-                'scheduled_pickup_at'         => $order->scheduled_pickup_at?->toISOString(),
-                'scheduled_pickup_display'    => $order->scheduled_pickup_at ? $order->scheduled_pickup_at->timezone(PickupOrderService::DEFAULT_TIMEZONE)->format('M d, Y • g:i A') : null,
-                'pickup_verification_code'    => $order->pickup_verification_code,
-                'estimated_prep_time_minutes' => (int) ($order->estimated_prep_time_minutes ?? 20),
-                'prep_start_at'               => $order->prep_start_at?->toISOString(),
-                'order'                       => [
-                    'id'           => $order->id,
-                    'order_number' => $order->order_number ?? "ORD-{$order->id}",
-                    'total_amount' => (float) $order->total_amount,
-                    'status'       => $order->status,
-                    'branch'       => $order->branch ? [
-                        'name'      => $order->branch->name,
-                        'latitude'  => $order->branch->latitude ? (float) $order->branch->latitude : null,
-                        'longitude' => $order->branch->longitude ? (float) $order->branch->longitude : null,
-                    ] : null,
-                    'items'        => $order->items->map(fn($it) => [
-                        'id'       => $it->id,
-                        'product'  => [
-                            'name'      => $it->product?->name ?? $it->product_name ?? 'Item',
-                            'image_url' => $it->product?->image_url ?? $it->image_path,
-                        ],
-                        'quantity' => (float) $it->quantity,
-                        'price'    => (float) ($it->price ?? $it->unit_price ?? 0),
-                    ])->values()->all(),
-                ],
-                'rider_id'                    => null,
-                'rider'                       => null,
-                'delivery_notes'              => $order->pickup_notes,
-                'external_notes'              => $order->notes,
-            ];
-        });
-    }
-
-    /**
      * Retrieve available riders with status counts.
      */
     private function getAvailableRidersData($user)
@@ -483,57 +297,42 @@ class DeliveryController extends Controller
     }
 
     /**
-     * Compute statistics combining both Delivery and Pickup pipelines.
+     * Compute statistics for Delivery pipeline only.
      */
-    private function calculateUnifiedStats($user, $activeDeliveryStatuses, $activePickupStatuses): array
+    private function calculateDeliveryStats($user, $activeDeliveryStatuses): array
     {
         $baseDeliveryQuery = Delivery::query();
-        $basePickupQuery = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP);
 
         if (!$user->isAdmin()) {
             $baseDeliveryQuery->where(function ($q) use ($user) {
                 $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
                   ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
             });
-            $basePickupQuery->where('branch_id', $user->branch_id);
         }
 
         $activeDelivCount = (clone $baseDeliveryQuery)->whereIn('status', $activeDeliveryStatuses)->count();
-        $activePickupCount = (clone $basePickupQuery)->whereIn('status', $activePickupStatuses)->count();
 
         return [
-            'all_count'        => $activeDelivCount + $activePickupCount,
+            'all_count'        => $activeDelivCount,
             'delivery_count'   => $activeDelivCount,
-            'pickup_count'     => $activePickupCount,
-            'waiting'          => (clone $baseDeliveryQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count() 
-                                  + (clone $basePickupQuery)->whereIn('status', ['pending', 'confirmed'])->count(),
-            'preparing'        => (clone $baseDeliveryQuery)->where('status', 'preparing')->count()
-                                  + (clone $basePickupQuery)->where('status', 'preparing')->count(),
-            'ready'            => (clone $baseDeliveryQuery)->where('status', 'ready_for_pickup')->count()
-                                  + (clone $basePickupQuery)->whereIn('status', ['ready_for_pickup', 'customer_arrived'])->count(),
+            'waiting'          => (clone $baseDeliveryQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
+            'preparing'        => (clone $baseDeliveryQuery)->where('status', 'preparing')->count(),
+            'ready'            => (clone $baseDeliveryQuery)->where('status', 'ready_for_pickup')->count(),
             'assigned'         => (clone $baseDeliveryQuery)->where('status', 'assigned_to_rider')->count(),
             'in_transit'       => (clone $baseDeliveryQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
-            'delivered'        => (clone $baseDeliveryQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count()
-                                  + (clone $basePickupQuery)->where('status', 'completed')->whereDate('pickup_completed_at', today())->count(),
+            'delivered'        => (clone $baseDeliveryQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
             'delivered_today'  => (clone $baseDeliveryQuery)->where('status', 'delivered')->where(function ($dq) {
                                       $dq->whereDate('delivered_at', today())
                                          ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
-                                  })->count()
-                                  + (clone $basePickupQuery)->where('status', 'completed')->where(function ($dq) {
-                                      $dq->whereDate('pickup_completed_at', today())
-                                         ->orWhereDate('created_at', today());
                                   })->count(),
-            'total_historical' => (clone $baseDeliveryQuery)->whereIn('status', ['delivered', 'cancelled', 'failed_delivery'])->count()
-                                  + (clone $basePickupQuery)->whereIn('status', ['completed', 'cancelled', 'no_show'])->count(),
-            'failed'           => (clone $baseDeliveryQuery)->where('status', 'failed_delivery')->count()
-                                  + (clone $basePickupQuery)->where('status', 'no_show')->count(),
+            'total_historical' => (clone $baseDeliveryQuery)->whereIn('status', ['delivered', 'cancelled', 'failed_delivery'])->count(),
+            'failed'           => (clone $baseDeliveryQuery)->where('status', 'failed_delivery')->count(),
             'delayed'          => (clone $baseDeliveryQuery)
                 ->whereNotIn('status', ['delivered', 'cancelled', 'failed_delivery'])
                 ->where('created_at', '<', now()->subMinutes(45))
                 ->count(),
-            'pending'          => (clone $baseDeliveryQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count()
-                                  + (clone $basePickupQuery)->whereIn('status', ['pending', 'confirmed'])->count(),
-            'active'           => $activeDelivCount + $activePickupCount,
+            'pending'          => (clone $baseDeliveryQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
+            'active'           => $activeDelivCount,
         ];
     }
 
@@ -887,134 +686,7 @@ class DeliveryController extends Controller
                 'latitude'         => $destLat,
                 'longitude'        => $destLng,
             ],
-            'route'       => $routeResult,
+            'route' => $routeResult,
         ]);
-    }
-
-    /**
-     * Advance / transition pickup order status from the operational queue.
-     * POST /deliveries/pickup/{id}/status
-     */
-    public function updatePickupStatus(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'status' => 'required|string|in:confirmed,preparing,ready_for_pickup,customer_arrived,completed,no_show,cancelled',
-            'reason' => 'nullable|string|max:500',
-        ]);
-
-        $order = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)->findOrFail($id);
-        $user = Auth::user();
-
-        if (!$user->isAdmin() && $user->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
-            abort(403, 'Unauthorized branch access.');
-        }
-
-        try {
-            $this->pickupService->transitionPickupStatus(
-                order: $order,
-                newStatus: $validated['status'],
-                reason: $validated['reason'] ?? null,
-                actor: $user
-            );
-
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => "Order #{$order->order_number} status updated to " . strtoupper(str_replace('_', ' ', $validated['status'])),
-                    'order'   => $order->fresh(),
-                ]);
-            }
-
-            return back()->with('success', "Order #{$order->order_number} status updated to " . strtoupper(str_replace('_', ' ', $validated['status'])));
-        } catch (\Throwable $e) {
-            if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
-            }
-            return back()->with('error', "Status transition failed: " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Cancel a pickup order and restore inventory.
-     * POST /deliveries/pickup/{id}/cancel
-     */
-    public function cancelPickup(Request $request, $id)
-    {
-        $user = Auth::user();
-        $order = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)->findOrFail($id);
-
-        if (!$user->isAdmin() && $user->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
-            abort(403, 'Unauthorized branch access.');
-        }
-
-        if ($order->status === 'completed') {
-            return back()->with('error', 'Cannot cancel a pickup order that has already been completed.');
-        }
-
-        try {
-            $this->pickupService->transitionPickupStatus(
-                order: $order,
-                newStatus: 'cancelled',
-                reason: $request->input('reason', 'Cancelled by store staff'),
-                actor: $user
-            );
-
-            // Restore product stock
-            foreach ($order->items as $item) {
-                if (!empty($item->product_id)) {
-                    \Illuminate\Support\Facades\DB::table('products')
-                        ->where('id', $item->product_id)
-                        ->increment('stock', $item->quantity ?? 1);
-                }
-            }
-            app(InventoryService::class)->restoreForOrder($order);
-
-            return back()->with('success', 'Pickup order cancelled successfully.');
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Failed to cancel pickup order: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Verify pickup verification code and complete pickup.
-     * POST /deliveries/pickup/{id}/verify-complete
-     */
-    public function verifyCompletePickup(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'verification_code' => 'required|string|max:50',
-            'paid_amount'       => 'nullable|numeric|min:0',
-        ]);
-
-        $order = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)->findOrFail($id);
-        $user = Auth::user();
-
-        if (!$user->isAdmin() && $user->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
-            abort(403, 'Unauthorized branch access.');
-        }
-
-        $result = $this->pickupService->verifyAndCompletePickup(
-            order: $order,
-            verificationInput: $validated['verification_code'],
-            cashier: $user,
-            paidAmount: isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : null
-        );
-
-        if (!$result['success']) {
-            if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => $result['message']], 422);
-            }
-            return back()->with('error', $result['message']);
-        }
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => "Pickup verified and Order #{$order->order_number} completed!",
-                'order'   => $result['order'],
-            ]);
-        }
-
-        return back()->with('success', "Pickup verified and Order #{$order->order_number} completed!");
     }
 }

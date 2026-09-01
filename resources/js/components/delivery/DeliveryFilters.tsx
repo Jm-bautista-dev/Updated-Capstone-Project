@@ -100,7 +100,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     </button>
                 </div>
 
-                {/* Fulfillment Tabs: ALL | DELIVERY | PICKUP */}
+                {/* Delivery Type Tabs: ALL | INTERNAL FLEET | THIRD-PARTY COURIER */}
                 <div className="flex items-center gap-1 p-1 rounded-2xl bg-[#F8C8DC]/20 dark:bg-white/5 border border-[#F8C8DC]/40 dark:border-white/10 self-center sm:self-auto overflow-x-auto">
                     <button
                         type="button"
@@ -111,28 +111,10 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                                 : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
                         }`}
                     >
-                        <span>All</span>
-                        {typeof stats?.all_count === 'number' && (
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                                (filters.type || 'all') === 'all' ? 'bg-white/20 text-white' : 'bg-rose-100 dark:bg-white/10 text-rose-700 dark:text-rose-300'
-                            }`}>
-                                {stats.all_count}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onFilterChange({ type: 'delivery' })}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            filters.type === 'delivery' || filters.type === 'internal' || filters.type === 'external'
-                                ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/30'
-                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                    >
-                        <span>🚚 Delivery</span>
+                        <span>All Deliveries</span>
                         {typeof stats?.delivery_count === 'number' && (
                             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                                filters.type === 'delivery' ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-white/10 text-blue-700 dark:text-blue-300'
+                                (filters.type || 'all') === 'all' ? 'bg-white/20 text-white' : 'bg-rose-100 dark:bg-white/10 text-rose-700 dark:text-rose-300'
                             }`}>
                                 {stats.delivery_count}
                             </span>
@@ -140,21 +122,25 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     </button>
                     <button
                         type="button"
-                        onClick={() => onFilterChange({ type: 'pickup' })}
+                        onClick={() => onFilterChange({ type: 'internal' })}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            filters.type === 'pickup'
-                                ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-500/30'
+                            filters.type === 'internal'
+                                ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/30'
                                 : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
                         }`}
                     >
-                        <span>🏪 Pickup</span>
-                        {typeof stats?.pickup_count === 'number' && (
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                                filters.type === 'pickup' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-300'
-                            }`}>
-                                {stats.pickup_count}
-                            </span>
-                        )}
+                        <span>🚚 Internal Fleet</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onFilterChange({ type: 'external' })}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            filters.type === 'external'
+                                ? 'bg-purple-600 text-white shadow-xs shadow-purple-500/30'
+                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                    >
+                        <span>🛵 Third-Party</span>
                     </button>
                 </div>
             </div>
