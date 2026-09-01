@@ -1,7 +1,7 @@
 import {
     AlertOctagon,
     ArrowUpDown,
-    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, RotateCcw, Truck,
+    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, Truck,
 } from 'lucide-react';
 import React, { useCallback, useRef } from 'react';
 import { List } from 'react-window';
@@ -18,7 +18,7 @@ interface DeliveryTableProps {
     deliveries: Delivery[];
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
-    onAssignRider: (delivery: Delivery) => void;
+    onAssignRider?: (delivery: Delivery) => void;
     onFailDelivery?: (id: number) => void;
     containerHeight?: number;
 }
@@ -33,7 +33,7 @@ interface RowProps {
     deliveries: Delivery[];
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
-    onAssignRider: (delivery: Delivery) => void;
+    onAssignRider?: (delivery: Delivery) => void;
     onFailDelivery?: (id: number) => void;
 }
 
@@ -43,7 +43,6 @@ const TableRow = React.memo(function TableRow({
     deliveries,
     onSelect,
     onUpdateStatus,
-    onAssignRider,
     onFailDelivery,
 }: {
     index: number;
@@ -189,47 +188,15 @@ const TableRow = React.memo(function TableRow({
                     </Tooltip>
                 )}
 
-                {delivery.is_failed && (
+                {isUnassignedInternal && !delivery.is_failed && !delivery.is_cancelled && !delivery.is_delivered && (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-7 rounded-lg hover:bg-red-500/10 text-red-600 transition-all"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAssignRider(delivery);
-                                }}
-                            >
-                                <RotateCcw className="size-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p className="text-[10px] font-bold">Reassign Rider</p>
-                        </TooltipContent>
-                    </Tooltip>
-                )}
-
-                {!delivery.is_failed && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                size="icon"
-                                variant={isUnassignedInternal ? "default" : "ghost"}
-                                className={cn(
-                                    "size-7 rounded-lg transition-all",
-                                    isUnassignedInternal ? "bg-[#E75480] hover:bg-[#D43F6B] text-white shadow-xs" : "hover:bg-[#FFF5F7] dark:hover:bg-white/10"
-                                )}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAssignRider(delivery);
-                                }}
-                            >
+                            <div className="size-7 rounded-lg flex items-center justify-center bg-amber-500/10 text-amber-600 dark:text-amber-400">
                                 <Bike className="size-3.5" />
-                            </Button>
+                            </div>
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p className="text-[10px] font-bold">{delivery.rider_id ? 'Change Rider' : 'Assign Rider'}</p>
+                            <p className="text-[10px] font-bold">Waiting for Rider Self-Acceptance</p>
                         </TooltipContent>
                     </Tooltip>
                 )}

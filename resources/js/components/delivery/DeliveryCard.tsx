@@ -1,4 +1,4 @@
-import { AlertOctagon, Bike, Building2, ChevronRight, Clock, Eye, RotateCcw, Truck, User } from 'lucide-react';
+import { AlertOctagon, Bike, Building2, ChevronRight, Clock, Eye, Truck, User } from 'lucide-react';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -13,11 +13,11 @@ interface DeliveryCardProps {
     delivery: Delivery;
     onSelect: (delivery: Delivery) => void;
     onUpdateStatus: (id: number) => void;
-    onAssignRider: (delivery: Delivery) => void;
+    onAssignRider?: (delivery: Delivery) => void;
     onFailDelivery?: (id: number) => void;
 }
 
-const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onAssignRider, onFailDelivery }: DeliveryCardProps) {
+const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onFailDelivery }: DeliveryCardProps) {
     const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
     const typeColor = delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-emerald-600 dark:text-emerald-400';
     const typeBg = delivery.delivery_type === 'internal' ? 'bg-[#FFF5F7] dark:bg-[#1C1C28]' : 'bg-emerald-50 dark:bg-emerald-950/20';
@@ -140,33 +140,12 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
 
                     {/* Actions */}
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {delivery.is_failed ? (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAssignRider(delivery);
-                                }}
-                            >
-                                <RotateCcw className="size-3.5" />
-                                Reassign Rider
-                            </Button>
-                        ) : isUnassignedInternal ? (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 border-amber-500/50 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/20 shadow-sm shadow-amber-500/10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onAssignRider(delivery);
-                                }}
-                            >
-                                <Bike className="size-3.5" />
-                                Assign Rider
-                            </Button>
-                        ) : null}
+                        {isUnassignedInternal && !delivery.is_cancelled && !delivery.is_delivered && !delivery.is_failed && (
+                            <div className="flex-1 h-9 rounded-xl flex items-center justify-center gap-2 px-3 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold font-['Outfit']">
+                                <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span>Available for Rider Self-Acceptance</span>
+                            </div>
+                        )}
                         
                         {delivery.next_statuses.length > 0 && !delivery.is_cancelled && !delivery.is_failed && (
                             <Button

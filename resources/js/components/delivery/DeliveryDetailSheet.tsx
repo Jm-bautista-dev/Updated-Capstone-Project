@@ -25,7 +25,7 @@ interface DeliveryDetailSheetProps {
     open: boolean;
     onClose: () => void;
     onUpdateStatus: (id: number) => void;
-    onAssignRider: (delivery: Delivery) => void;
+    onAssignRider?: (delivery: Delivery) => void;
 }
 
 // Full delivery status timeline (all 7 steps)
@@ -289,7 +289,6 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
     open,
     onClose,
     onUpdateStatus,
-    onAssignRider,
 }: DeliveryDetailSheetProps) {
     if (!delivery) return null;
 
@@ -509,21 +508,14 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     <div className="space-y-4 pb-8">
                         <div className="flex items-center justify-between">
                             <h4 className="text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Courier Details</h4>
-                            {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && (
-                                <Button
+                            {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && isUnassignedInternal && (
+                                <Badge
                                     variant="outline"
-                                    size="sm"
-                                    className={cn(
-                                        "h-7 rounded-lg text-[10px] font-black px-3 gap-1.5 transition-all",
-                                        isUnassignedInternal 
-                                            ? "bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-sm animate-bounce-subtle" 
-                                            : "text-primary border-primary/20 hover:bg-primary/5"
-                                    )}
-                                    onClick={() => onAssignRider(delivery)}
+                                    className="h-6 rounded-md text-[10px] font-bold px-2.5 gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300/40"
                                 >
-                                    <Bike className="size-3" />
-                                    {isUnassignedInternal ? 'ASSIGN RIDER' : 'REASSIGN'}
-                                </Button>
+                                    <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    Waiting for Rider
+                                </Badge>
                             )}
                         </div>
 
