@@ -143,13 +143,38 @@ class PosController extends Controller
 
         try {
             $orderNumber = 'POS-' . strtoupper(uniqid());
-            $this->saleService->processSale(array_merge($validated, [
-                'order_number' => $orderNumber,
-                'status' => 'completed',
+            $sale = $this->saleService->processSale(array_merge($validated, [
+                'order_number'    => $orderNumber,
+                'status'          => 'completed',
+                'idempotency_key' => $request->input('idempotency_key'),
+                'terminal_id'     => $request->input('terminal_id', 'POS-1'),
             ]));
 
-            return redirect()->back()->with('success', 'Order processed successfully');
+            $printJob = $sale->printJob ?? null;
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success'   => true,
+                    'message'   => 'Order processed successfully',
+                    'sale'      => $sale->load(['items.product', 'branch']),
+                    'print_job' => $printJob,
+                ]);
+            }
+
+            return redirect()->back()
+                ->with('success', 'Order processed successfully')
+                ->with('print_job', $printJob ? [
+                    'id'                => $printJob->id,
+                    'job_uuid'          => $printJob->job_uuid,
+                    'order_number'      => $printJob->order_number,
+                    'paper_width'       => $printJob->paper_width,
+                    'raw_escpos_base64' => $printJob->raw_escpos_base64,
+                    'formatted_text'    => $printJob->formatted_text,
+                ] : null);
         } catch (\Exception $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
+            }
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }

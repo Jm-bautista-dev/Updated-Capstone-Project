@@ -99,6 +99,16 @@ class Sale extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function printJobs()
+    {
+        return $this->hasMany(PrintJob::class);
+    }
+
     public function delivery()
     {
         return $this->hasOne(Delivery::class);

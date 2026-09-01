@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { format, parseISO } from 'date-fns';
 import {
     Receipt,
@@ -8,9 +9,11 @@ import {
     Utensils,
     Truck,
     ShieldAlert,
-    X
+    X,
+    RotateCw
 } from 'lucide-react';
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 
 import type { Sale } from '@/components/sales/SalesHero';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +22,7 @@ import {
     Sheet,
     SheetContent,
 } from '@/components/ui/sheet';
+import { sendToLocalPrintBridge } from '@/lib/pos-print-bridge';
 import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 
 interface SalesDrawerProps {
@@ -37,6 +41,33 @@ export function SalesDrawer({
     onOpenVoidModal,
 }: SalesDrawerProps) {
     const [tab, setTab] = useState<'items' | 'receipt'>('items');
+    const [reprinting, setReprinting] = useState(false);
+
+    const handleThermalReprint = async () => {
+        if (!sale?.id) return;
+        setReprinting(true);
+        try {
+            const res = await axios.post('/api/v1/pos/print-jobs/reprint', {
+                sale_id: sale.id,
+                reason: 'Reprinted from Sales History Drawer',
+            });
+            if (res.data?.success && res.data?.print_job) {
+                const printJob = res.data.print_job;
+                const result = await sendToLocalPrintBridge(printJob);
+                if (result.success) {
+                    toast.success(`✓ Thermal receipt sent to printer for #${sale.order_number || sale.id}`);
+                } else {
+                    toast.warning(`Receipt queued for printing (Printer bridge offline)`);
+                }
+            } else {
+                toast.error('Failed to create reprint job');
+            }
+        } catch {
+            toast.error('Error requesting receipt reprint');
+        } finally {
+            setReprinting(false);
+        }
+    };
 
     if (!sale) return null;
 
@@ -361,11 +392,23 @@ export function SalesDrawer({
                     <Button
                         type="button"
                         variant="outline"
+                        onClick={handleThermalReprint}
+                        disabled={reprinting}
+                        className="flex-1 h-11 rounded-2xl border-emerald-500/40 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 text-xs font-bold gap-2 cursor-pointer"
+                    >
+                        <RotateCw className={cn("size-4", reprinting && "animate-spin")} />
+                        <span>{reprinting ? 'Spooling...' : 'Thermal Reprint'}</span>
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="outline"
                         onClick={() => window.print()}
-                        className="flex-1 h-11 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] text-xs font-bold gap-2 cursor-pointer"
+                        className="h-11 px-3 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] text-xs font-bold gap-1.5 cursor-pointer"
+                        title="Browser Print Preview"
                     >
                         <Printer className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                        <span>Print Receipt</span>
+                        <span className="hidden sm:inline">Browser</span>
                     </Button>
 
                     {isAdmin && !isVoided && onOpenVoidModal && (

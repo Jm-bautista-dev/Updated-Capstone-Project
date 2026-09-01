@@ -226,7 +226,13 @@ Route::prefix('v1')->group(function () {
         Route::get('customer/notifications',                     [App\Http\Controllers\Api\CustomerNotificationController::class, 'index']);
         Route::get('customer/notifications/unread-count',        [App\Http\Controllers\Api\CustomerNotificationController::class, 'unreadCount']);
         Route::post('customer/notifications/read-all',           [App\Http\Controllers\Api\CustomerNotificationController::class, 'markAllAsRead']);
-        Route::post('customer/notifications/{id}/read',          [App\Http\Controllers\Api\CustomerNotificationController::class, 'markAsRead']);
+        // ── POS Thermal Print Jobs & Reprints ──
+        Route::prefix('pos/print-jobs')->group(function () {
+            Route::get('pending',        [App\Http\Controllers\Api\PrintJobController::class, 'pending']);
+            Route::get('{uuid}',         [App\Http\Controllers\Api\PrintJobController::class, 'show']);
+            Route::post('{uuid}/status', [App\Http\Controllers\Api\PrintJobController::class, 'updateStatus']);
+            Route::post('reprint',       [App\Http\Controllers\Api\PrintJobController::class, 'reprint']);
+        });
     });
 });
 

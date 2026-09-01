@@ -41,6 +41,7 @@ import {
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
+import { usePrinterStatus, sendToLocalPrintBridge, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
 import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 
 type Category = {
@@ -104,6 +105,9 @@ function generateOfflineId(): string {
 
 export default function PosIndex() {
   const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
+
+  // --- Real-time Printer Status Hook ---
+  const { status: _printerStatus, isConnected: isPrinterReady, checkNow: checkPrinterNow } = usePrinterStatus();
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -372,22 +376,16 @@ export default function PosIndex() {
         type: 'SALE',
         payload: salePayload
       }).then(() => {
-        toast.success('Offline Mode: Order saved locally. It will auto-sync when online.');
-        setLastSale({
-          order_number: opId.toUpperCase(),
-          created_at: new Date().toISOString(),
-          type: orderType,
-          items: cart.map(item => ({ id: item.id, product: { name: item.name }, quantity: item.quantity, unit_price: item.selling_price })),
-          subtotal: cartSubtotal,
-          discount: discountAmount,
-          discount_type: activeDiscount?.type || null,
-          total: cartTotal,
-          payment_method: paymentMethod,
-          paid_amount: paid,
-          change_amount: paymentMethod === 'cash' ? changeDue : 0,
-          cashier: { name: 'Staff (Offline)' }
+        toast.success(`✓ Offline Order #${opId.toUpperCase()} Saved Locally`, {
+          description: 'It will auto-sync and print when online.',
+          duration: 4000,
         });
-        setIsSuccessModalOpen(true);
+        setCart([]);
+        setActiveDiscount(null);
+        setCashReceived('');
+        setProofFile(null);
+        setKioskStep('browse');
+        setOrderType('dine-in');
       }).catch(() => {
         toast.error('Offline Mode: Failed to save order locally.');
       });
@@ -439,10 +437,50 @@ export default function PosIndex() {
 
     router.post('/pos', formData, {
       forceFormData: true,
-      onSuccess: (page) => {
+      onSuccess: async (page) => {
+        const flash = (page.props as unknown as { flash?: { print_job?: LocalPrintJobPayload; success?: string } })?.flash;
+        const printJob = flash?.print_job;
         const sale = ((page.props as unknown) as { recentOrders?: Record<string, unknown>[] }).recentOrders?.[0] || null;
-        setLastSale(sale);
-        setIsSuccessModalOpen(true);
+        const orderNum = printJob?.order_number || (sale?.order_number as string) || 'POS-ORDER';
+
+        // 1. Immediately reset cart and kiosk view to ready state
+        setCart([]);
+        setActiveDiscount(null);
+        setCashReceived('');
+        setProofFile(null);
+        setDeliveryInfo(prev => ({
+          ...prev,
+          customer_name: '',
+          customer_phone: '',
+          customer_address: '',
+          rider_id: '',
+          tracking_number: '',
+          distance_km: '',
+          delivery_fee: 0,
+          delivery_notes: '',
+          external_notes: ''
+        }));
+        setKioskStep('browse');
+        setOrderType('dine-in');
+
+        // 2. Dispatch silent print to local thermal bridge
+        if (printJob && printJob.raw_escpos_base64) {
+          const printResult = await sendToLocalPrintBridge(printJob);
+          if (printResult.success) {
+            toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {
+              duration: 3500,
+            });
+          } else {
+            toast.warning(`✓ Order #${orderNum} Completed (Printer offline - queued)`, {
+              description: 'Order saved successfully. Receipt will print once printer is reconnected.',
+              duration: 5000,
+            });
+          }
+        } else {
+          toast.success(`✓ Order #${orderNum} Completed`, {
+            duration: 3500,
+          });
+        }
       },
       onError: (err: Record<string, string>) => {
         setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });
@@ -540,6 +578,23 @@ export default function PosIndex() {
                 </Button>
               </div>
             )}
+            {/* Printer Bridge Status Indicator */}
+            <button
+              type="button"
+              onClick={() => checkPrinterNow()}
+              title={isPrinterReady ? "Thermal Printer Ready" : "Thermal Print Bridge Offline - Click to re-check"}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer",
+                isPrinterReady
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100"
+                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 animate-pulse"
+              )}
+            >
+              <span className={cn("size-2 rounded-full", isPrinterReady ? "bg-emerald-500" : "bg-amber-500")} />
+              <FiPrinter className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+              <span className="hidden md:inline font-extrabold">{isPrinterReady ? "Printer Ready" : "Printer Offline"}</span>
+            </button>
+
             <NotificationBell />
           </div>
         </header>
@@ -1162,89 +1217,6 @@ export default function PosIndex() {
             </motion.div>
           )}
         </div>
-
-        {/* ========================================================================= */}
-        {/* ORDER SUCCESS MODAL */}
-        {/* ========================================================================= */}
-        <Dialog open={isSuccessModalOpen} onOpenChange={setIsSuccessModalOpen}>
-          <DialogContent className="max-w-md bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white max-h-[90vh] overflow-y-auto">
-            <div className="flex flex-col items-center text-center py-3">
-              <div className="size-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 border border-emerald-300 dark:border-emerald-800/40">
-                <FiCheckCircle className="size-8" />
-              </div>
-              <DialogTitle className="text-xl font-extrabold tracking-tight text-[#3D2C2E] dark:text-white">✓ ORDER COMPLETED</DialogTitle>
-              <DialogDescription className="text-[#7D6B6E] dark:text-zinc-400 text-xs font-bold uppercase tracking-wider mt-1">
-                Order #{String(lastSale?.order_number || 'POS-0001')}
-              </DialogDescription>
-            </div>
-
-            {/* Receipt Preview */}
-            <div className="bg-white text-black p-5 rounded-xl border-t-4 border-emerald-500 shadow-md space-y-3 font-mono text-xs">
-              <div className="text-center border-b pb-3 space-y-0.5">
-                <h3 className="font-extrabold text-base uppercase tracking-wider">
-                  {formatReceiptBranchHeading((lastSale?.branch as BranchInfo | undefined)?.name || branch?.name)}
-                </h3>
-                {((lastSale?.branch as BranchInfo | undefined)?.address || branch?.address) && (
-                  <p className="text-zinc-500 text-[10px]">
-                    {String((lastSale?.branch as BranchInfo | undefined)?.address || branch?.address)}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex justify-between text-[10px]">
-                <span>Date: {lastSale?.created_at ? format(new Date(String(lastSale.created_at)), 'MMM dd, yyyy HH:mm') : format(new Date(), 'MMM dd, yyyy HH:mm')}</span>
-                <span className="font-bold uppercase">{String(lastSale?.type || orderType)}</span>
-              </div>
-
-              <div className="border-y py-2 space-y-1.5">
-                <div className="flex justify-between font-bold border-b pb-1">
-                  <span>Item</span>
-                  <div className="flex gap-6">
-                    <span>Qty</span>
-                    <span>Price</span>
-                  </div>
-                </div>
-                {(lastSale?.items as Record<string, unknown>[] | undefined)?.map((item: Record<string, unknown>, idx: number) => (
-                  <div key={idx} className="flex justify-between text-[11px]">
-                    <span className="truncate max-w-32.5">{(item.product as Record<string, unknown> | undefined)?.name as string || 'Product'}</span>
-                    <div className="flex gap-8">
-                      <span>{String(item.quantity)}</span>
-                      <span>{formatCurrency(Number(item.unit_price))}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-1 text-xs border-b pb-2">
-                <div className="flex justify-between font-bold text-sm">
-                  <span>TOTAL</span>
-                  <span>{formatCurrency(Number(lastSale?.total) || cartTotal)}</span>
-                </div>
-                <div className="flex justify-between text-[10px] pt-1">
-                  <span className="capitalize">{String(lastSale?.payment_method || paymentMethod)} Paid</span>
-                  <span>{formatCurrency(Number(lastSale?.paid_amount) || cartTotal)}</span>
-                </div>
-                <div className="flex justify-between text-[10px] font-bold text-zinc-700">
-                  <span>CHANGE</span>
-                  <span>{formatCurrency(Number(lastSale?.change_amount) || changeDue)}</span>
-                </div>
-              </div>
-
-              <div className="text-center pt-1 italic text-[9px] text-zinc-500">
-                <p>Thank you for dining with us!</p>
-              </div>
-            </div>
-
-            <DialogFooter className="grid grid-cols-2 gap-3 pt-3">
-              <Button variant="outline" className="h-11 rounded-xl gap-2 font-bold border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white bg-white dark:bg-[#1E1E21]" onClick={() => window.print()}>
-                <FiPrinter className="size-4 text-[#E75480]" /> PRINT RECEIPT
-              </Button>
-              <Button className="h-11 rounded-xl gap-2 font-bold bg-[#E75480] text-white" onClick={handleNewOrder}>
-                <FiPlusCircle className="size-4" /> NEW ORDER
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Result Modal (Errors/Warnings) */}
         <ResultModal

@@ -1,0 +1,12 @@
+{
+  "name": "maki-print-bridge",
+  "version": "1.0.0",
+  "description": "Production-grade Local POS Thermal Print Bridge Agent for MAKI DESU",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["pos", "escpos", "thermal-printer", "print-bridge"],
+  "author": "Maki Desu Dev Team",
+  "license": "MIT"
+}

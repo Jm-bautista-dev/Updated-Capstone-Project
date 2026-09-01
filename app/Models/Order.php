@@ -269,6 +269,11 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function printJobs()
+    {
+        return $this->hasMany(PrintJob::class);
+    }
+
     public function delivery()
     {
         return $this->hasOne(Delivery::class);

@@ -38,7 +38,7 @@ class SaleService
      */
     public function processSale(array $data): Sale
     {
-        return DB::transaction(function () use ($data) {
+        $sale = DB::transaction(function () use ($data) {
             $user     = Auth::user();
             $branchId = $user->branch_id;
 
@@ -201,6 +201,20 @@ class SaleService
 
             return $sale;
         });
+
+        // 8. ── POST-COMMIT: ALLOCATE PRINT JOB ──────────────────────────────
+        try {
+            /** @var PrintJobService $printJobService */
+            $printJobService = app(PrintJobService::class);
+            $idempotencyKey = $data['idempotency_key'] ?? null;
+            $terminalId = $data['terminal_id'] ?? null;
+            $printJob = $printJobService->createForSale($sale, $idempotencyKey, $terminalId);
+            $sale->setRelation('printJob', $printJob);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('SaleService: Print job allocation failed gracefully: ' . $e->getMessage());
+        }
+
+        return $sale;
     }
 
     // ──────────────────────────────────────────────────────────────────────────

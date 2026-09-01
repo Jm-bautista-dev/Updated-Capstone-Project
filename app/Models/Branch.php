@@ -28,11 +28,16 @@ class Branch extends Model
         'pickup_opening_time',
         'pickup_closing_time',
         'pickup_cutoff_before_close_minutes',
+        'receipt_printer_name',
+        'receipt_paper_width',
+        'receipt_auto_print',
     ];
 
     protected $casts = [
         'has_internal_riders'                => 'boolean',
         'pickup_enabled'                     => 'boolean',
+        'receipt_auto_print'                 => 'boolean',
+        'receipt_paper_width'                => 'integer',
         'pickup_lead_time_minutes'           => 'integer',
         'pickup_slot_interval_minutes'       => 'integer',
         'pickup_max_orders_per_slot'         => 'integer',
