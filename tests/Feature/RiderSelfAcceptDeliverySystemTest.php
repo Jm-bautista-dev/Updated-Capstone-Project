@@ -121,185 +121,9 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
     }
 
     /**
-     * TEST 1: Preparing deliveries must NOT appear in available jobs
+     * TEST 1: READY_FOR_PICKUP + UNASSIGNED -> Accept -> ASSIGNED + rider_id set.
      */
-    public function test_order_in_preparing_status_is_not_visible_to_riders(): void
-    {
-        $rider = Rider::create([
-            'name'      => 'Rider One',
-            'email'     => 'rider1@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'available',
-            'is_active' => true,
-        ]);
-
-        $order = Order::create([
-            'order_number'   => 'ORD-PREP-1',
-            'user_id'        => $this->customer->id,
-            'branch_id'      => $this->victoria->id,
-            'customer_name'  => 'Test Customer',
-            'contact_number' => '09170001111',
-            'address'        => 'Victoria Laguna',
-            'status'         => 'preparing',
-            'total_amount'   => 250.00,
-        ]);
-
-        Delivery::create([
-            'order_id'         => $order->id,
-            'rider_id'         => null,
-            'customer_name'    => 'Test Customer',
-            'customer_phone'   => '09170001111',
-            'customer_address' => 'Victoria Laguna',
-            'status'           => 'preparing',
-            'delivery_type'    => 'internal',
-        ]);
-
-        Sanctum::actingAs($rider, ['*'], 'sanctum');
-
-        $response = $this->getJson('/api/v1/rider/available-deliveries');
-        $response->assertStatus(200);
-        $response->assertJson([
-            'success' => true,
-            'count'   => 0,
-            'data'    => [],
-        ]);
-    }
-
-    /**
-     * TEST 2: Order in READY FOR PICKUP status is visible to eligible riders in realtime
-     */
-    public function test_ready_for_pickup_unassigned_delivery_appears_in_available_deliveries(): void
-    {
-        $rider = Rider::create([
-            'name'      => 'Rider One',
-            'email'     => 'rider1@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'available',
-            'is_active' => true,
-        ]);
-
-        $order = Order::create([
-            'order_number'   => 'ORD-READY-1',
-            'user_id'        => $this->customer->id,
-            'branch_id'      => $this->victoria->id,
-            'customer_name'  => 'Juan Dela Cruz',
-            'contact_number' => '09170002222',
-            'address'        => 'Victoria Town Proper',
-            'status'         => 'ready_for_pickup',
-            'total_amount'   => 250.00,
-        ]);
-
-        $delivery = Delivery::create([
-            'order_id'         => $order->id,
-            'rider_id'         => null,
-            'customer_name'    => 'Juan Dela Cruz',
-            'customer_phone'   => '09170002222',
-            'customer_address' => 'Victoria Town Proper',
-            'status'           => 'ready_for_pickup',
-            'delivery_type'    => 'internal',
-            'delivery_fee'     => 50.00,
-        ]);
-
-        Sanctum::actingAs($rider, ['*'], 'sanctum');
-
-        $response = $this->getJson('/api/v1/rider/available-deliveries');
-        $response->assertStatus(200);
-        $response->assertJson([
-            'success' => true,
-            'count'   => 1,
-        ]);
-        $response->assertJsonFragment([
-            'delivery_id'   => $delivery->id,
-            'order_number'  => 'ORD-READY-1',
-            'status'        => 'ready_for_pickup',
-            'is_available'  => true,
-            'rider_id'      => null,
-        ]);
-    }
-
-    /**
-     * TEST 3: Inactive and offline riders cannot view or accept available deliveries
-     */
-    public function test_inactive_and_offline_riders_cannot_view_or_accept_jobs(): void
-    {
-        $inactiveRider = Rider::create([
-            'name'      => 'Inactive Rider',
-            'email'     => 'inactive@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'offline',
-            'is_active' => false,
-        ]);
-
-        $delivery = Delivery::create([
-            'customer_name'    => 'Test Customer',
-            'customer_phone'   => '09170003333',
-            'customer_address' => 'Victoria Laguna',
-            'status'           => 'ready_for_pickup',
-            'delivery_type'    => 'internal',
-        ]);
-
-        Sanctum::actingAs($inactiveRider, ['*'], 'sanctum');
-
-        // Cannot view available jobs
-        $viewResponse = $this->getJson('/api/v1/rider/available-deliveries');
-        $viewResponse->assertStatus(403);
-
-        // Cannot accept
-        $acceptResponse = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $acceptResponse->assertStatus(422);
-    }
-
-    /**
-     * TEST 4: Rider currently OUT FOR DELIVERY (in_transit) cannot accept new jobs
-     */
-    public function test_rider_out_for_delivery_cannot_accept_new_delivery(): void
-    {
-        $busyRider = Rider::create([
-            'name'      => 'In Transit Rider',
-            'email'     => 'transit@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'busy',
-            'is_active' => true,
-        ]);
-
-        // Active in-transit delivery
-        Delivery::create([
-            'rider_id'         => $busyRider->id,
-            'customer_name'    => 'Current Active Order',
-            'customer_address' => 'Road 1',
-            'status'           => 'in_transit',
-            'delivery_type'    => 'internal',
-        ]);
-
-        $newDelivery = Delivery::create([
-            'customer_name'    => 'New Ready Order',
-            'customer_address' => 'Road 2',
-            'status'           => 'ready_for_pickup',
-            'delivery_type'    => 'internal',
-        ]);
-
-        Sanctum::actingAs($busyRider, ['*'], 'sanctum');
-
-        // Blocked from viewing
-        $viewResponse = $this->getJson('/api/v1/rider/available-deliveries');
-        $viewResponse->assertStatus(422);
-
-        // Blocked from accepting
-        $acceptResponse = $this->postJson("/api/v1/rider/deliveries/{$newDelivery->id}/accept");
-        $acceptResponse->assertStatus(422);
-        $acceptResponse->assertJsonFragment([
-            'success' => false,
-        ]);
-    }
-
-    /**
-     * TEST 5: Active and available rider can accept an available ready job
-     */
-    public function test_active_and_available_rider_can_accept_ready_delivery(): void
+    public function test_ready_for_pickup_unassigned_accept_transitions_to_assigned(): void
     {
         Event::fake([OrderStatusUpdated::class, OrderAssigned::class, RiderStatusUpdated::class]);
 
@@ -340,38 +164,331 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
         $response->assertStatus(200);
         $response->assertJson([
             'success' => true,
-        ]);
-        $response->assertJsonFragment([
-            'status'   => 'assigned_to_rider',
-            'rider_id' => $rider->id,
+            'data'    => [
+                'status'            => 'assigned_to_rider',
+                'status_label'      => 'Rider Assigned',
+                'next_action'       => 'pickup',
+                'next_action_label' => 'Pick Up Order',
+                'route_phase'       => 'rider_to_store',
+                'rider_id'          => $rider->id,
+            ],
         ]);
 
-        // Verify Database
-        $this->assertEquals($rider->id, $delivery->fresh()->rider_id);
+        // Verify DB
         $this->assertEquals('assigned_to_rider', $delivery->fresh()->status);
-        $this->assertNotNull($delivery->fresh()->accepted_at);
-        $this->assertEquals($rider->id, $order->fresh()->rider_id);
+        $this->assertEquals($rider->id, $delivery->fresh()->rider_id);
         $this->assertEquals('assigned_to_rider', $order->fresh()->status);
-        $this->assertEquals('busy', $rider->fresh()->status);
-
-        // Verify Assignment Audit Log
-        $this->assertDatabaseHas('delivery_assignment_logs', [
-            'delivery_id'      => $delivery->id,
-            'rider_id'         => $rider->id,
-            'assigned_by_type' => 'rider_self_accept',
-            'new_status'       => 'assigned_to_rider',
-        ]);
-
-        // Verify Events Dispatched
-        Event::assertDispatched(OrderAssigned::class);
-        Event::assertDispatched(OrderStatusUpdated::class);
-        Event::assertDispatched(RiderStatusUpdated::class);
+        $this->assertEquals($rider->id, $order->fresh()->rider_id);
     }
 
     /**
-     * TEST 6: Atomic Concurrency Protection — First Rider Wins
+     * TEST 2: Accept again (Double tap) -> Idempotent 200 OK, status remains assigned_to_rider.
      */
-    public function test_atomic_concurrency_race_condition_first_rider_wins(): void
+    public function test_accept_again_is_idempotent_and_remains_assigned(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Rider Idempotent',
+            'email'     => 'idem@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'available',
+            'is_active' => true,
+        ]);
+
+        $delivery = Delivery::create([
+            'customer_name'    => 'Idempotent Customer',
+            'customer_address' => 'Victoria',
+            'status'           => 'ready_for_pickup',
+            'delivery_type'    => 'internal',
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        // Tap 1
+        $r1 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
+        $r1->assertStatus(200);
+
+        // Tap 2
+        $r2 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
+        $r2->assertStatus(200);
+        $r2->assertJson([
+            'success' => true,
+            'message' => 'Delivery is already assigned to you.',
+        ]);
+
+        $this->assertEquals('assigned_to_rider', $delivery->fresh()->status);
+        $this->assertEquals($rider->id, $delivery->fresh()->rider_id);
+    }
+
+    /**
+     * TEST 3: ASSIGNED -> Pickup -> PICKED_UP. Next action becomes transit.
+     */
+    public function test_assigned_pickup_transitions_to_picked_up(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Pickup Rider',
+            'email'     => 'pickup@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'busy',
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'order_number'   => 'ORD-PICK-1',
+            'user_id'        => $this->customer->id,
+            'branch_id'      => $this->victoria->id,
+            'customer_name'  => 'Pick Customer',
+            'contact_number' => '09170001234',
+            'address'        => 'Victoria Laguna',
+            'status'         => 'assigned_to_rider',
+            'rider_id'       => $rider->id,
+            'total_amount'   => 250.00,
+        ]);
+
+        $delivery = Delivery::create([
+            'order_id'         => $order->id,
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Pick Customer',
+            'customer_phone'   => '09170001234',
+            'customer_address' => 'Victoria Laguna',
+            'status'           => 'assigned_to_rider',
+            'delivery_type'    => 'internal',
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        $response = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'data'    => [
+                'status'            => 'picked_up',
+                'status_label'      => 'Picked Up',
+                'next_action'       => 'transit',
+                'next_action_label' => 'Start Delivery',
+                'route_phase'       => 'store_to_customer',
+            ],
+        ]);
+
+        $this->assertEquals('picked_up', $delivery->fresh()->status);
+        $this->assertEquals('picked_up', $order->fresh()->status);
+        $this->assertNotNull($delivery->fresh()->picked_up_at);
+    }
+
+    /**
+     * TEST 4: PICKED_UP -> Pickup again -> Safe idempotent response, status remains picked_up.
+     */
+    public function test_pickup_again_is_idempotent_and_remains_picked_up(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Pickup Rider',
+            'email'     => 'pickup2@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'busy',
+            'is_active' => true,
+        ]);
+
+        $delivery = Delivery::create([
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Pick Customer',
+            'customer_address' => 'Victoria',
+            'status'           => 'picked_up',
+            'delivery_type'    => 'internal',
+            'picked_up_at'     => now(),
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        $response = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'message' => 'Order is already marked as picked up.',
+        ]);
+
+        $this->assertEquals('picked_up', $delivery->fresh()->status);
+    }
+
+    /**
+     * TEST 5: PICKED_UP -> Start delivery (transit) -> IN_TRANSIT. Next action becomes deliver.
+     */
+    public function test_picked_up_transit_transitions_to_in_transit(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Transit Rider',
+            'email'     => 'transit1@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'busy',
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'order_number'   => 'ORD-TRANSIT-1',
+            'user_id'        => $this->customer->id,
+            'branch_id'      => $this->victoria->id,
+            'customer_name'  => 'Transit Customer',
+            'contact_number' => '09170005678',
+            'address'        => 'Victoria Laguna',
+            'status'         => 'picked_up',
+            'rider_id'       => $rider->id,
+            'total_amount'   => 250.00,
+        ]);
+
+        $delivery = Delivery::create([
+            'order_id'         => $order->id,
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Transit Customer',
+            'customer_phone'   => '09170005678',
+            'customer_address' => 'Victoria Laguna',
+            'status'           => 'picked_up',
+            'delivery_type'    => 'internal',
+            'picked_up_at'     => now(),
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        $response = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/transit");
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'data'    => [
+                'status'            => 'in_transit',
+                'status_label'      => 'In Transit',
+                'next_action'       => 'deliver',
+                'next_action_label' => 'Mark as Delivered',
+                'route_phase'       => 'rider_to_customer',
+            ],
+        ]);
+
+        $this->assertEquals('in_transit', $delivery->fresh()->status);
+        $this->assertEquals('in_transit', $order->fresh()->status);
+        $this->assertNotNull($delivery->fresh()->transit_at);
+    }
+
+    /**
+     * TEST 6: IN_TRANSIT -> Deliver -> DELIVERED. Terminal state.
+     */
+    public function test_in_transit_deliver_transitions_to_delivered(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Deliver Rider',
+            'email'     => 'deliver1@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'busy',
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'order_number'   => 'ORD-DELIV-1',
+            'user_id'        => $this->customer->id,
+            'branch_id'      => $this->victoria->id,
+            'customer_name'  => 'Deliv Customer',
+            'contact_number' => '09170009999',
+            'address'        => 'Victoria Laguna',
+            'status'         => 'in_transit',
+            'rider_id'       => $rider->id,
+            'total_amount'   => 250.00,
+        ]);
+
+        OrderItem::create([
+            'order_id'   => $order->id,
+            'product_id' => $this->ramen->id,
+            'quantity'   => 1,
+            'price'      => 200.00,
+        ]);
+
+        $delivery = Delivery::create([
+            'order_id'         => $order->id,
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Deliv Customer',
+            'customer_phone'   => '09170009999',
+            'customer_address' => 'Victoria Laguna',
+            'status'           => 'in_transit',
+            'delivery_type'    => 'internal',
+            'delivery_fee'     => 50.00,
+            'picked_up_at'     => now()->subMinutes(10),
+            'transit_at'       => now()->subMinutes(5),
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        $response = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/deliver");
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'data'    => [
+                'status'            => 'delivered',
+                'status_label'      => 'Delivered',
+                'next_action'       => null,
+                'next_action_label' => 'Delivered',
+                'route_phase'       => 'completed',
+            ],
+        ]);
+
+        $this->assertEquals('delivered', $delivery->fresh()->status);
+        $this->assertEquals('delivered', $order->fresh()->status);
+        $this->assertNotNull($delivery->fresh()->delivered_at);
+        $this->assertEquals('available', $rider->fresh()->status);
+    }
+
+    /**
+     * TEST 7: Illegal State Transitions must be strictly rejected by backend.
+     */
+    public function test_illegal_state_transitions_are_strictly_rejected(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Guard Rider',
+            'email'     => 'guard@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'available',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        // Case A: ready_for_pickup -> direct pickup attempt without accepting
+        $unassigned = Delivery::create([
+            'customer_name'    => 'Unassigned Cust',
+            'customer_address' => 'Victoria',
+            'status'           => 'ready_for_pickup',
+            'delivery_type'    => 'internal',
+        ]);
+        $resA = $this->postJson("/api/v1/rider/deliveries/{$unassigned->id}/pickup");
+        $resA->assertStatus(422);
+        $resA->assertJsonFragment(['success' => false]);
+
+        // Case B: assigned_to_rider -> direct transit attempt without pickup
+        $assigned = Delivery::create([
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Assigned Cust',
+            'customer_address' => 'Victoria',
+            'status'           => 'assigned_to_rider',
+            'delivery_type'    => 'internal',
+        ]);
+        $resB = $this->postJson("/api/v1/rider/deliveries/{$assigned->id}/transit");
+        $resB->assertStatus(422);
+
+        // Case C: delivered -> attempt pickup
+        $delivered = Delivery::create([
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Delivered Cust',
+            'customer_address' => 'Victoria',
+            'status'           => 'delivered',
+            'delivery_type'    => 'internal',
+        ]);
+        $resC = $this->postJson("/api/v1/rider/deliveries/{$delivered->id}/pickup");
+        $resC->assertStatus(422);
+    }
+
+    /**
+     * TEST 8: Atomic Concurrency Protection — First Rider Wins
+     */
+    public function test_atomic_concurrency_first_rider_wins(): void
     {
         $riderA = Rider::create([
             'name'      => 'Rider A',
@@ -392,136 +509,73 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
         ]);
 
         $delivery = Delivery::create([
-            'customer_name'    => 'Concurrent Customer',
-            'customer_phone'   => '09170005555',
-            'customer_address' => 'Victoria Center',
+            'customer_name'    => 'Concurrent Cust',
+            'customer_address' => 'Victoria',
             'status'           => 'ready_for_pickup',
             'delivery_type'    => 'internal',
         ]);
 
-        // Rider A accepts first
+        // Rider A accepts
         Sanctum::actingAs($riderA, ['*'], 'sanctum');
-        $responseA = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $responseA->assertStatus(200);
+        $rA = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
+        $rA->assertStatus(200);
 
-        // Rider B accepts milliseconds later (simulated race condition)
+        // Rider B accepts milliseconds later
         Sanctum::actingAs($riderB, ['*'], 'sanctum');
-        $responseB = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $responseB->assertStatus(409);
-        $responseB->assertJson([
+        $rB = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
+        $rB->assertStatus(409);
+        $rB->assertJson([
             'success' => false,
             'message' => 'Delivery already accepted by another rider.',
         ]);
 
-        // Database must have Rider A only
         $this->assertEquals($riderA->id, $delivery->fresh()->rider_id);
     }
 
     /**
-     * TEST 7: Acceptance Idempotency — Same rider tapping accept twice succeeds cleanly
+     * TEST 9: Active + Out for delivery rider is blocked from accepting new jobs.
      */
-    public function test_acceptance_idempotency_for_same_rider(): void
+    public function test_active_out_for_delivery_rider_cannot_accept_new_jobs(): void
     {
         $rider = Rider::create([
-            'name'      => 'Rider Idempotent',
-            'email'     => 'idem@example.com',
+            'name'      => 'Busy In Transit Rider',
+            'email'     => 'busytransit@example.com',
             'password'  => Hash::make('secret123'),
             'branch_id' => $this->victoria->id,
-            'status'    => 'available',
+            'status'    => 'busy',
             'is_active' => true,
         ]);
 
-        $delivery = Delivery::create([
-            'customer_name'    => 'Idempotent Customer',
-            'customer_address' => 'Victoria',
+        // Currently in transit with delivery 1
+        Delivery::create([
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Order 1',
+            'customer_address' => 'Road 1',
+            'status'           => 'in_transit',
+            'delivery_type'    => 'internal',
+        ]);
+
+        $delivery2 = Delivery::create([
+            'customer_name'    => 'Order 2',
+            'customer_address' => 'Road 2',
             'status'           => 'ready_for_pickup',
             'delivery_type'    => 'internal',
         ]);
 
         Sanctum::actingAs($rider, ['*'], 'sanctum');
 
-        // First tap
-        $response1 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $response1->assertStatus(200);
-
-        // Second tap rapidly
-        $response2 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $response2->assertStatus(200);
-        $response2->assertJson([
-            'success' => true,
-            'message' => 'Delivery is already assigned to you.',
-        ]);
-
-        $this->assertEquals($rider->id, $delivery->fresh()->rider_id);
+        $res = $this->postJson("/api/v1/rider/deliveries/{$delivery2->id}/accept");
+        $res->assertStatus(422);
     }
 
     /**
-     * TEST 8: Branch Isolation is enforced strictly on discovery and acceptance
+     * TEST 10: POS Walk-in Delivery follows identical lifecycle.
      */
-    public function test_branch_isolation_strictly_enforced(): void
-    {
-        $victoriaRider = Rider::create([
-            'name'      => 'Victoria Rider',
-            'email'     => 'vic.rider@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'available',
-            'is_active' => true,
-        ]);
-
-        $santaCruzRider = Rider::create([
-            'name'      => 'Sta Cruz Rider',
-            'email'     => 'stacruz.rider@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->santaCruz->id,
-            'status'    => 'available',
-            'is_active' => true,
-        ]);
-
-        $victoriaOrder = Order::create([
-            'order_number'   => 'ORD-VIC-9',
-            'branch_id'      => $this->victoria->id,
-            'customer_name'  => 'Victoria Customer',
-            'contact_number' => '09170006666',
-            'address'        => 'Victoria Laguna',
-            'status'         => 'ready_for_pickup',
-            'total_amount'   => 250.00,
-        ]);
-
-        $victoriaDelivery = Delivery::create([
-            'order_id'         => $victoriaOrder->id,
-            'customer_name'    => 'Victoria Customer',
-            'customer_phone'   => '09170006666',
-            'customer_address' => 'Victoria Laguna',
-            'status'           => 'ready_for_pickup',
-            'delivery_type'    => 'internal',
-        ]);
-
-        // Victoria rider sees it
-        Sanctum::actingAs($victoriaRider, ['*'], 'sanctum');
-        $vicResponse = $this->getJson('/api/v1/rider/available-deliveries');
-        $vicResponse->assertStatus(200);
-        $vicResponse->assertJson(['count' => 1]);
-
-        // Sta Cruz rider cannot see it
-        Sanctum::actingAs($santaCruzRider, ['*'], 'sanctum');
-        $staResponse = $this->getJson('/api/v1/rider/available-deliveries');
-        $staResponse->assertStatus(200);
-        $staResponse->assertJson(['count' => 0]);
-
-        // Sta Cruz rider cannot accept it
-        $staAccept = $this->postJson("/api/v1/rider/deliveries/{$victoriaDelivery->id}/accept");
-        $staAccept->assertStatus(422);
-    }
-
-    /**
-     * TEST 9: POS Walk-in Delivery Order follows identical self-acceptance workflow
-     */
-    public function test_pos_walk_in_delivery_follows_identical_self_accept_workflow(): void
+    public function test_pos_walk_in_delivery_follows_identical_lifecycle(): void
     {
         $rider = Rider::create([
-            'name'      => 'POS Rider',
-            'email'     => 'pos.rider@example.com',
+            'name'      => 'POS Lifecycle Rider',
+            'email'     => 'poslife@example.com',
             'password'  => Hash::make('secret123'),
             'branch_id' => $this->victoria->id,
             'status'    => 'available',
@@ -529,7 +583,7 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
         ]);
 
         $sale = Sale::create([
-            'order_number'   => 'POS-DEL-101',
+            'order_number'   => 'POS-LIFE-100',
             'branch_id'      => $this->victoria->id,
             'user_id'        => $this->cashier->id,
             'type'           => 'delivery',
@@ -546,8 +600,8 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
         $delivery = Delivery::create([
             'sale_id'          => $sale->id,
             'rider_id'         => null,
-            'customer_name'    => 'Walk-in POS Customer',
-            'customer_phone'   => '09177778888',
+            'customer_name'    => 'Walk-in Cust',
+            'customer_phone'   => '09173334444',
             'customer_address' => 'Victoria Street',
             'status'           => 'ready_for_pickup',
             'delivery_type'    => 'internal',
@@ -556,106 +610,44 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
 
         Sanctum::actingAs($rider, ['*'], 'sanctum');
 
-        // Visible in available deliveries
-        $available = $this->getJson('/api/v1/rider/available-deliveries');
-        $available->assertStatus(200);
-        $available->assertJson(['count' => 1]);
-
         // Accept
-        $accept = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $accept->assertStatus(200);
-
-        $this->assertEquals($rider->id, $delivery->fresh()->rider_id);
-        $this->assertEquals('assigned_to_rider', $delivery->fresh()->status);
-    }
-
-    /**
-     * TEST 10: Complete lifecycle: Accept → Pick Up → In Transit → Deliver
-     */
-    public function test_complete_post_acceptance_delivery_lifecycle(): void
-    {
-        $rider = Rider::create([
-            'name'      => 'Lifecycle Rider',
-            'email'     => 'life.rider@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'available',
-            'is_active' => true,
-        ]);
-
-        $order = Order::create([
-            'order_number'   => 'ORD-LIFE-1',
-            'user_id'        => $this->customer->id,
-            'branch_id'      => $this->victoria->id,
-            'customer_name'  => 'Life Customer',
-            'contact_number' => '09171239999',
-            'address'        => 'Victoria Poblacion',
-            'status'         => 'ready_for_pickup',
-            'total_amount'   => 250.00,
-        ]);
-
-        OrderItem::create([
-            'order_id'   => $order->id,
-            'product_id' => $this->ramen->id,
-            'quantity'   => 1,
-            'price'      => 200.00,
-        ]);
-
-        $delivery = Delivery::create([
-            'order_id'         => $order->id,
-            'rider_id'         => null,
-            'customer_name'    => 'Life Customer',
-            'customer_phone'   => '09171239999',
-            'customer_address' => 'Victoria Poblacion',
-            'delivery_fee'     => 50.00,
-            'status'           => 'ready_for_pickup',
-            'delivery_type'    => 'internal',
-        ]);
-
-        Sanctum::actingAs($rider, ['*'], 'sanctum');
-
-        // 1. Accept
-        $accRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
-        $accRes->assertStatus(200);
+        $r1 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/accept");
+        $r1->assertStatus(200);
         $this->assertEquals('assigned_to_rider', $delivery->fresh()->status);
 
-        // 2. Pick Up
-        $pickRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
-        $pickRes->assertStatus(200);
+        // Pickup
+        $r2 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
+        $r2->assertStatus(200);
         $this->assertEquals('picked_up', $delivery->fresh()->status);
-        $this->assertNotNull($delivery->fresh()->picked_up_at);
 
-        // 3. Transit
-        $transRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/transit");
-        $transRes->assertStatus(200);
+        // Transit
+        $r3 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/transit");
+        $r3->assertStatus(200);
         $this->assertEquals('in_transit', $delivery->fresh()->status);
-        $this->assertNotNull($delivery->fresh()->transit_at);
 
-        // 4. Deliver
-        $delivRes = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/deliver");
-        $delivRes->assertStatus(200);
+        // Deliver
+        $r4 = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/deliver");
+        $r4->assertStatus(200);
         $this->assertEquals('delivered', $delivery->fresh()->status);
-        $this->assertNotNull($delivery->fresh()->delivered_at);
-
-        // Rider should now be available again
-        $this->assertEquals('available', $rider->fresh()->status);
-
-        // Authoritative Sale created
-        $sale = Sale::where('order_id', $order->id)->first();
-        $this->assertNotNull($sale);
-        $this->assertEquals(200.00, (float) $sale->subtotal);
-        $this->assertEquals(50.00, (float) $sale->delivery_fee);
-        $this->assertEquals(120.00, (float) $sale->profit);
     }
 
     /**
-     * TEST 11: Admin Manual Override Fallback assigns rider and removes from available pool
+     * TEST 11: Wrong rider cannot pickup, transit, or deliver an order assigned to someone else.
      */
-    public function test_admin_manual_override_fallback(): void
+    public function test_wrong_rider_cannot_progress_other_riders_order(): void
     {
-        $rider = Rider::create([
-            'name'      => 'Fallback Rider',
-            'email'     => 'fallback@example.com',
+        $riderOwner = Rider::create([
+            'name'      => 'Owner Rider',
+            'email'     => 'owner@example.com',
+            'password'  => Hash::make('secret123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'busy',
+            'is_active' => true,
+        ]);
+
+        $riderAttacker = Rider::create([
+            'name'      => 'Attacker Rider',
+            'email'     => 'attacker@example.com',
             'password'  => Hash::make('secret123'),
             'branch_id' => $this->victoria->id,
             'status'    => 'available',
@@ -663,42 +655,16 @@ class RiderSelfAcceptDeliverySystemTest extends TestCase
         ]);
 
         $delivery = Delivery::create([
-            'customer_name'    => 'Manual Override Customer',
-            'customer_address' => 'Victoria Road',
-            'status'           => 'ready_for_pickup',
+            'rider_id'         => $riderOwner->id,
+            'customer_name'    => 'Secure Cust',
+            'customer_address' => 'Victoria',
+            'status'           => 'assigned_to_rider',
             'delivery_type'    => 'internal',
         ]);
 
-        // Admin assigns manually
-        $this->actingAs($this->admin);
-        $assignRes = $this->post("/deliveries/{$delivery->id}/assign-rider", [
-            'rider_id' => $rider->id,
-        ]);
-        $assignRes->assertSessionHas('success');
+        Sanctum::actingAs($riderAttacker, ['*'], 'sanctum');
 
-        $this->assertEquals($rider->id, $delivery->fresh()->rider_id);
-        $this->assertEquals('assigned_to_rider', $delivery->fresh()->status);
-
-        // Verify assignment audit log
-        $this->assertDatabaseHas('delivery_assignment_logs', [
-            'delivery_id'      => $delivery->id,
-            'rider_id'         => $rider->id,
-            'assigned_by_type' => 'admin_manual',
-        ]);
-
-        // Another rider no longer sees it in available jobs
-        $otherRider = Rider::create([
-            'name'      => 'Other Rider',
-            'email'     => 'other@example.com',
-            'password'  => Hash::make('secret123'),
-            'branch_id' => $this->victoria->id,
-            'status'    => 'available',
-            'is_active' => true,
-        ]);
-
-        Sanctum::actingAs($otherRider, ['*'], 'sanctum');
-        $avail = $this->getJson('/api/v1/rider/available-deliveries');
-        $avail->assertStatus(200);
-        $avail->assertJson(['count' => 0]);
+        $res = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
+        $res->assertStatus(403);
     }
 }

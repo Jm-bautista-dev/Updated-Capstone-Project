@@ -605,7 +605,7 @@ class UnifiedWebDeliverySystemTest extends TestCase
         // Rider Tom attempts to pickup Bob's assigned delivery
         Sanctum::actingAs($riderOther);
         $res = $this->postJson("/api/v1/rider/deliveries/{$delivery->id}/pickup");
-        $res->assertStatus(404); // Not assigned to Tom
+        $res->assertStatus(403); // Forbidden: Assigned to another rider
     }
 
     public function test_pos_walk_in_delivery_rider_with_in_transit_route_cannot_pickup_another(): void

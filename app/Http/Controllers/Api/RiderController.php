@@ -194,7 +194,7 @@ class RiderController extends Controller
 
     /**
      * GET /api/v1/rider/my-orders
-     * Returns orders assigned to THIS rider that are active.
+     * Returns orders assigned to THIS rider that are active (assigned_to_rider, picked_up, in_transit).
      */
     public function getMyOrders(Request $request): JsonResponse
     {
@@ -204,16 +204,16 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            $deliveries = Delivery::with(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])
+            $deliveries = Delivery::with(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider'])
                 ->where('rider_id', $rider->id)
-                ->whereIn('status', ['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
+                ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
                 ->orderByRaw("CASE WHEN status = 'in_transit' THEN 1 WHEN status = 'picked_up' THEN 2 WHEN status = 'assigned_to_rider' THEN 3 ELSE 4 END")
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
             $assignedOrders = Order::with(['items.product', 'branch', 'delivery'])
                 ->where('rider_id', $rider->id)
-                ->whereIn('status', ['ready_for_pickup', 'assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
+                ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
@@ -227,9 +227,13 @@ class RiderController extends Controller
                             'customer_name'    => $ao->customer_name,
                             'customer_phone'   => $ao->contact_number,
                             'customer_address' => $ao->address,
+                            'latitude'         => $ao->latitude,
+                            'longitude'        => $ao->longitude,
+                            'landmark'         => $ao->landmark,
+                            'notes'            => $ao->notes,
                         ]
                     );
-                    $deliveries->push($d->load(['order.items.product', 'order.branch']));
+                    $deliveries->push($d->load(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider']));
                 }
             }
 
@@ -240,6 +244,8 @@ class RiderController extends Controller
                 'data'       => $formatted,
                 'deliveries' => $formatted,
                 'orders'     => $formatted,
+                'my_orders'  => $formatted,
+                'count'      => $formatted->count(),
             ]);
         } catch (\Throwable $e) {
             Log::error('Rider::getMyOrders failed', ['error' => $e->getMessage()]);
@@ -383,8 +389,10 @@ class RiderController extends Controller
 
     /**
      * POST /api/v1/rider/orders/{id}/pickup
+     * POST /api/v1/rider/deliveries/{id}/pickup
+     * POST /api/v1/rider/pickup/{id}
      * Transition: assigned_to_rider → picked_up
-     * Rider has arrived at branch and picked up the order.
+     * Rider has arrived at branch and collected the food items.
      */
     public function pickupOrder(Request $request, $id): JsonResponse
     {
@@ -411,7 +419,6 @@ class RiderController extends Controller
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
                     })
-                    ->where('rider_id', $rider->id)
                     ->lockForUpdate()
                     ->first();
 
@@ -422,42 +429,69 @@ class RiderController extends Controller
                         ->first();
 
                     if ($order) {
-                        if ($order->rider_id && $order->rider_id != $rider->id) {
-                            return response()->json(['success' => false, 'message' => 'Order is assigned to another rider.'], 403);
-                        }
-
                         $delivery = Delivery::firstOrCreate(
                             ['order_id' => $order->id],
                             [
-                                'rider_id'         => $rider->id,
+                                'rider_id'         => $order->rider_id,
                                 'status'           => $order->status,
                                 'customer_name'    => $order->customer_name,
                                 'customer_phone'   => $order->contact_number,
                                 'customer_address' => $order->address,
+                                'latitude'         => $order->latitude,
+                                'longitude'        => $order->longitude,
+                                'landmark'         => $order->landmark,
+                                'notes'            => $order->notes,
                             ]
                         );
                     }
                 }
 
                 if (!$delivery) {
-                    return response()->json(['success' => false, 'message' => "Delivery #{$id} not found or not assigned to your account."], 404);
+                    return response()->json(['success' => false, 'message' => "Delivery #{$id} not found."], 404);
                 }
 
-                // Idempotency: If already picked up, return successfully
-                if (in_array($delivery->status, ['picked_up', 'in_transit', 'delivered'])) {
-                    if ($delivery->status === 'picked_up') {
-                        return response()->json([
-                            'success'  => true,
-                            'message'  => 'Order is already marked as picked up.',
-                            'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
-                            'delivery' => $delivery,
-                        ]);
-                    }
-                    return response()->json(['success' => false, 'message' => "Delivery is already in {$delivery->status} status."], 422);
+                // Verify rider assignment
+                if ($delivery->rider_id !== null && (int) $delivery->rider_id !== (int) $rider->id) {
+                    return response()->json(['success' => false, 'message' => 'This delivery is assigned to another rider.'], 403);
+                }
+
+                if ($delivery->rider_id === null || $delivery->status === 'ready_for_pickup') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Delivery must be accepted before it can be picked up.',
+                    ], 422);
+                }
+
+                // Idempotency: If already in picked_up status, return success cleanly
+                if ($delivery->status === 'picked_up') {
+                    return response()->json([
+                        'success'  => true,
+                        'message'  => 'Order is already marked as picked up.',
+                        'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider'])),
+                        'delivery' => $delivery,
+                    ], 200);
+                }
+
+                // If already beyond picked_up
+                if (in_array($delivery->status, ['in_transit', 'delivered'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Delivery is already in {$delivery->status} status and cannot be picked up again.",
+                    ], 422);
+                }
+
+                // Strict state machine: must be assigned_to_rider
+                if ($delivery->status !== 'assigned_to_rider') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Invalid state transition: Cannot pick up order in '{$delivery->status}' status.",
+                    ], 422);
                 }
 
                 if ($delivery->order) {
-                    $delivery->order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
+                    if ($delivery->order->canTransitionTo('picked_up')) {
+                        $delivery->order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
+                    }
                     $delivery->order->update([
                         'rider_id' => $rider->id,
                         'status'   => 'picked_up',
@@ -468,6 +502,7 @@ class RiderController extends Controller
                     'rider_id'     => $rider->id,
                     'status'       => 'picked_up',
                     'picked_up_at' => now(),
+                    'updated_by'   => $rider->id,
                 ]);
 
                 $deliveryToBroadcast = $delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider']);
@@ -477,8 +512,8 @@ class RiderController extends Controller
                     'success'  => true,
                     'message'  => 'Order marked as picked up! Please head to the customer.',
                     'data'     => $this->formatDelivery($deliveryToBroadcast),
-                    'delivery' => $delivery,
-                ]);
+                    'delivery' => $deliveryToBroadcast,
+                ], 200);
             });
 
             // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
@@ -520,8 +555,10 @@ class RiderController extends Controller
 
     /**
      * POST /api/v1/rider/orders/{id}/transit
+     * POST /api/v1/rider/deliveries/{id}/transit
+     * POST /api/v1/rider/transit/{id}
      * Transition: picked_up → in_transit
-     * Rider has left the branch and is now delivering.
+     * Rider has left the branch and is now delivering to customer.
      */
     public function startTransit(Request $request, $id): JsonResponse
     {
@@ -535,65 +572,93 @@ class RiderController extends Controller
             $riderToBroadcast = null;
 
             $response = DB::transaction(function () use ($rider, $id, &$deliveryToBroadcast, &$riderToBroadcast) {
-                $delivery = Delivery::with(['order', 'sale'])
+                $delivery = Delivery::with(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
                     })
-                    ->where('rider_id', $rider->id)
                     ->lockForUpdate()
                     ->first();
 
                 if (!$delivery) {
-                    $order = Order::where('rider_id', $rider->id)->where('id', $id)->first();
+                    $order = Order::where('id', $id)->orWhere('order_number', $id)->first();
                     if ($order) {
-                        $delivery = Delivery::firstOrCreate(
-                            ['order_id' => $order->id],
-                            [
-                                'rider_id'         => $rider->id,
-                                'status'           => $order->status,
-                                'customer_name'    => $order->customer_name,
-                                'customer_phone'   => $order->contact_number,
-                                'customer_address' => $order->address,
-                            ]
-                        );
+                        $delivery = Delivery::where('order_id', $order->id)->first();
                     }
                 }
 
                 if (!$delivery) {
-                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                    return response()->json(['success' => false, 'message' => "Delivery #{$id} not found."], 404);
+                }
+
+                // Verify rider assignment
+                if ($delivery->rider_id !== null && (int) $delivery->rider_id !== (int) $rider->id) {
+                    return response()->json(['success' => false, 'message' => 'This delivery is assigned to another rider.'], 403);
+                }
+
+                if ($delivery->rider_id === null || $delivery->status === 'ready_for_pickup') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Delivery must be accepted and picked up before starting transit.',
+                    ], 422);
+                }
+
+                if ($delivery->status === 'assigned_to_rider') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Delivery must be picked up at the store before starting transit.',
+                    ], 422);
                 }
 
                 // Idempotency: If already in transit, return success
-                if (in_array($delivery->status, ['in_transit', 'delivered'])) {
-                    if ($delivery->status === 'in_transit') {
-                        return response()->json([
-                            'success' => true,
-                            'message' => 'Delivery is already in transit.',
-                            'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
-                        ]);
-                    }
-                    return response()->json(['success' => false, 'message' => "Delivery is already in {$delivery->status} status."], 422);
+                if ($delivery->status === 'in_transit') {
+                    return response()->json([
+                        'success'  => true,
+                        'message'  => 'Delivery is already in transit.',
+                        'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider'])),
+                        'delivery' => $delivery,
+                    ], 200);
                 }
 
-                $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
-                if ($order) {
-                    $order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
-                    $order->update(['status' => 'in_transit']);
+                if ($delivery->status === 'delivered') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Delivery has already been completed.',
+                    ], 422);
+                }
+
+                // Legal transition MUST be from picked_up
+                if ($delivery->status !== 'picked_up') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Invalid state transition: Cannot start transit from '{$delivery->status}' status.",
+                    ], 422);
+                }
+
+                if ($delivery->order) {
+                    if ($delivery->order->canTransitionTo('in_transit')) {
+                        $delivery->order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
+                    }
+                    $delivery->order->update([
+                        'rider_id' => $rider->id,
+                        'status'   => 'in_transit',
+                    ]);
                 }
 
                 $delivery->update([
                     'status'     => 'in_transit',
                     'transit_at' => now(),
+                    'updated_by' => $rider->id,
                 ]);
 
-                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
                 $riderToBroadcast = $rider->fresh(['branch']);
 
                 return response()->json([
-                    'success' => true,
-                    'message' => 'You are on your way!',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
-                ]);
+                    'success'  => true,
+                    'message'  => 'You are on your way!',
+                    'data'     => $this->formatDelivery($deliveryToBroadcast),
+                    'delivery' => $deliveryToBroadcast,
+                ], 200);
             });
 
             // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
@@ -615,8 +680,10 @@ class RiderController extends Controller
 
     /**
      * POST /api/v1/rider/orders/{id}/deliver
+     * POST /api/v1/rider/deliveries/{id}/deliver
+     * POST /api/v1/rider/deliver/{id}
      * Transition: in_transit → delivered
-     * Rider delivered the order. Optionally requires proof_of_delivery photo.
+     * Rider delivered the order to customer.
      */
     public function deliverOrder(Request $request, $id): JsonResponse
     {
@@ -634,46 +701,56 @@ class RiderController extends Controller
             $riderToBroadcast = null;
 
             $response = DB::transaction(function () use ($rider, $id, $request, &$deliveryToBroadcast, &$riderToBroadcast) {
-                $delivery = Delivery::with(['order', 'sale'])
+                $delivery = Delivery::with(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
                     })
-                    ->where('rider_id', $rider->id)
                     ->lockForUpdate()
                     ->first();
 
                 if (!$delivery) {
-                    $order = Order::where('rider_id', $rider->id)->where('id', $id)->first();
+                    $order = Order::where('id', $id)->orWhere('order_number', $id)->first();
                     if ($order) {
-                        $delivery = Delivery::firstOrCreate(
-                            ['order_id' => $order->id],
-                            [
-                                'rider_id'         => $rider->id,
-                                'status'           => $order->status,
-                                'customer_name'    => $order->customer_name,
-                                'customer_phone'   => $order->contact_number,
-                                'customer_address' => $order->address,
-                            ]
-                        );
+                        $delivery = Delivery::where('order_id', $order->id)->first();
                     }
                 }
 
                 if (!$delivery) {
-                    return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                    return response()->json(['success' => false, 'message' => "Delivery #{$id} not found."], 404);
+                }
+
+                // Verify rider assignment
+                if ($delivery->rider_id !== null && (int) $delivery->rider_id !== (int) $rider->id) {
+                    return response()->json(['success' => false, 'message' => 'This delivery is assigned to another rider.'], 403);
                 }
 
                 // IDEMPOTENCY: If already marked as delivered, return success cleanly without re-running financial hooks
                 if ($delivery->status === 'delivered') {
                     return response()->json([
-                        'success' => true,
-                        'message' => 'Delivery already marked as delivered.',
-                        'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
-                    ]);
+                        'success'  => true,
+                        'message'  => 'Delivery already marked as delivered.',
+                        'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider'])),
+                        'delivery' => $delivery,
+                    ], 200);
+                }
+
+                // Legal transition MUST be from in_transit
+                if ($delivery->status !== 'in_transit') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Delivery must be in transit before it can be marked as delivered (current status: {$delivery->status}).",
+                    ], 422);
                 }
 
                 $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
                 if ($order) {
-                    $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
+                    if ($order->canTransitionTo('delivered')) {
+                        $order->transitionTo('delivered', 'Order delivered successfully', null, $rider->id);
+                    }
+                    $order->update([
+                        'rider_id' => $rider->id,
+                        'status'   => 'delivered',
+                    ]);
                 }
 
                 if ($delivery->sale && $delivery->sale->status !== 'completed') {
@@ -683,6 +760,7 @@ class RiderController extends Controller
                 $updateData = [
                     'status'       => 'delivered',
                     'delivered_at' => now(),
+                    'updated_by'   => $rider->id,
                 ];
 
                 // Store proof of delivery photo if provided
@@ -696,7 +774,7 @@ class RiderController extends Controller
 
                 // Free up the rider ONLY if all active deliveries are completed
                 $remainingActive = Delivery::where('rider_id', $rider->id)
-                    ->whereNotIn('status', ['delivered', 'cancelled'])
+                    ->whereNotIn('status', ['delivered', 'cancelled', 'failed_delivery'])
                     ->count();
 
                 if ($remainingActive === 0) {
@@ -715,14 +793,15 @@ class RiderController extends Controller
                     );
                 }
 
-                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
                 $riderToBroadcast = $rider->fresh(['branch']);
 
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Delivery confirmed! Great job!',
-                    'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
-                ]);
+                    'success'  => true,
+                    'message'  => 'Delivery confirmed! Great job!',
+                    'data'     => $this->formatDelivery($deliveryToBroadcast),
+                    'delivery' => $deliveryToBroadcast,
+                ], 200);
             });
 
             // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
@@ -1321,6 +1400,69 @@ class RiderController extends Controller
             ? ($delivery->landmark ? "Near {$delivery->landmark}" : ($delivery->customer_address ? explode(',', $delivery->customer_address)[0] : 'Customer Location'))
             : $delivery->customer_address;
 
+        $status = $delivery->status;
+
+        $nextAction = match ($status) {
+            'ready_for_pickup'  => ($delivery->rider_id === null) ? 'accept' : null,
+            'assigned_to_rider' => 'pickup',
+            'picked_up'         => 'transit',
+            'in_transit'        => 'deliver',
+            default             => null,
+        };
+
+        $nextActionLabel = match ($status) {
+            'ready_for_pickup'  => ($delivery->rider_id === null) ? 'Accept Delivery' : 'Waiting for Pickup',
+            'assigned_to_rider' => 'Pick Up Order',
+            'picked_up'         => 'Start Delivery',
+            'in_transit'        => 'Mark as Delivered',
+            'delivered'         => 'Delivered',
+            'cancelled'         => 'Cancelled',
+            default             => null,
+        };
+
+        $nextEndpoint = match ($status) {
+            'ready_for_pickup'  => ($delivery->rider_id === null) ? "/api/v1/rider/deliveries/{$delivery->id}/accept" : null,
+            'assigned_to_rider' => "/api/v1/rider/deliveries/{$delivery->id}/pickup",
+            'picked_up'         => "/api/v1/rider/deliveries/{$delivery->id}/transit",
+            'in_transit'        => "/api/v1/rider/deliveries/{$delivery->id}/deliver",
+            default             => null,
+        };
+
+        $routePhase = match ($status) {
+            'ready_for_pickup'  => 'unassigned',
+            'assigned_to_rider' => 'rider_to_store',
+            'picked_up'         => 'store_to_customer',
+            'in_transit'        => 'rider_to_customer',
+            'delivered'         => 'completed',
+            default             => 'unassigned',
+        };
+
+        $routeDestination = match ($routePhase) {
+            'rider_to_store' => [
+                'type'      => 'store',
+                'name'      => $branchName,
+                'address'   => $branchAddress,
+                'latitude'  => $branchLat,
+                'longitude' => $branchLng,
+                'maps_url'  => ($branchLat && $branchLng)
+                    ? "https://www.google.com/maps/dir/?api=1&destination={$branchLat},{$branchLng}"
+                    : null,
+            ],
+            'store_to_customer', 'rider_to_customer' => [
+                'type'      => 'customer',
+                'name'      => $customerName,
+                'phone'     => $customerPhone,
+                'address'   => $customerAddress,
+                'latitude'  => $lat,
+                'longitude' => $lng,
+                'landmark'  => $delivery->landmark ?? $order?->landmark,
+                'maps_url'  => ($lat && $lng)
+                    ? "https://www.google.com/maps/dir/?api=1&destination={$lat},{$lng}"
+                    : null,
+            ],
+            default => null,
+        };
+
         return [
             'id'                      => $order?->id ?? $delivery->id,
             'delivery_id'             => $delivery->id,
@@ -1332,15 +1474,27 @@ class RiderController extends Controller
             'orderNumber'             => $orderNumber,
             'order_source'            => $orderSource,
             'status'                  => $delivery->status,
+            'current_state'           => $delivery->status,
             'order_status'            => $order?->status ?? $delivery->status,
             'orderStatus'             => $order?->status ?? $delivery->status,
             'status_label'            => $delivery->getStatusLabel(),
             'statusLabel'             => $delivery->getStatusLabel(),
             'is_available'            => $delivery->isAvailableForRiders(),
             'isAvailable'             => $delivery->isAvailableForRiders(),
+            'next_action'             => $nextAction,
+            'nextAction'              => $nextAction,
+            'next_action_label'       => $nextActionLabel,
+            'nextActionLabel'         => $nextActionLabel,
+            'next_endpoint'           => $nextEndpoint,
+            'route_phase'             => $routePhase,
+            'routePhase'              => $routePhase,
+            'route_destination'       => $routeDestination,
             'rider_id'                => $delivery->rider_id,
             'rider_name'              => $delivery->rider?->name,
             'accepted_at'             => $delivery->accepted_at?->toIso8601String(),
+            'picked_up_at'            => $delivery->picked_up_at?->toIso8601String(),
+            'transit_at'              => $delivery->transit_at?->toIso8601String(),
+            'delivered_at'            => $delivery->delivered_at?->toIso8601String(),
             'cancellation_status'     => $order?->cancellation_status,
             'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
 

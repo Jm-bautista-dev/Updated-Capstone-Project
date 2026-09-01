@@ -25,7 +25,7 @@ class RiderDeliveryController extends Controller
                 $q->where('rider_id', $riderId)
                   ->orWhereHas('delivery', fn($dq) => $dq->where('rider_id', $riderId));
             })
-            ->whereIn('status', ['assigned_to_rider', 'ready_for_pickup', 'picked_up', 'in_transit', 'cancellation_requested'])
+            ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
             ->orderBy('updated_at', 'desc')
             ->get();
 
