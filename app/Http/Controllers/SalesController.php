@@ -19,7 +19,7 @@ class SalesController extends Controller
         $rawBranchId = $request->input('branch_id');
         $branchId = ($rawBranchId === '' || $rawBranchId === 'all' || $rawBranchId === null) ? null : $rawBranchId;
 
-        $query = Sale::with(['items.product', 'cashier', 'branch', 'delivery.rider', 'order'])
+        $query = Sale::with(['items.product', 'cashier', 'branch', 'delivery.rider', 'order.branch', 'delivery.order.branch'])
             ->when($status && $status !== 'all', function ($q) use ($status) {
                 return $q->where('status', $status);
             })

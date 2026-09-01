@@ -16,7 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import {
     Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
 } from '@/components/ui/sheet';
-import { cn } from '@/lib/utils';
+import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 import type { Delivery } from './types';
 import { formatCurrency, formatTime, formatDate } from './types';
 
@@ -622,7 +622,9 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                 <div className="print-content max-w-100 mx-auto border-2 border-black p-6 space-y-6">
                     {/* Header */}
                     <div className="text-center border-b border-[var(--ops-border)]-2 border-black pb-4">
-                        <h1 className="text-2xl font-black uppercase tracking-tighter">MAKI DESU</h1>
+                        <h1 className="text-2xl font-black uppercase tracking-widest">
+                            {formatReceiptBranchHeading(delivery.order?.branch?.name || delivery.sale?.branch?.name)}
+                        </h1>
                         <p className="text-[10px] font-bold uppercase">Official Delivery Waybill</p>
                     </div>
 
@@ -665,7 +667,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         <div className="h-12 bg-black w-full flex items-center justify-center">
                            <span className="text-white font-mono text-xs tracking-[0.5em]">{delivery.sale?.order_number || delivery.order?.order_number || delivery.id}</span>
                         </div>
-                        <p className="text-[8px] font-bold uppercase">Thank you for ordering at Maki Desu!</p>
+                        <p className="text-[8px] font-bold uppercase">Thank you for ordering!</p>
                     </div>
                 </div>
             </div>

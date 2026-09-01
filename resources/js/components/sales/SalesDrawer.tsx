@@ -19,7 +19,7 @@ import {
     Sheet,
     SheetContent,
 } from '@/components/ui/sheet';
-import { cn } from '@/lib/utils';
+import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 
 interface SalesDrawerProps {
     sale: Sale | null;
@@ -272,8 +272,14 @@ export function SalesDrawer({
                         /* Receipt Thermal View */
                         <div className="p-6 rounded-3xl bg-amber-50/50 dark:bg-[#181824] border border-amber-200/60 dark:border-white/10 text-slate-800 dark:text-slate-200 font-mono text-xs space-y-4 shadow-inner">
                             <div className="text-center space-y-1">
-                                <h4 className="font-extrabold text-sm uppercase tracking-wider">MAKI DESU POS</h4>
-                                <p className="text-[11px] text-slate-500">{sale.branch?.name || 'Main Branch Store'}</p>
+                                <h4 className="font-black text-sm uppercase tracking-widest">
+                                    {formatReceiptBranchHeading(sale.branch?.name || sale.order?.branch?.name)}
+                                </h4>
+                                {(sale.branch?.address || sale.order?.branch?.address) && (
+                                    <p className="text-[10px] text-slate-500">
+                                        {sale.branch?.address || sale.order?.branch?.address}
+                                    </p>
+                                )}
                                 <p className="text-[10px] text-slate-400">================================</p>
                             </div>
 
@@ -342,7 +348,7 @@ export function SalesDrawer({
                             </div>
 
                             <div className="text-center pt-2 space-y-1 text-[10px] text-slate-500">
-                                <p>Thank you for dining with Maki Desu!</p>
+                                <p>Thank you for dining with us!</p>
                                 <p>Please come again.</p>
                             </div>
                         </div>

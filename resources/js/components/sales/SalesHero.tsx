@@ -49,6 +49,15 @@ export type Sale = {
     branch?: {
         id?: number;
         name: string;
+        address?: string;
+    };
+    order?: {
+        id?: number;
+        branch?: {
+            id?: number;
+            name?: string;
+            address?: string;
+        };
     };
 };
 

@@ -41,7 +41,7 @@ import {
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
-import { cn } from '@/lib/utils';
+import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 
 type Category = {
   id: number;
@@ -1181,8 +1181,14 @@ export default function PosIndex() {
             {/* Receipt Preview */}
             <div className="bg-white text-black p-5 rounded-xl border-t-4 border-emerald-500 shadow-md space-y-3 font-mono text-xs">
               <div className="text-center border-b pb-3 space-y-0.5">
-                <h3 className="font-bold text-base uppercase tracking-tight">{branch?.name || 'Maki Desu'}</h3>
-                <p className="text-zinc-500 text-[10px]">{(branch?.address as string | undefined) || 'Restaurant POS System'}</p>
+                <h3 className="font-extrabold text-base uppercase tracking-wider">
+                  {formatReceiptBranchHeading((lastSale?.branch as BranchInfo | undefined)?.name || branch?.name)}
+                </h3>
+                {((lastSale?.branch as BranchInfo | undefined)?.address || branch?.address) && (
+                  <p className="text-zinc-500 text-[10px]">
+                    {String((lastSale?.branch as BranchInfo | undefined)?.address || branch?.address)}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-between text-[10px]">
