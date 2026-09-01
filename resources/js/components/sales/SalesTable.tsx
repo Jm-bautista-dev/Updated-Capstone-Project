@@ -121,9 +121,25 @@ export function SalesTable({
 
                                     {/* Total Amount */}
                                     <td className={pyClass}>
-                                        <span className="font-mono font-black text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                            {formatCurrency(Number(sale.total || 0))}
-                                        </span>
+                                        <div className="space-y-0.5">
+                                            <span className="font-mono font-black text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                {formatCurrency(Number(sale.total || 0))}
+                                            </span>
+                                            {(() => {
+                                                const fee = Number(sale.delivery_fee ?? sale.delivery?.delivery_fee ?? 0);
+                                                if (sale.type === 'delivery' && fee > 0) {
+                                                    const sub = sale.subtotal !== undefined && sale.subtotal !== null
+                                                        ? Number(sale.subtotal)
+                                                        : Math.max(0, Number(sale.total || 0) - fee);
+                                                    return (
+                                                        <div className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-bold">
+                                                            Sub: {formatCurrency(sub)} + {formatCurrency(fee)} fee
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
                                     </td>
 
                                     {/* Payment Method */}

@@ -210,6 +210,50 @@ export function SalesDrawer({
                                         {sale.payment_method || 'Cash'}
                                     </Badge>
                                 </div>
+                                {(() => {
+                                    const fee = Number(sale.delivery_fee ?? sale.delivery?.delivery_fee ?? 0);
+                                    const disc = Number(sale.discount ?? 0);
+                                    const sub = sale.subtotal !== undefined && sale.subtotal !== null
+                                        ? Number(sale.subtotal)
+                                        : (sale.items && sale.items.length > 0
+                                            ? sale.items.reduce((acc, it) => acc + Number(it.subtotal || 0), 0)
+                                            : Math.max(0, Number(sale.total || 0) + disc - fee));
+
+                                    const details = typeof sale.discount_details === 'string'
+                                        ? (() => { try { return JSON.parse(sale.discount_details); } catch { return null; } })()
+                                        : sale.discount_details;
+
+                                    return (
+                                        <>
+                                            <div className="flex items-center justify-between text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                <span>Product Subtotal</span>
+                                                <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(sub)}</span>
+                                            </div>
+                                            {disc > 0 && (
+                                                <div className="space-y-0.5">
+                                                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-bold">
+                                                        <span>Discount {sale.discount_type ? `(${sale.discount_type.replace('_', ' ').toUpperCase()})` : ''}</span>
+                                                        <span>-{formatCurrency(disc)}</span>
+                                                    </div>
+                                                    {details?.customer_name && (
+                                                        <div className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] text-right">
+                                                            {details.customer_name} {details.id_number ? `• ID: ${details.id_number}` : ''}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {fee > 0 && (
+                                                <div className="flex items-center justify-between text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                    <span className="flex items-center gap-1">
+                                                        <Truck className="size-3 text-purple-500" />
+                                                        <span>Delivery Fee</span>
+                                                    </span>
+                                                    <span className="font-bold text-purple-600 dark:text-purple-400">+{formatCurrency(fee)}</span>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                                 <div className="flex items-center justify-between text-[#7D6B6E] dark:text-[#94A3B8]">
                                     <span>Paid Amount</span>
                                     <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(Number(sale.paid_amount || 0))}</span>
@@ -238,6 +282,20 @@ export function SalesDrawer({
                                 <p>Date: {safeFormatDate(sale.created_at)}</p>
                                 <p>Cashier: {sale.cashier?.name || 'Staff'}</p>
                                 <p>Type: {sale.type?.toUpperCase() || 'IN-STORE'}</p>
+                                {(() => {
+                                    const details = typeof sale.discount_details === 'string'
+                                        ? (() => { try { return JSON.parse(sale.discount_details); } catch { return null; } })()
+                                        : sale.discount_details;
+                                    if (details?.customer_name || details?.id_number) {
+                                        return (
+                                            <div className="text-[10px] text-slate-600 dark:text-slate-400 pt-0.5">
+                                                <p>Customer: {details.customer_name || 'N/A'}</p>
+                                                {details.id_number && <p>ID Ref: {details.id_number}</p>}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
 
                             <p className="text-[10px] text-slate-400">--------------------------------</p>
@@ -249,6 +307,30 @@ export function SalesDrawer({
                                         <span>₱{Number(i.subtotal).toFixed(2)}</span>
                                     </div>
                                 ))}
+                                {(() => {
+                                    const disc = Number(sale.discount ?? 0);
+                                    if (disc > 0) {
+                                        return (
+                                            <div className="flex justify-between text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">
+                                                <span>DISCOUNT ({sale.discount_type ? sale.discount_type.replace('_', ' ').toUpperCase() : 'APPLIED'})</span>
+                                                <span>-₱{disc.toFixed(2)}</span>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                                {(() => {
+                                    const fee = Number(sale.delivery_fee ?? sale.delivery?.delivery_fee ?? 0);
+                                    if (fee > 0) {
+                                        return (
+                                            <div className="flex justify-between text-[11px] text-purple-600 dark:text-purple-400 font-bold">
+                                                <span>Delivery Fee</span>
+                                                <span>₱{fee.toFixed(2)}</span>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
 
                             <p className="text-[10px] text-slate-400">--------------------------------</p>

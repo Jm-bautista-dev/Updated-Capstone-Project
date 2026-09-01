@@ -2,6 +2,7 @@ import { router } from '@inertiajs/core';
 import { Head, usePage, useForm } from '@inertiajs/react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Tag } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { 
   FiShoppingCart, 
@@ -23,6 +24,7 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import { toast } from 'sonner';
+import { ApplyDiscountModal, type PosDiscount } from '@/components/pos/ApplyDiscountModal';
 import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
 import type { PosRider } from '@/components/pos/PosRiderSelector';
 import { ResultModal } from '@/components/result-modal';
@@ -179,6 +181,10 @@ export default function PosIndex() {
   };
 
 
+  // Discount State
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [activeDiscount, setActiveDiscount] = useState<PosDiscount | null>(null);
+
   // --- Delivery State ---
   const [deliveryInfo, setDeliveryInfo] = useState<PosDeliveryInfo>({
     customer_name: '',
@@ -209,10 +215,26 @@ export default function PosIndex() {
     return Math.round(base + (distance - freeKm) * perKm);
   }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch]);
 
-
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
-  const cartTotal = useMemo(() => cartSubtotal + (orderType === 'delivery' ? deliveryFee : 0), [cartSubtotal, orderType, deliveryFee]);
+
+  // Dynamic Discount Calculation based on current cart
+  const discountAmount = useMemo(() => {
+    if (!activeDiscount || cart.length === 0) return 0;
+    const eligibleItems = activeDiscount.eligibleItemIds && activeDiscount.eligibleItemIds.length > 0
+      ? cart.filter((it) => activeDiscount.eligibleItemIds.includes(it.id))
+      : cart;
+    const eligibleBase = eligibleItems.reduce((acc, it) => acc + (it.selling_price * it.quantity), 0);
+
+    if (activeDiscount.type === 'custom_fixed') {
+      return Math.min(eligibleBase, Math.max(0, activeDiscount.fixedAmount || 0));
+    }
+    const rate = Math.min(100, Math.max(0, activeDiscount.percentage || 0));
+    return (eligibleBase * rate) / 100;
+  }, [cart, activeDiscount]);
+
+  const netProductSubtotal = useMemo(() => Math.max(0, cartSubtotal - discountAmount), [cartSubtotal, discountAmount]);
+  const cartTotal = useMemo(() => netProductSubtotal + (orderType === 'delivery' ? deliveryFee : 0), [netProductSubtotal, orderType, deliveryFee]);
 
   const changeDue = useMemo(() => {
     const cash = parseFloat(cashReceived) || 0;
@@ -318,6 +340,18 @@ export default function PosIndex() {
       const salePayload = {
         type: orderType,
         items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+        subtotal: cartSubtotal,
+        discount: discountAmount,
+        discount_type: activeDiscount?.type || null,
+        discount_details: activeDiscount ? {
+          type_name: activeDiscount.typeName,
+          percentage: activeDiscount.percentage,
+          fixed_amount: activeDiscount.fixedAmount,
+          customer_name: activeDiscount.customerName,
+          id_number: activeDiscount.idNumber,
+          eligible_item_ids: activeDiscount.eligibleItemIds,
+          notes: activeDiscount.notes,
+        } : null,
         total: cartTotal,
         payment_method: paymentMethod,
         paid_amount: paid,
@@ -336,6 +370,9 @@ export default function PosIndex() {
           created_at: new Date().toISOString(),
           type: orderType,
           items: cart.map(item => ({ id: item.id, product: { name: item.name }, quantity: item.quantity, unit_price: item.selling_price })),
+          subtotal: cartSubtotal,
+          discount: discountAmount,
+          discount_type: activeDiscount?.type || null,
           total: cartTotal,
           payment_method: paymentMethod,
           paid_amount: paid,
@@ -356,6 +393,20 @@ export default function PosIndex() {
     formData.append('payment_method', paymentMethod);
     formData.append('paid_amount', String(paid));
     formData.append('change_amount', String(paymentMethod === 'cash' ? changeDue : 0));
+
+    if (discountAmount > 0 && activeDiscount) {
+      formData.append('discount', String(discountAmount));
+      formData.append('discount_type', activeDiscount.type);
+      formData.append('discount_details', JSON.stringify({
+        type_name: activeDiscount.typeName,
+        percentage: activeDiscount.percentage,
+        fixed_amount: activeDiscount.fixedAmount,
+        customer_name: activeDiscount.customerName,
+        id_number: activeDiscount.idNumber,
+        eligible_item_ids: activeDiscount.eligibleItemIds,
+        notes: activeDiscount.notes,
+      }));
+    }
 
     if (orderType === 'delivery') {
       cart.forEach((item, index) => {
@@ -396,6 +447,7 @@ export default function PosIndex() {
     setIsSuccessModalOpen(false);
     setLastSale(null);
     setCart([]);
+    setActiveDiscount(null);
     setCashReceived('');
     setProofFile(null);
     setDeliveryInfo(prev => ({
@@ -844,6 +896,47 @@ export default function PosIndex() {
                     )}
                   </div>
 
+                  {/* Discount Trigger Card */}
+                  <div className="p-4 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn(
+                        "size-10 rounded-xl flex items-center justify-center shrink-0 border",
+                        activeDiscount
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-[#FFF5F7] dark:bg-[#1E1E21] text-[#E75480] dark:text-[#FF4F81] border-[#F8C8DC]/60 dark:border-white/10"
+                      )}>
+                        <Tag className="size-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-extrabold uppercase text-[#3D2C2E] dark:text-white truncate">
+                            {activeDiscount ? activeDiscount.typeName : 'Customer Discount'}
+                          </h4>
+                          {activeDiscount && (
+                            <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                              ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[#7D6B6E] dark:text-zinc-400 truncate">
+                          {activeDiscount
+                            ? (activeDiscount.customerName ? `${activeDiscount.customerName} • ${activeDiscount.idNumber}` : `-${formatCurrency(discountAmount)} applied`)
+                            : 'Senior, PWD, Solo Parent, Employee'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsDiscountModalOpen(true)}
+                      className="h-8 px-3 rounded-xl border-[#E75480]/40 text-[#E75480] hover:bg-[#E75480] hover:text-white font-bold text-xs cursor-pointer shrink-0 transition-all"
+                    >
+                      {activeDiscount ? 'EDIT DISCOUNT' : '+ APPLY DISCOUNT'}
+                    </Button>
+                  </div>
+
                   {/* Summary Card */}
                   <div className="p-5 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] space-y-3 shadow-2xs">
                     <h3 className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Order Totals</h3>
@@ -854,17 +947,22 @@ export default function PosIndex() {
                         <span className="font-extrabold text-[#3D2C2E] dark:text-white">{formatCurrency(cartSubtotal)}</span>
                       </div>
 
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
+                          <span className="flex items-center gap-1">
+                            <Tag className="size-3" />
+                            <span>Discount ({activeDiscount?.typeName || 'Applied'})</span>
+                          </span>
+                          <span className="font-mono font-extrabold">-{formatCurrency(discountAmount)}</span>
+                        </div>
+                      )}
+
                       {orderType === 'delivery' && (
                         <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300">
                           <span>Delivery Fee</span>
                           <span className="font-extrabold text-amber-600 dark:text-amber-400">{formatCurrency(deliveryFee)}</span>
                         </div>
                       )}
-
-                      <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300">
-                        <span>Discount</span>
-                        <span className="font-bold text-[#7D6B6E] dark:text-zinc-400">₱0.00</span>
-                      </div>
 
                       <div className="flex justify-between text-sm font-black pt-3 border-t border-[#F8C8DC]/40 dark:border-[#26262A] text-[#3D2C2E] dark:text-white">
                         <span>TOTAL</span>
@@ -916,14 +1014,26 @@ export default function PosIndex() {
               {/* Checkout Body */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto w-full space-y-6 scrollbar-hide pb-28">
                 {/* Total Banner */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-[#171719] border-2 border-[#E75480]/50 text-center shadow-md relative overflow-hidden">
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#171719] border-2 border-[#E75480]/50 text-center shadow-md relative overflow-hidden space-y-2">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#E75480]">ORDER TOTAL</span>
-                  <h2 className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight">
+                  <h2 className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
                     {formatCurrency(cartTotal)}
                   </h2>
-                  <p className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase tracking-wider mt-1">
-                    {cartTotalItems} Items • {orderType.toUpperCase()}
-                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <span className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase tracking-wider">
+                      {cartTotalItems} Items • {orderType.toUpperCase()}
+                    </span>
+                    {discountAmount > 0 && activeDiscount && (
+                      <button
+                        type="button"
+                        onClick={() => setIsDiscountModalOpen(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 hover:bg-emerald-100 transition-colors cursor-pointer"
+                      >
+                        <Tag className="size-3" />
+                        <span>-{formatCurrency(discountAmount)} ({activeDiscount.typeName})</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Payment Methods */}
@@ -1337,6 +1447,22 @@ export default function PosIndex() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Apply Discount Modal */}
+        <ApplyDiscountModal
+          open={isDiscountModalOpen}
+          onClose={() => setIsDiscountModalOpen(false)}
+          cart={cart}
+          currentDiscount={activeDiscount}
+          onApplyDiscount={(discount) => {
+            setActiveDiscount(discount);
+            toast.success(`Applied ${discount.typeName} (-${formatCurrency(discount.discountAmount)})`);
+          }}
+          onRemoveDiscount={() => {
+            setActiveDiscount(null);
+            toast.info('Discount removed.');
+          }}
+        />
       </div>
     </AppLayout>
   );

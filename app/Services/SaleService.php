@@ -143,24 +143,43 @@ class SaleService
                 }
             }
 
+            $orderType = $data['type'] ?? 'dine-in';
+            $productSubtotal = array_sum(array_column($saleItemsData, 'subtotal'));
+            $discount = isset($data['discount']) ? max(0.0, (float) $data['discount']) : 0.00;
+            $discountType = $data['discount_type'] ?? null;
+            $discountDetails = $data['discount_details'] ?? null;
+
+            $netProductSales = max(0.0, $productSubtotal - $discount);
+            $deliveryFee = ($orderType === 'delivery' && !empty($data['delivery_info']['delivery_fee'])) 
+                ? (float) $data['delivery_info']['delivery_fee'] 
+                : 0.00;
+            $saleTotal = $netProductSales + $deliveryFee;
+            $saleProfit = $netProductSales - $costTotal;
+
             $sale = Sale::create([
-                'order_number'   => $orderRef,
-                'user_id'        => $user->id,
-                'branch_id'      => $branchId,
-                'type'           => $data['type'] ?? 'dine-in',
-                'total'          => $data['total'],
-                'cost_total'     => $costTotal,
-                'profit'         => $saleProfit,
-                'paid_amount'    => $data['paid_amount'],
-                'change_amount'  => $data['change_amount'] ?? 0,
-                'payment_method' => $paymentMethod,
-                'status'         => $data['status'] ?? 'completed',
+                'order_number'     => $orderRef,
+                'user_id'          => $user->id,
+                'branch_id'        => $branchId,
+                'type'             => $orderType,
+                'subtotal'         => $productSubtotal,
+                'discount'         => $discount,
+                'discount_type'    => $discountType,
+                'discount_details' => $discountDetails,
+                'delivery_fee'     => $deliveryFee,
+                'total'            => $saleTotal,
+                'cost_total'       => $costTotal,
+                'profit'           => $saleProfit,
+                'paid_amount'      => $data['paid_amount'],
+                'change_amount'    => $data['change_amount'] ?? 0,
+                'payment_method'   => $paymentMethod,
+                'status'           => $data['status'] ?? 'completed',
             ]);
 
             // Update Shift totals if cash
             if ($activeShift && $paymentMethod === 'cash') {
-                $activeShift->increment('total_cash_sales', $data['total']);
-                $activeShift->increment('expected_balance', $data['total']);
+                $cashAmount = (float) ($data['total'] ?? $saleTotal);
+                $activeShift->increment('total_cash_sales', $cashAmount);
+                $activeShift->increment('expected_balance', $cashAmount);
             }
 
             // 6. ── CREATE SALE ITEMS ────────────────────────────────────────────

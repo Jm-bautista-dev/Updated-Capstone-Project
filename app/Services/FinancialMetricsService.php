@@ -21,7 +21,7 @@ class FinancialMetricsService
      */
     public function getSummaryMetrics($startDate = null, $endDate = null, ?int $branchId = null): array
     {
-        $salesQuery = Sale::with(['items.product.ingredients.stocks'])
+        $salesQuery = Sale::with(['items.product.ingredients.stocks', 'delivery'])
             ->where('status', 'completed')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
@@ -30,11 +30,24 @@ class FinancialMetricsService
         $sales = $salesQuery->get();
 
         $revenue = 0.0;
+        $deliveryFees = 0.0;
         $cogs = 0.0;
         $totalOrders = $sales->count();
 
         foreach ($sales as $sale) {
-            $revenue += (float) $sale->total;
+            $saleDeliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+            $saleDiscount = (float) ($sale->discount ?? 0.0);
+            $deliveryFees += $saleDeliveryFee;
+
+            if ($sale->subtotal !== null) {
+                $productRevenue = max(0.0, (float) $sale->subtotal - $saleDiscount);
+            } elseif ($sale->items->isNotEmpty()) {
+                $productRevenue = max(0.0, (float) $sale->items->sum('subtotal') - $saleDiscount);
+            } else {
+                $productRevenue = max(0.0, (float) $sale->total - $saleDeliveryFee);
+            }
+
+            $revenue += $productRevenue;
 
             $saleCogs = 0.0;
             if ($sale->items->isNotEmpty()) {
@@ -66,6 +79,8 @@ class FinancialMetricsService
 
         return [
             'revenue'            => round($revenue, 2),
+            'delivery_fees'      => round($deliveryFees, 2),
+            'total_collected'    => round($revenue + $deliveryFees, 2),
             'cogs'               => round($cogs, 2),
             'operating_expenses' => round($operatingExpenses, 2),
             'total_expenses'     => round($totalExpenses, 2),
@@ -85,7 +100,7 @@ class FinancialMetricsService
         $startDate = Carbon::today()->subDays($rangeDays)->startOfDay();
         $endDate = Carbon::today()->endOfDay();
 
-        $sales = Sale::with(['items.product.ingredients.stocks'])
+        $sales = Sale::with(['items.product.ingredients.stocks', 'delivery'])
             ->where('status', 'completed')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->where('created_at', '>=', $startDate)
@@ -102,10 +117,21 @@ class FinancialMetricsService
         foreach ($sales as $sale) {
             $date = $sale->created_at->toDateString();
             if (!isset($dailySalesMap[$date])) {
-                $dailySalesMap[$date] = ['revenue' => 0.0, 'cogs' => 0.0, 'orders' => 0];
+                $dailySalesMap[$date] = ['revenue' => 0.0, 'delivery_fees' => 0.0, 'cogs' => 0.0, 'orders' => 0];
             }
 
-            $dailySalesMap[$date]['revenue'] += (float) $sale->total;
+            $saleDeliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+            $saleDiscount = (float) ($sale->discount ?? 0.0);
+            if ($sale->subtotal !== null) {
+                $productRevenue = max(0.0, (float) $sale->subtotal - $saleDiscount);
+            } elseif ($sale->items->isNotEmpty()) {
+                $productRevenue = max(0.0, (float) $sale->items->sum('subtotal') - $saleDiscount);
+            } else {
+                $productRevenue = max(0.0, (float) $sale->total - $saleDeliveryFee);
+            }
+
+            $dailySalesMap[$date]['revenue'] += $productRevenue;
+            $dailySalesMap[$date]['delivery_fees'] += $saleDeliveryFee;
             $dailySalesMap[$date]['orders']++;
 
             $saleCogs = 0.0;
@@ -169,14 +195,26 @@ class FinancialMetricsService
         return $branches->map(function (Branch $branch) use ($startDate, $endDate, $today) {
             $metrics = $this->getSummaryMetrics($startDate, $endDate, $branch->id);
 
-            // Orders and Revenue today
-            $todaySales = Sale::where('branch_id', $branch->id)
+            // Orders and Product Revenue today
+            $todaySales = Sale::with(['items', 'delivery'])
+                ->where('branch_id', $branch->id)
                 ->where('status', 'completed')
                 ->whereDate('created_at', $today)
                 ->get();
 
             $ordersToday = $todaySales->count();
-            $revenueToday = (float) $todaySales->sum('total');
+            $revenueToday = 0.0;
+            foreach ($todaySales as $sale) {
+                $saleDeliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+                $saleDiscount = (float) ($sale->discount ?? 0.0);
+                if ($sale->subtotal !== null) {
+                    $revenueToday += max(0.0, (float) $sale->subtotal - $saleDiscount);
+                } elseif ($sale->items->isNotEmpty()) {
+                    $revenueToday += max(0.0, (float) $sale->items->sum('subtotal') - $saleDiscount);
+                } else {
+                    $revenueToday += max(0.0, (float) $sale->total - $saleDeliveryFee);
+                }
+            }
 
             // Low stock count
             $lowStockCount = \App\Models\IngredientStock::where('branch_id', $branch->id)

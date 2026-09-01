@@ -161,8 +161,23 @@ class SalesController extends Controller
             $dateRange = $this->resolveExportDateRange($request);
             $query     = $this->buildScopedSalesExportQuery($request, $dateRange);
 
-            $count = (clone $query)->count();
-            $total = (float) (clone $query)->sum('total');
+            $sales = (clone $query)->get();
+            $count = $sales->count();
+            $totalAmount = (float) $sales->sum('total');
+            $subtotalAmount = 0.0;
+            $deliveryFeeAmount = 0.0;
+
+            foreach ($sales as $s) {
+                $fee = (float) ($s->delivery_fee ?? $s->delivery?->delivery_fee ?? 0.0);
+                $deliveryFeeAmount += $fee;
+                if ($s->subtotal !== null) {
+                    $subtotalAmount += (float) $s->subtotal;
+                } elseif ($s->items && $s->items->isNotEmpty()) {
+                    $subtotalAmount += (float) $s->items->sum('subtotal');
+                } else {
+                    $subtotalAmount += max(0.0, (float) $s->total - $fee);
+                }
+            }
 
             $branchName = 'All Branches';
             $branchId   = $request->input('branch_id');
@@ -174,15 +189,17 @@ class SalesController extends Controller
             }
 
             return response()->json([
-                'success'      => true,
-                'preset'       => $dateRange['preset'],
-                'label'        => $dateRange['label'],
-                'from'         => $dateRange['from']->format('Y-m-d H:i:s'),
-                'to'           => $dateRange['to']->format('Y-m-d H:i:s'),
-                'count'        => $count,
-                'total_amount' => $total,
-                'branch_name'  => $branchName,
-                'status'       => $request->input('status', 'all'),
+                'success'             => true,
+                'preset'              => $dateRange['preset'],
+                'label'               => $dateRange['label'],
+                'from'                => $dateRange['from']->format('Y-m-d H:i:s'),
+                'to'                  => $dateRange['to']->format('Y-m-d H:i:s'),
+                'count'               => $count,
+                'subtotal_amount'     => round($subtotalAmount, 2),
+                'delivery_fee_amount' => round($deliveryFeeAmount, 2),
+                'total_amount'        => round($totalAmount, 2),
+                'branch_name'         => $branchName,
+                'status'              => $request->input('status', 'all'),
             ]);
         } catch (\Illuminate\Validation\ValidationException $ve) {
             return response()->json(['error' => collect($ve->errors())->flatten()->first()], 422);
@@ -231,9 +248,9 @@ class SalesController extends Controller
                 'Cashier',
                 'Order Type',
                 'Payment Method',
-                'Subtotal (PHP)',
-                'Discount (PHP)',
-                'Total Amount (PHP)',
+                'Product Subtotal (PHP)',
+                'Delivery Fee (PHP)',
+                'Total Amount Paid (PHP)',
                 'Status',
                 'Line Items Count',
                 'Items Detail',
@@ -252,6 +269,15 @@ class SalesController extends Controller
                     }
                     $itemsString = implode('; ', $itemDetails);
 
+                    $deliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+                    if ($sale->subtotal !== null) {
+                        $productSubtotal = (float) $sale->subtotal;
+                    } elseif ($sale->items && $sale->items->isNotEmpty()) {
+                        $productSubtotal = (float) $sale->items->sum('subtotal');
+                    } else {
+                        $productSubtotal = max(0.0, (float) $sale->total - $deliveryFee);
+                    }
+
                     fputcsv($handle, [
                         $sale->order_number,
                         $sale->id,
@@ -260,8 +286,8 @@ class SalesController extends Controller
                         $sale->cashier?->name ?? 'Staff',
                         $sale->type ?? 'In-Store',
                         $sale->payment_method ?? 'Cash',
-                        number_format((float) ($sale->subtotal ?? $sale->total), 2, '.', ''),
-                        number_format((float) ($sale->discount ?? 0), 2, '.', ''),
+                        number_format($productSubtotal, 2, '.', ''),
+                        number_format($deliveryFee, 2, '.', ''),
                         number_format((float) $sale->total, 2, '.', ''),
                         ucfirst($sale->status ?? ''),
                         $sale->items ? $sale->items->count() : 0,

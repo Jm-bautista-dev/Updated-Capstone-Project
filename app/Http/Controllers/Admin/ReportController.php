@@ -44,7 +44,18 @@ class ReportController extends Controller
             ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
             ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId));
 
-        $todaySales = (float) (clone $todayQuery)->sum('total');
+        $todaySalesList = (clone $todayQuery)->with(['items', 'delivery'])->get();
+        $todaySales = 0.0;
+        foreach ($todaySalesList as $s) {
+            $fee = (float) ($s->delivery_fee ?? $s->delivery?->delivery_fee ?? 0.0);
+            if ($s->subtotal !== null) {
+                $todaySales += (float) $s->subtotal;
+            } elseif ($s->items->isNotEmpty()) {
+                $todaySales += (float) $s->items->sum('subtotal');
+            } else {
+                $todaySales += max(0.0, (float) $s->total - $fee);
+            }
+        }
 
         $shifts = CashierShift::with('cashier')
             ->when(!$user->isAdmin(), fn($q) => $q
@@ -100,7 +111,7 @@ class ReportController extends Controller
             : null;
 
         if ($activeTab === 'sales') {
-            $sales = Sale::with(['cashier', 'items.product', 'branch'])
+            $sales = Sale::with(['cashier', 'items.product', 'branch', 'delivery'])
                 ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
                 ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
                 ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
@@ -123,16 +134,28 @@ class ReportController extends Controller
                 } elseif ((float) $sale->cost_total > 0) {
                     $saleCogs = (float) $sale->cost_total;
                 }
-                $saleProfit = (float) $sale->total - $saleCogs;
+
+                $deliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+                if ($sale->subtotal !== null) {
+                    $productSubtotal = (float) $sale->subtotal;
+                } elseif ($sale->items->isNotEmpty()) {
+                    $productSubtotal = (float) $sale->items->sum('subtotal');
+                } else {
+                    $productSubtotal = max(0.0, (float) $sale->total - $deliveryFee);
+                }
+
+                $saleProfit = $productSubtotal - $saleCogs;
 
                 return [
-                    'order_number' => $sale->order_number,
-                    'date' => $sale->created_at->format('M d, Y H:i'),
-                    'cashier' => $sale->cashier?->name ?? 'N/A',
-                    'branch' => $sale->branch?->name ?? 'N/A',
-                    'status' => ucfirst($sale->status),
-                    'total' => '₱' . number_format($sale->total, 2),
-                    'profit' => '₱' . number_format($saleProfit, 2),
+                    'order_number'     => $sale->order_number,
+                    'date'             => $sale->created_at->format('M d, Y H:i'),
+                    'cashier'          => $sale->cashier?->name ?? 'N/A',
+                    'branch'           => $sale->branch?->name ?? 'N/A',
+                    'status'           => ucfirst($sale->status),
+                    'product_subtotal' => '₱' . number_format($productSubtotal, 2),
+                    'delivery_fee'     => '₱' . number_format($deliveryFee, 2),
+                    'total'            => '₱' . number_format($sale->total, 2),
+                    'profit'           => '₱' . number_format($saleProfit, 2),
                 ];
             })->toArray();
         } else {
@@ -151,12 +174,14 @@ class ReportController extends Controller
             return $shifts->map(function ($shift) {
                 return [
                     'cashier' => $shift->cashier?->name ?? 'N/A',
-                    'opened_at' => $shift->opened_at ? Carbon::parse($shift->opened_at)->format('M d, Y H:i') : 'N/A',
-                    'closed_at' => $shift->closed_at ? Carbon::parse($shift->closed_at)->format('M d, Y H:i') : 'Active',
-                    'opening' => '₱' . number_format($shift->opening_cash, 2),
-                    'ending' => '₱' . number_format($shift->expected_cash, 2),
-                    'actual' => '₱' . number_format($shift->actual_cash, 2),
-                    'diff' => '₱' . number_format($shift->actual_cash - $shift->expected_cash, 2),
+                    'opened_at' => $shift->opened_at->format('M d, Y H:i'),
+                    'closed_at' => $shift->closed_at ? $shift->closed_at->format('M d, Y H:i') : 'Active',
+                    'starting_cash' => '₱' . number_format($shift->starting_cash, 2),
+                    'cash_sales' => '₱' . number_format($shift->total_cash_sales, 2),
+                    'expected_balance' => '₱' . number_format($shift->expected_balance, 2),
+                    'actual_cash' => $shift->actual_cash !== null ? '₱' . number_format($shift->actual_cash, 2) : 'N/A',
+                    'difference' => $shift->difference !== null ? '₱' . number_format($shift->difference, 2) : 'N/A',
+                    'status' => ucfirst($shift->status),
                 ];
             })->toArray();
         }

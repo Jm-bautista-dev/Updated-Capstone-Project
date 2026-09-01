@@ -134,7 +134,9 @@ class OrderFulfillmentService
             ];
         }
 
-        $profit = (float) $order->total_amount - $costTotal;
+        $productSubtotal = array_sum(array_column($itemsData, 'subtotal'));
+        $deliveryFee     = (float) ($delivery->delivery_fee ?? 0.00);
+        $profit          = $productSubtotal - $costTotal;
 
         // ── Create authoritative Sale record ─────────────────────────────
         $sale = Sale::create([
@@ -143,6 +145,8 @@ class OrderFulfillmentService
             'user_id'        => $order->user_id ?? 1,
             'branch_id'      => $order->branch_id,
             'type'           => 'delivery',
+            'subtotal'       => $productSubtotal,
+            'delivery_fee'   => $deliveryFee,
             'total'          => $order->total_amount,
             'cost_total'     => $costTotal,
             'profit'         => $profit,

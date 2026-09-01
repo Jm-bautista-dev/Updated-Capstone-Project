@@ -1,15 +1,19 @@
 /**
- * Professional Real-Time Order Sound System
+ * Professional Real-Time Order Sound System & Repeating Alert Controller
  * Features:
  * - Web Audio API synthesized dual-tone POS chime (0.5s duration)
- * - Autoplay policy safe: AudioContext only created inside a user-gesture event handler
+ * - Autoplay policy safe: AudioContext created and resumed inside user gestures
+ * - Repeating interval controller: plays short chime every 3.5s until unacknowledged queue is empty
+ * - Explicit unlock helper to recover suspended/blocked audio gracefully
  * - Mute setting persistence via localStorage ('order_notification_sound')
- * - Safe non-blocking execution — zero console errors on blocked playback
+ * - Safe non-blocking execution — zero console errors or uncaught promises
  */
 
 let audioCtx: AudioContext | null = null;
 let userHasInteracted = false;
 let pendingSoundCount = 0;
+let repeatingIntervalId: number | null = null;
+const REPEAT_INTERVAL_MS = 3500;
 
 /** Play the two-tone POS chime using the given context. */
 const playSynthChime = (ctx: AudioContext): void => {
@@ -40,32 +44,36 @@ const playSynthChime = (ctx: AudioContext): void => {
         osc2.start(now + 0.15);
         osc2.stop(now + 0.5);
     } catch {
-        // Silently fail
+        // Silently fail without throwing
     }
 };
 
 /**
- * Creates the AudioContext inside a user-gesture event handler (safe from autoplay block).
+ * Creates or resumes the AudioContext inside a user-gesture event handler (safe from autoplay block).
  * Also drains any sounds queued before first interaction.
  */
-const handleFirstGesture = (): void => {
-    if (userHasInteracted) return;
+export const unlockAudio = (): boolean => {
     userHasInteracted = true;
 
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return false;
 
     try {
         const AudioContextClass =
             window.AudioContext ||
             (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
 
-        if (AudioContextClass) {
+        if (!audioCtx && AudioContextClass) {
             audioCtx = new AudioContextClass();
+        }
 
-            // Drain pending sounds that arrived before first interaction
+        if (audioCtx) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+
+            // Drain queued sound if needed
             if (pendingSoundCount > 0 && isSoundEnabled()) {
                 pendingSoundCount = 0;
-                // Play one chime to represent queued notification(s)
                 if (audioCtx.state === 'running') {
                     playSynthChime(audioCtx);
                 } else {
@@ -74,18 +82,23 @@ const handleFirstGesture = (): void => {
             } else {
                 pendingSoundCount = 0;
             }
+            return true;
         }
     } catch {
         // Silently fail
     }
+    return false;
 };
 
-// Register gesture listeners — AudioContext is ONLY created inside these handlers
+// Register global gesture listeners to prime audio context transparently
 if (typeof window !== 'undefined') {
-    window.addEventListener('click',      handleFirstGesture, { capture: true });
-    window.addEventListener('keydown',    handleFirstGesture, { capture: true });
-    window.addEventListener('touchstart', handleFirstGesture, { capture: true });
-    window.addEventListener('pointerdown',handleFirstGesture, { capture: true });
+    const gestureHandler = () => {
+        unlockAudio();
+    };
+    window.addEventListener('click', gestureHandler, { capture: true });
+    window.addEventListener('keydown', gestureHandler, { capture: true });
+    window.addEventListener('touchstart', gestureHandler, { capture: true });
+    window.addEventListener('pointerdown', gestureHandler, { capture: true });
 }
 
 export function isSoundEnabled(): boolean {
@@ -93,15 +106,29 @@ export function isSoundEnabled(): boolean {
     return localStorage.getItem('order_notification_sound') !== 'disabled';
 }
 
+export function setSoundEnabled(enabled: boolean): void {
+    if (typeof window === 'undefined') return;
+    if (enabled) {
+        localStorage.removeItem('order_notification_sound');
+        unlockAudio();
+    } else {
+        localStorage.setItem('order_notification_sound', 'disabled');
+        stopRepeatingAlertSound();
+    }
+}
+
+export function isAudioReady(): boolean {
+    return userHasInteracted && audioCtx !== null && audioCtx.state === 'running';
+}
+
 /**
- * Play the notification chime.
+ * Play a single notification chime.
  * - After first gesture: plays immediately via Web Audio API.
- * - Before first gesture: queues the sound to play on next gesture (no errors).
+ * - Before first gesture: queues the sound to play on next gesture.
  */
 export function playOrderNotificationSound(): boolean {
     if (!isSoundEnabled()) return false;
 
-    // User hasn't interacted yet — queue for after first gesture, no errors
     if (!userHasInteracted || !audioCtx) {
         pendingSoundCount++;
         return false;
@@ -123,4 +150,39 @@ export function playOrderNotificationSound(): boolean {
     }
 
     return false;
+}
+
+/**
+ * Starts repeating alert sound at controlled intervals (3.5s).
+ * Exactly one interval timer is active application-wide.
+ */
+export function startRepeatingAlertSound(intervalMs: number = REPEAT_INTERVAL_MS): void {
+    if (!isSoundEnabled()) return;
+
+    // Play immediately first
+    playOrderNotificationSound();
+
+    if (repeatingIntervalId !== null) {
+        return; // Already actively repeating
+    }
+
+    if (typeof window !== 'undefined') {
+        repeatingIntervalId = window.setInterval(() => {
+            if (!isSoundEnabled()) {
+                stopRepeatingAlertSound();
+                return;
+            }
+            playOrderNotificationSound();
+        }, intervalMs);
+    }
+}
+
+/**
+ * Stops repeating alert sound immediately.
+ */
+export function stopRepeatingAlertSound(): void {
+    if (repeatingIntervalId !== null && typeof window !== 'undefined') {
+        window.clearInterval(repeatingIntervalId);
+        repeatingIntervalId = null;
+    }
 }

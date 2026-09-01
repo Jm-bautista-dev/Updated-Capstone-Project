@@ -17,6 +17,19 @@ export type Sale = {
     id: number;
     order_number: string;
     type: 'dine-in' | 'take-out' | 'delivery';
+    subtotal?: number;
+    discount?: number;
+    discount_type?: string;
+    discount_details?: {
+        type_name?: string;
+        percentage?: number;
+        fixed_amount?: number;
+        customer_name?: string;
+        id_number?: string;
+        notes?: string;
+        [key: string]: unknown;
+    } | string;
+    delivery_fee?: number;
     total: number;
     paid_amount: number;
     change_amount: number;
@@ -24,6 +37,11 @@ export type Sale = {
     status: 'pending' | 'preparing' | 'completed' | 'cancelled';
     created_at: string;
     items: SaleItem[];
+    delivery?: {
+        id?: number;
+        delivery_fee?: number;
+        status?: string;
+    };
     branch_id?: number;
     cashier: {
         name: string;
@@ -58,7 +76,13 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
 
         sales.forEach((s) => {
             if (s.status === 'completed') {
-                rev += Number(s.total || 0);
+                const fee = Number(s.delivery_fee ?? s.delivery?.delivery_fee ?? 0);
+                const sub = s.subtotal !== undefined && s.subtotal !== null
+                    ? Number(s.subtotal)
+                    : (s.items && s.items.length > 0
+                        ? s.items.reduce((acc, it) => acc + Number(it.subtotal || 0), 0)
+                        : Math.max(0, Number(s.total || 0) - fee));
+                rev += sub;
                 completed++;
             } else if (s.status === 'pending' || s.status === 'preparing') {
                 pending++;

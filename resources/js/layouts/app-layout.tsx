@@ -1,6 +1,7 @@
 import { Toaster } from 'sonner';
 
 import { ConflictResolutionModal } from '@/components/conflict-resolution-modal';
+import { PendingOrderAlertModal } from '@/components/alerts/PendingOrderAlertModal';
 import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
 import type { AppLayoutProps } from '@/types';
 
@@ -9,5 +10,6 @@ export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => (
         {children}
         <Toaster position="top-right" richColors expand={false} />
         <ConflictResolutionModal />
+        <PendingOrderAlertModal />
     </AppLayoutTemplate>
 );

@@ -214,10 +214,11 @@ class MobileDeliverySalesDashboardFinancialSyncTest extends TestCase
         $sale = Sale::where('order_id', $order->id)->first();
         $this->assertNotNull($sale, 'Sale record must be created with order_id.');
         $this->assertEquals('ORD-19', $sale->order_number);
-        $this->assertEquals($this->victoria->id, $sale->branch_id);
-        $this->assertEquals(549.00, (float) $sale->total);
+        $this->assertEquals(500.00, (float) $sale->subtotal, 'Product Revenue: 2 bowls @ ₱250 = ₱500');
+        $this->assertEquals(49.00, (float) $sale->delivery_fee, 'Delivery fee = ₱49');
+        $this->assertEquals(549.00, (float) $sale->total, 'Customer Grand Total = ₱549');
         $this->assertEquals(140.00, (float) $sale->cost_total, 'COGS for 2 bowls of ramen (₱70 * 2 = ₱140).');
-        $this->assertEquals(409.00, (float) $sale->profit, 'Profit: ₱549 - ₱140 = ₱409.');
+        $this->assertEquals(360.00, (float) $sale->profit, 'Profit: ₱500 product revenue - ₱140 COGS = ₱360.');
         $this->assertEquals('gcash', $sale->payment_method);
         $this->assertEquals('completed', $sale->status);
         $this->assertEquals('delivery', $sale->type);
@@ -242,10 +243,12 @@ class MobileDeliverySalesDashboardFinancialSyncTest extends TestCase
         $financialService = new FinancialMetricsService();
         $metrics = $financialService->getSummaryMetrics(null, null, $this->victoria->id);
 
-        $this->assertEquals(549.00, $metrics['revenue']);
+        $this->assertEquals(500.00, $metrics['revenue'], 'Product Revenue is ₱500.00 (excluding ₱49 delivery fee)');
+        $this->assertEquals(49.00, $metrics['delivery_fees'], 'Delivery fees tracked as ₱49.00');
+        $this->assertEquals(549.00, $metrics['total_collected'], 'Total collected is ₱549.00');
         $this->assertEquals(140.00, $metrics['cogs']);
         $this->assertEquals(0.00, $metrics['operating_expenses']);
-        $this->assertEquals(409.00, $metrics['net_profit']);
+        $this->assertEquals(360.00, $metrics['net_profit']);
         $this->assertEquals(1, $metrics['total_orders']);
 
         // Step 5: Verify Sales Controller (/sales) for Victoria Cashier
@@ -255,7 +258,7 @@ class MobileDeliverySalesDashboardFinancialSyncTest extends TestCase
             ->component('Sales/Index')
             ->has('sales.data', 1)
             ->where('sales.data.0.order_number', 'ORD-19')
-            ->where('sales.data.0.total', 549)
+            ->where('sales.data.0.total', '549.00')
             ->where('sales.data.0.payment_method', 'gcash')
         );
 
@@ -264,9 +267,9 @@ class MobileDeliverySalesDashboardFinancialSyncTest extends TestCase
         $dashboardResponse->assertStatus(200);
         $dashStats = $dashboardResponse->original->getData()['page']['props']['stats'];
 
-        $this->assertEquals(549.00, $dashStats['total_revenue']);
+        $this->assertEquals(500.00, $dashStats['total_revenue']);
         $this->assertEquals(140.00, $dashStats['total_expenses']); // COGS (140) + Wastage (0)
-        $this->assertEquals(409.00, $dashStats['total_profit']);
+        $this->assertEquals(360.00, $dashStats['total_profit']);
         $this->assertEquals(1, $dashStats['total_orders']);
 
         // Step 7: Verify Reports Controller (/reports) for Victoria Cashier
@@ -274,8 +277,8 @@ class MobileDeliverySalesDashboardFinancialSyncTest extends TestCase
         $reportsResponse->assertStatus(200);
         $reportsProps = $reportsResponse->original->getData()['page']['props'];
 
-        $this->assertEquals(549.00, $reportsProps['total_revenue']);
-        $this->assertEquals(409.00, $reportsProps['total_profit']);
+        $this->assertEquals(500.00, $reportsProps['total_revenue']);
+        $this->assertEquals(360.00, $reportsProps['total_profit']);
     }
 
     /**

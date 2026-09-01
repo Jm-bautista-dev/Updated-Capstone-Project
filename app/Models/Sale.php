@@ -20,6 +20,11 @@ class Sale extends Model
         'user_id',
         'branch_id',
         'type',
+        'subtotal',
+        'discount',
+        'discount_type',
+        'discount_details',
+        'delivery_fee',
         'total',
         'cost_total',
         'profit',
@@ -30,6 +35,49 @@ class Sale extends Model
         'created_at',
         'updated_at',
     ];
+
+    protected $casts = [
+        'subtotal'         => 'decimal:2',
+        'discount'         => 'decimal:2',
+        'discount_details' => 'array',
+        'delivery_fee'     => 'decimal:2',
+        'total'            => 'decimal:2',
+        'cost_total'       => 'decimal:2',
+        'profit'           => 'decimal:2',
+        'paid_amount'      => 'decimal:2',
+        'change_amount'    => 'decimal:2',
+    ];
+
+    /**
+     * Authoritative Product Revenue (Net Product Sales: Subtotal - Discount, excluding delivery fee).
+     */
+    public function getProductRevenueAttribute(): float
+    {
+        $discount = (float) ($this->discount ?? 0);
+
+        if ($this->subtotal !== null) {
+            return max(0.0, (float) $this->subtotal - $discount);
+        }
+
+        if ($this->relationLoaded('items') && $this->items->isNotEmpty()) {
+            return max(0.0, (float) $this->items->sum('subtotal') - $discount);
+        }
+
+        $deliveryFee = (float) ($this->delivery_fee ?? $this->delivery?->delivery_fee ?? 0);
+        return max(0.0, (float) $this->total - $deliveryFee);
+    }
+
+    /**
+     * Authoritative Delivery Fee amount.
+     */
+    public function getDeliveryFeeAmountAttribute(): float
+    {
+        if ($this->delivery_fee !== null) {
+            return (float) $this->delivery_fee;
+        }
+
+        return (float) ($this->delivery?->delivery_fee ?? 0);
+    }
 
     public function order()
     {

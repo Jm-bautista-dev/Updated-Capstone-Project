@@ -2,6 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import echo from '@/echo';
+import { orderAlertManager } from '@/lib/order-alert-manager';
 import { playOrderNotificationSound } from '@/lib/order-audio';
 
 interface RealTimeOrderEvent {
@@ -113,6 +114,12 @@ export function useRealTime(branchId?: number | null) {
             const handleOrderNotification = (e: RealTimeOrderEvent) => {
                 console.log('Real-time: New Order Event Received', e);
                 
+                const displayOrderNum = e.order_number || (e.order_id ? `ORD-${e.order_id}` : 'ORD-NEW');
+                const parsedTotal = typeof e.total_amount === 'number' 
+                    ? e.total_amount 
+                    : parseFloat(String(e.total_amount || 0));
+                const branchStr = e.branch_name || 'Branch';
+
                 if (e.order_id) {
                     if (notifiedOrderIds.has(e.order_id)) {
                         console.log(`Real-time: Order #${e.order_id} already notified. Skipping duplicate alert.`);
@@ -125,22 +132,33 @@ export function useRealTime(branchId?: number | null) {
                             notifiedOrderIds.delete(firstId);
                         }
                     }
-                }
 
-                playOrderNotificationSound();
+                    // Enqueue in authoritative persistent repeating alert manager
+                    orderAlertManager.addAlert({
+                        id: e.order_id,
+                        order_number: displayOrderNum,
+                        customer_name: e.customer_name || 'Mobile Customer',
+                        branch_id: e.branch_id,
+                        branch_name: branchStr,
+                        total_amount: parsedTotal,
+                        items_count: e.items_count || 1,
+                        timestamp: e.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        received_at: Date.now(),
+                    });
+                } else {
+                    playOrderNotificationSound();
+                }
 
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('new-order-received', { detail: e }));
                 }
 
-                const displayOrderNum = e.order_number || (e.order_id ? `ORD-${e.order_id}` : 'ORD-NEW');
                 const formattedPrice = typeof e.total_amount === 'number' 
                     ? `₱${e.total_amount.toFixed(2)}` 
                     : e.total_amount 
                         ? `₱${e.total_amount}` 
                         : '';
                 const itemDetails = e.items_count ? `${e.items_count} item${e.items_count > 1 ? 's' : ''}` : '';
-                const branchStr = e.branch_name || 'Branch';
 
                 toast.custom((t) => (
                     React.createElement('div', {
