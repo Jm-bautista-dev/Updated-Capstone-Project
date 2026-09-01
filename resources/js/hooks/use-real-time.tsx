@@ -10,6 +10,8 @@ interface RealTimeOrderEvent {
     order_number?: string;
     branch_id?: number;
     branch_name?: string;
+    fulfillment_type?: string;
+    is_pickup?: boolean;
     customer_name?: string;
     total_amount?: number;
     items_count?: number;
@@ -140,6 +142,8 @@ export function useRealTime(branchId?: number | null) {
                         customer_name: e.customer_name || 'Mobile Customer',
                         branch_id: e.branch_id,
                         branch_name: branchStr,
+                        fulfillment_type: e.fulfillment_type || (e.is_pickup ? 'pickup' : 'delivery'),
+                        is_pickup: e.is_pickup ?? (e.fulfillment_type === 'pickup'),
                         total_amount: parsedTotal,
                         items_count: e.items_count || 1,
                         timestamp: e.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

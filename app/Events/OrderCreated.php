@@ -65,15 +65,19 @@ class OrderCreated implements ShouldBroadcastNow
             : $this->order->items()->count();
 
         return [
-            'order_id'      => $this->order->id,
-            'order_number'  => $orderNum,
-            'branch_id'     => $this->order->branch_id,
-            'customer_name' => $this->order->customer_name ?? 'Customer',
-            'total_amount'  => (float) $this->order->total_amount,
-            'items_count'   => $itemsCount,
-            'branch_name'   => $this->order->branch?->name ?? 'Unknown Branch',
-            'timestamp'     => now()->toDateTimeString(),
-            'message'       => "New Order #{$orderNum} received!",
+            'order_id'         => $this->order->id,
+            'order_number'     => $orderNum,
+            'branch_id'        => $this->order->branch_id,
+            'fulfillment_type' => $this->order->fulfillment_type ?? 'delivery',
+            'is_pickup'        => ($this->order->fulfillment_type === 'pickup'),
+            'customer_name'    => $this->order->customer_name ?? 'Customer',
+            'total_amount'     => (float) $this->order->total_amount,
+            'items_count'      => $itemsCount,
+            'branch_name'      => $this->order->branch?->name ?? 'Unknown Branch',
+            'timestamp'        => now()->toDateTimeString(),
+            'message'          => ($this->order->fulfillment_type === 'pickup') 
+                ? "New Scheduled Pickup Order #{$orderNum} received!" 
+                : "New Delivery Order #{$orderNum} received!",
         ];
     }
 }

@@ -1423,7 +1423,6 @@ class RiderController extends Controller
         }
         if ($user) {
             return Rider::where('id', $user->id)
-                ->orWhere('user_id', $user->id)
                 ->orWhere('email', $user->email)
                 ->first();
         }

@@ -207,22 +207,7 @@ class CustomerOrderController extends Controller
             $order->save();
 
             $delivery = $order->delivery;
-            if (!$delivery) {
-                $delivery = Delivery::firstOrCreate(
-                    ['order_id' => $order->id],
-                    [
-                        'customer_name'       => $order->customer_name,
-                        'customer_phone'      => $order->contact_number,
-                        'customer_address'    => $order->address,
-                        'latitude'            => $order->latitude,
-                        'longitude'           => $order->longitude,
-                        'delivery_type'       => 'internal',
-                        'status'              => 'cancelled',
-                        'cancellation_reason' => $reason,
-                        'cancelled_at'        => $now,
-                    ]
-                );
-            } else {
+            if ($delivery) {
                 $delivery->update([
                     'status'              => 'cancelled',
                     'cancellation_reason' => $reason,
@@ -240,10 +225,16 @@ class CustomerOrderController extends Controller
                 }
             }
 
+            // Restore ingredient stock if deducted
+            $inventoryService = new \App\Services\InventoryService();
+            $inventoryService->restoreForOrder($order);
+
             DB::commit();
 
             try {
-                broadcast(new OrderStatusUpdated($delivery->fresh(['order', 'sale', 'rider']), 'customer', $previousStatus));
+                if ($delivery) {
+                    broadcast(new OrderStatusUpdated($delivery->fresh(['order', 'sale', 'rider']), 'customer', $previousStatus));
+                }
             } catch (\Throwable $e) {
                 Log::warning('OrderStatusUpdated broadcast warning: ' . $e->getMessage());
             }

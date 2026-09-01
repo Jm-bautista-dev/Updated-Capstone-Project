@@ -57,13 +57,17 @@ export const PendingOrderAlertModal: React.FC = () => {
         setCurrentIndex(0);
     };
 
+    const isCurrentPickup = currentAlert.fulfillment_type === 'pickup' || currentAlert.is_pickup;
+
     const handleViewOrder = (e: React.MouseEvent) => {
         e.stopPropagation();
         const targetId = currentAlert.id;
         const targetNumber = currentAlert.order_number;
         acknowledgeAlert(targetId);
 
-        const targetUrl = `/deliveries?order_id=${targetId}&order_number=${encodeURIComponent(targetNumber)}`;
+        const targetUrl = isCurrentPickup
+            ? `/pickups?order_id=${targetId}&order_number=${encodeURIComponent(targetNumber)}`
+            : `/deliveries?order_id=${targetId}&order_number=${encodeURIComponent(targetNumber)}`;
         router.visit(targetUrl);
     };
 
@@ -94,7 +98,7 @@ export const PendingOrderAlertModal: React.FC = () => {
                                 <span className="relative inline-flex rounded-full size-3 bg-rose-500" />
                             </span>
                             <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-900/60 flex items-center gap-1">
-                                🚨 NEW ONLINE ORDER
+                                {isCurrentPickup ? '🛍️ NEW PICKUP ORDER' : '🚨 NEW DELIVERY ORDER'}
                             </span>
                         </div>
 

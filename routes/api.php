@@ -87,7 +87,6 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{id}/start-transit',                               [RiderController::class, 'startTransit']);
         Route::post('orders/{id}/deliver',                                     [RiderController::class, 'deliverOrder']);
         Route::post('orders/{id}/delivered',                                   [RiderController::class, 'deliverOrder']);
-        Route::post('orders/{id}/cancel',                                      [RiderController::class, 'cancelOrder']);
         Route::post('orders/{id}/attempt',                                     [RiderController::class, 'recordAttempt']);
 
         // Direct Rider Orders Aliases

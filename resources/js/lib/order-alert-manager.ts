@@ -7,6 +7,8 @@ export interface PendingOrderAlert {
     customer_name: string;
     branch_id?: number;
     branch_name: string;
+    fulfillment_type?: string;
+    is_pickup?: boolean;
     total_amount: number;
     items_count: number;
     timestamp: string; // e.g. "8:31 PM"
