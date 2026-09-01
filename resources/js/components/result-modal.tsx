@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
@@ -65,15 +64,9 @@ export function ResultModal({
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
             <DialogContent
-                className="sm:max-w-[360px] p-0 overflow-hidden border-none shadow-2xl"
+                className="sm:max-w-90 p-0 overflow-hidden border-none shadow-2xl"
                 onInteractOutside={onClose}
             >
-                {/* Accessibility: Hidden Title for Screen Readers if you want to keep custom UI */}
-                <DialogHeader className="sr-only">
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>{message || 'Action result'}</DialogDescription>
-                </DialogHeader>
-
                 {/* Auto-close progress bar */}
                 {autoClose > 0 && open && (
                     <div className="h-1 w-full bg-muted absolute top-0 left-0 z-10">
@@ -92,10 +85,10 @@ export function ResultModal({
 
                     {/* Text */}
                     <div className="space-y-1">
-                        <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
-                        {message && (
-                            <p className="text-sm text-muted-foreground">{message}</p>
-                        )}
+                        <DialogTitle className="text-xl font-bold tracking-tight text-center">{title}</DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground text-center">
+                            {message || 'Action completed successfully.'}
+                        </DialogDescription>
                     </div>
 
                     {/* OK Button */}

@@ -703,16 +703,16 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
 
             <DialogContent className="sm:max-w-106.25 rounded-4xl p-0 overflow-hidden border-none shadow-2xl">
                 <div className="p-8 space-y-6">
-                    <div className="flex flex-col items-center text-center gap-2">
+                    <DialogHeader className="flex flex-col items-center text-center gap-2">
                         <div className="size-16 rounded-full bg-rose-50 flex items-center justify-center mb-2">
                             <AlertCircle className="size-8 text-rose-600" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight">Cancel Delivery?</h2>
-                        <p className="text-sm text-(--ops-text-muted) leading-relaxed">
+                        <DialogTitle className="text-2xl font-black tracking-tight">Cancel Delivery?</DialogTitle>
+                        <DialogDescription className="text-sm text-(--ops-text-muted) leading-relaxed">
                             This will permanently stop the delivery process. <br/>
                             This action is final and will be logged.
-                        </p>
-                    </div>
+                        </DialogDescription>
+                    </DialogHeader>
 
                     <div className="space-y-4">
                         <div>

@@ -2,7 +2,6 @@ import { router } from '@inertiajs/react';
 import { 
     XCircle, 
     AlertTriangle, 
-    ChevronRight, 
     ArrowRight 
 } from 'lucide-react';
 import React from 'react';
@@ -10,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
@@ -40,7 +38,7 @@ export function ValidationErrorModal({
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
             <DialogContent
-                className="sm:max-w-[400px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl"
+                className="sm:max-w-100 p-0 overflow-hidden border-none shadow-2xl rounded-3xl"
             >
                 {/* Header Decoration */}
                 <div className={cn(
@@ -77,9 +75,9 @@ export function ValidationErrorModal({
                         </DialogTitle>
                         <div className="relative">
                             <div className="absolute -left-2 top-0 bottom-0 w-1 bg-destructive/10 rounded-full hidden sm:block" />
-                            <p className="text-sm font-bold text-muted-foreground leading-relaxed px-2">
+                            <DialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed px-2">
                                 {message}
-                            </p>
+                            </DialogDescription>
                         </div>
                     </div>
 
