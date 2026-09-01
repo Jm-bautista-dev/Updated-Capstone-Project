@@ -538,18 +538,33 @@ class RiderController extends Controller
      */
     public function updateOrderStatus(Request $request, $id): JsonResponse
     {
-        $status = $request->input('status', $request->input('order_status'));
+        $rawStatus = $request->input('status', $request->input('order_status', $request->input('delivery_status', $request->input('action', $request->input('next_action')))));
+        $status = strtolower(trim((string) $rawStatus));
+
         return match ($status) {
-            'picked_up'                           => $this->pickupOrder($request, $id),
-            'in_transit', 'out_for_delivery'      => $this->startTransit($request, $id),
-            'delivered'                           => $this->deliverOrder($request, $id),
-            'assigned_to_rider', 'accepted'       => $this->acceptOrder($request, $id),
-            'cancelled', 'cancellation_requested' => $this->cancelOrder($request, $id),
-            'rejected'                            => $this->rejectOrder($request, $id),
-            default                               => response()->json([
-                'success' => false,
-                'message' => 'Invalid status transition: ' . ($status ?? 'none provided'),
-            ], 422),
+            'picked_up', 'pickup', 'pickedup', 'pick_up', 'picked-up'
+                => $this->pickupOrder($request, $id),
+
+            'in_transit', 'out_for_delivery', 'transit', 'start_transit', 'start-transit', 'intransit'
+                => $this->startTransit($request, $id),
+
+            'delivered', 'deliver', 'complete', 'completed'
+                => $this->deliverOrder($request, $id),
+
+            'assigned_to_rider', 'accepted', 'accept', 'assigned'
+                => $this->acceptOrder($request, $id),
+
+            'cancelled', 'cancellation_requested', 'cancel', 'cancellation'
+                => $this->cancelOrder($request, $id),
+
+            'rejected', 'reject'
+                => $this->rejectOrder($request, $id),
+
+            default
+                => response()->json([
+                    'success' => false,
+                    'message' => 'Invalid status transition: ' . ($rawStatus ?: 'none provided'),
+                ], 422),
         };
     }
 

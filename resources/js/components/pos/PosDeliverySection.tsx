@@ -1,22 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { FiUser, FiPhone, FiMapPin, FiTruck, FiPackage, FiFileText } from 'react-icons/fi';
+import { FiUser, FiMapPin, FiTruck } from 'react-icons/fi';
 import { Input } from '@/components/ui/input';
 import { PosMiniMap } from './PosMiniMap';
-import { PosRiderSelector, PosRider } from './PosRiderSelector';
-import { cn } from '@/lib/utils';
 
 export interface PosDeliveryInfo {
     customer_name: string;
     customer_phone: string;
     customer_address: string;
     delivery_type: 'internal' | 'external';
-    rider_id: string | number;
-    external_service?: 'grab' | 'lalamove' | string;
-    tracking_number?: string;
+    rider_id?: string | number | null;
     distance_km?: number | string;
     delivery_fee?: number | string;
-    external_notes?: string;
     latitude?: number | null;
     longitude?: number | null;
 }
@@ -33,7 +28,7 @@ interface PosDeliverySectionProps {
         base_delivery_fee?: number | string;
         per_km_fee?: number | string;
     };
-    allRiders?: PosRider[];
+    allRiders?: unknown[];
 }
 
 export const PosDeliverySection: React.FC<PosDeliverySectionProps> = ({
@@ -41,7 +36,6 @@ export const PosDeliverySection: React.FC<PosDeliverySectionProps> = ({
     onChange,
     onDeliveryFeeChange,
     branch,
-    allRiders = [],
 }) => {
     const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
     const [routeError, setRouteError] = useState<string | null>(null);
@@ -193,81 +187,30 @@ export const PosDeliverySection: React.FC<PosDeliverySectionProps> = ({
                 />
             </div>
 
-            {/* 3. COURIER TYPE SEGMENTED CONTROL (Equal width, zero overlap) */}
-            <div className="space-y-2.5">
-                <div className="p-1 rounded-2xl bg-[#FFF5F7] dark:bg-[#1A1A1D] border border-[#F8C8DC]/60 dark:border-[#26262A] flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => onChange(p => ({ ...p, delivery_type: 'internal' }))}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer",
-                            deliveryInfo.delivery_type === 'internal'
-                                ? "bg-[#E75480] text-white shadow-sm"
-                                : "text-[#7D6B6E] dark:text-zinc-400 hover:text-[#3D2C2E] dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-800/60"
-                        )}
-                    >
-                        <FiTruck className="size-3.5" />
-                        <span>Internal Rider</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onChange(p => ({ ...p, delivery_type: 'external' }))}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer",
-                            deliveryInfo.delivery_type === 'external'
-                                ? "bg-[#E75480] text-white shadow-sm"
-                                : "text-[#7D6B6E] dark:text-zinc-400 hover:text-[#3D2C2E] dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-800/60"
-                        )}
-                    >
-                        <FiPackage className="size-3.5" />
-                        <span>External Courier</span>
-                    </button>
-                </div>
-
-                {/* 4. MUTUALLY EXCLUSIVE CONTENT */}
-                {deliveryInfo.delivery_type === 'internal' ? (
-                    <PosRiderSelector
-                        riders={allRiders}
-                        selectedRiderId={deliveryInfo.rider_id}
-                        onSelectRider={(riderId) => onChange(p => ({ ...p, rider_id: riderId }))}
-                    />
-                ) : (
-                    <div className="space-y-2.5 p-3 rounded-2xl bg-white dark:bg-[#1A1A1D] border border-[#F8C8DC]/60 dark:border-[#26262A] shadow-2xs">
-                        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-zinc-400">
-                            <FiPackage className="size-3.5 text-[#E75480]" />
-                            <span>External Courier Details</span>
+            {/* 3. RIDER DISPATCH STATUS (Self-Acceptance System) */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="size-7 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                            <FiTruck className="size-4" />
                         </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <select
-                                className="w-full bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 px-3 text-[#3D2C2E] dark:text-white text-xs font-bold focus:ring-1 focus:ring-[#E75480]"
-                                value={deliveryInfo.external_service || 'grab'}
-                                onChange={e => onChange(p => ({ ...p, external_service: e.target.value as any }))}
-                            >
-                                <option value="grab">Grab Express</option>
-                                <option value="lalamove">Lalamove</option>
-                                <option value="other">Other Courier</option>
-                            </select>
-
-                            <Input
-                                placeholder="Tracking / Booking Ref *"
-                                className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-xs font-medium text-[#3D2C2E] dark:text-white focus:ring-1 focus:ring-[#E75480]"
-                                value={deliveryInfo.tracking_number || ''}
-                                onChange={e => onChange(p => ({ ...p, tracking_number: e.target.value }))}
-                            />
-                        </div>
-
-                        <div className="relative">
-                            <Input
-                                placeholder="Courier rider notes / instructions (optional)"
-                                className="bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl h-10 text-xs font-medium text-[#3D2C2E] dark:text-white focus:ring-1 focus:ring-[#E75480]"
-                                value={deliveryInfo.external_notes || ''}
-                                onChange={e => onChange(p => ({ ...p, external_notes: e.target.value }))}
-                            />
+                        <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                                Rider Assignment
+                            </h4>
+                            <p className="text-[11px] font-medium text-amber-700/90 dark:text-amber-300/90">
+                                First-Come-First-Served Self-Acceptance
+                            </p>
                         </div>
                     </div>
-                )}
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/30">
+                        <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                        Waiting for Rider
+                    </span>
+                </div>
+                <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 pl-9">
+                    Order will automatically broadcast to eligible riders on the Rider Mobile App once confirmed.
+                </p>
             </div>
         </div>
     );

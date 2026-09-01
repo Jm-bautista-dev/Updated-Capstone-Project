@@ -26,7 +26,6 @@ import {
 import { toast } from 'sonner';
 import { ApplyDiscountModal, type PosDiscount } from '@/components/pos/ApplyDiscountModal';
 import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
-import type { PosRider } from '@/components/pos/PosRiderSelector';
 import { ResultModal } from '@/components/result-modal';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
@@ -890,7 +889,6 @@ export default function PosIndex() {
                           onChange={setDeliveryInfo}
                           onDeliveryFeeChange={(fee) => setCalculatedDeliveryFee(fee)}
                           branch={branch}
-                          allRiders={allRiders}
                         />
                       </div>
                     )}

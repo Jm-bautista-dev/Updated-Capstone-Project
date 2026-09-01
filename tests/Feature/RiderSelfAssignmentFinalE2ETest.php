@@ -672,4 +672,46 @@ class RiderSelfAssignmentFinalE2ETest extends TestCase
         $finalSalesCount = Sale::count();
         $this->assertEquals($initialSalesCount + 1, $finalSalesCount);
     }
+
+    /**
+     * TEST 15 — MOBILE APP ALIAS ENDPOINTS
+     * Verifies that /api/v1/deliveries/{id}/update-status works with status: 'picked_up'
+     * and direct /api/v1/deliveries/{id}/pickup works seamlessly.
+     */
+    public function test_direct_delivery_update_status_and_pickup_aliases_work_for_mobile_app(): void
+    {
+        $rider = Rider::create([
+            'name'      => 'Rider Mobile Alias',
+            'email'     => 'alias@example.com',
+            'password'  => Hash::make('password123'),
+            'branch_id' => $this->victoria->id,
+            'status'    => 'busy',
+            'is_active' => true,
+        ]);
+
+        $delivery = Delivery::create([
+            'rider_id'         => $rider->id,
+            'customer_name'    => 'Alias Customer',
+            'customer_address' => 'Victoria Laguna',
+            'status'           => 'assigned_to_rider',
+            'delivery_type'    => 'internal',
+            'delivery_fee'     => 50.00,
+        ]);
+
+        Sanctum::actingAs($rider, ['*'], 'sanctum');
+
+        // Test calling /api/v1/deliveries/{id}/update-status with status: 'picked_up'
+        $response = $this->postJson("/api/v1/deliveries/{$delivery->id}/update-status", [
+            'status' => 'picked_up',
+        ]);
+        $response->assertStatus(200);
+
+        $this->assertEquals('picked_up', $delivery->fresh()->status);
+        $this->assertEquals('store_to_customer', $response->json('data.route_phase'));
+
+        // Test calling /api/v1/deliveries/{id}/transit
+        $resTransit = $this->postJson("/api/v1/deliveries/{$delivery->id}/transit");
+        $resTransit->assertStatus(200);
+        $this->assertEquals('in_transit', $delivery->fresh()->status);
+    }
 }

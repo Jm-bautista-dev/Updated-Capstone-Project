@@ -60,6 +60,27 @@ Route::prefix('v1')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
+        // Direct Delivery & Order Action Aliases (Supports both /api/v1/deliveries/... and /api/v1/rider/deliveries/...)
+        Route::match(['post', 'patch', 'put'], 'deliveries/{id}/update-status', [RiderController::class, 'updateOrderStatus']);
+        Route::match(['post', 'patch', 'put'], 'deliveries/{id}/status',        [RiderController::class, 'updateOrderStatus']);
+        Route::post('deliveries/{id}/pickup',                                  [RiderController::class, 'pickupOrder']);
+        Route::post('deliveries/{id}/accept',                                  [RiderController::class, 'acceptOrder']);
+        Route::post('deliveries/{id}/transit',                                 [RiderController::class, 'startTransit']);
+        Route::post('deliveries/{id}/start-transit',                           [RiderController::class, 'startTransit']);
+        Route::post('deliveries/{id}/deliver',                                 [RiderController::class, 'deliverOrder']);
+        Route::post('deliveries/{id}/delivered',                               [RiderController::class, 'deliverOrder']);
+        Route::post('deliveries/{id}/cancel',                                  [RiderController::class, 'cancelOrder']);
+
+        Route::match(['post', 'patch', 'put'], 'orders/{id}/update-status',     [RiderController::class, 'updateOrderStatus']);
+        Route::match(['post', 'patch', 'put'], 'orders/{id}/status',            [RiderController::class, 'updateOrderStatus']);
+        Route::post('orders/{id}/pickup',                                      [RiderController::class, 'pickupOrder']);
+        Route::post('orders/{id}/accept',                                      [RiderController::class, 'acceptOrder']);
+        Route::post('orders/{id}/transit',                                     [RiderController::class, 'startTransit']);
+        Route::post('orders/{id}/start-transit',                               [RiderController::class, 'startTransit']);
+        Route::post('orders/{id}/deliver',                                     [RiderController::class, 'deliverOrder']);
+        Route::post('orders/{id}/delivered',                                   [RiderController::class, 'deliverOrder']);
+        Route::post('orders/{id}/cancel',                                      [RiderController::class, 'cancelOrder']);
+
         // Direct Rider Orders Aliases
         Route::get('orders/ready', [RiderController::class, 'getOrders']);
         Route::get('orders/my',    [RiderController::class, 'getMyOrders']);
