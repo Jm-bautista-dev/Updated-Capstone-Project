@@ -125,7 +125,7 @@ class Order extends Model
 
     /** Allowed pickup transitions */
     const PICKUP_TRANSITIONS = [
-        'pending'                => ['confirmed', 'cancelled'],
+        'pending'                => ['confirmed', 'preparing', 'cancelled'],
         'confirmed'              => ['preparing', 'cancelled'],
         'preparing'              => ['ready_for_pickup', 'cancelled'],
         'ready_for_pickup'       => ['customer_arrived', 'completed', 'no_show', 'cancelled'],

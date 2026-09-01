@@ -3,7 +3,7 @@ import {
     User, MapPin, Clock, Building2, Bike, Truck,
     Phone, ChevronRight, AlertCircle,
     Package, Navigation, CheckCircle2, FileText, Image,
-    Maximize2, RefreshCw
+    Maximize2, RefreshCw, Store, ShoppingBag
 } from 'lucide-react';
 import React from 'react';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
@@ -29,7 +29,7 @@ interface DeliveryDetailSheetProps {
 }
 
 // Full delivery status timeline (all 7 steps)
-const STATUS_STEPS = [
+const DELIVERY_STATUS_STEPS = [
     { key: 'pending',           label: 'Pending',      icon: Clock },
     { key: 'preparing',         label: 'Preparing',    icon: Package },
     { key: 'ready_for_pickup',  label: 'Ready',        icon: CheckCircle2 },
@@ -39,17 +39,28 @@ const STATUS_STEPS = [
     { key: 'delivered',         label: 'Delivered',    icon: CheckCircle2 },
 ];
 
-function StatusTimeline({ currentStatus }: { currentStatus: string }) {
-    const isFailed = currentStatus === 'failed_delivery';
+const PICKUP_STATUS_STEPS = [
+    { key: 'pending',          label: 'Pending',   icon: Clock },
+    { key: 'confirmed',        label: 'Confirmed', icon: CheckCircle2 },
+    { key: 'preparing',        label: 'Preparing', icon: Package },
+    { key: 'ready_for_pickup', label: 'Ready',     icon: Store },
+    { key: 'customer_arrived', label: 'Arrived',   icon: User },
+    { key: 'completed',        label: 'Completed', icon: CheckCircle2 },
+];
+
+function StatusTimeline({ currentStatus, isPickup }: { currentStatus: string; isPickup?: boolean }) {
+    const isFailed = currentStatus === 'failed_delivery' || currentStatus === 'no_show';
     const isCancelled = currentStatus === 'cancelled';
     const normalizedStatus = currentStatus === 'waiting_for_kitchen' ? 'pending' : currentStatus;
-    const currentIndex = STATUS_STEPS.findIndex(s => s.key === normalizedStatus);
+    
+    const steps = isPickup ? PICKUP_STATUS_STEPS : DELIVERY_STATUS_STEPS;
+    const currentIndex = steps.findIndex(s => s.key === normalizedStatus);
 
     return (
         <div className="w-full py-6 relative overflow-hidden group/timeline">
             {(isFailed || isCancelled) && (
                 <div className="mb-4 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-400 text-xs font-bold flex items-center justify-between">
-                    <span>{isFailed ? '⚠️ Delivery Attempt Failed — Requires Rider Reassignment' : '🚫 Delivery Cancelled'}</span>
+                    <span>{isFailed ? '⚠️ Order Terminated (Failed / No Show)' : '🚫 Order Cancelled'}</span>
                 </div>
             )}
             {/* Custom Animation Styles */}
@@ -67,7 +78,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                 {/* Continuous Background Line (Fixed Position) */}
                 <div className="absolute top-4.5 left-0 right-0 h-0.5 bg-(--ops-surface-sunken)/60 z-0 mx-8" />
                 
-                {STATUS_STEPS.map((step, i) => {
+                {steps.map((step, i) => {
                     const isCompleted = i < currentIndex;
                     const isCurrent = i === currentIndex;
                     const Icon = step.icon;
@@ -85,7 +96,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                                 <Icon className={cn("size-4 transition-transform duration-500", isCurrent && "scale-110")} />
                                 
                                 {/* Progress Indicator on the line */}
-                                {i < STATUS_STEPS.length - 1 && i < currentIndex && (
+                                {i < steps.length - 1 && i < currentIndex && (
                                     <div className="absolute left-[calc(100%+2px)] top-1/2 -translate-y-1/2 w-[calc(100%+20px)] h-0.5 bg-emerald-300 z-[-1]" />
                                 )}
                             </div>
@@ -292,10 +303,30 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 }: DeliveryDetailSheetProps) {
     if (!delivery) return null;
 
-    const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
-    const typeColor = delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600';
+    const isPickup = Boolean(delivery.is_pickup || delivery.fulfillment_type === 'pickup');
+    const TypeIcon = isPickup ? Store : (delivery.delivery_type === 'internal' ? Bike : Truck);
+    const typeColor = isPickup ? 'text-emerald-600 dark:text-emerald-400' : (delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600');
 
-    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
+    const isUnassignedInternal = !isPickup && delivery.delivery_type === 'internal' && !delivery.rider_id;
+
+    const getNextButtonLabel = () => {
+        if (!isPickup) {
+            return `Mark as ${delivery.next_statuses[0]?.replace(/_/g, ' ').toUpperCase() || 'NEXT'}`;
+        }
+        switch (delivery.status) {
+            case 'pending':
+            case 'confirmed':
+                return 'START PREPARATION';
+            case 'preparing':
+                return 'MARK READY FOR PICKUP';
+            case 'ready_for_pickup':
+                return 'MARK CUSTOMER ARRIVED';
+            case 'customer_arrived':
+                return 'COMPLETE PICKUP';
+            default:
+                return 'ADVANCE STATUS';
+        }
+    };
 
     return (
         <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -307,7 +338,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </Badge>
                         <Badge variant="outline" className={`rounded-full text-[10px] font-bold gap-1 ${typeColor}`}>
                             <TypeIcon className="size-3" />
-                            {delivery.delivery_type === 'internal' ? 'Internal' : 'External'}
+                            {isPickup ? 'Store Pickup' : (delivery.delivery_type === 'internal' ? 'Internal Delivery' : 'External Courier')}
                         </Badge>
                     </div>
                     <SheetTitle className="text-xl font-black tracking-tight">
@@ -316,7 +347,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     <SheetDescription>
                         {delivery.created_at 
                             ? `Created on ${formatDate(delivery.created_at)} at ${formatTime(delivery.created_at)}`
-                            : 'Delivery transaction details and tracking information.'}
+                            : 'Fulfillment order details and tracking information.'}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -412,8 +443,29 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </div>
                     )}
 
+                    {/* Pickup Verification Box */}
+                    {isPickup && (
+                        <div className="p-4 rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/20 text-emerald-950 dark:text-emerald-300 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                                        Pickup Verification Code
+                                    </span>
+                                    <p className="text-xs text-emerald-600/80 font-semibold">Customer must present this code</p>
+                                </div>
+                                <span className="font-mono text-xl font-black px-3 py-1 bg-white dark:bg-black/60 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-sm">
+                                    {delivery.pickup_verification_code || 'N/A'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground pt-1 border-t border-emerald-500/10">
+                                <span>Scheduled Time:</span>
+                                <span className="font-bold text-foreground">{delivery.scheduled_pickup_display || 'Immediate (ASAP)'}</span>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Status Timeline */}
-                    <StatusTimeline currentStatus={delivery.status} />
+                    <StatusTimeline currentStatus={delivery.status} isPickup={isPickup} />
 
                     <Separator />
 
@@ -426,8 +478,12 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             </p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">Delivery Fee</p>
-                            <p className="text-lg font-bold tabular-nums">{formatCurrency(delivery.delivery_fee)}</p>
+                            <p className="text-[10px] font-black text-(--ops-text-muted) uppercase tracking-widest">
+                                {isPickup ? 'Fulfillment Fee' : 'Delivery Fee'}
+                            </p>
+                            <p className="text-lg font-bold tabular-nums">
+                                {isPickup ? 'FREE' : formatCurrency(delivery.delivery_fee)}
+                            </p>
                         </div>
                     </div>
 
@@ -452,9 +508,13 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             </InfoRow>
                         )}
 
-                        <InfoRow icon={MapPin} label="Delivery Address">
-                            <p className="font-medium leading-relaxed">{delivery.customer_address}</p>
-                            {delivery.distance_km && (
+                        <InfoRow icon={MapPin} label={isPickup ? "Pickup Location" : "Delivery Address"}>
+                            <p className="font-medium leading-relaxed">
+                                {isPickup 
+                                    ? `Store Counter Pickup at ${delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Store Branch'}`
+                                    : delivery.customer_address}
+                            </p>
+                            {!isPickup && delivery.distance_km && (
                                 <p className="text-xs text-(--ops-text-muted) mt-1">{delivery.distance_km}km from origin</p>
                             )}
                         </InfoRow>
@@ -504,11 +564,13 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 
                     <Separator />
 
-                    {/* Courier Info */}
+                    {/* Courier / Handover Info */}
                     <div className="space-y-4 pb-8">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">Courier Details</h4>
-                            {delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && isUnassignedInternal && (
+                            <h4 className="text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">
+                                {isPickup ? 'Handover Details' : 'Courier Details'}
+                            </h4>
+                            {!isPickup && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && isUnassignedInternal && (
                                 <Badge
                                     variant="outline"
                                     className="h-6 rounded-md text-[10px] font-bold px-2.5 gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300/40"
@@ -519,15 +581,17 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             )}
                         </div>
 
-                        <InfoRow icon={TypeIcon} label={delivery.delivery_type === 'internal' ? 'Rider' : 'Service'}>
+                        <InfoRow icon={TypeIcon} label={isPickup ? 'Handover Type' : (delivery.delivery_type === 'internal' ? 'Rider' : 'Service')}>
                             <div className="flex items-center justify-between group/courier">
-                                <p className={cn("font-bold", isUnassignedInternal && "text-amber-600")}>
-                                    {delivery.delivery_type === 'internal'
-                                        ? (delivery.rider?.name || 'Unassigned')
-                                        : (delivery.external_service?.toUpperCase() || 'External')}
+                                <p className={cn("font-bold", !isPickup && isUnassignedInternal && "text-amber-600")}>
+                                    {isPickup
+                                        ? 'In-Store Customer Handover (No Rider)'
+                                        : (delivery.delivery_type === 'internal'
+                                            ? (delivery.rider?.name || 'Unassigned')
+                                            : (delivery.external_service?.toUpperCase() || 'External'))}
                                 </p>
                             </div>
-                            {delivery.tracking_number && (
+                            {!isPickup && delivery.tracking_number && (
                                 <div className="flex items-center gap-2 mt-1">
                                     <Badge variant="outline" className="text-[10px] font-mono font-bold bg-(--ops-surface-sunken)/60">
                                         {delivery.tracking_number}
@@ -536,18 +600,18 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             )}
                         </InfoRow>
 
-                        <InfoRow icon={Building2} label="Origin Branch">
+                        <InfoRow icon={Building2} label="Branch">
                             <p className="font-bold">{delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Main Branch'}</p>
                         </InfoRow>
 
-                        {delivery.external_notes && (
-                            <InfoRow icon={FileText} label="Notes">
-                                <p className="text-(--ops-text-muted)">{delivery.external_notes}</p>
+                        {(delivery.external_notes || delivery.delivery_notes) && (
+                            <InfoRow icon={FileText} label="Special Notes">
+                                <p className="text-(--ops-text-muted)">{delivery.delivery_notes || delivery.external_notes}</p>
                             </InfoRow>
                         )}
 
                         {/* Proof of Delivery — shown when delivered */}
-                        {(delivery.proof_of_delivery_url || delivery.proof_of_delivery) ? (
+                        {!isPickup && ((delivery.proof_of_delivery_url || delivery.proof_of_delivery) ? (
                             <ProofOfDeliveryViewer
                                 url={delivery.proof_of_delivery_url}
                                 deliveredAt={delivery.delivered_at}
@@ -557,7 +621,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             <InfoRow icon={Image} label="Proof of Delivery">
                                 <p className="text-xs text-amber-600 font-semibold">No proof image uploaded.</p>
                             </InfoRow>
-                        ) : null}
+                        ) : null)}
 
                         {delivery.is_cancelled && (
                             <div className="bg-rose-50 dark:bg-rose-950/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-900/30">
@@ -577,10 +641,15 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                 <SheetFooter className="p-6 pt-6 border-t mt-6 grid grid-cols-2 gap-3">
                     {delivery.next_statuses.length > 0 && !delivery.is_cancelled && (
                         <Button
-                            className="col-span-2 h-12 rounded-2xl font-black gap-2 shadow-lg shadow-primary/20"
+                            className={cn(
+                                "col-span-2 h-12 rounded-2xl font-black gap-2 shadow-lg",
+                                isPickup 
+                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                                    : "bg-primary hover:bg-primary/90 text-white shadow-primary/20"
+                            )}
                             onClick={() => onUpdateStatus(delivery.id)}
                         >
-                            Mark as {delivery.next_statuses[0].replace(/_/g, ' ').toUpperCase()}
+                            {getNextButtonLabel()}
                             <ChevronRight className="size-4" />
                         </Button>
                     )}
@@ -591,12 +660,13 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         onClick={() => window.print()}
                     >
                         <FileText className="size-4" />
-                        Waybill
+                        {isPickup ? 'Receipt' : 'Waybill'}
                     </Button>
 
                     {!delivery.is_delivered && !delivery.is_cancelled && (
                         <CancelOrderDialog 
                             deliveryId={delivery.id} 
+                            isPickup={isPickup}
                             onSuccess={onClose}
                         />
                     )}
@@ -625,13 +695,13 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         <h1 className="text-2xl font-black uppercase tracking-widest">
                             {formatReceiptBranchHeading(delivery.order?.branch?.name || delivery.sale?.branch?.name)}
                         </h1>
-                        <p className="text-[10px] font-bold uppercase">Official Delivery Waybill</p>
+                        <p className="text-[10px] font-bold uppercase">{isPickup ? 'Store Pickup Order Slip' : 'Official Delivery Waybill'}</p>
                     </div>
 
                     {/* Order Meta */}
                     <div className="flex justify-between items-end border-b border-[var(--ops-border)]-2 border-dashed border-black pb-4">
                         <div>
-                            <p className="text-[8px] font-black uppercase text-gray-500">Tracking / Order ID</p>
+                            <p className="text-[8px] font-black uppercase text-gray-500">Order ID</p>
                             <p className="text-xl font-black italic">
                                 {delivery.sale?.order_number || delivery.order?.order_number || `#ORD-${delivery.id}`}
                             </p>
@@ -642,23 +712,31 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </div>
                     </div>
 
-                    {/* Shipping Address */}
+                    {/* Shipping / Pickup Address */}
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 inline-block">SHIP TO:</p>
+                        <p className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 inline-block">
+                            {isPickup ? 'PICKUP CUSTOMER:' : 'SHIP TO:'}
+                        </p>
                         <p className="text-lg font-black leading-none pt-2">{delivery.customer_name}</p>
-                        <p className="text-sm font-bold leading-tight">{delivery.customer_address}</p>
+                        <p className="text-sm font-bold leading-tight">
+                            {isPickup ? `Store Counter Pickup (${delivery.order?.branch?.name || delivery.sale?.branch?.name || 'Branch'})` : delivery.customer_address}
+                        </p>
                         <p className="text-sm font-black border-t border-black mt-2 pt-1">📞 {delivery.customer_phone}</p>
                     </div>
 
-                    {/* Courier Section */}
+                    {/* Fulfillment Section */}
                     <div className="grid grid-cols-2 gap-4 border-2 border-black p-3">
                         <div>
-                            <p className="text-[8px] font-black uppercase text-gray-500">Courier / Service</p>
-                            <p className="text-xs font-bold uppercase">{delivery.delivery_type}</p>
+                            <p className="text-[8px] font-black uppercase text-gray-500">Method</p>
+                            <p className="text-xs font-bold uppercase">{isPickup ? 'STORE PICKUP' : delivery.delivery_type}</p>
                         </div>
                         <div>
-                            <p className="text-[8px] font-black uppercase text-gray-500">Payment Status</p>
-                            <p className="text-xs font-black uppercase">PAID / ONLINE</p>
+                            <p className="text-[8px] font-black uppercase text-gray-500">
+                                {isPickup ? 'Pickup Code' : 'Payment Status'}
+                            </p>
+                            <p className="text-xs font-black uppercase">
+                                {isPickup ? (delivery.pickup_verification_code || 'VERIFIED') : 'PAID / ONLINE'}
+                            </p>
                         </div>
                     </div>
 
@@ -667,7 +745,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         <div className="h-12 bg-black w-full flex items-center justify-center">
                            <span className="text-white font-mono text-xs tracking-[0.5em]">{delivery.sale?.order_number || delivery.order?.order_number || delivery.id}</span>
                         </div>
-                        <p className="text-[8px] font-bold uppercase">Thank you for ordering!</p>
+                        <p className="text-[8px] font-bold uppercase">Thank you for ordering at MAKI DESU!</p>
                     </div>
                 </div>
             </div>
@@ -675,15 +753,16 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
     );
 });
 
-// Separate component for the Cancel Dialog - now using centered Dialog
-function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSuccess: () => void }) {
+// Separate component for the Cancel Dialog - supports both delivery and pickup cancellation
+function CancelOrderDialog({ deliveryId, isPickup, onSuccess }: { deliveryId: number; isPickup?: boolean; onSuccess: () => void }) {
     const [open, setOpen] = React.useState(false);
     const [reason, setReason] = React.useState('Customer requested cancellation');
     const [processing, setProcessing] = React.useState(false);
 
     const handleCancel = () => {
         setProcessing(true);
-        router.post(`/deliveries/${deliveryId}/cancel`, { reason }, {
+        const endpoint = isPickup ? `/deliveries/pickup/${deliveryId}/cancel` : `/deliveries/${deliveryId}/cancel`;
+        router.post(endpoint, { reason }, {
             onSuccess: () => {
                 setOpen(false);
                 onSuccess();
@@ -709,9 +788,11 @@ function CancelOrderDialog({ deliveryId, onSuccess }: { deliveryId: number; onSu
                         <div className="size-16 rounded-full bg-rose-50 flex items-center justify-center mb-2">
                             <AlertCircle className="size-8 text-rose-600" />
                         </div>
-                        <DialogTitle className="text-2xl font-black tracking-tight">Cancel Delivery?</DialogTitle>
+                        <DialogTitle className="text-2xl font-black tracking-tight">
+                            Cancel {isPickup ? 'Pickup Order' : 'Delivery'}?
+                        </DialogTitle>
                         <DialogDescription className="text-sm text-(--ops-text-muted) leading-relaxed">
-                            This will permanently stop the delivery process. <br/>
+                            This will permanently cancel the order and return items to inventory. <br/>
                             This action is final and will be logged.
                         </DialogDescription>
                     </DialogHeader>

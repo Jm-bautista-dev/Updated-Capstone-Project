@@ -466,6 +466,50 @@ class ApiOrderController extends Controller
 
             $delivery = $order->delivery;
             if (!$delivery) {
+                if ($order->isPickup()) {
+                    $statusInstructions = match ($order->status) {
+                        'pending'          => 'Your pickup order has been placed and is awaiting branch confirmation.',
+                        'confirmed'        => 'Your order is confirmed and scheduled for preparation.',
+                        'preparing'        => 'The kitchen is currently preparing your order.',
+                        'ready_for_pickup' => 'Your order is ready! Please proceed to the counter and present your verification code.',
+                        'customer_arrived' => 'Staff has noted your arrival. Your order will be handed to you shortly.',
+                        'completed'        => 'Pickup completed. Thank you for ordering at MAKI DESU!',
+                        'no_show'          => 'Pickup marked as missed / no-show. Please contact branch support.',
+                        'cancelled'        => 'This order has been cancelled.',
+                        default            => 'Order status updated.',
+                    };
+
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'order_id'                 => $order->id,
+                            'order_number'             => $order->order_number ?? "ORD-{$order->id}",
+                            'order_status'             => $order->status,
+                            'fulfillment_type'         => Order::FULFILLMENT_PICKUP,
+                            'is_pickup'                => true,
+                            'delivery_id'              => null,
+                            'delivery_status'          => null,
+                            'delivery_status_label'    => 'Store Pickup',
+                            'is_tracking_available'    => false,
+                            'tracking_state'           => 'pickup',
+                            'pickup_status'            => $order->status,
+                            'status_instruction'       => $statusInstructions,
+                            'scheduled_pickup_at'      => $order->scheduled_pickup_at?->toIso8601String(),
+                            'scheduled_pickup_display' => $order->scheduled_pickup_at ? $order->scheduled_pickup_at->timezone(\App\Services\PickupOrderService::DEFAULT_TIMEZONE)->format('M d, Y • g:i A') : null,
+                            'pickup_verification_code' => $order->pickup_verification_code,
+                            'pickup_notes'             => $order->pickup_notes,
+                            'branch'                   => [
+                                'id'        => $order->branch?->id,
+                                'name'      => $order->branch?->name,
+                                'address'   => $order->branch?->address,
+                                'latitude'  => $order->branch?->latitude ? (float) $order->branch->latitude : null,
+                                'longitude' => $order->branch?->longitude ? (float) $order->branch->longitude : null,
+                            ],
+                            'message'                  => $statusInstructions,
+                        ]
+                    ]);
+                }
+
                 return response()->json([
                     'success' => true,
                     'data' => [

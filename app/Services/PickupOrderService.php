@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\OrderCreated;
+use App\Events\OrderStatusUpdated;
 use App\Models\Branch;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -247,7 +248,9 @@ class PickupOrderService
      */
     public function transitionPickupStatus(Order $order, string $newStatus, ?string $reason = null, ?User $actor = null): Order
     {
-        return DB::transaction(function () use ($order, $newStatus, $reason, $actor) {
+        $previousStatus = $order->status;
+
+        $updatedOrder = DB::transaction(function () use ($order, $newStatus, $reason, $actor) {
             $order->transitionTo($newStatus, $reason, $actor?->id);
 
             // If order reached terminal completed state, trigger inventory deduction & sale recording
@@ -267,8 +270,17 @@ class PickupOrderService
                 level: 'info'
             );
 
-            return $order->fresh();
+            return $order->fresh(['branch', 'user', 'items.product']);
         });
+
+        // Broadcast real-time status update to web operations and mobile customer
+        try {
+            event(new OrderStatusUpdated($updatedOrder, $actor?->role ?? 'staff', $previousStatus));
+        } catch (\Throwable $e) {
+            Log::warning('PickupOrderService: OrderStatusUpdated broadcast failed: ' . $e->getMessage());
+        }
+
+        return $updatedOrder;
     }
 
     /**

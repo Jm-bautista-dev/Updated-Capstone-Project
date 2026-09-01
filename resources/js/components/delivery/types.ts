@@ -1,8 +1,10 @@
 export interface Delivery {
     id: number;
     order_id?: number | null;
-    sale_id: number;
-    delivery_type: 'internal' | 'external';
+    sale_id?: number | null;
+    fulfillment_type?: 'delivery' | 'pickup';
+    is_pickup?: boolean;
+    delivery_type: 'internal' | 'external' | 'pickup';
     order_source?: 'pos' | 'mobile';
     external_service: 'grab' | 'lalamove' | null;
     tracking_number: string | null;
@@ -27,6 +29,11 @@ export interface Delivery {
     cancellation_reason?: string | null;
     cancelled_at?: string | null;
     cancelled_by_name?: string | null;
+    scheduled_pickup_at?: string | null;
+    scheduled_pickup_display?: string | null;
+    pickup_verification_code?: string | null;
+    estimated_prep_time_minutes?: number;
+    prep_start_at?: string | null;
     // Location fields from GPS
     latitude?: number | null;
     longitude?: number | null;
@@ -105,6 +112,9 @@ export interface DeliveryFilters {
 }
 
 export interface DeliveryStatsData {
+    all_count?: number;
+    delivery_count?: number;
+    pickup_count?: number;
     waiting?: number;
     preparing?: number;
     ready?: number;

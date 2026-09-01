@@ -15,6 +15,11 @@ interface DeliveryFiltersProps {
     branches: Branch[];
     allRiders?: Array<{ id: number; name: string }>;
     viewMode: ViewMode;
+    stats?: {
+        all_count?: number;
+        delivery_count?: number;
+        pickup_count?: number;
+    };
     onFilterChange: (updates: Partial<FilterType>) => void;
     onViewModeChange: (mode: ViewMode) => void;
 }
@@ -24,6 +29,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
     branches,
     allRiders = [],
     viewMode,
+    stats,
     onFilterChange,
     onViewModeChange,
 }: DeliveryFiltersProps) {
@@ -66,7 +72,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
     return (
         <div className="flex flex-col gap-4">
             {/* View Navigation Switcher: Today's Operations vs Delivery Archive */}
-            <div className="flex items-center justify-between gap-3 p-1.5 rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 backdrop-blur-2xl shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] font-['Outfit']">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-1.5 rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 backdrop-blur-2xl shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] font-['Outfit']">
                 <div className="flex items-center gap-1.5 w-full sm:w-auto">
                     <button
                         type="button"
@@ -94,11 +100,62 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     </button>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-2 px-3 text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
-                    <span>Mode:</span>
-                    <span className="uppercase text-[10px] tracking-widest px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">
-                        {currentView === 'today' ? 'Live Operations' : 'Historical Records'}
-                    </span>
+                {/* Fulfillment Tabs: ALL | DELIVERY | PICKUP */}
+                <div className="flex items-center gap-1 p-1 rounded-2xl bg-[#F8C8DC]/20 dark:bg-white/5 border border-[#F8C8DC]/40 dark:border-white/10 self-center sm:self-auto overflow-x-auto">
+                    <button
+                        type="button"
+                        onClick={() => onFilterChange({ type: 'all' })}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            (filters.type || 'all') === 'all'
+                                ? 'bg-[#E75480] text-white shadow-xs shadow-[#E75480]/30'
+                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                    >
+                        <span>All</span>
+                        {typeof stats?.all_count === 'number' && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                                (filters.type || 'all') === 'all' ? 'bg-white/20 text-white' : 'bg-rose-100 dark:bg-white/10 text-rose-700 dark:text-rose-300'
+                            }`}>
+                                {stats.all_count}
+                            </span>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onFilterChange({ type: 'delivery' })}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            filters.type === 'delivery' || filters.type === 'internal' || filters.type === 'external'
+                                ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/30'
+                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                    >
+                        <span>🚚 Delivery</span>
+                        {typeof stats?.delivery_count === 'number' && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                                filters.type === 'delivery' ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-white/10 text-blue-700 dark:text-blue-300'
+                            }`}>
+                                {stats.delivery_count}
+                            </span>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onFilterChange({ type: 'pickup' })}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            filters.type === 'pickup'
+                                ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-500/30'
+                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                    >
+                        <span>🏪 Pickup</span>
+                        {typeof stats?.pickup_count === 'number' && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                                filters.type === 'pickup' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-300'
+                            }`}>
+                                {stats.pickup_count}
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -178,8 +235,10 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820]">
                                 <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="internal">Internal</SelectItem>
-                                <SelectItem value="external">External</SelectItem>
+                                <SelectItem value="delivery">Delivery (All)</SelectItem>
+                                <SelectItem value="pickup">Pickup Orders</SelectItem>
+                                <SelectItem value="internal">Internal Delivery</SelectItem>
+                                <SelectItem value="external">External Delivery</SelectItem>
                             </SelectContent>
                         </Select>
 

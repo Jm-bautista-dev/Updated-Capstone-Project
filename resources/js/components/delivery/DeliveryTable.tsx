@@ -1,7 +1,7 @@
 import {
     AlertOctagon,
     ArrowUpDown,
-    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, Truck,
+    Bike, ChevronDown, ChevronRight, ChevronUp, Eye, Package, Store, Truck,
 } from 'lucide-react';
 import React, { useCallback, useRef } from 'react';
 import { List } from 'react-window';
@@ -49,16 +49,21 @@ const TableRow = React.memo(function TableRow({
     style: React.CSSProperties;
 } & RowProps) {
     const delivery = deliveries[index];
-    const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
-    const typeColor = delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-emerald-600 dark:text-emerald-400';
+    const isPickup = Boolean(delivery.is_pickup || delivery.fulfillment_type === 'pickup');
 
-    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id;
+    const TypeIcon = isPickup ? Store : (delivery.delivery_type === 'internal' ? Bike : Truck);
+    const typeColor = isPickup 
+        ? 'text-emerald-600 dark:text-emerald-400' 
+        : (delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-blue-600 dark:text-blue-400');
+
+    const isUnassignedInternal = !isPickup && delivery.delivery_type === 'internal' && !delivery.rider_id;
 
     return (
         <div
             style={style}
             className={cn(
                 "flex items-center gap-2 px-5 border-b border-[#F8C8DC]/30 dark:border-white/5 hover:bg-[#FFF5F7]/60 dark:hover:bg-[#1C1C28]/60 cursor-pointer group transition-colors duration-150 font-['Outfit']",
+                isPickup && "border-l-2 border-l-emerald-500",
                 delivery.status === 'delivered' && "opacity-75"
             )}
             onClick={() => onSelect(delivery)}
@@ -72,14 +77,20 @@ const TableRow = React.memo(function TableRow({
                     </span>
                 </div>
                 <div className="flex items-center gap-1 mt-0.5">
-                    <span className={cn(
-                        "text-[9px] font-black uppercase px-1.5 py-0.2 rounded font-sans",
-                        (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
-                            ? "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/60"
-                            : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60"
-                    )}>
-                        {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? 'POS' : 'Mobile'}
-                    </span>
+                    {isPickup ? (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded font-sans bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60">
+                            PICKUP
+                        </span>
+                    ) : (
+                        <span className={cn(
+                            "text-[9px] font-black uppercase px-1.5 py-0.2 rounded font-sans",
+                            (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
+                                ? "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/60"
+                                : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60"
+                        )}>
+                            {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? 'POS' : 'Mobile'}
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -131,17 +142,19 @@ const TableRow = React.memo(function TableRow({
                 <p className="font-semibold text-xs truncate text-[#3D2C2E] dark:text-[#F8FAFC]">{delivery.customer_name}</p>
             </div>
 
-            {/* Type & Rider */}
+            {/* Type & Rider / Verification */}
             <div className="w-30 shrink-0">
                 <div className="flex items-center gap-1.5">
                     <TypeIcon className={`size-3.5 ${isUnassignedInternal ? 'text-amber-500' : typeColor}`} />
                     <span className={cn(
                         "text-[10px] font-bold uppercase truncate",
-                        isUnassignedInternal && "text-amber-600 animate-pulse"
+                        isPickup ? "text-emerald-700 dark:text-emerald-400 font-bold" : (isUnassignedInternal ? "text-amber-600 animate-pulse" : typeColor)
                     )}>
-                        {delivery.delivery_type === 'internal'
-                            ? (delivery.rider?.name || 'Unassigned')
-                            : (delivery.external_service?.toUpperCase() || 'External')}
+                        {isPickup
+                            ? (delivery.pickup_verification_code ? `Code: ${delivery.pickup_verification_code}` : 'Store Pickup')
+                            : (delivery.delivery_type === 'internal'
+                                ? (delivery.rider?.name || 'Unassigned')
+                                : (delivery.external_service?.toUpperCase() || 'External'))}
                     </span>
                 </div>
             </div>

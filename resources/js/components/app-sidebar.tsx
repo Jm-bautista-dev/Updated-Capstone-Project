@@ -146,7 +146,7 @@ export function AppSidebar() {
         { label: 'Operations', titles: ['Products', 'Categories', 'Inventory', 'Reviews & Ratings'] },
         { label: 'Sales', titles: ['Sales', 'Reports'] },
         { label: 'Analytics', titles: ['Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'] },
-        { label: 'Logistics', titles: ['Delivery', 'Riders'] },
+        { label: 'Logistics', titles: ['Delivery', 'Pickup Orders', 'Riders'] },
         { label: 'Management', titles: ['Employees', 'Branches', 'Sales Data Management'] },
     ];
 

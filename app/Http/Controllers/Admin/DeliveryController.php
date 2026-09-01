@@ -6,31 +6,136 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDeliveryRequest;
 use App\Models\Delivery;
 use App\Models\Branch;
+use App\Models\Order;
 use App\Models\Rider;
 use App\Services\DeliveryService;
 use App\Services\InventoryService;
+use App\Services\PickupOrderService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 
 class DeliveryController extends Controller
 {
     protected DeliveryService $deliveryService;
+    protected PickupOrderService $pickupService;
 
-    public function __construct(DeliveryService $deliveryService)
+    public function __construct(DeliveryService $deliveryService, PickupOrderService $pickupService)
     {
         $this->deliveryService = $deliveryService;
+        $this->pickupService = $pickupService;
     }
 
     /**
-     * Delivery dashboard — paginated list with filters.
+     * Delivery & Operations dashboard — paginated list with unified Delivery & Pickup support.
      */
     public function index(Request $request)
     {
         $user = Auth::user();
         $view = $request->input('view', 'today');
+        $filterType = $request->input('fulfillment_type') ?? $request->input('type', 'all'); // 'all' | 'delivery' | 'pickup' | 'internal' | 'external'
+        $branchIdFilter = ($request->filled('branch_id') && $request->branch_id !== 'all') ? $request->branch_id : null;
+        $statusFilter = ($request->filled('status') && $request->status !== 'all') ? $request->status : null;
+        $riderIdFilter = ($request->filled('rider_id') && $request->rider_id !== 'all') ? $request->rider_id : null;
+        $search = $request->filled('search') ? trim($request->search) : null;
+        $datePreset = $request->input('date_preset', 'all');
 
-        $query = Delivery::with([
+        $activeDeliveryStatuses = [
+            'waiting_for_kitchen',
+            'pending',
+            'preparing',
+            'ready_for_pickup',
+            'assigned_to_rider',
+            'picked_up',
+            'in_transit',
+            'cancellation_requested',
+            'failed_delivery',
+        ];
+
+        $activePickupStatuses = [
+            'pending',
+            'confirmed',
+            'preparing',
+            'ready_for_pickup',
+            'customer_arrived',
+        ];
+
+        // 1. Fetch Deliveries & Pickups via helper methods
+        $deliveriesCollection = $this->fetchDeliveriesCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activeDeliveryStatuses);
+        $pickupsCollection = $this->fetchPickupsCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activePickupStatuses);
+
+        // 2. Merge, Sort & Paginate
+        $allMerged = $deliveriesCollection->concat($pickupsCollection);
+
+        if ($view === 'today') {
+            $sortedMerged = $allMerged->sort(function ($a, $b) {
+                $aActive = $a->is_active_op ? 0 : 1;
+                $bActive = $b->is_active_op ? 0 : 1;
+                if ($aActive !== $bActive) {
+                    return $aActive <=> $bActive;
+                }
+                return strtotime((string) $a->created_at) <=> strtotime((string) $b->created_at);
+            })->values();
+        } else {
+            $sortedMerged = $allMerged->sortByDesc('created_at')->values();
+        }
+
+        // Assign queue position numbers to active items
+        $queuePos = 1;
+        $sortedMerged->transform(function ($item) use (&$queuePos) {
+            $item->queue_position = $item->is_active_op ? $queuePos++ : null;
+            return $item;
+        });
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 50;
+        $pagedItems = $sortedMerged->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $deliveries = new LengthAwarePaginator(
+            $pagedItems,
+            $sortedMerged->count(),
+            $perPage,
+            $page,
+            ['path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->query()]
+        );
+
+        // 3. Fleet & Unified Statistics
+        $availableRiders = $this->getAvailableRidersData($user);
+        $allRiders = Rider::orderBy('name')->get(['id', 'name']);
+        $stats = $this->calculateUnifiedStats($user, $activeDeliveryStatuses, $activePickupStatuses);
+
+        return Inertia::render('Admin/Deliveries', [
+            'deliveries'     => $deliveries,
+            'availableRiders'=> $availableRiders,
+            'allRiders'      => $allRiders,
+            'filters'        => array_merge([
+                'view'        => $view,
+                'status'      => 'all',
+                'type'        => $filterType,
+                'branch_id'   => 'all',
+                'rider_id'    => 'all',
+                'search'      => '',
+                'date_preset' => 'all',
+                'start_date'  => '',
+                'end_date'    => '',
+            ], array_filter($request->only(['view', 'status', 'type', 'branch_id', 'rider_id', 'search', 'date_preset', 'start_date', 'end_date']))),
+            'branches'       => Branch::orderBy('name')->get(['id', 'name']),
+            'stats'          => $stats,
+        ]);
+    }
+
+    /**
+     * Query and format Delivery records for operations queue.
+     */
+    private function fetchDeliveriesCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activeDeliveryStatuses)
+    {
+        if (!in_array($filterType, ['all', 'delivery', 'internal', 'external'])) {
+            return collect();
+        }
+
+        $delQuery = Delivery::with([
             'sale.cashier',
             'sale.branch',
             'sale.items.product',
@@ -45,31 +150,21 @@ class DeliveryController extends Controller
             'order.deliveryAttempts.rider'
         ]);
 
-        // ── Branch Isolation: Cashiers only see their own branch ────────────
         if (!$user->isAdmin()) {
-            $query->where(function ($q) use ($user) {
+            $delQuery->where(function ($q) use ($user) {
                 $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
                   ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
             });
+        } elseif ($branchIdFilter) {
+            $delQuery->where(function ($q) use ($branchIdFilter) {
+                $q->whereHas('sale', fn($sq) => $sq->where('branch_id', $branchIdFilter))
+                  ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchIdFilter));
+            });
         }
 
-        $activeStatuses = [
-            'waiting_for_kitchen',
-            'pending',
-            'preparing',
-            'ready_for_pickup',
-            'assigned_to_rider',
-            'picked_up',
-            'in_transit',
-            'cancellation_requested',
-            'failed_delivery',
-        ];
-
-        // ── View-specific Scoping ───────────────────────────────────────────
         if ($view === 'today') {
-            // Default Operational View: Active deliveries OR deliveries completed/cancelled TODAY
-            $query->where(function ($q) use ($activeStatuses) {
-                $q->whereIn('status', $activeStatuses)
+            $delQuery->where(function ($q) use ($activeDeliveryStatuses) {
+                $q->whereIn('status', $activeDeliveryStatuses)
                   ->orWhere(function ($subQ) {
                       $subQ->whereIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED])
                            ->where(function ($dateQ) {
@@ -81,46 +176,36 @@ class DeliveryController extends Controller
                            });
                   });
             });
-
-            $query->orderByRaw(
-                "CASE WHEN status IN ('" . implode("','", $activeStatuses) . "') THEN 0 ELSE 1 END ASC"
-            )->orderBy('created_at', 'asc');
         } else {
-            // Archive View: Historical completed/terminal deliveries
-            if ($request->filled('status') && $request->status !== 'all') {
-                $query->where('status', $request->status);
+            if ($statusFilter) {
+                $delQuery->where('status', $statusFilter);
             } else {
-                $query->whereIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED, Delivery::STATUS_FAILED]);
+                $delQuery->whereIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED, Delivery::STATUS_FAILED]);
             }
 
-            // Rider Filter
-            if ($request->filled('rider_id') && $request->rider_id !== 'all') {
-                $query->where('rider_id', $request->rider_id);
+            if ($riderIdFilter) {
+                $delQuery->where('rider_id', $riderIdFilter);
             }
-
-            // Date Preset & Custom Range Filtering
-            $datePreset = $request->input('date_preset', 'all');
-            $dateColumn = 'delivered_at';
 
             if ($datePreset === 'today') {
-                $query->where(function ($dq) {
+                $delQuery->where(function ($dq) {
                     $dq->whereDate('delivered_at', today())
                        ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
                 });
             } elseif ($datePreset === 'yesterday') {
                 $yesterday = today()->subDay();
-                $query->where(function ($dq) use ($yesterday) {
+                $delQuery->where(function ($dq) use ($yesterday) {
                     $dq->whereDate('delivered_at', $yesterday)
                        ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', $yesterday));
                 });
             } elseif ($datePreset === 'last_7_days') {
                 $sevenDaysAgo = today()->subDays(7);
-                $query->where(function ($dq) use ($sevenDaysAgo) {
+                $delQuery->where(function ($dq) use ($sevenDaysAgo) {
                     $dq->where('delivered_at', '>=', $sevenDaysAgo)
                        ->orWhere(fn($f) => $f->whereNull('delivered_at')->where('created_at', '>=', $sevenDaysAgo));
                 });
             } elseif ($datePreset === 'this_month') {
-                $query->where(function ($dq) {
+                $delQuery->where(function ($dq) {
                     $dq->whereMonth('delivered_at', today()->month)
                        ->whereYear('delivered_at', today()->year)
                        ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereMonth('created_at', today()->month)->whereYear('created_at', today()->year));
@@ -128,35 +213,23 @@ class DeliveryController extends Controller
             } elseif ($datePreset === 'custom' && $request->filled('start_date')) {
                 $startDate = $request->start_date;
                 $endDate = $request->input('end_date', $startDate);
-                $query->where(function ($dq) use ($startDate, $endDate) {
+                $delQuery->where(function ($dq) use ($startDate, $endDate) {
                     $dq->whereBetween('delivered_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                        ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']));
                 });
             }
-
-            $query->orderBy('created_at', 'desc');
         }
 
-        // ── Common Filters ──────────────────────────────────────────────────
-        if ($view !== 'archive' && $request->filled('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
+        if ($view !== 'archive' && $statusFilter) {
+            $delQuery->where('status', $statusFilter);
         }
 
-        if ($request->filled('type') && $request->type !== 'all') {
-            $query->where('delivery_type', $request->type);
+        if (in_array($filterType, ['internal', 'external'])) {
+            $delQuery->where('delivery_type', $filterType);
         }
 
-        if ($request->filled('branch_id') && $request->branch_id !== 'all') {
-            $branchId = $request->branch_id;
-            $query->where(function ($q) use ($branchId) {
-                $q->whereHas('sale', fn($sq) => $sq->where('branch_id', $branchId))
-                    ->orWhereHas('order', fn($oq) => $oq->where('branch_id', $branchId));
-            });
-        }
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
+        if ($search) {
+            $delQuery->where(function ($q) use ($search) {
                 $q->where('customer_name', 'like', "%{$search}%")
                     ->orWhere('customer_phone', 'like', "%{$search}%")
                     ->orWhere('customer_address', 'like', "%{$search}%")
@@ -168,34 +241,202 @@ class DeliveryController extends Controller
             });
         }
 
-        $deliveries = $query->paginate(50)->withQueryString();
-
-        // ── Queue position counter (only for active statuses) ───────────────
-        $queuePosition = 1;
-        $deliveries->getCollection()->transform(function ($delivery) use (&$queuePosition, $activeStatuses) {
-            $delivery->status_label    = $delivery->getStatusLabel();
-            $delivery->status_color    = $delivery->getStatusColor();
-            $delivery->next_statuses   = $delivery->getNextStatuses();
-            $delivery->is_cancelled    = $delivery->isCancelled();
-            $delivery->is_delivered    = $delivery->isDelivered();
-            $delivery->is_failed       = $delivery->status === Delivery::STATUS_FAILED;
-            $delivery->can_mark_failed = $delivery->canMarkFailed();
-            $delivery->cancelled_by_name = $delivery->cancelledBy?->name;
-
-            // Waiting time in minutes
-            $delivery->waiting_minutes = (int) now()->diffInMinutes($delivery->created_at);
-
-            // Queue position (only for active/in-flight deliveries)
-            if (in_array($delivery->status, $activeStatuses)) {
-                $delivery->queue_position = $queuePosition++;
-            } else {
-                $delivery->queue_position = null;
-            }
+        return $delQuery->get()->map(function (Delivery $delivery) use ($activeDeliveryStatuses) {
+            $delivery->fulfillment_type   = 'delivery';
+            $delivery->is_pickup          = false;
+            $delivery->status_label       = $delivery->getStatusLabel();
+            $delivery->status_color       = $delivery->getStatusColor();
+            $delivery->next_statuses      = $delivery->getNextStatuses();
+            $delivery->is_cancelled       = $delivery->isCancelled();
+            $delivery->is_delivered       = $delivery->isDelivered();
+            $delivery->is_failed          = $delivery->status === Delivery::STATUS_FAILED;
+            $delivery->can_mark_failed    = $delivery->canMarkFailed();
+            $delivery->cancelled_by_name  = $delivery->cancelledBy?->name;
+            $delivery->waiting_minutes    = (int) now()->diffInMinutes($delivery->created_at);
+            $delivery->is_active_op       = in_array($delivery->status, $activeDeliveryStatuses);
 
             return $delivery;
         });
+    }
 
-        // Get riders for manual assignment and real-time fleet view
+    /**
+     * Query and format Pickup orders for operations queue.
+     */
+    private function fetchPickupsCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activePickupStatuses): \Illuminate\Support\Collection
+    {
+        if (!in_array($filterType, ['all', 'pickup'])) {
+            return collect();
+        }
+
+        $pkQuery = Order::with(['items.product', 'branch', 'user'])
+            ->where('fulfillment_type', Order::FULFILLMENT_PICKUP);
+
+        if (!$user->isAdmin()) {
+            $pkQuery->where('branch_id', $user->branch_id);
+        } elseif ($branchIdFilter) {
+            $pkQuery->where('branch_id', $branchIdFilter);
+        }
+
+        if ($view === 'today') {
+            $pkQuery->where(function ($q) use ($activePickupStatuses) {
+                $q->whereIn('status', $activePickupStatuses)
+                  ->orWhere(function ($subQ) {
+                      $subQ->whereIn('status', ['completed', 'cancelled', 'no_show'])
+                           ->where(function ($dateQ) {
+                               $dateQ->whereDate('pickup_completed_at', today())
+                                     ->orWhereDate('cancelled_at', today())
+                                     ->orWhereDate('created_at', today());
+                           });
+                  });
+            });
+        } else {
+            if ($statusFilter) {
+                $pkQuery->where('status', $statusFilter);
+            } else {
+                $pkQuery->whereIn('status', ['completed', 'cancelled', 'no_show']);
+            }
+
+            if ($riderIdFilter) {
+                $pkQuery->whereRaw('1 = 0');
+            }
+
+            if ($datePreset === 'today') {
+                $pkQuery->where(function ($dq) {
+                    $dq->whereDate('pickup_completed_at', today())
+                       ->orWhereDate('cancelled_at', today())
+                       ->orWhereDate('created_at', today());
+                });
+            } elseif ($datePreset === 'yesterday') {
+                $yesterday = today()->subDay();
+                $pkQuery->where(function ($dq) use ($yesterday) {
+                    $dq->whereDate('pickup_completed_at', $yesterday)
+                       ->orWhereDate('cancelled_at', $yesterday)
+                       ->orWhereDate('created_at', $yesterday);
+                });
+            } elseif ($datePreset === 'last_7_days') {
+                $sevenDaysAgo = today()->subDays(7);
+                $pkQuery->where('created_at', '>=', $sevenDaysAgo);
+            } elseif ($datePreset === 'this_month') {
+                $pkQuery->whereMonth('created_at', today()->month)->whereYear('created_at', today()->year);
+            } elseif ($datePreset === 'custom' && $request->filled('start_date')) {
+                $startDate = $request->start_date;
+                $endDate = $request->input('end_date', $startDate);
+                $pkQuery->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            }
+        }
+
+        if ($view !== 'archive' && $statusFilter) {
+            $pkQuery->where('status', $statusFilter);
+        }
+
+        if ($search) {
+            $pkQuery->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', "%{$search}%")
+                  ->orWhere('contact_number', 'like', "%{$search}%")
+                  ->orWhere('pickup_verification_code', 'like', "%{$search}%")
+                  ->orWhere('order_number', 'like', "%{$search}%")
+                  ->orWhere('id', 'like', "%{$search}%");
+            });
+        }
+
+        return $pkQuery->get()->map(function (Order $order) use ($activePickupStatuses) {
+            $isActiveOp = in_array($order->status, $activePickupStatuses);
+            $statusLabel = match ($order->status) {
+                'pending'          => 'Pending',
+                'confirmed'        => 'Confirmed',
+                'preparing'        => 'Preparing',
+                'ready_for_pickup' => 'Ready for Pickup',
+                'customer_arrived' => 'Customer Arrived',
+                'completed'        => 'Completed',
+                'no_show'          => 'No Show',
+                'cancelled'        => 'Cancelled',
+                default            => ucfirst(str_replace('_', ' ', $order->status)),
+            };
+
+            $statusColor = match ($order->status) {
+                'pending'          => 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+                'confirmed'        => 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
+                'preparing'        => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400',
+                'ready_for_pickup' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
+                'customer_arrived' => 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400',
+                'completed'        => 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400',
+                'cancelled'        => 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
+                'no_show'          => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
+                default            => 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+            };
+
+            $transitions = $order->getAllowedTransitions();
+            $nextStatuses = $transitions[$order->status] ?? [];
+
+            return (object) [
+                'id'                          => $order->id,
+                'order_id'                    => $order->id,
+                'sale_id'                     => null,
+                'fulfillment_type'            => 'pickup',
+                'is_pickup'                   => true,
+                'delivery_type'               => 'pickup',
+                'order_source'                => $order->order_source ?? 'mobile',
+                'external_service'            => null,
+                'tracking_number'             => null,
+                'status'                      => $order->status,
+                'status_label'                => $statusLabel,
+                'status_color'                => $statusColor,
+                'customer_name'               => $order->customer_name,
+                'customer_address'            => $order->address ?? 'Store Pickup',
+                'customer_phone'              => $order->contact_number,
+                'distance_km'                 => 0,
+                'delivery_fee'                => 0,
+                'created_at'                  => $order->created_at?->toISOString() ?? now()->toISOString(),
+                'updated_at'                  => $order->updated_at?->toISOString() ?? now()->toISOString(),
+                'delivered_at'                => $order->pickup_completed_at?->toISOString(),
+                'next_statuses'               => $nextStatuses,
+                'is_cancelled'                => $order->status === 'cancelled',
+                'is_delivered'                => $order->status === 'completed',
+                'is_failed'                   => $order->status === 'no_show',
+                'can_mark_failed'             => false,
+                'waiting_minutes'             => (int) now()->diffInMinutes($order->created_at),
+                'is_active_op'                => $isActiveOp,
+                'cancellation_reason'         => $order->cancellation_reason,
+                'cancelled_at'                => $order->cancelled_at?->toISOString(),
+                'cancelled_by_name'           => null,
+                'scheduled_pickup_at'         => $order->scheduled_pickup_at?->toISOString(),
+                'scheduled_pickup_display'    => $order->scheduled_pickup_at ? $order->scheduled_pickup_at->timezone(PickupOrderService::DEFAULT_TIMEZONE)->format('M d, Y • g:i A') : null,
+                'pickup_verification_code'    => $order->pickup_verification_code,
+                'estimated_prep_time_minutes' => (int) ($order->estimated_prep_time_minutes ?? 20),
+                'prep_start_at'               => $order->prep_start_at?->toISOString(),
+                'order'                       => [
+                    'id'           => $order->id,
+                    'order_number' => $order->order_number ?? "ORD-{$order->id}",
+                    'total_amount' => (float) $order->total_amount,
+                    'status'       => $order->status,
+                    'branch'       => $order->branch ? [
+                        'name'      => $order->branch->name,
+                        'latitude'  => $order->branch->latitude ? (float) $order->branch->latitude : null,
+                        'longitude' => $order->branch->longitude ? (float) $order->branch->longitude : null,
+                    ] : null,
+                    'items'        => $order->items->map(fn($it) => [
+                        'id'       => $it->id,
+                        'product'  => [
+                            'name'      => $it->product?->name ?? $it->product_name ?? 'Item',
+                            'image_url' => $it->product?->image_url ?? $it->image_path,
+                        ],
+                        'quantity' => (float) $it->quantity,
+                        'price'    => (float) ($it->price ?? $it->unit_price ?? 0),
+                    ])->values()->all(),
+                ],
+                'rider_id'                    => null,
+                'rider'                       => null,
+                'delivery_notes'              => $order->pickup_notes,
+                'external_notes'              => $order->notes,
+            ];
+        });
+    }
+
+    /**
+     * Retrieve available riders with status counts.
+     */
+    private function getAvailableRidersData($user)
+    {
         $riderQuery = Rider::query();
         if (!$user->isAdmin() && $user->branch_id) {
             $riderQuery->where(function ($q) use ($user) {
@@ -203,7 +444,7 @@ class DeliveryController extends Controller
             });
         }
 
-        $availableRiders = $riderQuery
+        return $riderQuery
             ->with(['branch'])
             ->withCount([
                 'deliveries as active_deliveries_count' => function ($q) {
@@ -224,73 +465,76 @@ class DeliveryController extends Controller
                 $canBeAssigned = $isOnline && !$isOutForDelivery;
 
                 return [
-                    'id'                     => $rider->id,
-                    'name'                   => $rider->name,
-                    'phone'                  => $rider->phone,
-                    'is_active'              => (bool) $rider->is_active,
-                    'account_status'         => $rider->is_active ? 'active' : 'inactive',
-                    'status'                 => $isOutForDelivery ? 'busy' : ($rider->status ?: ($rider->is_active ? 'available' : 'offline')),
-                    'branch_id'              => $rider->branch_id,
-                    'branch_name'            => $rider->branch?->name ?? 'Global',
-                    'active_deliveries'      => $rider->active_deliveries_count,
-                    'active_in_transit_count'=> $rider->active_in_transit_count,
-                    'active_pickup_count'    => $rider->active_pickup_count,
-                    'is_out_for_delivery'    => $isOutForDelivery,
-                    'can_be_assigned'        => $canBeAssigned,
+                    'id'                      => $rider->id,
+                    'name'                    => $rider->name,
+                    'phone'                   => $rider->phone,
+                    'is_active'               => (bool) $rider->is_active,
+                    'account_status'          => $rider->is_active ? 'active' : 'inactive',
+                    'status'                  => $isOutForDelivery ? 'busy' : ($rider->status ?: ($rider->is_active ? 'available' : 'offline')),
+                    'branch_id'               => $rider->branch_id,
+                    'branch_name'             => $rider->branch?->name ?? 'Global',
+                    'active_deliveries'       => $rider->active_deliveries_count,
+                    'active_in_transit_count' => $rider->active_in_transit_count,
+                    'active_pickup_count'     => $rider->active_pickup_count,
+                    'is_out_for_delivery'     => $isOutForDelivery,
+                    'can_be_assigned'         => $canBeAssigned,
                 ];
             });
+    }
 
-        // Get all riders for archive filtering
-        $allRiders = Rider::orderBy('name')->get(['id', 'name']);
+    /**
+     * Compute statistics combining both Delivery and Pickup pipelines.
+     */
+    private function calculateUnifiedStats($user, $activeDeliveryStatuses, $activePickupStatuses): array
+    {
+        $baseDeliveryQuery = Delivery::query();
+        $basePickupQuery = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP);
 
-        // ── Accurate stats across operational and historical states ────────
-        $baseQuery = Delivery::query();
         if (!$user->isAdmin()) {
-            $baseQuery->where(function ($q) use ($user) {
+            $baseDeliveryQuery->where(function ($q) use ($user) {
                 $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
                   ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
             });
+            $basePickupQuery->where('branch_id', $user->branch_id);
         }
 
-        $stats = [
-            'waiting'          => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
-            'preparing'        => (clone $baseQuery)->where('status', 'preparing')->count(),
-            'ready'            => (clone $baseQuery)->where('status', 'ready_for_pickup')->count(),
-            'assigned'         => (clone $baseQuery)->where('status', 'assigned_to_rider')->count(),
-            'in_transit'       => (clone $baseQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
-            'delivered'        => (clone $baseQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
-            'delivered_today'  => (clone $baseQuery)->where('status', 'delivered')->where(function ($dq) {
+        $activeDelivCount = (clone $baseDeliveryQuery)->whereIn('status', $activeDeliveryStatuses)->count();
+        $activePickupCount = (clone $basePickupQuery)->whereIn('status', $activePickupStatuses)->count();
+
+        return [
+            'all_count'        => $activeDelivCount + $activePickupCount,
+            'delivery_count'   => $activeDelivCount,
+            'pickup_count'     => $activePickupCount,
+            'waiting'          => (clone $baseDeliveryQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count() 
+                                  + (clone $basePickupQuery)->whereIn('status', ['pending', 'confirmed'])->count(),
+            'preparing'        => (clone $baseDeliveryQuery)->where('status', 'preparing')->count()
+                                  + (clone $basePickupQuery)->where('status', 'preparing')->count(),
+            'ready'            => (clone $baseDeliveryQuery)->where('status', 'ready_for_pickup')->count()
+                                  + (clone $basePickupQuery)->whereIn('status', ['ready_for_pickup', 'customer_arrived'])->count(),
+            'assigned'         => (clone $baseDeliveryQuery)->where('status', 'assigned_to_rider')->count(),
+            'in_transit'       => (clone $baseDeliveryQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
+            'delivered'        => (clone $baseDeliveryQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count()
+                                  + (clone $basePickupQuery)->where('status', 'completed')->whereDate('pickup_completed_at', today())->count(),
+            'delivered_today'  => (clone $baseDeliveryQuery)->where('status', 'delivered')->where(function ($dq) {
                                       $dq->whereDate('delivered_at', today())
                                          ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
+                                  })->count()
+                                  + (clone $basePickupQuery)->where('status', 'completed')->where(function ($dq) {
+                                      $dq->whereDate('pickup_completed_at', today())
+                                         ->orWhereDate('created_at', today());
                                   })->count(),
-            'total_historical' => (clone $baseQuery)->whereIn('status', ['delivered', 'cancelled', 'failed_delivery'])->count(),
-            'failed'           => (clone $baseQuery)->where('status', 'failed_delivery')->count(),
-            'delayed'          => (clone $baseQuery)
+            'total_historical' => (clone $baseDeliveryQuery)->whereIn('status', ['delivered', 'cancelled', 'failed_delivery'])->count()
+                                  + (clone $basePickupQuery)->whereIn('status', ['completed', 'cancelled', 'no_show'])->count(),
+            'failed'           => (clone $baseDeliveryQuery)->where('status', 'failed_delivery')->count()
+                                  + (clone $basePickupQuery)->where('status', 'no_show')->count(),
+            'delayed'          => (clone $baseDeliveryQuery)
                 ->whereNotIn('status', ['delivered', 'cancelled', 'failed_delivery'])
                 ->where('created_at', '<', now()->subMinutes(45))
                 ->count(),
-            'pending'          => (clone $baseQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count(),
-            'active'           => (clone $baseQuery)->whereNotIn('status', ['pending', 'waiting_for_kitchen', 'delivered', 'cancelled'])->count(),
+            'pending'          => (clone $baseDeliveryQuery)->whereIn('status', ['waiting_for_kitchen', 'pending'])->count()
+                                  + (clone $basePickupQuery)->whereIn('status', ['pending', 'confirmed'])->count(),
+            'active'           => $activeDelivCount + $activePickupCount,
         ];
-
-        return Inertia::render('Admin/Deliveries', [
-            'deliveries'     => $deliveries,
-            'availableRiders'=> $availableRiders,
-            'allRiders'      => $allRiders,
-            'filters'        => array_merge([
-                'view'        => $view,
-                'status'      => 'all',
-                'type'        => 'all',
-                'branch_id'   => 'all',
-                'rider_id'    => 'all',
-                'search'      => '',
-                'date_preset' => 'all',
-                'start_date'  => '',
-                'end_date'    => '',
-            ], array_filter($request->only(['view', 'status', 'type', 'branch_id', 'rider_id', 'search', 'date_preset', 'start_date', 'end_date']))),
-            'branches'       => Branch::orderBy('name')->get(['id', 'name']),
-            'stats'          => $stats,
-        ]);
     }
 
     /**
@@ -645,5 +889,132 @@ class DeliveryController extends Controller
             ],
             'route'       => $routeResult,
         ]);
+    }
+
+    /**
+     * Advance / transition pickup order status from the operational queue.
+     * POST /deliveries/pickup/{id}/status
+     */
+    public function updatePickupStatus(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'status' => 'required|string|in:confirmed,preparing,ready_for_pickup,customer_arrived,completed,no_show,cancelled',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $order = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)->findOrFail($id);
+        $user = Auth::user();
+
+        if (!$user->isAdmin() && $user->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
+            abort(403, 'Unauthorized branch access.');
+        }
+
+        try {
+            $this->pickupService->transitionPickupStatus(
+                order: $order,
+                newStatus: $validated['status'],
+                reason: $validated['reason'] ?? null,
+                actor: $user
+            );
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Order #{$order->order_number} status updated to " . strtoupper(str_replace('_', ' ', $validated['status'])),
+                    'order'   => $order->fresh(),
+                ]);
+            }
+
+            return back()->with('success', "Order #{$order->order_number} status updated to " . strtoupper(str_replace('_', ' ', $validated['status'])));
+        } catch (\Throwable $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+            return back()->with('error', "Status transition failed: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Cancel a pickup order and restore inventory.
+     * POST /deliveries/pickup/{id}/cancel
+     */
+    public function cancelPickup(Request $request, $id)
+    {
+        $user = Auth::user();
+        $order = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)->findOrFail($id);
+
+        if (!$user->isAdmin() && $user->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
+            abort(403, 'Unauthorized branch access.');
+        }
+
+        if ($order->status === 'completed') {
+            return back()->with('error', 'Cannot cancel a pickup order that has already been completed.');
+        }
+
+        try {
+            $this->pickupService->transitionPickupStatus(
+                order: $order,
+                newStatus: 'cancelled',
+                reason: $request->input('reason', 'Cancelled by store staff'),
+                actor: $user
+            );
+
+            // Restore product stock
+            foreach ($order->items as $item) {
+                if (!empty($item->product_id)) {
+                    \Illuminate\Support\Facades\DB::table('products')
+                        ->where('id', $item->product_id)
+                        ->increment('stock', $item->quantity ?? 1);
+                }
+            }
+            app(InventoryService::class)->restoreForOrder($order);
+
+            return back()->with('success', 'Pickup order cancelled successfully.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to cancel pickup order: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Verify pickup verification code and complete pickup.
+     * POST /deliveries/pickup/{id}/verify-complete
+     */
+    public function verifyCompletePickup(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'verification_code' => 'required|string|max:50',
+            'paid_amount'       => 'nullable|numeric|min:0',
+        ]);
+
+        $order = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)->findOrFail($id);
+        $user = Auth::user();
+
+        if (!$user->isAdmin() && $user->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
+            abort(403, 'Unauthorized branch access.');
+        }
+
+        $result = $this->pickupService->verifyAndCompletePickup(
+            order: $order,
+            verificationInput: $validated['verification_code'],
+            cashier: $user,
+            paidAmount: isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : null
+        );
+
+        if (!$result['success']) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $result['message']], 422);
+            }
+            return back()->with('error', $result['message']);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Pickup verified and Order #{$order->order_number} completed!",
+                'order'   => $result['order'],
+            ]);
+        }
+
+        return back()->with('success', "Pickup verified and Order #{$order->order_number} completed!");
     }
 }

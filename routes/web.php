@@ -195,6 +195,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
             Route::post('deliveries/{delivery}/fail', [DeliveryController::class, 'failDelivery'])->name('deliveries.fail');
             Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
+            Route::post('deliveries/pickup/{id}/status', [DeliveryController::class, 'updatePickupStatus'])->name('deliveries.pickup.update-status');
+            Route::post('deliveries/pickup/{id}/cancel', [DeliveryController::class, 'cancelPickup'])->name('deliveries.pickup.cancel');
+            Route::post('deliveries/pickup/{id}/verify-complete', [DeliveryController::class, 'verifyCompletePickup'])->name('deliveries.pickup.verify-complete');
             Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept'])->name('cancellation-requests.accept');
             Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject'])->name('cancellation-requests.reject');
 

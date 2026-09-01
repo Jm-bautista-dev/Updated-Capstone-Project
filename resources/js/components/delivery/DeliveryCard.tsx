@@ -1,4 +1,4 @@
-import { AlertOctagon, Bike, Building2, ChevronRight, Clock, Eye, Truck, User } from 'lucide-react';
+import { AlertOctagon, Bike, Building2, CheckCircle2, ChevronRight, Clock, Eye, ShoppingBag, Store, Truck, User } from 'lucide-react';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -17,17 +17,40 @@ interface DeliveryCardProps {
     onFailDelivery?: (id: number) => void;
 }
 
-const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onFailDelivery }: DeliveryCardProps) {
-    const TypeIcon = delivery.delivery_type === 'internal' ? Bike : Truck;
-    const typeColor = delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-emerald-600 dark:text-emerald-400';
-    const typeBg = delivery.delivery_type === 'internal' ? 'bg-[#FFF5F7] dark:bg-[#1C1C28]' : 'bg-emerald-50 dark:bg-emerald-950/20';
+const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onAssignRider, onFailDelivery }: DeliveryCardProps) {
+    const isPickup = Boolean(delivery.is_pickup || delivery.fulfillment_type === 'pickup');
+    
+    const TypeIcon = isPickup ? Store : (delivery.delivery_type === 'internal' ? Bike : Truck);
+    const typeColor = isPickup 
+        ? 'text-emerald-600 dark:text-emerald-400' 
+        : (delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-blue-600 dark:text-blue-400');
+    const typeBg = isPickup 
+        ? 'bg-emerald-50 dark:bg-emerald-950/20' 
+        : (delivery.delivery_type === 'internal' ? 'bg-[#FFF5F7] dark:bg-[#1C1C28]' : 'bg-blue-50 dark:bg-blue-950/20');
 
-    const isUnassignedInternal = delivery.delivery_type === 'internal' && !delivery.rider_id && ['ready_for_pickup', 'assigned_to_rider', 'failed_delivery'].includes(delivery.status);
+    const isUnassignedInternal = !isPickup && delivery.delivery_type === 'internal' && !delivery.rider_id && ['ready_for_pickup', 'assigned_to_rider', 'failed_delivery'].includes(delivery.status);
+
+    const getNextPickupLabel = (status: string) => {
+        switch (status) {
+            case 'pending':
+            case 'confirmed':
+                return 'Start Preparation';
+            case 'preparing':
+                return 'Mark Ready for Pickup';
+            case 'ready_for_pickup':
+                return 'Mark Customer Arrived';
+            case 'customer_arrived':
+                return 'Complete Pickup';
+            default:
+                return 'Advance Status';
+        }
+    };
 
     return (
         <div
             className={cn(
                 "rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden group hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer font-['Outfit']",
+                isPickup && "border-emerald-500/20 dark:border-emerald-500/20",
                 isUnassignedInternal && "ring-1 ring-amber-500/30",
                 delivery.is_failed && "ring-2 ring-red-500/50 bg-red-50/10 dark:bg-red-950/10"
             )}
@@ -35,7 +58,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
         >
             <div className="flex items-stretch">
                 {/* Type indicator strip */}
-                <div className={`w-1.5 shrink-0 ${delivery.is_failed ? 'bg-red-500' : (delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40') : 'bg-emerald-400/40')}`} />
+                <div className={`w-1.5 shrink-0 ${delivery.is_failed ? 'bg-red-500' : (isPickup ? 'bg-emerald-500' : (delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40') : 'bg-blue-400/40'))}`} />
 
                 <div className="flex-1 p-4 space-y-3">
                     {/* Top row: Queue Position, Source Badge, Status, Order #, Amount */}
@@ -46,14 +69,20 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                     Queue #{delivery.queue_position}
                                 </Badge>
                             )}
-                            <Badge className={cn(
-                                "rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0",
-                                (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
-                                    ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900/40"
-                                    : "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40"
-                            )}>
-                                {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? '🖥️ POS' : '📱 Mobile'}
-                            </Badge>
+                            {isPickup ? (
+                                <Badge className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40 shrink-0">
+                                    🏪 Pickup
+                                </Badge>
+                            ) : (
+                                <Badge className={cn(
+                                    "rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0",
+                                    (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
+                                        ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900/40"
+                                        : "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40"
+                                )}>
+                                    {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? '🖥️ POS' : '📱 Mobile'}
+                                </Badge>
+                            )}
                             <Badge className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${delivery.status_color}`}>
                                 {delivery.status_label}
                             </Badge>
@@ -82,7 +111,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         </p>
                     </div>
 
-                    {/* Middle row: Customer + Type */}
+                    {/* Middle row: Customer + Type / Verification Code */}
                     <div className="flex items-center gap-3 text-xs">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                             <div className="size-6 rounded-lg bg-[#FFF5F7] dark:bg-[#1C1C28] flex items-center justify-center shrink-0 border border-[#F8C8DC]/60 dark:border-white/10">
@@ -97,29 +126,42 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                             </div>
                             <span className={cn(
                                 "text-[10px] font-black uppercase", 
-                                isUnassignedInternal ? "text-amber-600 animate-pulse" : typeColor
+                                isPickup ? "text-emerald-700 dark:text-emerald-400 font-bold" : (isUnassignedInternal ? "text-amber-600 animate-pulse" : typeColor)
                             )}>
-                                {delivery.delivery_type === 'internal'
-                                    ? (delivery.rider?.name || 'Unassigned')
-                                    : (delivery.external_service?.toUpperCase() || 'External')}
+                                {isPickup
+                                    ? (delivery.pickup_verification_code ? `Code: ${delivery.pickup_verification_code}` : 'Store Pickup')
+                                    : (delivery.delivery_type === 'internal'
+                                        ? (delivery.rider?.name || 'Unassigned')
+                                        : (delivery.external_service?.toUpperCase() || 'External'))}
                             </span>
                         </div>
                     </div>
 
-                    {/* Branch */}
-                    <div className="flex items-center gap-2 text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                    {/* Branch & Scheduled Pickup */}
+                    <div className="flex items-center gap-2 text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] flex-wrap">
                         <Building2 className="size-3" />
                         <span className="font-bold">
                             {delivery.sale?.branch?.name || delivery.order?.branch?.name || 'Victoria Plains'}
                         </span>
-                        {delivery.distance_km && (
+                        {isPickup ? (
                             <>
                                 <span>•</span>
-                                <span>{delivery.distance_km}km</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                    Pickup: {delivery.scheduled_pickup_display || 'Immediate'}
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                {delivery.distance_km && (
+                                    <>
+                                        <span>•</span>
+                                        <span>{delivery.distance_km}km</span>
+                                    </>
+                                )}
+                                <span>•</span>
+                                <span className="font-mono">Fee: {formatCurrency(delivery.delivery_fee)}</span>
                             </>
                         )}
-                        <span>•</span>
-                        <span className="font-mono">Fee: {formatCurrency(delivery.delivery_fee)}</span>
                     </div>
 
                     {/* Items Summary */}
@@ -150,19 +192,24 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         {delivery.next_statuses.length > 0 && !delivery.is_cancelled && !delivery.is_failed && (
                             <Button
                                 size="sm"
-                                className="flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 shadow-md bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white"
+                                className={cn(
+                                    "flex-1 h-9 rounded-xl font-bold text-xs gap-1.5 shadow-md text-white",
+                                    isPickup 
+                                        ? "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800"
+                                        : "bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B]"
+                                )}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onUpdateStatus(delivery.id);
                                 }}
                             >
-                                Mark as {delivery.next_statuses[0].replace(/_/g, ' ')}
+                                {isPickup ? getNextPickupLabel(delivery.status) : `Mark as ${delivery.next_statuses[0].replace(/_/g, ' ')}`}
                                 <ChevronRight className="size-3" />
                             </Button>
                         )}
                         
                         <div className="flex items-center gap-2 ml-auto">
-                            {delivery.can_mark_failed && onFailDelivery && (
+                            {!isPickup && delivery.can_mark_failed && onFailDelivery && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -181,7 +228,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                 </Tooltip>
                             )}
 
-                            {!isUnassignedInternal && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && !delivery.is_failed && (
+                            {!isPickup && !isUnassignedInternal && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && !delivery.is_failed && onAssignRider && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button

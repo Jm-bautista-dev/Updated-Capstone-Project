@@ -327,8 +327,25 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
     const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<number | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const executeStatusUpdate = useCallback((id: number) => {
+    const executeStatusUpdate = useCallback((id: number, explicitStatus?: string) => {
         setIsUpdating(true);
+        const item = accumulatedDeliveries.find(d => d.id === id);
+
+        if (item?.is_pickup) {
+            const nextStatus = explicitStatus || item.next_statuses?.[0] || 'preparing';
+            router.post(`/deliveries/pickup/${id}/status`, { status: nextStatus }, {
+                preserveState: true,
+                onSuccess: () => {
+                    setConfirmingDeliveryId(null);
+                    if (selectedDelivery?.id === id) {
+                        setSelectedDelivery(null);
+                    }
+                },
+                onFinish: () => setIsUpdating(false),
+            });
+            return;
+        }
+
         router.put(`/deliveries/${id}/status`, {}, {
             preserveState: true,
             onSuccess: () => {
@@ -339,17 +356,17 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             },
             onFinish: () => setIsUpdating(false),
         });
-    }, [selectedDelivery]);
+    }, [accumulatedDeliveries, selectedDelivery]);
 
-    const handleUpdateStatus = useCallback((id: number) => {
+    const handleUpdateStatus = useCallback((id: number, explicitStatus?: string) => {
         const delivery = accumulatedDeliveries.find(d => d.id === id);
 
-        if (delivery && delivery.status === 'pending') {
+        if (delivery && delivery.status === 'pending' && !delivery.is_pickup) {
             setConfirmingDeliveryId(id);
             return;
         }
 
-        executeStatusUpdate(id);
+        executeStatusUpdate(id, explicitStatus);
     }, [accumulatedDeliveries, executeStatusUpdate]);
 
     const handleFailDelivery = useCallback((id: number) => {
@@ -412,21 +429,22 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
     const hasMore = currentPage < deliveries.last_page;
 
     return (
-        <AppLayout breadcrumbs={[{ title: 'Delivery Dashboard', href: '/deliveries' }]}>
-            <Head title="Delivery Management" />
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Delivery Management & Operations" />
 
-            <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 w-full max-w-7xl min-w-0 mx-auto font-['Outfit'] transition-colors duration-300 box-border">
-                {/* 1. HERO BANNER */}
-                <DeliveryHero
-                    currentStatusFilter={filters.status || 'all'}
-                    onStatusFilterChange={(status) => handleFilterChange({ status })}
+            <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-[calc(100vh-4rem)]">
+                {/* 1. HEADER (Title, Metrics Toggles, Action Buttons) */}
+                <DeliveryHeader
+                    stats={stats}
+                    availableRidersCount={localAvailableRiders.filter(r => r.can_be_assigned).length}
                     groupByStatus={groupByStatus}
-                    onToggleGroupByStatus={() => setGroupByStatus(v => !v)}
+                    onToggleGroupByStatus={() => setGroupByStatus(!groupByStatus)}
                 />
 
-                {/* 2. DELIVERY KPIS & PIPELINE */}
+                {/* 2. SUMMARY METRICS / STATUS PIPELINE */}
                 <DeliveryStats
                     stats={stats}
+                    activeStatusFilter={filters.status || 'all'}
                     onStatusFilterClick={(status) => handleFilterChange({ status })}
                 />
 
@@ -439,6 +457,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                     branches={branches}
                     allRiders={allRiders}
                     viewMode={viewMode}
+                    stats={stats}
                     onFilterChange={handleFilterChange}
                     onViewModeChange={handleViewModeChange}
                 />

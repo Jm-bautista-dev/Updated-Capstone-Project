@@ -232,8 +232,9 @@ class CustomerOrderController extends Controller
             DB::commit();
 
             try {
-                if ($delivery) {
-                    broadcast(new OrderStatusUpdated($delivery->fresh(['order', 'sale', 'rider']), 'customer', $previousStatus));
+                $broadcastSubject = $delivery ? $delivery->fresh(['order', 'sale', 'rider']) : $order->fresh(['branch', 'user']);
+                if ($broadcastSubject) {
+                    broadcast(new OrderStatusUpdated($broadcastSubject, 'customer', $previousStatus));
                 }
             } catch (\Throwable $e) {
                 Log::warning('OrderStatusUpdated broadcast warning: ' . $e->getMessage());
