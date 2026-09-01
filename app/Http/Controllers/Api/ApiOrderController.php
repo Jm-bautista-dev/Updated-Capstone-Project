@@ -108,29 +108,10 @@ class ApiOrderController extends Controller
             $userId = $user?->id;
             $mobileNumber = $validated['mobile_number'];
 
-            // --- 0. ACCOUNT GOVERNANCE & RESTRICTION CHECK ---
-            if ($user) {
-                if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
-                    return response()->json([
-                        'success'        => false,
-                        'account_status' => 'suspended',
-                        'message'        => 'Your account has been suspended. Please contact MAKI DESU support.',
-                    ], 403);
-                }
-                if (method_exists($user, 'isDeactivated') && $user->isDeactivated()) {
-                    return response()->json([
-                        'success'        => false,
-                        'account_status' => 'deactivated',
-                        'message'        => 'This account is currently inactive. Please contact MAKI DESU support.',
-                    ], 403);
-                }
-                if (!empty($user->is_order_restricted)) {
-                    return response()->json([
-                        'success'        => false,
-                        'account_status' => 'restricted',
-                        'message'        => 'Order placement is temporarily restricted on your account. Please contact support.',
-                    ], 403);
-                }
+            // --- 0. ACCOUNT GOVERNANCE CHECK ---
+            $restrictionError = $this->checkAccountRestrictions($user);
+            if ($restrictionError) {
+                return $restrictionError;
             }
 
             // --- 0. IDEMPOTENCY CHECK ---
@@ -160,107 +141,33 @@ class ApiOrderController extends Controller
             /** @var \App\Models\Branch|null $branch */
             $branch = \App\Models\Branch::find($branchId);
 
-            // --- 1. DYNAMIC DISTANCE & AUTHORITATIVE FEE CALCULATION ---
-            $distanceKm = 0.0;
-            $deliveryFee = 0.0;
-
-            if (!$isPickup && $branch && $branch->latitude && $branch->longitude && isset($validated['latitude'], $validated['longitude'])) {
-                // Haversine Formula for Delivery
-                $earthRadius = 6371; // km
-                $latFrom = deg2rad((float) $branch->latitude);
-                $lonFrom = deg2rad((float) $branch->longitude);
-                $latTo = deg2rad((float) $validated['latitude']);
-                $lonTo = deg2rad((float) $validated['longitude']);
-
-                $latDelta = $latTo - $latFrom;
-                $lonDelta = $lonTo - $lonFrom;
-
-                $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) +
-                    cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
-                
-                $calculatedDistance = $angle * $earthRadius;
-                $distanceKm = round($calculatedDistance, 2);
-
-                // STRICT DELIVERY RADIUS ENFORCEMENT
-                if (!$branch->isWithinRadius($distanceKm)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Out of delivery range. The maximum distance is ' . $branch->delivery_radius_km . 'km.'
-                    ], 400);
-                }
-
-                if (method_exists($branch, 'calculateDeliveryFee')) {
-                    $deliveryFee = (float) $branch->calculateDeliveryFee($distanceKm);
-                }
+            // --- 1. DYNAMIC DISTANCE & FEE CALCULATION ---
+            $deliveryEval = $this->evaluateDeliveryParameters($isPickup, $branch, $validated);
+            if (!$deliveryEval['success']) {
+                return response()->json(['success' => false, 'message' => $deliveryEval['message']], 400);
             }
+            $distanceKm = $deliveryEval['distance_km'];
+            $deliveryFee = $deliveryEval['delivery_fee'];
 
-            // --- 2. AUTHORITATIVE SERVER-SIDE PRICE & TOTAL CALCULATION ---
-            // Never trust client-submitted prices or totals
-            $productIds = collect($validated['items'])->pluck('product_id')->unique()->all();
-            $products   = Product::whereIn('id', $productIds)->get()->keyBy('id');
-
-            $itemsTotal = 0.0;
-            $resolvedItems = [];
-            foreach ($validated['items'] as $itemData) {
-                $product   = $products->get($itemData['product_id']);
-                if (!$product) {
-                    return response()->json(['success' => false, 'message' => "Product not found."], 422);
-                }
-
-                $unitPrice = (float) $product->selling_price;
-                $qty       = (int) $itemData['quantity'];
-                $lineTotal = round($unitPrice * $qty, 2);
-                $itemsTotal += $lineTotal;
-
-                $resolvedItems[] = [
-                    'product_id'   => (int) $itemData['product_id'],
-                    'quantity'     => $qty,
-                    'price'        => $unitPrice,
-                    'unit_price'   => $unitPrice,
-                    'line_total'   => $lineTotal,
-                    'product_name' => $product->name,
-                    'image_path'   => $product->image_path,
-                    'notes'        => $itemData['notes'] ?? null,
-                ];
+            // --- 2. AUTHORITATIVE PRICE & TOTAL CALCULATION ---
+            $itemsEval = $this->resolveItemsAndTotal($validated['items']);
+            if (!$itemsEval['success']) {
+                return response()->json(['success' => false, 'message' => $itemsEval['message']], 422);
             }
-
+            $resolvedItems = $itemsEval['resolved_items'];
+            $itemsTotal = $itemsEval['items_total'];
+            $products = $itemsEval['products'];
             $authoritativeTotal = round($itemsTotal + $deliveryFee, 2);
 
-            // --- 3. COD & PAYMENT METHOD FRAUD ELIGIBILITY CHECK ---
+            // --- 3. COD & PAYMENT METHOD FRAUD CHECK ---
             $paymentMethod = strtolower((string) ($validated['payment_method'] ?? 'online'));
             $isCod = in_array($paymentMethod, ['cash', 'cod', 'cash_on_delivery']);
-            $riskLevel = 'LOW_RISK';
 
-            // Only run delivery-specific COD eligibility checks on delivery orders
-            if (!$isPickup && $isCod) {
-                $codEligibilityService = new \App\Services\CodEligibilityService(
-                    new \App\Services\CustomerRiskService(new \App\Services\CustomerTrustService())
-                );
-
-                $eligibility = $codEligibilityService->checkEligibility($user ?? $userId, $authoritativeTotal, $mobileNumber);
-                $riskLevel = $eligibility['risk_level'];
-
-                if (!$eligibility['eligible']) {
-                    \App\Services\SecurityAuditLogger::logSecurityEvent(
-                        event: 'COD_ORDER_REJECTED',
-                        target: "user:" . ($userId ?? $mobileNumber),
-                        details: [
-                            'order_amount' => $authoritativeTotal,
-                            'risk_level'   => $riskLevel,
-                            'reason'       => $eligibility['reason'],
-                        ],
-                        level: 'warning'
-                    );
-
-                    return response()->json([
-                        'success'               => false,
-                        'cod_eligible'          => false,
-                        'risk_level'            => $riskLevel,
-                        'requires_verification' => $eligibility['requires_verification'],
-                        'message'               => $eligibility['reason'],
-                    ], 422);
-                }
+            $codEval = $this->evaluateCodEligibility($user, $userId, $mobileNumber, $authoritativeTotal, $isPickup, $isCod);
+            if (!$codEval['success']) {
+                return response()->json($codEval['response'], 422);
             }
+            $riskLevel = $codEval['risk_level'];
 
             // --- 4. STRICT BATCH STOCK & INGREDIENT VALIDATION ---
             $batchStockCheck = Product::validateBatchStock($branchId, $validated['items']);
@@ -307,7 +214,6 @@ class ApiOrderController extends Controller
                 $resolvedItems, $authoritativeTotal, $isCod, $riskLevel, $idempotencyKey,
                 $fulfillmentType, $isPickup, $scheduledPickupAt, $prepStartAt, $prepTimeMinutes, $verificationCode
             ) {
-                // Strict row-level lock on ingredient stocks during transaction
                 $lockedBatchCheck = Product::validateBatchStock($branchId, $validated['items'], true);
                 if (!$lockedBatchCheck['success']) {
                     throw new \Exception($lockedBatchCheck['message']);
@@ -852,4 +758,176 @@ class ApiOrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Check if the customer account is restricted, suspended, or deactivated.
+     */
+    private function checkAccountRestrictions(?\App\Models\User $user): ?JsonResponse
+    {
+        if (!$user) {
+            return null;
+        }
+
+        if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
+            return response()->json([
+                'success'        => false,
+                'account_status' => 'suspended',
+                'message'        => 'Your account has been suspended. Please contact MAKI DESU support.',
+            ], 403);
+        }
+
+        if (method_exists($user, 'isDeactivated') && $user->isDeactivated()) {
+            return response()->json([
+                'success'        => false,
+                'account_status' => 'deactivated',
+                'message'        => 'This account is currently inactive. Please contact MAKI DESU support.',
+            ], 403);
+        }
+
+        if (!empty($user->is_order_restricted)) {
+            return response()->json([
+                'success'        => false,
+                'account_status' => 'restricted',
+                'message'        => 'Order placement is temporarily restricted on your account. Please contact support.',
+            ], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * Calculate delivery distance and authoritative delivery fee for delivery fulfillment.
+     */
+    private function evaluateDeliveryParameters(bool $isPickup, ?\App\Models\Branch $branch, array $validated): array
+    {
+        $distanceKm = 0.0;
+        $deliveryFee = 0.0;
+
+        if (!$isPickup && $branch && $branch->latitude && $branch->longitude && isset($validated['latitude'], $validated['longitude'])) {
+            $earthRadius = 6371; // km
+            $latFrom = deg2rad((float) $branch->latitude);
+            $lonFrom = deg2rad((float) $branch->longitude);
+            $latTo = deg2rad((float) $validated['latitude']);
+            $lonTo = deg2rad((float) $validated['longitude']);
+
+            $latDelta = $latTo - $latFrom;
+            $lonDelta = $lonTo - $lonFrom;
+
+            $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) +
+                cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
+            
+            $distanceKm = round($angle * $earthRadius, 2);
+
+            if (!$branch->isWithinRadius($distanceKm)) {
+                return [
+                    'success' => false,
+                    'message' => 'Out of delivery range. The maximum distance is ' . $branch->delivery_radius_km . 'km.',
+                ];
+            }
+
+            if (method_exists($branch, 'calculateDeliveryFee')) {
+                $deliveryFee = (float) $branch->calculateDeliveryFee($distanceKm);
+            }
+        }
+
+        return [
+            'success'      => true,
+            'distance_km'  => $distanceKm,
+            'delivery_fee' => $deliveryFee,
+        ];
+    }
+
+    /**
+     * Resolve items from authoritative database prices.
+     */
+    private function resolveItemsAndTotal(array $rawItems): array
+    {
+        $productIds = collect($rawItems)->pluck('product_id')->unique()->all();
+        $products   = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
+        $itemsTotal = 0.0;
+        $resolvedItems = [];
+        foreach ($rawItems as $itemData) {
+            $product = $products->get($itemData['product_id']);
+            if (!$product) {
+                return ['success' => false, 'message' => 'Product not found.'];
+            }
+
+            $unitPrice = (float) $product->selling_price;
+            $qty       = (int) $itemData['quantity'];
+            $lineTotal = round($unitPrice * $qty, 2);
+            $itemsTotal += $lineTotal;
+
+            $resolvedItems[] = [
+                'product_id'   => (int) $itemData['product_id'],
+                'quantity'     => $qty,
+                'price'        => $unitPrice,
+                'unit_price'   => $unitPrice,
+                'line_total'   => $lineTotal,
+                'product_name' => $product->name,
+                'image_path'   => $product->image_path,
+                'notes'        => $itemData['notes'] ?? null,
+            ];
+        }
+
+        return [
+            'success'        => true,
+            'products'       => $products,
+            'resolved_items' => $resolvedItems,
+            'items_total'    => $itemsTotal,
+        ];
+    }
+
+    /**
+     * Check COD eligibility and risk assessment.
+     */
+    private function evaluateCodEligibility(
+        ?\App\Models\User $user,
+        ?int $userId,
+        string $mobileNumber,
+        float $authoritativeTotal,
+        bool $isPickup,
+        bool $isCod
+    ): array {
+        $riskLevel = 'LOW_RISK';
+
+        if (!$isPickup && $isCod) {
+            $codEligibilityService = new \App\Services\CodEligibilityService(
+                new \App\Services\CustomerRiskService(new \App\Services\CustomerTrustService())
+            );
+
+            $eligibility = $codEligibilityService->checkEligibility($user ?? $userId, $authoritativeTotal, $mobileNumber);
+            $riskLevel = $eligibility['risk_level'];
+
+            if (!$eligibility['eligible']) {
+                \App\Services\SecurityAuditLogger::logSecurityEvent(
+                    event: 'COD_ORDER_REJECTED',
+                    target: "user:" . ($userId ?? $mobileNumber),
+                    details: [
+                        'order_amount' => $authoritativeTotal,
+                        'risk_level'   => $riskLevel,
+                        'reason'       => $eligibility['reason'],
+                    ],
+                    level: 'warning'
+                );
+
+                return [
+                    'success'  => false,
+                    'response' => [
+                        'success'               => false,
+                        'cod_eligible'          => false,
+                        'risk_level'            => $riskLevel,
+                        'requires_verification' => $eligibility['requires_verification'],
+                        'message'               => $eligibility['reason'],
+                    ],
+                ];
+            }
+        }
+
+        return [
+            'success'    => true,
+            'risk_level' => $riskLevel,
+        ];
+    }
 }
+
