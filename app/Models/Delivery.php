@@ -34,6 +34,8 @@ class Delivery extends Model
         'external_notes',
         'proof_of_delivery',
         'status',
+        'picked_up_at',
+        'transit_at',
         'delivered_at',
         'cancellation_reason',
         'cancelled_by',
@@ -43,6 +45,8 @@ class Delivery extends Model
     ];
 
     protected $casts = [
+        'picked_up_at' => 'datetime',
+        'transit_at'   => 'datetime',
         'delivered_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];

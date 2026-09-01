@@ -3,7 +3,11 @@ import React from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
-    Dialog, DialogContent,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
 } from '@/components/ui/dialog';
 
 interface PreparingConfirmationModalProps {
@@ -21,18 +25,18 @@ export default function PreparingConfirmationModal({
 }: PreparingConfirmationModalProps) {
     return (
         <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-            <DialogContent className="sm:max-w-[425px] rounded-[32px] p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl">
+            <DialogContent className="sm:max-w-106.25 rounded-4xl p-0 overflow-hidden border border-white/90 dark:border-white/10 shadow-2xl bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl">
                 <div className="p-8 space-y-6 font-['Outfit']">
-                    <div className="flex flex-col items-center text-center gap-2">
+                    <DialogHeader className="flex flex-col items-center text-center gap-2">
                         <div className="size-16 rounded-full bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center mb-2 border border-blue-200 dark:border-blue-900/50">
                             <Package className="size-8 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-[#3D2C2E] dark:text-[#F8FAFC]">Start Preparing?</h2>
-                        <p className="text-sm text-[#7D6B6E] dark:text-[#94A3B8] leading-relaxed font-medium">
+                        <DialogTitle className="text-2xl font-black tracking-tight text-[#3D2C2E] dark:text-[#F8FAFC]">Start Preparing?</DialogTitle>
+                        <DialogDescription className="text-sm text-[#7D6B6E] dark:text-[#94A3B8] leading-relaxed font-medium">
                             This will <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">deduct ingredients</strong> from your inventory. <br/>
                             Make sure you have enough stock before starting.
-                        </p>
-                    </div>
+                        </DialogDescription>
+                    </DialogHeader>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
                         <Button 

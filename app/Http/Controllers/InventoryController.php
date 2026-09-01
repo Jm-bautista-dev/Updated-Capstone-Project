@@ -365,9 +365,15 @@ class InventoryController extends Controller
     public function bulkDelete(Request $request)
     {
         $this->authorize('deleteAny', Ingredient::class);
+        
+        $ids = $request->input('ids') ?: $request->input('ingredient_ids', []);
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->withErrors(['ids' => 'No ingredients selected for deletion.']);
+        }
+        
+        $request->merge(['ids' => $ids]);
         $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:ingredients,id']);
 
-        $ids = $request->ids;
         $inUse = [];
 
         foreach ($ids as $id) {

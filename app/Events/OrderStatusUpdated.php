@@ -131,6 +131,7 @@ class OrderStatusUpdated implements ShouldBroadcastNow
             'payment_method'        => $paymentMethod,
             'updated_by'            => $this->updatedByRole,
             'proof_of_delivery_url' => $proofOfDeliveryUrl,
+            'delivered_at'          => $this->delivery->delivered_at?->toIso8601String(),
             'timestamp'             => now()->toIso8601String(),
         ];
     }

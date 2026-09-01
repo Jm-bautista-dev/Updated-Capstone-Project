@@ -169,7 +169,7 @@ class OrderFulfillmentService
 
         // ── 🔥 Real-time Broadcast & Cache Clearing ──────────────────────
         try {
-            broadcast(new \App\Events\SaleCreated($sale))->toOthers();
+            event(new \App\Events\SaleCreated($sale->fresh(['branch'])));
             \App\Services\TopPickService::clearCache();
         } catch (\Throwable $e) {
             Log::warning('OrderFulfillment: SaleCreated broadcast warning: ' . $e->getMessage());

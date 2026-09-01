@@ -577,6 +577,7 @@ export default function InventoryIndex() {
         if (bulkDeleteConfirmation !== 'DELETE') return;
 
         router.post('/inventory/bulk-delete', {
+            ids: selectedIds,
             ingredient_ids: selectedIds
         } as Record<string, number[]>, {
             onSuccess: () => {

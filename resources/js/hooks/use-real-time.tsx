@@ -323,9 +323,7 @@ export function useRealTime(branchId?: number | null) {
                                     }
                                 },
                                 className: "flex-1 h-9 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
-                            }, [
-                                React.createElement('span', { key: 'txt-a' }, "ACCEPT CANCELLATION")
-                            ])
+                            }, "ACCEPT")
                         ])
                     ])
                 ), { duration: 30000, position: 'top-right' });
@@ -336,7 +334,7 @@ export function useRealTime(branchId?: number | null) {
             };
 
             const handleCancellationResolved = (e: CancellationResolvedEvent) => {
-                console.log('Real-time: Cancellation Resolved Event Received', e);
+                console.log('Real-time: Cancellation Resolved', e);
                 const statusUpper = (e.cancellation_request_status || '').toUpperCase();
                 if (statusUpper === 'APPROVED' || statusUpper === 'ACCEPTED') {
                     toast.info(`Cancellation for Order ${e.order_number} was ACCEPTED by ${e.reviewed_by_name || 'Cashier'}.`);
@@ -348,8 +346,46 @@ export function useRealTime(branchId?: number | null) {
                 });
             };
 
-            const handleStatusUpdate = (e: {
+            const handleSaleCreated = (e: {
+                sale_id?: number;
                 order_id?: number;
+                order_number?: string;
+                branch_id?: number;
+                branch_name?: string;
+                subtotal?: number;
+                delivery_fee?: number;
+                total?: number;
+                cost_total?: number;
+                profit?: number;
+                payment_method?: string;
+                type?: string;
+                timestamp?: string;
+            }) => {
+                console.log('Real-time: Sale Created / Recognized', e);
+                router.reload({
+                    only: [
+                        'summary',
+                        'recentOrders',
+                        'orders',
+                        'deliveries',
+                        'stats',
+                        'sales',
+                        'branchStats',
+                        'salesOverTime',
+                        'topProductCosts',
+                        'salesByPaymentMethod',
+                        'recentActivity',
+                        'financialSummary',
+                        'reportData',
+                        'products'
+                    ],
+                });
+            };
+
+            const handleStatusUpdate = (e: {
+                delivery_id?: number;
+                order_id?: number;
+                sale_id?: number;
                 order_number?: string;
                 status?: string;
                 status_label?: string;
@@ -358,7 +394,23 @@ export function useRealTime(branchId?: number | null) {
             }) => {
                 console.log('Real-time: Order Status Updated', e);
                 router.reload({
-                    only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats', 'sales'],
+                    only: [
+                        'summary',
+                        'recentOrders',
+                        'orders',
+                        'deliveries',
+                        'stats',
+                        'sales',
+                        'branchStats',
+                        'salesOverTime',
+                        'topProductCosts',
+                        'salesByPaymentMethod',
+                        'recentActivity',
+                        'availableRiders',
+                        'allRiders',
+                        'financialSummary',
+                        'reportData'
+                    ],
                 });
             };
 
@@ -395,6 +447,10 @@ export function useRealTime(branchId?: number | null) {
                     .listen('.App\\Events\\CancellationResolved', handleCancellationResolved)
                     .listen('OrderStatusUpdated', handleStatusUpdate)
                     .listen('.order-status-updated', handleStatusUpdate)
+                    .listen('SaleCreated', handleSaleCreated)
+                    .listen('.SaleCreated', handleSaleCreated)
+                    .listen('App\\Events\\SaleCreated', handleSaleCreated)
+                    .listen('.App\\Events\\SaleCreated', handleSaleCreated)
                     .listen('RiderStatusUpdated', handleRiderStatusUpdate)
                     .listen('.RiderStatusUpdated', handleRiderStatusUpdate)
                     .listen('App\\Events\\RiderStatusUpdated', handleRiderStatusUpdate)
@@ -418,6 +474,10 @@ export function useRealTime(branchId?: number | null) {
                     .listen('.App\\Events\\CancellationResolved', handleCancellationResolved)
                     .listen('OrderStatusUpdated', handleStatusUpdate)
                     .listen('.order-status-updated', handleStatusUpdate)
+                    .listen('SaleCreated', handleSaleCreated)
+                    .listen('.SaleCreated', handleSaleCreated)
+                    .listen('App\\Events\\SaleCreated', handleSaleCreated)
+                    .listen('.App\\Events\\SaleCreated', handleSaleCreated)
                     .listen('RiderStatusUpdated', handleRiderStatusUpdate)
                     .listen('.RiderStatusUpdated', handleRiderStatusUpdate)
                     .listen('App\\Events\\RiderStatusUpdated', handleRiderStatusUpdate)

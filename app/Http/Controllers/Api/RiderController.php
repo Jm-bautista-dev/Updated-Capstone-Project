@@ -275,7 +275,10 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            return DB::transaction(function () use ($rider, $id) {
+            $deliveryToBroadcast = null;
+            $riderToBroadcast = null;
+
+            $response = DB::transaction(function () use ($rider, $id, &$deliveryToBroadcast, &$riderToBroadcast) {
                 // Strict Business Rule: Rider cannot accept orders if they are currently OUT FOR DELIVERY (in_transit)
                 if ($rider->hasInTransitDelivery()) {
                     return response()->json([
@@ -332,8 +335,8 @@ class RiderController extends Controller
                 // Mark rider busy
                 $rider->update(['status' => 'busy']);
 
-                event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
-                event(new RiderStatusUpdated($rider->fresh(['branch'])));
+                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $riderToBroadcast = $rider->fresh(['branch']);
 
                 return response()->json([
                     'success' => true,
@@ -342,6 +345,16 @@ class RiderController extends Controller
                     'delivery' => $delivery,
                 ]);
             });
+
+            // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
+            if ($deliveryToBroadcast) {
+                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider'));
+            }
+            if ($riderToBroadcast) {
+                event(new RiderStatusUpdated($riderToBroadcast));
+            }
+
+            return $response;
         } catch (\RuntimeException $e) {
             // State machine violation
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
@@ -364,7 +377,10 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            return DB::transaction(function () use ($rider, $id) {
+            $deliveryToBroadcast = null;
+            $riderToBroadcast = null;
+
+            $response = DB::transaction(function () use ($rider, $id, &$deliveryToBroadcast, &$riderToBroadcast) {
                 // Strict Business Rule: Rider cannot pick up orders if they are currently OUT FOR DELIVERY (in_transit)
                 if ($rider->hasInTransitDelivery()) {
                     return response()->json([
@@ -410,6 +426,19 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => "Delivery #{$id} not found or not assigned to your account."], 404);
                 }
 
+                // Idempotency: If already picked up, return successfully
+                if (in_array($delivery->status, ['picked_up', 'in_transit', 'delivered'])) {
+                    if ($delivery->status === 'picked_up') {
+                        return response()->json([
+                            'success'  => true,
+                            'message'  => 'Order is already marked as picked up.',
+                            'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
+                            'delivery' => $delivery,
+                        ]);
+                    }
+                    return response()->json(['success' => false, 'message' => "Delivery is already in {$delivery->status} status."], 422);
+                }
+
                 if ($delivery->order) {
                     $delivery->order->transitionTo('picked_up', 'Rider picked up the order', null, $rider->id);
                     $delivery->order->update([
@@ -424,16 +453,26 @@ class RiderController extends Controller
                     'picked_up_at' => now(),
                 ]);
 
-                event(new OrderStatusUpdated($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch']), 'rider'));
-                event(new RiderStatusUpdated($rider->fresh(['branch'])));
+                $deliveryToBroadcast = $delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider']);
+                $riderToBroadcast = $rider->fresh(['branch']);
 
                 return response()->json([
                     'success'  => true,
                     'message'  => 'Order marked as picked up! Please head to the customer.',
-                    'data'     => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
+                    'data'     => $this->formatDelivery($deliveryToBroadcast),
                     'delivery' => $delivery,
                 ]);
             });
+
+            // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
+            if ($deliveryToBroadcast) {
+                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider'));
+            }
+            if ($riderToBroadcast) {
+                event(new RiderStatusUpdated($riderToBroadcast));
+            }
+
+            return $response;
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
@@ -475,7 +514,10 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            return DB::transaction(function () use ($rider, $id) {
+            $deliveryToBroadcast = null;
+            $riderToBroadcast = null;
+
+            $response = DB::transaction(function () use ($rider, $id, &$deliveryToBroadcast, &$riderToBroadcast) {
                 $delivery = Delivery::with(['order', 'sale'])
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
@@ -504,6 +546,18 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
                 }
 
+                // Idempotency: If already in transit, return success
+                if (in_array($delivery->status, ['in_transit', 'delivered'])) {
+                    if ($delivery->status === 'in_transit') {
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Delivery is already in transit.',
+                            'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
+                        ]);
+                    }
+                    return response()->json(['success' => false, 'message' => "Delivery is already in {$delivery->status} status."], 422);
+                }
+
                 $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
                 if ($order) {
                     $order->transitionTo('in_transit', 'Rider is on the way', null, $rider->id);
@@ -515,8 +569,8 @@ class RiderController extends Controller
                     'transit_at' => now(),
                 ]);
 
-                event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
-                event(new RiderStatusUpdated($rider->fresh(['branch'])));
+                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $riderToBroadcast = $rider->fresh(['branch']);
 
                 return response()->json([
                     'success' => true,
@@ -524,6 +578,16 @@ class RiderController extends Controller
                     'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
                 ]);
             });
+
+            // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
+            if ($deliveryToBroadcast) {
+                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider'));
+            }
+            if ($riderToBroadcast) {
+                event(new RiderStatusUpdated($riderToBroadcast));
+            }
+
+            return $response;
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
@@ -549,7 +613,10 @@ class RiderController extends Controller
                 'proof_of_delivery' => 'nullable|image|max:5120', // 5MB max
             ]);
 
-            return DB::transaction(function () use ($rider, $id, $request) {
+            $deliveryToBroadcast = null;
+            $riderToBroadcast = null;
+
+            $response = DB::transaction(function () use ($rider, $id, $request, &$deliveryToBroadcast, &$riderToBroadcast) {
                 $delivery = Delivery::with(['order', 'sale'])
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)->orWhere('order_id', $id)->orWhere('sale_id', $id);
@@ -576,6 +643,15 @@ class RiderController extends Controller
 
                 if (!$delivery) {
                     return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+                }
+
+                // IDEMPOTENCY: If already marked as delivered, return success cleanly without re-running financial hooks
+                if ($delivery->status === 'delivered') {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Delivery already marked as delivered.',
+                        'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
+                    ]);
                 }
 
                 $order = $delivery->order ?: ($delivery->order_id ? Order::find($delivery->order_id) : null);
@@ -614,7 +690,7 @@ class RiderController extends Controller
                     $rider->status = 'busy';
                 }
 
-                // ── POST-DELIVERY HOOK ─────────────────────────────────────
+                // ── POST-DELIVERY HOOK: Financial Recognition & Authoritative Sale ──
                 if ($order) {
                     $this->fulfillmentService->onOrderDelivered(
                         $order->fresh(['items.product.ingredients.stocks', 'branch']),
@@ -622,8 +698,8 @@ class RiderController extends Controller
                     );
                 }
 
-                event(new OrderStatusUpdated($delivery->fresh(['order.branch', 'sale.branch', 'rider']), 'rider'));
-                event(new RiderStatusUpdated($rider->fresh(['branch'])));
+                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $riderToBroadcast = $rider->fresh(['branch']);
 
                 return response()->json([
                     'success' => true,
@@ -631,6 +707,16 @@ class RiderController extends Controller
                     'data'    => $this->formatDelivery($delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch'])),
                 ]);
             });
+
+            // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
+            if ($deliveryToBroadcast) {
+                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider'));
+            }
+            if ($riderToBroadcast) {
+                event(new RiderStatusUpdated($riderToBroadcast));
+            }
+
+            return $response;
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
@@ -785,7 +871,10 @@ class RiderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
-            return DB::transaction(function () use ($rider, $id) {
+            $deliveryToBroadcast = null;
+            $riderToBroadcast = null;
+
+            $response = DB::transaction(function () use ($rider, $id, &$deliveryToBroadcast, &$riderToBroadcast) {
                 $delivery = Delivery::with('order')
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)->orWhere('order_id', $id);
@@ -807,11 +896,24 @@ class RiderController extends Controller
                 $delivery->update(['rider_id' => null, 'status' => 'ready_for_pickup']);
                 $rider->update(['status' => 'available']);
 
+                $deliveryToBroadcast = $delivery->fresh(['order.branch', 'sale.branch', 'rider']);
+                $riderToBroadcast = $rider->fresh(['branch']);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Order returned to the available pool.',
                 ]);
             });
+
+            // ── COMMIT GUARANTEE: Broadcast AFTER Transaction Successfully Commits ──
+            if ($deliveryToBroadcast) {
+                event(new OrderStatusUpdated($deliveryToBroadcast, 'rider'));
+            }
+            if ($riderToBroadcast) {
+                event(new RiderStatusUpdated($riderToBroadcast));
+            }
+
+            return $response;
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
@@ -1145,6 +1247,7 @@ class RiderController extends Controller
         }
         if ($user) {
             return Rider::where('id', $user->id)
+                ->orWhere('user_id', $user->id)
                 ->orWhere('email', $user->email)
                 ->first();
         }

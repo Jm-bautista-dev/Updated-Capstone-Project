@@ -129,27 +129,33 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
         const handleStatusUpdate = (e: {
             delivery_id?: number;
             order_id?: number;
+            sale_id?: number;
+            order_number?: string;
             status?: string;
             status_label?: string;
             rider_id?: number | null;
             rider_name?: string | null;
             proof_of_delivery_url?: string | null;
+            delivered_at?: string | null;
             timestamp?: string;
         }) => {
             console.log('Real-time order status update received in Deliveries page:', e);
 
             // 1. Instantly update local React state for zero-latency UI update
-            if (e.delivery_id || e.order_id) {
+            if (e.delivery_id || e.order_id || e.sale_id) {
                 setAccumulatedDeliveries(prev =>
                     prev.map(item => {
                         const matches = (e.delivery_id && item.id === e.delivery_id) ||
                                         (e.order_id && item.order_id === e.order_id) ||
+                                        (e.sale_id && item.sale_id === e.sale_id) ||
                                         (e.order_id && item.sale_id === e.order_id);
                         if (matches && e.status) {
                             return {
                                 ...item,
                                 status: e.status,
                                 status_label: e.status_label || e.status.replace('_', ' '),
+                                is_delivered: e.status === 'delivered',
+                                delivered_at: e.delivered_at || (e.status === 'delivered' ? (e.timestamp || new Date().toISOString()) : item.delivered_at),
                                 rider_id: e.rider_id !== undefined ? e.rider_id : item.rider_id,
                                 rider: e.rider_name ? ({ ...item.rider, id: e.rider_id, name: e.rider_name } as unknown as Rider) : item.rider,
                                 proof_of_delivery: e.proof_of_delivery_url || item.proof_of_delivery,
@@ -165,12 +171,15 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                     if (!prev) return null;
                     const matches = (e.delivery_id && prev.id === e.delivery_id) ||
                                     (e.order_id && prev.order_id === e.order_id) ||
+                                    (e.sale_id && prev.sale_id === e.sale_id) ||
                                     (e.order_id && prev.sale_id === e.order_id);
                     if (matches && e.status) {
                         return {
                             ...prev,
                             status: e.status,
                             status_label: e.status_label || e.status.replace('_', ' '),
+                            is_delivered: e.status === 'delivered',
+                            delivered_at: e.delivered_at || (e.status === 'delivered' ? (e.timestamp || new Date().toISOString()) : prev.delivered_at),
                             rider_id: e.rider_id !== undefined ? e.rider_id : prev.rider_id,
                             rider: e.rider_name ? ({ ...prev.rider, id: e.rider_id, name: e.rider_name } as unknown as Rider) : prev.rider,
                             proof_of_delivery: e.proof_of_delivery_url || prev.proof_of_delivery,
