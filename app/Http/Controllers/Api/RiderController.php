@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\Storage;
 class RiderController extends Controller
 {
     public function __construct(
-        protected OrderFulfillmentService $fulfillmentService
+        protected OrderFulfillmentService $fulfillmentService,
+        protected \App\Services\DeliveryService $deliveryService
     ) {
     }
 
@@ -967,6 +968,70 @@ class RiderController extends Controller
         } catch (\Throwable $e) {
             Log::error('Rider::cancelOrder failed', ['error' => $e->getMessage(), 'id' => $id]);
             return response()->json(['success' => false, 'message' => 'Failed to submit cancellation request'], 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/rider/deliveries/{id}/attempt
+     * POST /api/v1/deliveries/{id}/attempt
+     * Record an immutable delivery attempt (e.g. customer refused, unreachable, or failed delivery).
+     */
+    public function recordAttempt(Request $request, $id): JsonResponse
+    {
+        try {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            $validated = $request->validate([
+                'status'         => 'nullable|string|in:failed,attempted,delivered',
+                'failure_reason' => 'required_if:status,failed|nullable|string|max:60',
+                'latitude'       => 'nullable|numeric|between:-90,90',
+                'longitude'      => 'nullable|numeric|between:-180,180',
+                'notes'          => 'nullable|string|max:500',
+                'proof_image'    => 'nullable|image|max:10240',
+            ]);
+
+            $delivery = Delivery::with(['order.branch', 'sale.branch', 'rider'])
+                ->where(function ($q) use ($id) {
+                    $q->where('id', $id)
+                        ->orWhere('order_id', $id)
+                        ->orWhere('sale_id', $id);
+                })
+                ->first();
+
+            if (!$delivery) {
+                return response()->json(['success' => false, 'message' => 'Delivery not found'], 404);
+            }
+
+            $proofImagePath = null;
+            if ($request->hasFile('proof_image')) {
+                $file = $request->file('proof_image');
+                $filename = 'delivery_attempt_' . $delivery->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $proofImagePath = $file->storeAs('delivery-proofs', $filename, 'public');
+            }
+
+            $attempt = $this->deliveryService->recordDeliveryAttempt(
+                delivery: $delivery,
+                status: $validated['status'] ?? 'failed',
+                failureReason: $validated['failure_reason'] ?? 'OTHER',
+                latitude: isset($validated['latitude']) ? (float)$validated['latitude'] : null,
+                longitude: isset($validated['longitude']) ? (float)$validated['longitude'] : null,
+                notes: $validated['notes'] ?? null,
+                proofImagePath: $proofImagePath,
+                riderId: $rider->id
+            );
+
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Delivery attempt recorded successfully.',
+                'attempt'  => $attempt,
+                'delivery' => $this->formatDelivery($delivery->fresh(['order.branch', 'sale.branch', 'rider'])),
+            ], 200);
+        } catch (\Throwable $e) {
+            Log::error('Rider::recordAttempt failed', ['error' => $e->getMessage(), 'id' => $id]);
+            return response()->json(['success' => false, 'message' => 'Failed to record attempt: ' . $e->getMessage()], 500);
         }
     }
 

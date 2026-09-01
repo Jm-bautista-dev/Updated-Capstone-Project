@@ -690,6 +690,99 @@ class DeliveryService
     }
 
     /**
+     * Record an immutable delivery attempt (successful or failed) with GPS proximity and controlled attribution.
+     */
+    public function recordDeliveryAttempt(
+        Delivery $delivery,
+        string $status = 'failed',
+        ?string $failureReason = null,
+        ?float $latitude = null,
+        ?float $longitude = null,
+        ?string $notes = null,
+        ?string $proofImagePath = null,
+        ?int $riderId = null
+    ): \App\Models\DeliveryAttempt {
+        $reasonsConfig = config('cod_security.failure_reasons', []);
+        $category = 'other';
+        if ($failureReason && isset($reasonsConfig[$failureReason])) {
+            $category = $reasonsConfig[$failureReason]['category'] ?? 'other';
+        }
+
+        $activeRiderId = $riderId ?? $delivery->rider_id;
+
+        // Calculate distance from customer coordinates if coordinates provided
+        $distanceFromCustomer = null;
+        $customerLat = (float) ($delivery->latitude ?? $delivery->order?->latitude);
+        $customerLng = (float) ($delivery->longitude ?? $delivery->order?->longitude);
+
+        if ($latitude !== null && $longitude !== null && $customerLat && $customerLng) {
+            $earthRadius = 6371; // km
+            $latFrom = deg2rad($latitude);
+            $lonFrom = deg2rad($longitude);
+            $latTo = deg2rad($customerLat);
+            $lonTo = deg2rad($customerLng);
+
+            $latDelta = $latTo - $latFrom;
+            $lonDelta = $lonTo - $lonFrom;
+
+            $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) +
+                cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
+
+            $distanceFromCustomer = round($angle * $earthRadius, 2);
+        }
+
+        $attemptNumber = \App\Models\DeliveryAttempt::where('delivery_id', $delivery->id)->count() + 1;
+
+        $attempt = \App\Models\DeliveryAttempt::create([
+            'delivery_id'            => $delivery->id,
+            'order_id'               => $delivery->order_id,
+            'sale_id'                => $delivery->sale_id,
+            'rider_id'               => $activeRiderId,
+            'attempt_number'         => $attemptNumber,
+            'status'                 => $status,
+            'failure_reason'         => $failureReason,
+            'failure_category'       => $category,
+            'latitude'               => $latitude,
+            'longitude'              => $longitude,
+            'distance_from_customer' => $distanceFromCustomer,
+            'notes'                  => $notes,
+            'proof_image_path'       => $proofImagePath,
+        ]);
+
+        if ($status === 'failed') {
+            $this->handleFailedDelivery($delivery, $failureReason ?? 'Delivery attempt failed');
+
+            SecurityAuditLogger::logSecurityEvent(
+                event: 'DELIVERY_ATTEMPT_FAILED',
+                target: "delivery:{$delivery->id}",
+                details: [
+                    'order_id'               => $delivery->order_id,
+                    'rider_id'               => $activeRiderId,
+                    'failure_reason'         => $failureReason,
+                    'failure_category'       => $category,
+                    'distance_from_customer' => $distanceFromCustomer,
+                    'notes'                  => $notes,
+                ],
+                level: 'warning'
+            );
+
+            if ($failureReason === 'CUSTOMER_REFUSED_ORDER') {
+                SecurityAuditLogger::logSecurityEvent(
+                    event: 'CUSTOMER_REFUSED_ORDER',
+                    target: "order:{$delivery->order_id}",
+                    details: [
+                        'customer_name'  => $delivery->customer_name,
+                        'customer_phone' => $delivery->customer_phone,
+                    ],
+                    level: 'warning'
+                );
+            }
+        }
+
+        return $attempt;
+    }
+
+    /**
      * Copy uploaded image to public/storage if storage link is a physical folder.
      */
     private function syncToPublicStorage(?string $imagePath): void

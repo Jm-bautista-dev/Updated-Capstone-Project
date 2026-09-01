@@ -150,6 +150,11 @@ class Delivery extends Model
         return $this->hasMany(DeliveryAssignmentLog::class);
     }
 
+    public function attempts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DeliveryAttempt::class)->orderBy('attempt_number', 'asc');
+    }
+
     /* ── Helpers ───────────────────────────────────── */
 
     public function isInternal(): bool

@@ -12,6 +12,7 @@ class Order extends Model
 
     protected $fillable = [
         'order_number',
+        'idempotency_key',
         'user_id',
         'rider_id',
         'branch_id',
@@ -23,6 +24,8 @@ class Order extends Model
         'landmark',
         'notes',
         'payment_method',
+        'is_cod',
+        'risk_level',
         'total_amount',
         'status',
         'is_cancellation_pending',
@@ -33,6 +36,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'is_cod'                  => 'boolean',
         'is_cancellation_pending' => 'boolean',
         'cancelled_at'            => 'datetime',
         'total_amount'            => 'decimal:2',
@@ -170,5 +174,10 @@ class Order extends Model
     public function cancellationRequest()
     {
         return $this->hasOne(OrderCancellationRequest::class)->latestOfMany();
+    }
+
+    public function deliveryAttempts()
+    {
+        return $this->hasMany(DeliveryAttempt::class);
     }
 }

@@ -7,9 +7,8 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Delivery;
-use App\Models\IngredientStock;
-use App\Utils\UnitConverter;
 use App\Events\OrderCreated;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +18,10 @@ class ApiOrderController extends Controller
     /**
      * List orders for the authenticated mobile user.
      */
-    public function index(Request $request)
+    /**
+     * List orders for the authenticated mobile user.
+     */
+    public function index(Request $request): JsonResponse
     {
         try {
             $user = $request->user();
@@ -71,7 +73,7 @@ class ApiOrderController extends Controller
     /**
      * Store a newly created order from the mobile application.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         Log::info('Order submission payload', $request->all());
 
@@ -96,11 +98,37 @@ class ApiOrderController extends Controller
             ]);
 
             $branchId = $validated['branch_id'] ?? 1;
-            $userId = $request->user()?->id;
+            $user = $request->user();
+            $userId = $user?->id;
+            $mobileNumber = $validated['mobile_number'];
 
-            // --- 0. DYNAMIC DISTANCE & FEE CALCULATION ---
+            // --- 0. IDEMPOTENCY CHECK ---
+            $idempotencyService = new \App\Services\IdempotencyService();
+            $idempotencyKey = $idempotencyService->extractKey($request);
+
+            if ($idempotencyKey) {
+                $existingOrder = $idempotencyService->findExistingOrder($idempotencyKey, $userId, $mobileNumber);
+                if ($existingOrder) {
+                    \App\Services\SecurityAuditLogger::logSecurityEvent(
+                        event: 'DUPLICATE_ORDER_BLOCKED',
+                        target: "order:{$existingOrder->id}",
+                        details: ['idempotency_key' => $idempotencyKey, 'user_id' => $userId],
+                        level: 'info'
+                    );
+
+                    return response()->json([
+                        'success'      => true,
+                        'is_duplicate' => true,
+                        'message'      => 'Order already placed (idempotent response).',
+                        'order_id'     => $existingOrder->id,
+                        'order_number' => $existingOrder->order_number ?? ("ORD-" . $existingOrder->id),
+                    ], 200);
+                }
+            }
+
+            // --- 1. DYNAMIC DISTANCE & AUTHORITATIVE FEE CALCULATION ---
             $distanceKm = $validated['distance_km'] ?? null;
-            $deliveryFee = $validated['delivery_fee'] ?? 0;
+            $deliveryFee = 0.0;
             
             /** @var \App\Models\Branch|null $branch */
             $branch = \App\Models\Branch::find($branchId);
@@ -130,13 +158,76 @@ class ApiOrderController extends Controller
                     ], 400);
                 }
 
-                // Use branch delivery calculation logic if available
                 if (method_exists($branch, 'calculateDeliveryFee')) {
-                    $deliveryFee = $branch->calculateDeliveryFee($distanceKm);
+                    $deliveryFee = (float) $branch->calculateDeliveryFee($distanceKm);
                 }
             }
 
-            // --- 1. STRICT BATCH STOCK & INGREDIENT VALIDATION ---
+            // --- 2. AUTHORITATIVE SERVER-SIDE PRICE & TOTAL CALCULATION ---
+            // Never trust client-submitted prices or totals
+            $productIds = collect($validated['items'])->pluck('product_id')->unique()->all();
+            $products   = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
+            $itemsTotal = 0.0;
+            $resolvedItems = [];
+            foreach ($validated['items'] as $itemData) {
+                $product   = $products->get($itemData['product_id']);
+                if (!$product) {
+                    return response()->json(['success' => false, 'message' => "Product not found."], 422);
+                }
+
+                $unitPrice = (float) $product->selling_price;
+                $qty       = (int) $itemData['quantity'];
+                $lineTotal = round($unitPrice * $qty, 2);
+                $itemsTotal += $lineTotal;
+
+                $resolvedItems[] = [
+                    'product_id'   => (int) $itemData['product_id'],
+                    'quantity'     => $qty,
+                    'price'        => $unitPrice,
+                    'unit_price'   => $unitPrice,
+                    'line_total'   => $lineTotal,
+                    'product_name' => $product->name,
+                    'image_path'   => $product->image_path,
+                    'notes'        => $itemData['notes'] ?? null,
+                ];
+            }
+
+            $authoritativeTotal = round($itemsTotal + $deliveryFee, 2);
+
+            // --- 3. COD & PAYMENT METHOD FRAUD ELIGIBILITY CHECK ---
+            $paymentMethod = strtolower((string) ($validated['payment_method'] ?? 'online'));
+            $isCod = in_array($paymentMethod, ['cash', 'cod', 'cash_on_delivery']);
+
+            $codEligibilityService = new \App\Services\CodEligibilityService(
+                new \App\Services\CustomerRiskService(new \App\Services\CustomerTrustService())
+            );
+
+            $eligibility = $codEligibilityService->checkEligibility($user ?? $userId, $authoritativeTotal, $mobileNumber);
+            $riskLevel = $eligibility['risk_level'];
+
+            if ($isCod && !$eligibility['eligible']) {
+                \App\Services\SecurityAuditLogger::logSecurityEvent(
+                    event: 'COD_ORDER_REJECTED',
+                    target: "user:" . ($userId ?? $mobileNumber),
+                    details: [
+                        'order_amount' => $authoritativeTotal,
+                        'risk_level'   => $riskLevel,
+                        'reason'       => $eligibility['reason'],
+                    ],
+                    level: 'warning'
+                );
+
+                return response()->json([
+                    'success'               => false,
+                    'cod_eligible'          => false,
+                    'risk_level'            => $riskLevel,
+                    'requires_verification' => $eligibility['requires_verification'],
+                    'message'               => $eligibility['reason'],
+                ], 422);
+            }
+
+            // --- 4. STRICT BATCH STOCK & INGREDIENT VALIDATION ---
             $batchStockCheck = Product::validateBatchStock($branchId, $validated['items']);
             if (!$batchStockCheck['success']) {
                 return response()->json([
@@ -145,9 +236,9 @@ class ApiOrderController extends Controller
                 ], 422);
             }
 
-            // --- 2. BRANCH CONSISTENCY ---
+            // --- 5. BRANCH CONSISTENCY ---
             foreach ($validated['items'] as $item) {
-                $product = Product::find($item['product_id']);
+                $product = $products->get($item['product_id']);
                 if ($product && $product->branch_id && (int) $product->branch_id !== (int) $branchId) {
                     return response()->json([
                         'success' => false,
@@ -156,57 +247,37 @@ class ApiOrderController extends Controller
                 }
             }
 
-            // --- 3. TRANSACTIONAL CREATION ---
-            $records = DB::transaction(function () use ($validated, $branchId, $userId, $distanceKm, $deliveryFee) {
+            // --- 6. TRANSACTIONAL CREATION WITH ROW-LEVEL LOCKS ---
+            $records = DB::transaction(function () use (
+                $validated, $branchId, $userId, $distanceKm, $deliveryFee,
+                $resolvedItems, $authoritativeTotal, $isCod, $riskLevel, $idempotencyKey
+            ) {
                 // Strict row-level lock on ingredient stocks during transaction
                 $lockedBatchCheck = Product::validateBatchStock($branchId, $validated['items'], true);
                 if (!$lockedBatchCheck['success']) {
                     throw new \Exception($lockedBatchCheck['message']);
                 }
 
-                // ── SERVER-SIDE PRICE RESOLUTION ──────────────────────────────────
-                // Batch-fetch all products in one query. Never trust client prices.
-                $productIds = collect($validated['items'])->pluck('product_id')->unique()->all();
-                $products   = Product::whereIn('id', $productIds)->get()->keyBy('id');
-
-                $itemsTotal = 0;
-                $resolvedItems = [];
-                foreach ($validated['items'] as $itemData) {
-                    $product   = $products->get($itemData['product_id']);
-                    $unitPrice = $product ? (float) $product->selling_price : (float) $itemData['price'];
-                    $qty       = (int) $itemData['quantity'];
-                    $lineTotal = round($unitPrice * $qty, 2);
-                    $itemsTotal += $lineTotal;
-
-                    $resolvedItems[] = [
-                        'product_id'   => (int) $itemData['product_id'],
-                        'quantity'     => $qty,
-                        'price'        => $unitPrice,      // backward compat column
-                        'unit_price'   => $unitPrice,      // source of truth
-                        'line_total'   => $lineTotal,      // source of truth
-                        'product_name' => $product?->name ?? $itemData['product_name'] ?? null,
-                        'image_path'   => $product?->image_path ?? null,
-                        'notes'        => $itemData['notes'] ?? null,
-                    ];
-                }
-
                 $orderNumberService = new \App\Services\OrderNumberService();
                 $customerOrderNumber = $orderNumberService->allocateForBranch($branchId);
 
                 $order = Order::create([
-                    'order_number'   => $customerOrderNumber,
-                    'user_id'        => $userId,
-                    'branch_id'      => $branchId,
-                    'customer_name'  => $validated['customer_name'],
-                    'contact_number' => $validated['mobile_number'],
-                    'address'        => $validated['address'],
-                    'latitude'       => $validated['latitude'],
-                    'longitude'      => $validated['longitude'],
-                    'landmark'       => $validated['landmark'] ?? null,
-                    'notes'          => $validated['notes'] ?? null,
-                    'payment_method' => $validated['payment_method'] ?? 'online',
-                    'total_amount'   => round($itemsTotal + $deliveryFee, 2),
-                    'status'         => 'pending',
+                    'order_number'    => $customerOrderNumber,
+                    'idempotency_key' => $idempotencyKey,
+                    'user_id'         => $userId,
+                    'branch_id'       => $branchId,
+                    'customer_name'   => $validated['customer_name'],
+                    'contact_number'  => $validated['mobile_number'],
+                    'address'         => $validated['address'],
+                    'latitude'        => $validated['latitude'],
+                    'longitude'       => $validated['longitude'],
+                    'landmark'        => $validated['landmark'] ?? null,
+                    'notes'           => $validated['notes'] ?? null,
+                    'payment_method'  => $validated['payment_method'] ?? 'cash',
+                    'is_cod'          => $isCod,
+                    'risk_level'      => $riskLevel,
+                    'total_amount'    => $authoritativeTotal,
+                    'status'          => 'pending',
                 ]);
 
                 foreach ($resolvedItems as $resolved) {
@@ -234,8 +305,21 @@ class ApiOrderController extends Controller
                 ];
             });
 
-            // --- 4. POST-COMMIT REALTIME BROADCASTING ---
-            // Guaranteed to fire strictly AFTER database transaction has successfully committed
+            if ($isCod) {
+                \App\Services\SecurityAuditLogger::logSecurityEvent(
+                    event: 'COD_ORDER_CREATED',
+                    target: "order:{$records['order']->id}",
+                    details: [
+                        'order_number' => $records['order']->order_number,
+                        'total_amount' => $authoritativeTotal,
+                        'risk_level'   => $riskLevel,
+                        'user_id'      => $userId,
+                    ],
+                    level: 'info'
+                );
+            }
+
+            // --- 7. POST-COMMIT REALTIME BROADCASTING ---
             try {
                 broadcast(new OrderCreated($records['order']->load('branch')));
                 broadcast(new \App\Events\OrderStatusUpdated($records['delivery']->fresh(), 'customer', null));
@@ -248,6 +332,7 @@ class ApiOrderController extends Controller
                 'message'      => 'Order placed successfully',
                 'order_id'     => $records['order']->id,
                 'order_number' => $records['order']->order_number,
+                'total_amount' => $records['order']->total_amount,
             ], 201);
 
         } catch (\Throwable $e) {
@@ -271,7 +356,7 @@ class ApiOrderController extends Controller
      * GET /api/v1/orders/{id}
      * GET /api/v1/customer/orders/{id}
      */
-    public function show(Request $request, $id)
+    public function show(Request $request, $id): JsonResponse
     {
         try {
             $order = Order::with(['delivery.rider', 'items.product', 'branch'])->find($id);
@@ -280,11 +365,21 @@ class ApiOrderController extends Controller
                 return response()->json(['success' => false, 'message' => 'Order not found'], 404);
             }
 
-            if ($order->user_id && $request->user() && (int)$order->user_id !== (int)$request->user()->id) {
-                $isAdmin = method_exists($request->user(), 'isAdmin') && $request->user()->isAdmin();
-                if (!$isAdmin) {
-                    return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            $user = $request->user();
+            if ($user && $user->role === 'customer') {
+                $isOwner = ((int)$order->user_id === (int)$user->id) || ($user->mobile_number && $order->contact_number === $user->mobile_number);
+                if (!$isOwner) {
+                    \App\Services\SecurityAuditLogger::logSecurityEvent(
+                        event: 'IDOR_ATTEMPT_BLOCKED',
+                        target: "order:{$id}",
+                        details: ['requesting_user_id' => $user->id, 'order_owner_id' => $order->user_id],
+                        level: 'warning'
+                    );
+
+                    return response()->json(['success' => false, 'message' => 'Unauthorized access to order.'], 403);
                 }
+            } elseif (!$user && $order->user_id) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
             }
 
             $statusLabel = match ($order->status) {
@@ -365,7 +460,7 @@ class ApiOrderController extends Controller
      * GET /api/v1/customer/orders/{id}/tracking
      * GET /api/v1/orders/{id}/tracking
      */
-    public function tracking(Request $request, $id)
+    public function tracking(Request $request, $id): JsonResponse
     {
         try {
             $user = $request->user();
@@ -568,7 +663,7 @@ class ApiOrderController extends Controller
      * GET /api/v1/customer/orders/{id}/route
      * GET /api/v1/orders/{id}/route
      */
-    public function route(Request $request, $id, \App\Services\RoutingService $routingService)
+    public function route(Request $request, $id, \App\Services\RoutingService $routingService): JsonResponse
     {
         try {
             $user = $request->user();

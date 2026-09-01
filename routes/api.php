@@ -26,13 +26,13 @@ Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeli
 // External Operations API (Mobile App Entry)
 Route::prefix('v1')->group(function () {
 
-    // Public Routes (no auth required)
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('login',    [AuthController::class, 'login']);
-    Route::post('rider/login', [AuthController::class, 'login']);
-    Route::post('send-otp', [VerificationController::class, 'sendOtp']);
-    Route::post('verify-otp', [VerificationController::class, 'verifyOtp']);
-    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+    // Public Routes (with security rate limiting)
+    Route::post('register',       [AuthController::class, 'register']);
+    Route::post('login',          [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('rider/login',    [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('send-otp',       [VerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
+    Route::post('verify-otp',     [VerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
+    Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
     // Public System Status & Maintenance API
     Route::get('system/status', [App\Http\Controllers\Api\SystemStatusController::class, 'status']);
@@ -70,6 +70,8 @@ Route::prefix('v1')->group(function () {
         Route::post('deliveries/{id}/deliver',                                 [RiderController::class, 'deliverOrder']);
         Route::post('deliveries/{id}/delivered',                               [RiderController::class, 'deliverOrder']);
         Route::post('deliveries/{id}/cancel',                                  [RiderController::class, 'cancelOrder']);
+        Route::post('deliveries/{id}/attempt',                                 [RiderController::class, 'recordAttempt']);
+        Route::post('deliveries/{id}/fail-attempt',                            [RiderController::class, 'recordAttempt']);
 
         Route::match(['post', 'patch', 'put'], 'orders/{id}/update-status',     [RiderController::class, 'updateOrderStatus']);
         Route::match(['post', 'patch', 'put'], 'orders/{id}/status',            [RiderController::class, 'updateOrderStatus']);
@@ -80,6 +82,7 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{id}/deliver',                                     [RiderController::class, 'deliverOrder']);
         Route::post('orders/{id}/delivered',                                   [RiderController::class, 'deliverOrder']);
         Route::post('orders/{id}/cancel',                                      [RiderController::class, 'cancelOrder']);
+        Route::post('orders/{id}/attempt',                                     [RiderController::class, 'recordAttempt']);
 
         // Direct Rider Orders Aliases
         Route::get('orders/ready', [RiderController::class, 'getOrders']);
@@ -129,6 +132,9 @@ Route::prefix('v1')->group(function () {
             Route::post('reject/{id}',                [RiderController::class, 'rejectOrder']);
             Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);
             Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);
+            Route::post('deliveries/{id}/attempt',    [RiderController::class, 'recordAttempt']);
+            Route::post('deliveries/{id}/fail-attempt', [RiderController::class, 'recordAttempt']);
+            Route::post('orders/{id}/attempt',        [RiderController::class, 'recordAttempt']);
 
             // Generic status updates for older APK versions
             Route::match(['post', 'patch', 'put'], 'orders/{id}/status', [RiderController::class, 'updateOrderStatus']);
@@ -170,17 +176,19 @@ Route::prefix('v1')->group(function () {
 
         Route::get('orders', [ApiOrderController::class, 'index']);
         Route::get('customer/orders', [ApiOrderController::class, 'index']);
-        Route::post('orders', [ApiOrderController::class, 'store']);
-        Route::post('customer/orders', [ApiOrderController::class, 'store']);
+        Route::post('orders', [ApiOrderController::class, 'store'])->middleware('throttle:15,1');
+        Route::post('customer/orders', [ApiOrderController::class, 'store'])->middleware('throttle:15,1');
         Route::get('orders/{id}', [ApiOrderController::class, 'show'])->whereNumber('id');
         // Customer-scoped order detail (strict user_id scope + full Buy Again snapshots)
         Route::get('customer/orders/{id}', [CustomerOrderController::class, 'show'])->whereNumber('id');
+        Route::get('customer/cod-eligibility', [CustomerOrderController::class, 'getCodEligibility']);
+        Route::post('customer/check-cod-eligibility', [CustomerOrderController::class, 'getCodEligibility']);
         Route::get('orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
         Route::get('customer/orders/{id}/tracking', [ApiOrderController::class, 'tracking'])->whereNumber('id');
         Route::get('orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
         Route::get('customer/orders/{id}/route', [ApiOrderController::class, 'route'])->whereNumber('id');
-        Route::post('orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
-        Route::post('customer/orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel']);
+        Route::post('orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel'])->middleware('throttle:10,1');
+        Route::post('customer/orders/{orderId}/cancel', [CustomerOrderController::class, 'cancel'])->middleware('throttle:10,1');
         // Buy Again / Reorder validation
         Route::post('customer/orders/{id}/reorder-check', [CustomerOrderController::class, 'checkReorder'])->whereNumber('id');
         Route::get('deliveries/{id}/route', [App\Http\Controllers\Admin\DeliveryController::class, 'getRoute']);

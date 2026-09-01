@@ -273,4 +273,31 @@ class CustomerOrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * GET /api/v1/customer/cod-eligibility
+     * Pre-flight checkout check for COD availability and customer risk limits.
+     */
+    public function getCodEligibility(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $amount = (float) $request->input('amount', $request->input('total_amount', 0.0));
+        $phone = $request->input('mobile_number', $request->input('phone', $user?->mobile_number));
+
+        $codService = new \App\Services\CodEligibilityService(
+            new \App\Services\CustomerRiskService(new \App\Services\CustomerTrustService())
+        );
+
+        $result = $codService->checkEligibility($user, $amount, $phone);
+
+        return response()->json([
+            'success'               => true,
+            'eligible'              => $result['eligible'],
+            'cod_eligible'          => $result['eligible'],
+            'risk_level'            => $result['risk_level'],
+            'requires_verification' => $result['requires_verification'],
+            'max_cod_amount'        => $result['max_cod_amount'],
+            'reason'                => $result['reason'],
+        ]);
+    }
 }

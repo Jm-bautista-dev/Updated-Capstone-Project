@@ -27,6 +27,10 @@ class User extends Authenticatable
         'password',
         'role',
         'branch_id',
+        'phone_verified_at',
+        'cod_restricted',
+        'cod_restriction_reason',
+        'risk_level_override',
         'last_notifications_read_at',
         'must_change_password',
     ];
@@ -51,9 +55,29 @@ class User extends Authenticatable
         return $this->role === self::ROLE_CASHIER;
     }
 
+    public function isCustomer(): bool
+    {
+        return $this->role === self::ROLE_CUSTOMER;
+    }
+
+    public function isPhoneVerified(): bool
+    {
+        return $this->phone_verified_at !== null;
+    }
+
+    public function isCodRestricted(): bool
+    {
+        return (bool) $this->cod_restricted;
+    }
+
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
     }
 
     /**
@@ -85,6 +109,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
+            'cod_restricted'    => 'boolean',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'last_notifications_read_at' => 'datetime',
