@@ -34,13 +34,30 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping
 
     public function headings(): array
     {
+        $user = auth()->user();
+        if ($user && $user->isAdmin()) {
+            return [
+                'Order Number',
+                'Cashier',
+                'Type',
+                'Subtotal',
+                'Discount',
+                'Total',
+                'Cost Total',
+                'Profit',
+                'Payment Method',
+                'Status',
+                'Date',
+            ];
+        }
+
         return [
             'Order Number',
             'Cashier',
             'Type',
+            'Subtotal',
+            'Discount',
             'Total',
-            'Cost Total',
-            'Profit',
             'Payment Method',
             'Status',
             'Date',
@@ -49,13 +66,30 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping
 
     public function map($sale): array
     {
+        $user = auth()->user();
+        if ($user && $user->isAdmin()) {
+            return [
+                $sale->order_number,
+                $sale->cashier->name ?? 'N/A',
+                $sale->type,
+                $sale->subtotal,
+                $sale->discount ?? 0,
+                $sale->total,
+                $sale->cost_total,
+                $sale->profit,
+                $sale->payment_method,
+                $sale->status,
+                $sale->created_at->format('Y-m-d H:i:s'),
+            ];
+        }
+
         return [
             $sale->order_number,
             $sale->cashier->name ?? 'N/A',
             $sale->type,
+            $sale->subtotal,
+            $sale->discount ?? 0,
             $sale->total,
-            $sale->cost_total,
-            $sale->profit,
             $sale->payment_method,
             $sale->status,
             $sale->created_at->format('Y-m-d H:i:s'),

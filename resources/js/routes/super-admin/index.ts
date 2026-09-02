@@ -1,15 +1,18 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
-import apiMonitor from './api-monitor'
-import audit from './audit'
-import database from './database'
-import deployment from './deployment'
-import errors from './errors'
-import features from './features'
 import health from './health'
+import errors from './errors'
 import logs from './logs'
 import maintenance from './maintenance'
+import audit from './audit'
+import apiMonitor from './api-monitor'
+import database from './database'
+import features from './features'
+import deployment from './deployment'
 import security from './security'
 import settings from './settings'
+import customerRisk from './customer-risk'
+import accounts from './accounts'
+import moderationCases from './moderation-cases'
 /**
 * @see \App\Http\Controllers\SuperAdmin\DashboardController::dashboard
  * @see app/Http/Controllers/SuperAdmin/DashboardController.php:23
@@ -101,6 +104,9 @@ features: Object.assign(features, features),
 deployment: Object.assign(deployment, deployment),
 security: Object.assign(security, security),
 settings: Object.assign(settings, settings),
+customerRisk: Object.assign(customerRisk, customerRisk),
+accounts: Object.assign(accounts, accounts),
+moderationCases: Object.assign(moderationCases, moderationCases),
 }
 
 export default superAdmin

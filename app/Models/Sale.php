@@ -48,6 +48,19 @@ class Sale extends Model
         'change_amount'    => 'decimal:2',
     ];
 
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            unset(
+                $array['cost_total'],
+                $array['profit']
+            );
+        }
+        return $array;
+    }
+
     /**
      * Authoritative Product Revenue (Net Product Sales: Subtotal - Discount, excluding delivery fee).
      */

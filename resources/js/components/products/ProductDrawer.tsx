@@ -136,30 +136,39 @@ export function ProductDrawer({
                     </SheetHeader>
 
                     {/* Financial Metrics Cards */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs text-center flex flex-col justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Cost Price</span>
-                            {hasValidCost ? (
-                                <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-1 block">{formatCurrency(product.cost_price)}</span>
-                            ) : (
-                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1 block">Cost unavailable</span>
-                            )}
-                        </div>
+                    {isAdmin ? (
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs text-center flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Cost Price</span>
+                                {hasValidCost ? (
+                                    <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-1 block">{formatCurrency(product.cost_price)}</span>
+                                ) : (
+                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1 block">Cost unavailable</span>
+                                )}
+                            </div>
 
-                        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs text-center flex flex-col justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Selling Price</span>
-                            <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1 block">{formatCurrency(product.selling_price)}</span>
-                        </div>
+                            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs text-center flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Selling Price</span>
+                                <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1 block">{formatCurrency(product.selling_price)}</span>
+                            </div>
 
-                        <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 shadow-2xs text-center flex flex-col justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block">Est. Margin</span>
-                            {marginPct !== null ? (
-                                <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400 font-mono mt-1 block">{marginPct >= 0 ? `+${marginPct.toFixed(1)}%` : `${marginPct.toFixed(1)}%`}</span>
-                            ) : (
-                                <span className="text-xs font-bold text-[#9E8B8E] dark:text-[#64748B] mt-1 block">N/A</span>
-                            )}
+                            <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 shadow-2xs text-center flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block">Est. Margin</span>
+                                {marginPct !== null ? (
+                                    <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400 font-mono mt-1 block">{marginPct >= 0 ? `+${marginPct.toFixed(1)}%` : `${marginPct.toFixed(1)}%`}</span>
+                                ) : (
+                                    <span className="text-xs font-bold text-[#9E8B8E] dark:text-[#64748B] mt-1 block">N/A</span>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs text-center flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Selling Price</span>
+                                <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1 block">{formatCurrency(product.selling_price)}</span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Stock Level Details */}
                     <div className="p-4 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs space-y-2">

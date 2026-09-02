@@ -38,7 +38,7 @@ export function ProductTable({
                             <th className="py-4 px-6 hidden lg:table-cell">Category</th>
                             <th className="py-4 px-6 hidden lg:table-cell">Branch</th>
                             <th className="py-4 px-6 text-center">Stock Level</th>
-                            <th className="py-4 px-6 hidden sm:table-cell">Pricing & Cost</th>
+                            <th className="py-4 px-6 hidden sm:table-cell">{isAdmin ? 'Pricing & Cost' : 'Price'}</th>
                             <th className="py-4 px-6 text-center">Status</th>
                             <th className="py-4 px-6 hidden md:table-cell">Registered</th>
                             <th className="py-4 px-6 text-right">Actions</th>
@@ -147,15 +147,17 @@ export function ProductTable({
                                         {/* Pricing */}
                                         <td className="p-4 px-6 align-middle hidden sm:table-cell">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B] font-bold uppercase">
-                                                    Cost: {product.cost_price && Number(product.cost_price) > 0 ? (
-                                                        <span className="font-mono text-[#5D4A4D] dark:text-[#CBD5E1]">{formatCurrency(product.cost_price)}</span>
-                                                    ) : (
-                                                        <span className="text-amber-600 dark:text-amber-400 font-semibold normal-case">Cost unavailable</span>
-                                                    )}
-                                                </span>
+                                                {isAdmin && (
+                                                    <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B] font-bold uppercase">
+                                                        Cost: {product.cost_price && Number(product.cost_price) > 0 ? (
+                                                            <span className="font-mono text-[#5D4A4D] dark:text-[#CBD5E1]">{formatCurrency(product.cost_price)}</span>
+                                                        ) : (
+                                                            <span className="text-amber-600 dark:text-amber-400 font-semibold normal-case">Cost unavailable</span>
+                                                        )}
+                                                    </span>
+                                                )}
                                                 <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
-                                                    Sell: {formatCurrency(product.selling_price)}
+                                                    {isAdmin ? `Sell: ${formatCurrency(product.selling_price)}` : formatCurrency(product.selling_price)}
                                                 </span>
                                             </div>
                                         </td>

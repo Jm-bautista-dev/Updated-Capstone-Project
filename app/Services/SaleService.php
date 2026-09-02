@@ -128,7 +128,8 @@ class SaleService
 
             // 4. ── (Product Level Stock Deduction Removed) ──────────────────────
 
-            // 5. ── CREATE SALE RECORD ───────────────────────────────────────────
+            // 5. ── AUTHORITATIVE MONETARY & DISCOUNT CALCULATIONS ───────────────
+            $orderType = $data['type'] ?? 'dine-in';
             $paymentMethod = $data['payment_method'] ?? 'cash';
             
             // Cash Control: Check for active shift if payment is cash
@@ -143,18 +144,68 @@ class SaleService
                 }
             }
 
-            $orderType = $data['type'] ?? 'dine-in';
-            $productSubtotal = array_sum(array_column($saleItemsData, 'subtotal'));
-            $discount = isset($data['discount']) ? max(0.0, (float) $data['discount']) : 0.00;
-            $discountType = $data['discount_type'] ?? null;
-            $discountDetails = $data['discount_details'] ?? null;
+            $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
+            $costTotal = round($costTotal, 2);
 
-            $netProductSales = max(0.0, $productSubtotal - $discount);
+            // Handle Discount Calculations authoritatively
+            $discountDetails = $data['discount_details'] ?? null;
+            if (is_string($discountDetails)) {
+                $decoded = json_decode($discountDetails, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $discountDetails = $decoded;
+                }
+            }
+
+            $discountType = $data['discount_type'] ?? ($discountDetails['type'] ?? null);
+            $discount = 0.00;
+
+            if ($discountType || !empty($discountDetails) || (isset($data['discount']) && (float) $data['discount'] > 0)) {
+                // Determine eligible subtotal
+                $eligibleItemIds = $discountDetails['eligible_item_ids'] ?? [];
+                $eligibleSubtotal = 0.00;
+
+                foreach ($saleItemsData as $item) {
+                    if (empty($eligibleItemIds) || in_array($item['product_id'], $eligibleItemIds)) {
+                        $eligibleSubtotal += (float) $item['subtotal'];
+                    }
+                }
+                $eligibleSubtotal = round($eligibleSubtotal, 2);
+
+                if ($discountType === 'custom_fixed' || (isset($discountDetails['fixed_amount']) && (float) $discountDetails['fixed_amount'] > 0)) {
+                    $fixedVal = (float) ($discountDetails['fixed_amount'] ?? $data['discount'] ?? 0);
+                    $discount = round(min($eligibleSubtotal, max(0.0, $fixedVal)), 2);
+                } elseif (isset($discountDetails['percentage']) && (float) $discountDetails['percentage'] > 0) {
+                    $rate = min(100.0, max(0.0, (float) $discountDetails['percentage']));
+                    $discount = round(($eligibleSubtotal * $rate) / 100.0, 2);
+                } elseif (isset($data['discount']) && (float) $data['discount'] > 0) {
+                    $rawDiscount = (float) $data['discount'];
+                    $discount = round(min($productSubtotal, max(0.0, $rawDiscount)), 2);
+                }
+            }
+
+            // Normalization & Sanity Checks
+            $discount = round(min($productSubtotal, max(0.0, $discount)), 2);
+            $netProductSales = round(max(0.0, $productSubtotal - $discount), 2);
+
             $deliveryFee = ($orderType === 'delivery' && !empty($data['delivery_info']['delivery_fee'])) 
-                ? (float) $data['delivery_info']['delivery_fee'] 
+                ? round((float) $data['delivery_info']['delivery_fee'], 2) 
                 : 0.00;
-            $saleTotal = $netProductSales + $deliveryFee;
-            $saleProfit = $netProductSales - $costTotal;
+
+            $saleTotal = round($netProductSales + $deliveryFee, 2);
+            $saleProfit = round($netProductSales - $costTotal, 2);
+
+            // Validate Amount Paid & Change
+            $paidAmount = round((float) ($data['paid_amount'] ?? $saleTotal), 2);
+
+            if ($paymentMethod === 'cash') {
+                if ($paidAmount < $saleTotal) {
+                    throw new \Exception("Insufficient payment: received ₱" . number_format($paidAmount, 2) . ", but order total is ₱" . number_format($saleTotal, 2) . ".");
+                }
+                $changeAmount = round(max(0.0, $paidAmount - $saleTotal), 2);
+            } else {
+                $paidAmount = $saleTotal;
+                $changeAmount = 0.00;
+            }
 
             $sale = Sale::create([
                 'order_number'     => $orderRef,
@@ -169,17 +220,16 @@ class SaleService
                 'total'            => $saleTotal,
                 'cost_total'       => $costTotal,
                 'profit'           => $saleProfit,
-                'paid_amount'      => $data['paid_amount'],
-                'change_amount'    => $data['change_amount'] ?? 0,
+                'paid_amount'      => $paidAmount,
+                'change_amount'    => $changeAmount,
                 'payment_method'   => $paymentMethod,
                 'status'           => $data['status'] ?? 'completed',
             ]);
 
-            // Update Shift totals if cash
+            // Update Shift totals if cash (using authoritative discounted saleTotal)
             if ($activeShift && $paymentMethod === 'cash') {
-                $cashAmount = (float) ($data['total'] ?? $saleTotal);
-                $activeShift->increment('total_cash_sales', $cashAmount);
-                $activeShift->increment('expected_balance', $cashAmount);
+                $activeShift->increment('total_cash_sales', $saleTotal);
+                $activeShift->increment('expected_balance', $saleTotal);
             }
 
             // 6. ── CREATE SALE ITEMS ────────────────────────────────────────────

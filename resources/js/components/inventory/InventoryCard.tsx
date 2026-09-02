@@ -94,10 +94,12 @@ export function InventoryCard({
                         <span className="text-sm font-black text-[#3D2C2E] dark:text-[#F8FAFC] font-mono">{row.stock} {row.unit}</span>
                     </div>
 
-                    <div className="text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Est. Valuation</span>
-                        <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(stockValuation)}</span>
-                    </div>
+                    {isAdmin && (
+                        <div className="text-right">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Est. Valuation</span>
+                            <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(stockValuation)}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-1">

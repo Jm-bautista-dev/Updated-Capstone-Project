@@ -4,15 +4,15 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
  * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
-export const bulkDelete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const bulkDelete = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: bulkDelete.url(options),
-    method: 'delete',
+    method: 'post',
 })
 
 bulkDelete.definition = {
-    methods: ["delete"],
+    methods: ["post","delete"],
     url: '/inventory/bulk-delete',
-} satisfies RouteDefinition<["delete"]>
+} satisfies RouteDefinition<["post","delete"]>
 
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
@@ -23,6 +23,15 @@ bulkDelete.url = (options?: RouteQueryOptions) => {
     return bulkDelete.definition.url + queryParams(options)
 }
 
+/**
+* @see \App\Http\Controllers\InventoryController::bulkDelete
+ * @see app/Http/Controllers/InventoryController.php:365
+ * @route '/inventory/bulk-delete'
+ */
+bulkDelete.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: bulkDelete.url(options),
+    method: 'post',
+})
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
  * @see app/Http/Controllers/InventoryController.php:365
@@ -39,15 +48,19 @@ bulkDelete.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => 
  * @route '/inventory/bulk-delete'
  */
     const bulkDeleteForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: bulkDelete.url({
-                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                        _method: 'DELETE',
-                        ...(options?.query ?? options?.mergeQuery ?? {}),
-                    }
-                }),
+        action: bulkDelete.url(options),
         method: 'post',
     })
 
+            /**
+* @see \App\Http\Controllers\InventoryController::bulkDelete
+ * @see app/Http/Controllers/InventoryController.php:365
+ * @route '/inventory/bulk-delete'
+ */
+        bulkDeleteForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: bulkDelete.url(options),
+            method: 'post',
+        })
             /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
  * @see app/Http/Controllers/InventoryController.php:365

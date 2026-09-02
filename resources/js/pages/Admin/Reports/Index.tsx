@@ -437,10 +437,14 @@ interface AdminReportsProps {
     total_orders: number;
     cancelled_count: number;
     today_sales: number;
+    isAdmin?: boolean;
 }
 
 // ── ADMIN REPORTS DASHBOARD ──
-function AdminReports({ sales, shifts, filters, branches = [], trend_data, category_data, total_revenue, total_expenses, total_profit, total_orders, cancelled_count, today_sales }: AdminReportsProps) {
+function AdminReports({ sales, shifts, filters, branches = [], trend_data, category_data, total_revenue, total_expenses, total_profit, total_orders, cancelled_count, today_sales, isAdmin = false }: AdminReportsProps) {
+    const pageAuth = (usePage().props as unknown as { auth?: { user?: { role?: string } } })?.auth?.user;
+    const isAdminUser = isAdmin || pageAuth?.role === 'admin' || pageAuth?.role === 'super_admin';
+
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [selectedBranch, setSelectedBranch] = useState(filters.branch_id || 'all');
@@ -467,7 +471,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                 kpis.push({ title: "Today's Sales", value: formatCurrency(today_sales ?? 0) });
                 kpis.push({ title: "Total Revenue", value: formatCurrency(total_revenue ?? 0) });
                 kpis.push({ title: "Total Orders", value: (total_orders ?? 0).toLocaleString() });
-                kpis.push({ title: "Net Profit", value: formatCurrency(total_profit ?? 0) });
+                if (isAdminUser) {
+                    kpis.push({ title: "Net Profit", value: formatCurrency(total_profit ?? 0) });
+                }
                 kpis.push({ title: "Cancelled Orders", value: (cancelled_count ?? 0).toLocaleString() });
             } else {
                 kpis.push({ title: "Total Shift Transactions", value: shifts.total?.toString() || '0' });
@@ -482,7 +488,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
             columns.push({ title: 'Branch', key: 'branch', align: 'text-left' });
             columns.push({ title: 'Status', key: 'status', align: 'text-left' });
             columns.push({ title: 'Total Sales', key: 'total', align: 'text-right' });
-            columns.push({ title: 'Net Profit', key: 'profit', align: 'text-right' });
+            if (isAdminUser) {
+                columns.push({ title: 'Net Profit', key: 'profit', align: 'text-right' });
+            }
         } else {
             columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
             columns.push({ title: 'Opened At', key: 'opened_at', align: 'text-left' });
@@ -496,15 +504,20 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
         let rows: Record<string, string>[] = [];
         if (options.scope === 'view') {
             if (activeTab === 'sales') {
-                rows = (sales.data || []).map((sale: SaleItem) => ({
-                    order_number: sale.order_number,
-                    date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
-                    cashier: sale.cashier?.name ?? 'N/A',
-                    branch: sale.branch?.name ?? 'N/A',
-                    status: sale.status,
-                    total: formatCurrency(sale.total),
-                    profit: formatCurrency(sale.profit)
-                }));
+                rows = (sales.data || []).map((sale: SaleItem) => {
+                    const row: Record<string, string> = {
+                        order_number: sale.order_number,
+                        date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
+                        cashier: sale.cashier?.name ?? 'N/A',
+                        branch: sale.branch?.name ?? 'N/A',
+                        status: sale.status,
+                        total: formatCurrency(sale.total),
+                    };
+                    if (isAdminUser) {
+                        row.profit = formatCurrency(sale.profit);
+                    }
+                    return row;
+                });
             } else {
                 rows = (shifts.data || []).map((s: ShiftItem) => {
                     const opening = Number(s.opening_cash ?? s.opening_balance ?? 0);
@@ -621,7 +634,7 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                     </div>
 
                     {/* Dashboard Reused KPI Cards Strip */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 pt-2">
+                    <div className={cn("grid gap-4 pt-2", isAdminUser ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4")}>
                         <KPICard
                             title="Today's Revenue"
                             value={formatCurrency(today_sales ?? 0)}
@@ -636,12 +649,12 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                         <KPICard
                             title={getPeriodLabel(filters, 'Sales')}
                             value={formatCurrency(total_revenue ?? 0)}
-                            icon={DollarSign}
+                            icon={TrendingUp}
                             trend="up"
-                            trendValue="+18.4%"
-                            comparison="period total"
-                            sparklineData={[{ value: 30 }, { value: 55 }, { value: 75 }, { value: 90 }]}
-                            badgeText="Gross Net"
+                            trendValue="+8.4%"
+                            comparison="vs previous timeframe"
+                            sparklineData={[{ value: 30 }, { value: 45 }, { value: 60 }, { value: 80 }]}
+                            badgeText="Total Revenue"
                             index={1}
                         />
                         <KPICard
@@ -655,28 +668,32 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                             badgeText="Fulfillment"
                             index={2}
                         />
-                        <KPICard
-                            title="Operating Expenses"
-                            value={formatCurrency(total_expenses ?? 0)}
-                            icon={Receipt}
-                            trend="down"
-                            trendValue="COGS"
-                            comparison="cost of goods sold"
-                            sparklineData={[{ value: 25 }, { value: 40 }, { value: 55 }, { value: 70 }]}
-                            badgeText="Expenses"
-                            index={3}
-                        />
-                        <KPICard
-                            title="Net Profit"
-                            value={formatCurrency(total_profit ?? 0)}
-                            icon={TrendingUp}
-                            trend="up"
-                            trendValue="Margin"
-                            comparison="revenue minus expenses"
-                            sparklineData={[{ value: 20 }, { value: 50 }, { value: 65 }, { value: 88 }]}
-                            badgeText="Margin"
-                            index={4}
-                        />
+                        {isAdminUser && (
+                            <KPICard
+                                title="Operating Expenses"
+                                value={formatCurrency(total_expenses ?? 0)}
+                                icon={Receipt}
+                                trend="down"
+                                trendValue="COGS"
+                                comparison="cost of goods sold"
+                                sparklineData={[{ value: 25 }, { value: 40 }, { value: 55 }, { value: 70 }]}
+                                badgeText="Expenses"
+                                index={3}
+                            />
+                        )}
+                        {isAdminUser && (
+                            <KPICard
+                                title="Net Profit"
+                                value={formatCurrency(total_profit ?? 0)}
+                                icon={TrendingUp}
+                                trend="up"
+                                trendValue="Margin"
+                                comparison="revenue minus expenses"
+                                sparklineData={[{ value: 20 }, { value: 50 }, { value: 65 }, { value: 88 }]}
+                                badgeText="Margin"
+                                index={4}
+                            />
+                        )}
                         <KPICard
                             title="Cancelled Orders"
                             value={(cancelled_count ?? 0).toLocaleString()}
@@ -735,7 +752,7 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                         <div className="flex items-center gap-2">
                                             <TrendingUp className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
                                             <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                                Revenue & Net Profit Trajectory
+                                                {isAdminUser ? 'Revenue & Net Profit Trajectory' : 'Revenue Trajectory'}
                                             </h3>
                                         </div>
                                         <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
@@ -758,7 +775,7 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                             <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v}`} />
                                             <Tooltip content={<CustomTooltip />} />
                                             <Area type="monotone" dataKey="Revenue" stroke="#E75480" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-                                            <Area type="monotone" dataKey="Profit" stroke="#10b981" strokeWidth={2} fill="none" />
+                                            {isAdminUser && <Area type="monotone" dataKey="Profit" stroke="#10b981" strokeWidth={2} fill="none" />}
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -832,7 +849,7 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                         <th className="py-3.5 px-5">Cashier</th>
                                         <th className="py-3.5 px-5">Status</th>
                                         <th className="py-3.5 px-5 text-right">Total Sales</th>
-                                        <th className="py-3.5 px-5 text-right">Net Profit</th>
+                                        {isAdminUser && <th className="py-3.5 px-5 text-right">Net Profit</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
@@ -860,9 +877,11 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                             <td className="py-3.5 px-5 text-right font-mono font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
                                                 {formatCurrency(sale.total)}
                                             </td>
-                                            <td className="py-3.5 px-5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
-                                                {formatCurrency(sale.profit)}
-                                            </td>
+                                            {isAdminUser && (
+                                                <td className="py-3.5 px-5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                                    {formatCurrency(sale.profit)}
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>

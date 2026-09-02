@@ -97,6 +97,145 @@ show.head = (args: { id: string | number } | [id: string | number ] | string | n
     
     show.form = showForm
 /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+const getCodEligibility787197fe0ec5091c82b374f176001203 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getCodEligibility787197fe0ec5091c82b374f176001203.url(options),
+    method: 'get',
+})
+
+getCodEligibility787197fe0ec5091c82b374f176001203.definition = {
+    methods: ["get","head"],
+    url: '/api/v1/customer/cod-eligibility',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+getCodEligibility787197fe0ec5091c82b374f176001203.url = (options?: RouteQueryOptions) => {
+    return getCodEligibility787197fe0ec5091c82b374f176001203.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+getCodEligibility787197fe0ec5091c82b374f176001203.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: getCodEligibility787197fe0ec5091c82b374f176001203.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+getCodEligibility787197fe0ec5091c82b374f176001203.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: getCodEligibility787197fe0ec5091c82b374f176001203.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+    const getCodEligibility787197fe0ec5091c82b374f176001203Form = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: getCodEligibility787197fe0ec5091c82b374f176001203.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+        getCodEligibility787197fe0ec5091c82b374f176001203Form.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getCodEligibility787197fe0ec5091c82b374f176001203.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/cod-eligibility'
+ */
+        getCodEligibility787197fe0ec5091c82b374f176001203Form.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: getCodEligibility787197fe0ec5091c82b374f176001203.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    getCodEligibility787197fe0ec5091c82b374f176001203.form = getCodEligibility787197fe0ec5091c82b374f176001203Form
+    /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/check-cod-eligibility'
+ */
+const getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2 = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.url(options),
+    method: 'post',
+})
+
+getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.definition = {
+    methods: ["post"],
+    url: '/api/v1/customer/check-cod-eligibility',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/check-cod-eligibility'
+ */
+getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.url = (options?: RouteQueryOptions) => {
+    return getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/check-cod-eligibility'
+ */
+getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/check-cod-eligibility'
+ */
+    const getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2Form = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\Api\CustomerOrderController::getCodEligibility
+ * @see app/Http/Controllers/Api/CustomerOrderController.php:273
+ * @route '/api/v1/customer/check-cod-eligibility'
+ */
+        getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2Form.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.url(options),
+            method: 'post',
+        })
+    
+    getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2.form = getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2Form
+
+export const getCodEligibility = {
+    '/api/v1/customer/cod-eligibility': getCodEligibility787197fe0ec5091c82b374f176001203,
+    '/api/v1/customer/check-cod-eligibility': getCodEligibilityc8e4d91a0b176407f4e66c3fefaaaee2,
+}
+
+/**
 * @see \App\Http\Controllers\Api\CustomerOrderController::cancel
  * @see app/Http/Controllers/Api/CustomerOrderController.php:168
  * @route '/api/v1/orders/{orderId}/cancel'
@@ -324,6 +463,6 @@ checkReorder.post = (args: { id: string | number } | [id: string | number ] | st
         })
     
     checkReorder.form = checkReorderForm
-const CustomerOrderController = { show, cancel, checkReorder }
+const CustomerOrderController = { show, getCodEligibility, cancel, checkReorder }
 
 export default CustomerOrderController

@@ -811,24 +811,26 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
 
-                                {liveCalculation.missingCostIngredient && (
+                                {isAdmin && liveCalculation.missingCostIngredient && (
                                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
                                         <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                                         <span>Unable to calculate product cost because <strong>{liveCalculation.missingCostIngredient}</strong> has no valid cost.</span>
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-2 gap-3 pt-1">
-                                    <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
-                                        <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                            {data.recipe.length === 0 ? (
-                                                <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
-                                            ) : (
-                                                <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
-                                            )}
+                                <div className={cn("grid gap-3 pt-1", isAdmin ? "grid-cols-2" : "grid-cols-1")}>
+                                    {isAdmin && (
+                                        <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
+                                            <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                {data.recipe.length === 0 ? (
+                                                    <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
+                                                ) : (
+                                                    <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Available Producible Stock</span>
@@ -1062,24 +1064,26 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
 
-                                {liveCalculation.missingCostIngredient && (
+                                {isAdmin && liveCalculation.missingCostIngredient && (
                                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
                                         <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                                         <span>Unable to calculate product cost because <strong>{liveCalculation.missingCostIngredient}</strong> has no valid cost.</span>
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-2 gap-3 pt-1">
-                                    <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
-                                        <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                            {data.recipe.length === 0 ? (
-                                                <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
-                                            ) : (
-                                                <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
-                                            )}
+                                <div className={cn("grid gap-3 pt-1", isAdmin ? "grid-cols-2" : "grid-cols-1")}>
+                                    {isAdmin && (
+                                        <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
+                                            <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                {data.recipe.length === 0 ? (
+                                                    <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
+                                                ) : (
+                                                    <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Available Producible Stock</span>

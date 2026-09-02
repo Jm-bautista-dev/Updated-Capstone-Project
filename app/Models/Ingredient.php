@@ -26,6 +26,16 @@ class Ingredient extends Model
         'avg_weight_per_piece',
     ];
 
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            unset($array['cost_per_base_unit']);
+        }
+        return $array;
+    }
+
     /**
      * The "booted" method of the model.
      */

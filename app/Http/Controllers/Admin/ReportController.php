@@ -81,6 +81,7 @@ class ReportController extends Controller
                     ['branch_id' => $branchId ? (string) $branchId : 'all']
                 ),
                 'today_sales' => $todaySales,
+                'isAdmin'     => $user->isAdmin(),
             ],
             $this->buildAnalytics($request, $branchId)
         ));
@@ -146,7 +147,7 @@ class ReportController extends Controller
 
                 $saleProfit = $productSubtotal - $saleCogs;
 
-                return [
+                $row = [
                     'order_number'     => $sale->order_number,
                     'date'             => $sale->created_at->format('M d, Y H:i'),
                     'cashier'          => $sale->cashier?->name ?? 'N/A',
@@ -155,8 +156,13 @@ class ReportController extends Controller
                     'product_subtotal' => '₱' . number_format($productSubtotal, 2),
                     'delivery_fee'     => '₱' . number_format($deliveryFee, 2),
                     'total'            => '₱' . number_format($sale->total, 2),
-                    'profit'           => '₱' . number_format($saleProfit, 2),
                 ];
+
+                if ($user->isAdmin()) {
+                    $row['profit'] = '₱' . number_format($saleProfit, 2);
+                }
+
+                return $row;
             })->toArray();
         } else {
             $shifts = CashierShift::with('cashier')
@@ -256,18 +262,20 @@ class ReportController extends Controller
         $peakDay = $trendData->sortByDesc('Revenue')->first();
         $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
 
+        $isAdmin = Auth::user()?->isAdmin() ?? false;
+
         return [
             'trend_data'         => $trendData->values(),
             'category_data'      => $categoryData->values(),
             'top_product'        => $topProduct,
             'peak_day'           => $peakDay ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']] : null,
             'total_revenue'      => $metrics['revenue'],
-            'cogs'               => $metrics['cogs'],
-            'operating_expenses' => $metrics['operating_expenses'],
-            'total_expenses'     => $metrics['total_expenses'],
-            'total_profit'       => $metrics['net_profit'],
-            'gross_profit'       => $metrics['gross_profit'],
-            'profit_margin'      => $metrics['net_margin'],
+            'cogs'               => $isAdmin ? $metrics['cogs'] : 0,
+            'operating_expenses' => $isAdmin ? $metrics['operating_expenses'] : 0,
+            'total_expenses'     => $isAdmin ? $metrics['total_expenses'] : 0,
+            'total_profit'       => $isAdmin ? $metrics['net_profit'] : 0,
+            'gross_profit'       => $isAdmin ? $metrics['gross_profit'] : 0,
+            'profit_margin'      => $isAdmin ? $metrics['net_margin'] : 0,
             'total_orders'       => $metrics['total_orders'],
             'cancelled_count'    => $cancelledCount,
         ];

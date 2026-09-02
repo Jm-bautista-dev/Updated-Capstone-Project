@@ -60,15 +60,15 @@ massStockIn.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
  * @see app/Http/Controllers/InventoryController.php:365
  * @route '/inventory/bulk-delete'
  */
-export const bulkDelete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const bulkDelete = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: bulkDelete.url(options),
-    method: 'delete',
+    method: 'post',
 })
 
 bulkDelete.definition = {
-    methods: ["delete"],
+    methods: ["post","delete"],
     url: '/inventory/bulk-delete',
-} satisfies RouteDefinition<["delete"]>
+} satisfies RouteDefinition<["post","delete"]>
 
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
@@ -79,6 +79,15 @@ bulkDelete.url = (options?: RouteQueryOptions) => {
     return bulkDelete.definition.url + queryParams(options)
 }
 
+/**
+* @see \App\Http\Controllers\InventoryController::bulkDelete
+ * @see app/Http/Controllers/InventoryController.php:365
+ * @route '/inventory/bulk-delete'
+ */
+bulkDelete.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: bulkDelete.url(options),
+    method: 'post',
+})
 /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
  * @see app/Http/Controllers/InventoryController.php:365
@@ -95,15 +104,19 @@ bulkDelete.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => 
  * @route '/inventory/bulk-delete'
  */
     const bulkDeleteForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: bulkDelete.url({
-                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                        _method: 'DELETE',
-                        ...(options?.query ?? options?.mergeQuery ?? {}),
-                    }
-                }),
+        action: bulkDelete.url(options),
         method: 'post',
     })
 
+            /**
+* @see \App\Http\Controllers\InventoryController::bulkDelete
+ * @see app/Http/Controllers/InventoryController.php:365
+ * @route '/inventory/bulk-delete'
+ */
+        bulkDeleteForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: bulkDelete.url(options),
+            method: 'post',
+        })
             /**
 * @see \App\Http\Controllers\InventoryController::bulkDelete
  * @see app/Http/Controllers/InventoryController.php:365
@@ -533,7 +546,7 @@ wastage.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     wastage.form = wastageForm
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
 export const activity = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -548,7 +561,7 @@ activity.definition = {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
 activity.url = (options?: RouteQueryOptions) => {
@@ -557,7 +570,7 @@ activity.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
 activity.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -566,7 +579,7 @@ activity.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
 activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -576,7 +589,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
     const activityForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -586,7 +599,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
         activityForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -595,7 +608,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\NotificationController::activity
- * @see app/Http/Controllers/NotificationController.php:237
+ * @see app/Http/Controllers/NotificationController.php:259
  * @route '/inventory/activity'
  */
         activityForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -611,7 +624,7 @@ activity.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     activity.form = activityForm
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
 export const activityLogs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -626,7 +639,7 @@ activityLogs.definition = {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
 activityLogs.url = (options?: RouteQueryOptions) => {
@@ -635,7 +648,7 @@ activityLogs.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
 activityLogs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -644,7 +657,7 @@ activityLogs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
 activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -654,7 +667,7 @@ activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
     const activityLogsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -664,7 +677,7 @@ activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
         activityLogsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -673,7 +686,7 @@ activityLogs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\NotificationController::activityLogs
- * @see app/Http/Controllers/NotificationController.php:161
+ * @see app/Http/Controllers/NotificationController.php:183
  * @route '/api/inventory/activity-logs'
  */
         activityLogsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -87,10 +87,16 @@ class ProductsController extends Controller
                 $product->branch_breakdown = $availability['branch_breakdown'] ?? [];
             }
 
-            $costPrice = $product->computeProductCost($branchId);
-            $product->cost_price = $costPrice;
-            $product->cost = $costPrice;
-            $product->has_cost = $costPrice > 0;
+            if ($user->isAdmin()) {
+                $costPrice = $product->computeProductCost($branchId);
+                $product->cost_price = $costPrice;
+                $product->cost = $costPrice;
+                $product->has_cost = $costPrice > 0;
+            } else {
+                $product->cost_price = null;
+                $product->cost = null;
+                $product->has_cost = false;
+            }
             $product->is_direct = !$product->hasRecipe();
 
             $product->image_url = \App\Utils\ImageHelper::resolveUrl($product->image_path, 'products');

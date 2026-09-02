@@ -24,6 +24,19 @@ class SaleItem extends Model
         'updated_at',
     ];
 
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            unset(
+                $array['cost_price'],
+                $array['profit']
+            );
+        }
+        return $array;
+    }
+
     public function sale()
     {
         return $this->belongsTo(Sale::class);

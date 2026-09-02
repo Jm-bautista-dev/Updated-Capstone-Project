@@ -39,6 +39,20 @@ class IngredientStock extends Model
         'is_out_of_stock_notified' => 'boolean',
     ];
 
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            unset(
+                $array['cost_per_unit'],
+                $array['last_purchase_price'],
+                $array['total_stock_value']
+            );
+        }
+        return $array;
+    }
+
     /* ── Global Scopes ──────────────────────────────── */
 
     protected static function boot()

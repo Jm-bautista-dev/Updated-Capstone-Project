@@ -157,7 +157,7 @@ exportSummary.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => (
     exportSummary.form = exportSummaryForm
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
 export const exportCsv = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -172,7 +172,7 @@ exportCsv.definition = {
 
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
 exportCsv.url = (options?: RouteQueryOptions) => {
@@ -181,7 +181,7 @@ exportCsv.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
 exportCsv.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -190,7 +190,7 @@ exportCsv.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
 exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -200,7 +200,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
     const exportCsvForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -210,7 +210,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
         exportCsvForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -219,7 +219,7 @@ exportCsv.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\SalesController::exportCsv
- * @see app/Http/Controllers/SalesController.php:194
+ * @see app/Http/Controllers/SalesController.php:211
  * @route '/sales/export'
  */
         exportCsvForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

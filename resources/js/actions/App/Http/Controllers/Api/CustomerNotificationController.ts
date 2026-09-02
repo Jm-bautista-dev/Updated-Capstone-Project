@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\CustomerNotificationController::registerDeviceToken
  * @see app/Http/Controllers/Api/CustomerNotificationController.php:18
@@ -381,80 +381,6 @@ markAllAsRead.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
         })
     
     markAllAsRead.form = markAllAsReadForm
-/**
-* @see \App\Http\Controllers\Api\CustomerNotificationController::markAsRead
- * @see app/Http/Controllers/Api/CustomerNotificationController.php:111
- * @route '/api/v1/customer/notifications/{id}/read'
- */
-export const markAsRead = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: markAsRead.url(args, options),
-    method: 'post',
-})
-
-markAsRead.definition = {
-    methods: ["post"],
-    url: '/api/v1/customer/notifications/{id}/read',
-} satisfies RouteDefinition<["post"]>
-
-/**
-* @see \App\Http\Controllers\Api\CustomerNotificationController::markAsRead
- * @see app/Http/Controllers/Api/CustomerNotificationController.php:111
- * @route '/api/v1/customer/notifications/{id}/read'
- */
-markAsRead.url = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { id: args }
-    }
-
-    
-    if (Array.isArray(args)) {
-        args = {
-                    id: args[0],
-                }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-                        id: args.id,
-                }
-
-    return markAsRead.definition.url
-            .replace('{id}', parsedArgs.id.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\Api\CustomerNotificationController::markAsRead
- * @see app/Http/Controllers/Api/CustomerNotificationController.php:111
- * @route '/api/v1/customer/notifications/{id}/read'
- */
-markAsRead.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
-    url: markAsRead.url(args, options),
-    method: 'post',
-})
-
-    /**
-* @see \App\Http\Controllers\Api\CustomerNotificationController::markAsRead
- * @see app/Http/Controllers/Api/CustomerNotificationController.php:111
- * @route '/api/v1/customer/notifications/{id}/read'
- */
-    const markAsReadForm = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-        action: markAsRead.url(args, options),
-        method: 'post',
-    })
-
-            /**
-* @see \App\Http\Controllers\Api\CustomerNotificationController::markAsRead
- * @see app/Http/Controllers/Api/CustomerNotificationController.php:111
- * @route '/api/v1/customer/notifications/{id}/read'
- */
-        markAsReadForm.post = (args: { id: string | number } | [id: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
-            action: markAsRead.url(args, options),
-            method: 'post',
-        })
-    
-    markAsRead.form = markAsReadForm
-const CustomerNotificationController = { registerDeviceToken, removeDeviceToken, index, unreadCount, markAllAsRead, markAsRead }
+const CustomerNotificationController = { registerDeviceToken, removeDeviceToken, index, unreadCount, markAllAsRead }
 
 export default CustomerNotificationController

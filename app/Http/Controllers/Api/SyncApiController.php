@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\RestockRequest;
 use App\Models\InventoryLog;
+use App\Models\User;
 use App\Services\SaleService;
 use App\Services\InventoryService;
 use App\Services\SyncService;
@@ -17,9 +18,9 @@ use Illuminate\Validation\Rule;
 
 class SyncApiController extends Controller
 {
-    protected $saleService;
-    protected $inventoryService;
-    protected $syncService;
+    protected SaleService $saleService;
+    protected InventoryService $inventoryService;
+    protected SyncService $syncService;
 
     public function __construct(
         SaleService $saleService,
@@ -36,12 +37,13 @@ class SyncApiController extends Controller
      */
     public function resolveBarcode(string $barcode)
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        $branchId = $user->branch_id;
+        $branchId = $user?->branch_id;
 
         $query = Product::with(['category', 'ingredients']);
 
-        if ($branchId && !$user->isAdmin()) {
+        if ($branchId && $user && !$user->isAdmin()) {
             $query->where(function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
                   ->orWhereNull('branch_id')
@@ -78,15 +80,18 @@ class SyncApiController extends Controller
     public function storeSale(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'type'          => 'required|string',
-            'items'         => 'required|array|min:1',
-            'items.*.id'    => 'required|exists:products,id',
-            'items.*.quantity' => 'required|numeric|min:1',
-            'total'         => 'required|numeric',
-            'payment_method'=> 'required|string',
-            'paid_amount'   => 'required|numeric',
-            'change_amount' => 'nullable|numeric',
-            'delivery_info'  => 'nullable|array',
+            'type'             => 'required|string',
+            'items'            => 'required|array|min:1',
+            'items.*.id'       => 'required|exists:products,id',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'total'            => 'nullable|numeric',
+            'payment_method'   => 'required|string',
+            'paid_amount'      => 'required|numeric|min:0',
+            'change_amount'    => 'nullable|numeric',
+            'discount'         => 'nullable|numeric|min:0',
+            'discount_type'    => 'nullable|string|max:100',
+            'discount_details' => 'nullable|array',
+            'delivery_info'    => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -235,7 +240,11 @@ class SyncApiController extends Controller
             ], 422);
         }
 
+        /** @var User|null $user */
         $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
         if (!$user->isAdmin() && (int) $request->branch_id !== (int) $user->branch_id) {
             return response()->json([
                 'success' => false,

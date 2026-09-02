@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Package, AlertTriangle, Slash, DollarSign, Sparkles, RefreshCw } from 'lucide-react';
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
@@ -34,13 +35,15 @@ interface InventoryHeroProps {
     inventory: InventoryRow[];
     stats?: ServerStats;
     activeBranchName?: string;
+    isAdmin?: boolean;
 }
 
-export function InventoryHero({ inventory, stats: serverStats, activeBranchName = 'All Branches' }: InventoryHeroProps) {
+export function InventoryHero({ inventory, stats: serverStats, activeBranchName = 'All Branches', isAdmin = false }: InventoryHeroProps) {
     const totalValuation = useMemo(() => {
+        if (!isAdmin) return 0;
         if (serverStats?.total_valuation !== undefined) return serverStats.total_valuation;
         return inventory.reduce((sum, item) => sum + (item.stock * (item.cost_per_unit || 0)), 0);
-    }, [inventory, serverStats]);
+    }, [inventory, serverStats, isAdmin]);
 
     const totalUniqueItems = useMemo(() => {
         if (serverStats?.total_items !== undefined) return serverStats.total_items;
@@ -95,22 +98,24 @@ export function InventoryHero({ inventory, stats: serverStats, activeBranchName 
             </div>
 
             {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 pt-2">
+            <div className={cn("grid gap-4 relative z-10 pt-2", isAdmin ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3")}>
                 
                 {/* Total Stock Valuation */}
-                <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
-                >
-                    <div className="p-3 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
-                        <DollarSign className="size-5" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Est. Stock Valuation</p>
-                        <h3 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-0.5">{formatCurrency(totalValuation)}</h3>
-                        <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Sum of raw materials</p>
-                    </div>
-                </motion.div>
+                {isAdmin && (
+                    <motion.div
+                        whileHover={{ y: -3 }}
+                        className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                    >
+                        <div className="p-3 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
+                            <DollarSign className="size-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Est. Stock Valuation</p>
+                            <h3 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-0.5">{formatCurrency(totalValuation)}</h3>
+                            <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Sum of raw materials</p>
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* Total Unique Items */}
                 <motion.div

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:276
+ * @see app/Http/Controllers/Admin/ReviewController.php:350
  * @route '/admin/reviews/products/{product}/mark-seen'
  */
 export const markSeen = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ markSeen.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:276
+ * @see app/Http/Controllers/Admin/ReviewController.php:350
  * @route '/admin/reviews/products/{product}/mark-seen'
  */
 markSeen.url = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ markSeen.url = (args: { product: number | { id: number } } | [product: number | 
 
 /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:276
+ * @see app/Http/Controllers/Admin/ReviewController.php:350
  * @route '/admin/reviews/products/{product}/mark-seen'
  */
 markSeen.post = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ markSeen.post = (args: { product: number | { id: number } } | [product: number |
 
     /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:276
+ * @see app/Http/Controllers/Admin/ReviewController.php:350
  * @route '/admin/reviews/products/{product}/mark-seen'
  */
     const markSeenForm = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -69,7 +69,7 @@ markSeen.post = (args: { product: number | { id: number } } | [product: number |
 
             /**
 * @see \App\Http\Controllers\Admin\ReviewController::markSeen
- * @see app/Http/Controllers/Admin/ReviewController.php:276
+ * @see app/Http/Controllers/Admin/ReviewController.php:350
  * @route '/admin/reviews/products/{product}/mark-seen'
  */
         markSeenForm.post = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

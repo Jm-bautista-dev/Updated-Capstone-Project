@@ -1,26 +1,28 @@
+import TopPickController from './TopPickController'
+import PosDeliveryDistanceController from './PosDeliveryDistanceController'
+import AuthController from './AuthController'
+import VerificationController from './VerificationController'
+import SystemStatusController from './SystemStatusController'
+import ProductController from './ProductController'
+import CategoryController from './CategoryController'
+import V1 from './V1'
+import DeliveryFeeController from './DeliveryFeeController'
+import ReviewController from './ReviewController'
+import ApiPickupController from './ApiPickupController'
 import UserController from './UserController'
 import RiderController from './RiderController'
 import Rider from './Rider'
 import CancellationRequestController from './CancellationRequestController'
 import Branch from './Branch'
 import ApiOrderController from './ApiOrderController'
-import AuthController from './AuthController'
 import CustomerOrderController from './CustomerOrderController'
 import CartController from './CartController'
-import CategoryController from './CategoryController'
 import CustomerNotificationController from './CustomerNotificationController'
-import DeliveryFeeController from './DeliveryFeeController'
+import PrintJobController from './PrintJobController'
+import SyncApiController from './SyncApiController'
+import ReceiptController from './ReceiptController'
 import RiderCancellationController from './RiderCancellationController'
 import POSCancellationController from './POSCancellationController'
-import PosDeliveryDistanceController from './PosDeliveryDistanceController'
-import ProductController from './ProductController'
-import ReceiptController from './ReceiptController'
-import ReviewController from './ReviewController'
-import SyncApiController from './SyncApiController'
-import SystemStatusController from './SystemStatusController'
-import TopPickController from './TopPickController'
-import V1 from './V1'
-import VerificationController from './VerificationController'
 const Api = {
     TopPickController: Object.assign(TopPickController, TopPickController),
 PosDeliveryDistanceController: Object.assign(PosDeliveryDistanceController, PosDeliveryDistanceController),
@@ -32,6 +34,7 @@ CategoryController: Object.assign(CategoryController, CategoryController),
 V1: Object.assign(V1, V1),
 DeliveryFeeController: Object.assign(DeliveryFeeController, DeliveryFeeController),
 ReviewController: Object.assign(ReviewController, ReviewController),
+ApiPickupController: Object.assign(ApiPickupController, ApiPickupController),
 UserController: Object.assign(UserController, UserController),
 RiderController: Object.assign(RiderController, RiderController),
 Rider: Object.assign(Rider, Rider),
@@ -41,6 +44,7 @@ ApiOrderController: Object.assign(ApiOrderController, ApiOrderController),
 CustomerOrderController: Object.assign(CustomerOrderController, CustomerOrderController),
 CartController: Object.assign(CartController, CartController),
 CustomerNotificationController: Object.assign(CustomerNotificationController, CustomerNotificationController),
+PrintJobController: Object.assign(PrintJobController, PrintJobController),
 SyncApiController: Object.assign(SyncApiController, SyncApiController),
 ReceiptController: Object.assign(ReceiptController, ReceiptController),
 RiderCancellationController: Object.assign(RiderCancellationController, RiderCancellationController),

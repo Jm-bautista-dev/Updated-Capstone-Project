@@ -36,6 +36,21 @@ class Product extends Model
         return \App\Utils\ImageHelper::resolveUrl($this->image_path, 'products');
     }
 
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            unset(
+                $array['cost_price'],
+                $array['cost'],
+                $array['has_cost'],
+                $array['costPrice']
+            );
+        }
+        return $array;
+    }
+
     public function branch()
     {
         return $this->belongsTo(Branch::class);

@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/core';
-import { Head, usePage, useForm } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
@@ -191,6 +191,7 @@ export default function PosIndex() {
   // Discount State
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [activeDiscount, setActiveDiscount] = useState<PosDiscount | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Delivery State ---
   const [deliveryInfo, setDeliveryInfo] = useState<PosDeliveryInfo>({
@@ -218,12 +219,16 @@ export default function PosIndex() {
     const freeKm = 1.0;
 
     if (distance === 0) return 0;
-    if (distance <= freeKm) return base;
-    return Math.round(base + (distance - freeKm) * perKm);
-  }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch]);
+    if (distance <= freeKm) return Math.round(base * 100) / 100;
+    const computed = base + (distance - freeKm) * perKm;
+    return Math.round(computed * 100) / 100;
+  }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch?.base_delivery_fee, branch?.per_km_fee]);
 
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
+  const cartSubtotal = useMemo(() => {
+    const raw = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
+    return Math.round(raw * 100) / 100;
+  }, [cart]);
 
   // Dynamic Discount Calculation based on current cart
   const discountAmount = useMemo(() => {
@@ -234,18 +239,29 @@ export default function PosIndex() {
     const eligibleBase = eligibleItems.reduce((acc, it) => acc + (it.selling_price * it.quantity), 0);
 
     if (activeDiscount.type === 'custom_fixed') {
-      return Math.min(eligibleBase, Math.max(0, activeDiscount.fixedAmount || 0));
+      const fixed = Math.min(eligibleBase, Math.max(0, activeDiscount.fixedAmount || 0));
+      return Math.round(fixed * 100) / 100;
     }
     const rate = Math.min(100, Math.max(0, activeDiscount.percentage || 0));
-    return (eligibleBase * rate) / 100;
+    const calculated = (eligibleBase * rate) / 100;
+    return Math.round(calculated * 100) / 100;
   }, [cart, activeDiscount]);
 
-  const netProductSubtotal = useMemo(() => Math.max(0, cartSubtotal - discountAmount), [cartSubtotal, discountAmount]);
-  const cartTotal = useMemo(() => netProductSubtotal + (orderType === 'delivery' ? deliveryFee : 0), [netProductSubtotal, orderType, deliveryFee]);
+  const netProductSubtotal = useMemo(() => {
+    const raw = Math.max(0, cartSubtotal - discountAmount);
+    return Math.round(raw * 100) / 100;
+  }, [cartSubtotal, discountAmount]);
+
+  const cartTotal = useMemo(() => {
+    const fee = orderType === 'delivery' ? deliveryFee : 0;
+    const raw = netProductSubtotal + fee;
+    return Math.round(raw * 100) / 100;
+  }, [netProductSubtotal, orderType, deliveryFee]);
 
   const changeDue = useMemo(() => {
     const cash = parseFloat(cashReceived) || 0;
-    return Math.max(0, cash - cartTotal);
+    const raw = Math.max(0, cash - cartTotal);
+    return Math.round(raw * 100) / 100;
   }, [cashReceived, cartTotal]);
 
   const filteredProducts = useMemo(() => {
@@ -298,8 +314,6 @@ export default function PosIndex() {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const { processing } = useForm();
-
   const handleProceedToCheckout = () => {
     if (!activeShift) {
       setAlertModal({ type: 'warning', title: 'Shift Required', message: 'You must open a shift before processing sales.' });
@@ -334,7 +348,9 @@ export default function PosIndex() {
   };
 
   const confirmPayment = () => {
-    const paid = paymentMethod === 'cash' ? parseFloat(cashReceived) : cartTotal;
+    if (isSubmitting) return;
+
+    const paid = paymentMethod === 'cash' ? (parseFloat(cashReceived) || 0) : cartTotal;
 
     if (paymentMethod === 'cash' && paid < cartTotal) {
       setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
@@ -387,6 +403,8 @@ export default function PosIndex() {
       return;
     }
 
+    setIsSubmitting(true);
+
     const formData = new FormData();
     formData.append('type', orderType);
     formData.append('items', JSON.stringify(cart.map(item => ({ id: item.id, quantity: item.quantity }))));
@@ -433,6 +451,7 @@ export default function PosIndex() {
     router.post('/pos', formData, {
       forceFormData: true,
       onSuccess: async (page) => {
+        setIsSubmitting(false);
         const flash = (page.props as unknown as { flash?: { print_job?: LocalPrintJobPayload; success?: string } })?.flash;
         const printJob = flash?.print_job;
         const sale = ((page.props as unknown) as { recentOrders?: Record<string, unknown>[] }).recentOrders?.[0] || null;
@@ -478,8 +497,13 @@ export default function PosIndex() {
         }
       },
       onError: (err: Record<string, string>) => {
-        setAlertModal({ type: 'error', title: 'Checkout Failed', message: err.error || 'Something went wrong. Please try again.' });
+        setIsSubmitting(false);
+        const errMsg = err?.error || Object.values(err)[0] || 'Something went wrong during checkout. Please try again.';
+        setAlertModal({ type: 'error', title: 'Checkout Failed', message: String(errMsg) });
         setIsAlertModalOpen(true);
+      },
+      onFinish: () => {
+        setIsSubmitting(false);
       }
     });
   };
@@ -1180,10 +1204,10 @@ export default function PosIndex() {
                   </Button>
                   <Button
                     className="h-13 flex-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-md disabled:opacity-50 cursor-pointer"
-                    disabled={processing || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
+                    disabled={isSubmitting || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
                     onClick={confirmPayment}
                   >
-                    {processing ? 'Processing...' : 'COMPLETE ORDER'}
+                    {isSubmitting ? 'Processing...' : 'COMPLETE ORDER'}
                   </Button>
                 </div>
               </div>

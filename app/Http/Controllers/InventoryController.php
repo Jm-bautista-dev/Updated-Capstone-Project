@@ -96,9 +96,9 @@ class InventoryController extends Controller
                     'is_out_of_stock'      => $stockRow->isOutOfStock(),
                     'status'               => 'active',
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
-                    'cost_per_unit'        => $displayPrice,
-                    'cost_per_base_unit'   => $baseUnitPrice,
-                    'display_price'        => $displayPrice,
+                    'cost_per_unit'        => $user->isAdmin() ? $displayPrice : 0,
+                    'cost_per_base_unit'   => $user->isAdmin() ? $baseUnitPrice : 0,
+                    'display_price'        => $user->isAdmin() ? $displayPrice : null,
                 ];
             }
 

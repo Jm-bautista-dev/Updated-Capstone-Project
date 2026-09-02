@@ -56,7 +56,7 @@ export function InventoryTable({
                             </th>
                             <th className="py-4 px-6">SKU / Item Specs</th>
                             <th className="py-4 px-6 text-center">Stock Level</th>
-                            <th className="py-4 px-6 hidden sm:table-cell">Cost & Valuation</th>
+                            {isAdmin && <th className="py-4 px-6 hidden sm:table-cell">Cost & Valuation</th>}
                             <th className="py-4 px-6 hidden md:table-cell">Branch Location</th>
                             <th className="py-4 px-6 text-center">Status</th>
                             <th className="py-4 px-6 text-right">Actions</th>
@@ -71,7 +71,7 @@ export function InventoryTable({
                                     exit={{ opacity: 0 }}
                                     className="h-48 text-center"
                                 >
-                                    <td colSpan={7} className="p-8 text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <td colSpan={isAdmin ? 7 : 6} className="p-8 text-[#7D6B6E] dark:text-[#94A3B8]">
                                         <div className="flex flex-col items-center justify-center gap-2">
                                             <PackageSearch className="size-8 text-[#E75480]/50 dark:text-[#FF4F81]/50 mb-1" />
                                             <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">No Inventory Rows Found</span>
@@ -137,16 +137,18 @@ export function InventoryTable({
                                             </td>
 
                                             {/* Cost & Valuation */}
-                                            <td className="p-4 px-6 align-middle hidden sm:table-cell font-mono">
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                                        {formatCurrency(row.cost_per_unit || 0)} / {row.unit}
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                                        Val: {formatCurrency(stockValuation)}
-                                                    </span>
-                                                </div>
-                                            </td>
+                                            {isAdmin && (
+                                                <td className="p-4 px-6 align-middle hidden sm:table-cell font-mono">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                            {formatCurrency(row.cost_per_unit || 0)} / {row.unit}
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                                            Val: {formatCurrency(stockValuation)}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            )}
 
                                             {/* Branch Location */}
                                             <td className="p-4 px-6 align-middle hidden md:table-cell text-xs font-bold text-[#5D4A4D] dark:text-[#E2E8F0]">

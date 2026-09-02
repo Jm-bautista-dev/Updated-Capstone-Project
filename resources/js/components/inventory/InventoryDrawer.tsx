@@ -155,13 +155,15 @@ export function InventoryDrawer({
                                     <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{row.low_stock_level} {row.unit}</span>
                                 </div>
 
-                                <div className="flex items-center justify-between text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 pt-2.5">
-                                    <span className="flex items-center gap-2 font-bold text-[#5D4A4D] dark:text-[#94A3B8]">
-                                        <DollarSign className="size-4 text-emerald-500" />
-                                        <span>Cost Per Base Unit</span>
-                                    </span>
-                                    <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(row.cost_per_unit || 0)} / {row.unit}</span>
-                                </div>
+                                {isAdmin && (
+                                    <div className="flex items-center justify-between text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 pt-2.5">
+                                        <span className="flex items-center gap-2 font-bold text-[#5D4A4D] dark:text-[#94A3B8]">
+                                            <DollarSign className="size-4 text-emerald-500" />
+                                            <span>Cost Per Base Unit</span>
+                                        </span>
+                                        <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(row.cost_per_unit || 0)} / {row.unit}</span>
+                                    </div>
+                                )}
 
                                 {row.unit === 'pcs' && row.avg_weight_per_piece && (
                                     <div className="flex items-center justify-between text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 pt-2.5">

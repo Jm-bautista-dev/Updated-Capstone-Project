@@ -111,23 +111,38 @@ class PosController extends Controller
 
     public function store(Request $request)
     {
+        // ── Normalize JSON-encoded fields from multipart/form-data ──────────
+        if (is_string($request->input('items'))) {
+            $decodedItems = json_decode($request->input('items'), true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedItems)) {
+                $request->merge(['items' => $decodedItems]);
+            }
+        }
+
+        if (is_string($request->input('discount_details'))) {
+            $decodedDetails = json_decode($request->input('discount_details'), true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedDetails)) {
+                $request->merge(['discount_details' => $decodedDetails]);
+            }
+        }
+
         $validated = $request->validate([
             'type' => 'required|string',
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|numeric|min:1',
-            'total' => 'required|numeric',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'total' => 'nullable|numeric',
             'payment_method' => 'required|string',
-            'paid_amount' => 'required|numeric',
+            'paid_amount' => 'required|numeric|min:0',
             'change_amount' => 'nullable|numeric',
             'discount' => 'nullable|numeric|min:0',
             'discount_type' => 'nullable|string|max:100',
             'discount_details' => 'nullable|array',
             'delivery_info' => 'nullable|array',
-            'delivery_info.customer_name' => 'required_if:type,delivery|string',
-            'delivery_info.customer_address' => 'required_if:type,delivery|string',
+            'delivery_info.customer_name' => 'required_if:type,delivery|nullable|string',
+            'delivery_info.customer_address' => 'required_if:type,delivery|nullable|string',
             'delivery_info.customer_phone' => 'nullable|string',
-            'delivery_info.delivery_type' => 'required_if:type,delivery|in:internal,external',
+            'delivery_info.delivery_type' => 'required_if:type,delivery|nullable|in:internal,external',
             'delivery_info.rider_id' => 'nullable|exists:riders,id',
             'delivery_info.external_service' => 'nullable|in:grab,lalamove',
             'delivery_info.tracking_number' => 'nullable|string',
@@ -186,14 +201,23 @@ class PosController extends Controller
                     'raw_escpos_base64' => $printJob->raw_escpos_base64,
                     'formatted_text'    => $printJob->formatted_text,
                 ] : null);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('POS Checkout Failed', [
+                'error'   => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
             if ($request->header('X-Inertia')) {
-                return back()->withErrors(['error' => $e->getMessage()]);
+                return redirect()->back()->withErrors([
+                    'error' => $e->getMessage() ?: 'Checkout failed. Please try again.',
+                ]);
             }
-            if ($request->wantsJson() || $request->is('api/*')) {
-                return response()->json(['success' => false, 'error' => $e->getMessage()], 422);
-            }
-            return back()->withErrors(['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'Checkout failed. Please try again.',
+            ], 422);
         }
     }
 }

@@ -21,6 +21,16 @@ class Wastage extends Model
         'notes'
     ];
 
+    public function toArray(): array
+    {
+        $array = parent::toArray();
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            unset($array['cost_at_loss']);
+        }
+        return $array;
+    }
+
     public function wastable()
     {
         return $this->morphTo();

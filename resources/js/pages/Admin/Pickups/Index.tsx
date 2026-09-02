@@ -3,7 +3,6 @@ import {
     ShoppingBag,
     Clock,
     CheckCircle2,
-    AlertCircle,
     Plus,
     Search,
     RefreshCw,
@@ -12,16 +11,13 @@ import {
     Smartphone,
     PhoneCall,
     UserCheck,
-    Calendar,
-    ChevronRight,
     QrCode,
     DollarSign,
-    Filter,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -140,7 +136,7 @@ export default function PickupDashboard({
     const [rescheduleReason, setRescheduleReason] = useState('');
 
     // Manual Order Form
-    const { data: manualData, setData: setManualData, post: postManual, processing: manualProcessing, reset: resetManual, errors: manualErrors } = useForm({
+    const { data: manualData, setData: setManualData, post: postManual, processing: manualProcessing, reset: resetManual } = useForm({
         customer_name: '',
         contact_number: '',
         order_source: 'facebook_messenger',
@@ -180,8 +176,9 @@ export default function PickupDashboard({
             router.reload({ only: ['pickups', 'stats'] });
         };
 
+        const echoInstance = echo;
         const activeChannels = channelsToSubscribe.map(chName => {
-            const ch = echo!.private ? echo.private(chName) : echo.channel(chName);
+            const ch = echoInstance.private(chName);
             ch.listen('.OrderCreated', handlePickupEvent)
               .listen('OrderCreated', handlePickupEvent)
               .listen('App\\Events\\OrderCreated', handlePickupEvent)
@@ -493,7 +490,6 @@ export default function PickupDashboard({
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {pickups.data.map((order) => {
-                            const isScheduled = !!order.scheduled_pickup_at;
                             const pickupDate = order.scheduled_pickup_at ? new Date(order.scheduled_pickup_at) : null;
                             const isUnpaid = order.payment_status === 'unpaid';
 
