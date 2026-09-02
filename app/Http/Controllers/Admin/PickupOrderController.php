@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use App\Services\PickupOrderService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class PickupOrderController extends Controller
      */
     public function index(Request $request): Response
     {
+        /** @var User $user */
         $user = Auth::user();
         $view = $request->input('view', 'today'); // 'today' | 'prep_queue' | 'all'
         $branchId = $user->isAdmin() ? $request->input('branch_id') : $user->branch_id;
@@ -179,7 +181,7 @@ class PickupOrderController extends Controller
     /**
      * Transition pickup order state.
      */
-    public function updateStatus(Request $request, $id)
+    public function updateStatus(Request $request, int|string $id)
     {
         $validated = $request->validate([
             'status' => 'required|string|in:confirmed,preparing,ready_for_pickup,customer_arrived,completed,no_show,cancelled',
@@ -205,7 +207,7 @@ class PickupOrderController extends Controller
     /**
      * Verify pickup verification code / order number and complete order.
      */
-    public function verifyComplete(Request $request, $id)
+    public function verifyComplete(Request $request, int|string $id)
     {
         $validated = $request->validate([
             'verification_code' => 'required|string|max:50',
@@ -231,7 +233,7 @@ class PickupOrderController extends Controller
     /**
      * Reschedule pickup time with reason.
      */
-    public function reschedule(Request $request, $id)
+    public function reschedule(Request $request, int|string $id)
     {
         $validated = $request->validate([
             'new_scheduled_pickup_at' => 'required|date',
