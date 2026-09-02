@@ -82,21 +82,32 @@ export async function sendToLocalPrintBridge(job: LocalPrintJobPayload): Promise
 export function usePrinterStatus() {
     const [status, setStatus] = useState<PrinterBridgeStatus>('checking');
 
-    const checkStatus = useCallback(async () => {
+    const checkNow = useCallback(async () => {
         const isHealthy = await checkPrintBridgeHealth();
         setStatus(isHealthy ? 'ready' : 'offline');
         return isHealthy;
     }, []);
 
     useEffect(() => {
-        checkStatus();
-        const interval = setInterval(checkStatus, 15000);
-        return () => clearInterval(interval);
-    }, [checkStatus]);
+        let isMounted = true;
+        const runCheck = async () => {
+            const isHealthy = await checkPrintBridgeHealth();
+            if (isMounted) {
+                setStatus(isHealthy ? 'ready' : 'offline');
+            }
+        };
+
+        runCheck();
+        const interval = setInterval(runCheck, 60000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     return {
         status,
         isConnected: status === 'ready',
-        checkNow: checkStatus,
+        checkNow,
     };
 }

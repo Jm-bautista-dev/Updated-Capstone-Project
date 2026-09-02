@@ -52,11 +52,13 @@ try {
             enabledTransports: ['ws', 'wss'],
             disableStats: true,
         });
-    } else {
-        console.warn('[Echo] Real-time broadcasting disabled: no valid app key found in VITE_PUSHER_APP_KEY or VITE_REVERB_APP_KEY.');
+    } else if (import.meta.env.DEV) {
+        console.info('[Echo] Real-time broadcasting disabled: no valid app key found in VITE_PUSHER_APP_KEY or VITE_REVERB_APP_KEY.');
     }
 } catch (e) {
-    console.warn('[Echo] Failed to initialize broadcasting (non-fatal):', e);
+    if (import.meta.env.DEV) {
+        console.warn('[Echo] Failed to initialize broadcasting (non-fatal):', e);
+    }
 }
 
 export default echo;

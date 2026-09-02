@@ -477,17 +477,17 @@ export default function PosIndex() {
         setKioskStep('browse');
         setOrderType('dine-in');
 
-        // 2. Dispatch silent print to local thermal bridge
-        if (printJob && printJob.raw_escpos_base64) {
+        // 2. Dispatch silent print to local thermal bridge if connected
+        if (printJob && printJob.raw_escpos_base64 && isPrinterReady) {
           const printResult = await sendToLocalPrintBridge(printJob);
           if (printResult.success) {
             toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {
               duration: 3500,
             });
           } else {
-            toast.warning(`✓ Order #${orderNum} Completed (Printer offline - queued)`, {
-              description: 'Order saved successfully. Receipt will print once printer is reconnected.',
-              duration: 5000,
+            toast.warning(`✓ Order #${orderNum} Completed (Printer offline)`, {
+              description: 'Order saved successfully.',
+              duration: 4000,
             });
           }
         } else {
