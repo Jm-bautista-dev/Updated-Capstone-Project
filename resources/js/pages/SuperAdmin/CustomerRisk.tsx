@@ -38,19 +38,24 @@ interface CustomerRiskRecord {
 }
 
 interface CustomerRiskProps {
-    customers: {
-        data: CustomerRiskRecord[];
-        current_page: number;
-        last_page: number;
-        total: number;
+    customers?: {
+        data?: CustomerRiskRecord[];
+        current_page?: number;
+        last_page?: number;
+        total?: number;
     };
-    filters: Record<string, string>;
+    filters?: {
+        search?: string;
+        risk_level?: string;
+        filter?: string;
+    };
 }
 
 export default function CustomerRisk({ customers, filters }: CustomerRiskProps) {
-    const [search, setSearch] = useState(filters.search || '');
-    const [riskLevel, setRiskLevel] = useState(filters.risk_level || '');
-    const [filterType, setFilterType] = useState(filters.filter || '');
+    const customerList = customers?.data ?? [];
+    const [search, setSearch] = useState<string>(() => (typeof filters?.search === 'string' ? filters.search : ''));
+    const [riskLevel, setRiskLevel] = useState<string>(() => (typeof filters?.risk_level === 'string' ? filters.risk_level : ''));
+    const [filterType, setFilterType] = useState<string>(() => (typeof filters?.filter === 'string' ? filters.filter : ''));
 
     // Override Modal
     const [selectedCustomer, setSelectedCustomer] = useState<CustomerRiskRecord | null>(null);
@@ -203,7 +208,7 @@ export default function CustomerRisk({ customers, filters }: CustomerRiskProps) 
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                                {customers.data.map((c) => (
+                                {customerList.map((c) => (
                                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                                         <td className="p-4">
                                             <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -236,18 +241,18 @@ export default function CustomerRisk({ customers, filters }: CustomerRiskProps) 
                                         </td>
 
                                         <td className="p-4 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                                            {c.metrics.completed_orders} orders / {c.metrics.successful_cod_orders} COD
+                                            {c.metrics?.completed_orders ?? 0} orders / {c.metrics?.successful_cod_orders ?? 0} COD
                                         </td>
 
                                         <td className="p-4 font-mono text-[11px]">
-                                            {c.metrics.customer_refusals > 0 ? (
+                                            {(c.metrics?.customer_refusals ?? 0) > 0 ? (
                                                 <span className="text-rose-600 font-bold">
                                                     {c.metrics.customer_refusals} refusals
                                                 </span>
                                             ) : (
                                                 <span className="text-slate-400">0 refusals</span>
                                             )}
-                                            {c.metrics.failed_cod_orders > 0 && ` • ${c.metrics.failed_cod_orders} failed COD`}
+                                            {(c.metrics?.failed_cod_orders ?? 0) > 0 && ` • ${c.metrics.failed_cod_orders} failed COD`}
                                         </td>
 
                                         <td className="p-4 text-right">
@@ -262,7 +267,7 @@ export default function CustomerRisk({ customers, filters }: CustomerRiskProps) 
                                     </tr>
                                 ))}
 
-                                {customers.data.length === 0 && (
+                                {customerList.length === 0 && (
                                     <tr>
                                         <td colSpan={6} className="p-12 text-center text-slate-400 italic">
                                             No customers found.

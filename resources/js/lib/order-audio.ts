@@ -2,7 +2,7 @@
  * Professional Real-Time Order Sound System & Repeating Alert Controller
  * Features:
  * - Web Audio API synthesized dual-tone POS chime (0.5s duration)
- * - Autoplay policy safe: AudioContext created and resumed inside user gestures
+ * - Autoplay policy safe: AudioContext created and resumed strictly after user interaction
  * - Repeating interval controller: plays short chime every 3.5s until unacknowledged queue is empty
  * - Explicit unlock helper to recover suspended/blocked audio gracefully
  * - Mute setting persistence via localStorage ('order_notification_sound')
@@ -18,6 +18,10 @@ const REPEAT_INTERVAL_MS = 3500;
 /** Play the two-tone POS chime using the given context. */
 const playSynthChime = (ctx: AudioContext): void => {
     try {
+        if (ctx.state !== 'running') {
+            return;
+        }
+
         const now = ctx.currentTime;
 
         // Tone 1: C5 (523.25 Hz)
@@ -49,7 +53,7 @@ const playSynthChime = (ctx: AudioContext): void => {
 };
 
 /**
- * Creates or resumes the AudioContext inside a user-gesture event handler (safe from autoplay block).
+ * Creates or resumes the AudioContext strictly inside a user-gesture event handler.
  * Also drains any sounds queued before first interaction.
  */
 export const unlockAudio = (): boolean => {
@@ -68,19 +72,17 @@ export const unlockAudio = (): boolean => {
 
         if (audioCtx) {
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(() => {});
-            }
-
-            // Drain queued sound if needed
-            if (pendingSoundCount > 0 && isSoundEnabled()) {
-                pendingSoundCount = 0;
-                if (audioCtx.state === 'running') {
+                audioCtx.resume().then(() => {
+                    if (pendingSoundCount > 0 && isSoundEnabled() && audioCtx) {
+                        pendingSoundCount = 0;
+                        playSynthChime(audioCtx);
+                    }
+                }).catch(() => {});
+            } else if (audioCtx.state === 'running') {
+                if (pendingSoundCount > 0 && isSoundEnabled()) {
+                    pendingSoundCount = 0;
                     playSynthChime(audioCtx);
-                } else {
-                    audioCtx.resume().then(() => playSynthChime(audioCtx!)).catch(() => {});
                 }
-            } else {
-                pendingSoundCount = 0;
             }
             return true;
         }
@@ -90,15 +92,14 @@ export const unlockAudio = (): boolean => {
     return false;
 };
 
-// Register global gesture listeners to prime audio context transparently
+// Register global gesture listeners to prime audio context only on real user gestures
 if (typeof window !== 'undefined') {
     const gestureHandler = () => {
         unlockAudio();
     };
-    window.addEventListener('click', gestureHandler, { capture: true });
-    window.addEventListener('keydown', gestureHandler, { capture: true });
-    window.addEventListener('touchstart', gestureHandler, { capture: true });
-    window.addEventListener('pointerdown', gestureHandler, { capture: true });
+    window.addEventListener('click', gestureHandler, { capture: true, once: false });
+    window.addEventListener('keydown', gestureHandler, { capture: true, once: false });
+    window.addEventListener('touchend', gestureHandler, { capture: true, once: false });
 }
 
 export function isSoundEnabled(): boolean {
@@ -124,27 +125,19 @@ export function isAudioReady(): boolean {
 /**
  * Play a single notification chime.
  * - After first gesture: plays immediately via Web Audio API.
- * - Before first gesture: queues the sound to play on next gesture.
+ * - Before first gesture: queues the sound to play on next gesture without throwing autoplay warnings.
  */
 export function playOrderNotificationSound(): boolean {
     if (!isSoundEnabled()) return false;
 
-    if (!userHasInteracted || !audioCtx) {
+    if (!userHasInteracted || !audioCtx || audioCtx.state !== 'running') {
         pendingSoundCount++;
         return false;
     }
 
     try {
-        if (audioCtx.state === 'running') {
-            playSynthChime(audioCtx);
-            return true;
-        }
-
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => {
-                if (audioCtx) playSynthChime(audioCtx);
-            }).catch(() => {});
-        }
+        playSynthChime(audioCtx);
+        return true;
     } catch {
         // Silently fail
     }

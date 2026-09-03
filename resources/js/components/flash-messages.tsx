@@ -4,12 +4,14 @@ import { CheckCircle, XCircle, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 export function FlashMessages() {
-    const { flash } = usePage().props as any;
+    const props = usePage().props as Record<string, any>;
+    const flash = props?.flash;
     const [visible, setVisible] = useState(false);
     const [message, setMessage] = useState('');
     const [type, setType] = useState<'success' | 'error'>('success');
 
     useEffect(() => {
+        if (!flash) return;
         if (flash.success) {
             setMessage(flash.success);
             setType('success');

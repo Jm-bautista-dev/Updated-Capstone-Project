@@ -86,7 +86,11 @@ class CustomerRiskController extends Controller
 
         return Inertia::render('SuperAdmin/CustomerRisk', [
             'customers' => $customers,
-            'filters'   => $request->only(['search', 'risk_level', 'filter']),
+            'filters'   => [
+                'search'     => (string) $request->input('search', ''),
+                'risk_level' => (string) $request->input('risk_level', ''),
+                'filter'     => (string) $request->input('filter', ''),
+            ],
         ]);
     }
 
