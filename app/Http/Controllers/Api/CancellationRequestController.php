@@ -141,8 +141,11 @@ class CancellationRequestController extends Controller
                         try {
                             app(InventoryService::class)->restoreForOrder($order);
                         } catch (\Throwable $e) {
-                            Log::warning('Inventory restoration failed during cancellation accept: ' . $e->getMessage());
-                        }
+                    // Record customer cancellation in consecutive streak tracking if attributable to customer
+                    $isCustomerReason = str_contains(strtolower((string) $req->reason), 'customer')
+                        || in_array($req->reason, ['CUSTOMER_REFUSED_ORDER', 'CUSTOMER_REQUESTED_CANCELLATION', 'CUSTOMER_UNAVAILABLE']);
+                    if ($isCustomerReason && $order->user_id) {
+                        app(\App\Services\AccountGovernanceService::class)->recordCustomerCancellation($order->user_id, $req->reason, $order);
                     }
                 }
 

@@ -807,7 +807,15 @@ class RiderController extends Controller
                         $order->fresh(['items.product.ingredients.stocks', 'branch']),
                         $delivery
                     );
+
+                    // Reset customer cancellation streak to 0 upon successful order delivery
+                    if ($order->user_id) {
+                        app(\App\Services\AccountGovernanceService::class)->recordCustomerSuccessfulOrder($order->user_id, $order);
+                    }
                 }
+
+                // Reset rider failure streak to 0 upon successful delivery
+                app(\App\Services\AccountGovernanceService::class)->recordRiderSuccessfulDelivery($rider->id, $delivery);
 
                 $deliveryToBroadcast = $delivery->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
                 $riderToBroadcast = $rider->fresh(['branch']);

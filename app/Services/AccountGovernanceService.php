@@ -10,6 +10,250 @@ use Illuminate\Support\Facades\DB;
 class AccountGovernanceService
 {
     /**
+     * Lift any active restriction (Automatic or Manual) from a User or Rider account.
+     * Enforces Super Admin authorization, clears restriction flags, resets consecutive streaks to 0,
+     * and records an immutable security audit trail.
+     */
+    public function liftRestriction(User|Rider $target, string $reason, User $actor): array
+    {
+        // 1. Authorization: Only Super Admin can lift account restrictions
+        if (!$actor->isSuperAdmin()) {
+            throw new \RuntimeException('Unauthorized: Only Super Admins can remove account restrictions.');
+        }
+
+        // 2. Privilege hierarchy check
+        if ($target instanceof User && $target->isSuperAdmin() && (int) $target->id !== (int) $actor->id && !$actor->isSuperAdmin()) {
+            throw new \RuntimeException('Unauthorized: Only Super Admins can manage Super Admin accounts.');
+        }
+
+        $prevStatus = $target->account_status ?? User::STATUS_ACTIVE;
+        $prevReason = $target->status_reason ?? $target->restriction_reason ?? null;
+        $prevSource = $target->restriction_source ?? 'MANUAL';
+        $prevStreak = $target instanceof User ? (int) $target->consecutive_cancellations : (int) $target->consecutive_delivery_failures;
+        $targetType = $target instanceof Rider ? 'rider' : 'user';
+
+        return DB::transaction(function () use ($target, $targetType, $prevStatus, $prevReason, $prevSource, $prevStreak, $reason, $actor) {
+            // Lift restriction and reset consecutive streak
+            $target->liftAccountRestriction($actor, $reason);
+
+            // If target is a rider, broadcast updated status
+            if ($target instanceof Rider) {
+                try {
+                    broadcast(new \App\Events\RiderStatusUpdated($target->fresh()));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast error on liftRestriction: ' . $e->getMessage());
+                }
+            }
+
+            // Record security audit log
+            SecurityAuditLogger::logSecurityEvent(
+                event: 'RESTRICTION_REMOVED',
+                target: "{$targetType}:{$target->id}",
+                details: [
+                    'actor_id'                 => $actor->id,
+                    'actor_name'               => $actor->name,
+                    'actor_role'               => $actor->role,
+                    'target_id'                => $target->id,
+                    'target_type'              => $targetType,
+                    'target_name'              => $target->name,
+                    'target_email'             => $target->email,
+                    'previous_status'          => $prevStatus,
+                    'previous_reason'          => $prevReason,
+                    'previous_source'          => $prevSource,
+                    'previous_streak'          => $prevStreak,
+                    'reason'                   => $reason,
+                    'consecutive_streak_reset' => 0,
+                ],
+                level: 'info'
+            );
+
+            return [
+                'success'         => true,
+                'target'          => $target->fresh(),
+                'previous_status' => $prevStatus,
+                'new_status'      => User::STATUS_ACTIVE,
+                'message'         => "Restriction lifted successfully for {$target->name}. Consecutive streak reset to 0.",
+            ];
+        });
+    }
+
+    /**
+     * Manually restrict a User or Rider account by Super Admin.
+     */
+    public function restrictAccount(User|Rider $target, string $reason, User $actor, array $options = []): array
+    {
+        // 1. Authorization: Only Super Admin can manually restrict accounts
+        if (!$actor->isSuperAdmin()) {
+            throw new \RuntimeException('Unauthorized: Only Super Admins can manually restrict accounts.');
+        }
+
+        // 2. Self-lockout check
+        if ($actor instanceof User && $target instanceof User && (int) $actor->id === (int) $target->id) {
+            throw new \RuntimeException('Self-lockout protection: You cannot restrict your own account.');
+        }
+
+        if (empty(trim($reason))) {
+            throw new \InvalidArgumentException('A mandatory reason is required to restrict an account.');
+        }
+
+        $prevStatus = $target->account_status ?? User::STATUS_ACTIVE;
+        $targetType = $target instanceof Rider ? 'rider' : 'user';
+
+        return DB::transaction(function () use ($target, $targetType, $prevStatus, $reason, $actor, $options) {
+            $target->applyManualAccountRestriction($actor, $reason);
+
+            if ($target instanceof Rider) {
+                if (!empty($options['restrict_new_only'])) {
+                    $target->update(['is_delivery_restricted' => true]);
+                }
+                try {
+                    broadcast(new \App\Events\RiderStatusUpdated($target->fresh()));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast error on restrictAccount: ' . $e->getMessage());
+                }
+            }
+
+            SecurityAuditLogger::logSecurityEvent(
+                event: 'MANUAL_RESTRICTION_APPLIED',
+                target: "{$targetType}:{$target->id}",
+                details: [
+                    'actor_id'        => $actor->id,
+                    'actor_name'      => $actor->name,
+                    'actor_role'      => $actor->role,
+                    'target_id'       => $target->id,
+                    'target_type'     => $targetType,
+                    'target_name'     => $target->name,
+                    'previous_status' => $prevStatus,
+                    'new_status'      => User::STATUS_RESTRICTED,
+                    'reason'          => $reason,
+                    'source'          => 'MANUAL',
+                ],
+                level: 'warning'
+            );
+
+            return [
+                'success'         => true,
+                'target'          => $target->fresh(),
+                'previous_status' => $prevStatus,
+                'new_status'      => User::STATUS_RESTRICTED,
+                'message'         => "Account successfully restricted.",
+            ];
+        });
+    }
+
+    /**
+     * Record a qualifying customer cancellation and evaluate the consecutive cancellation threshold (10 cancellations).
+     */
+    public function recordCustomerCancellation(User|int $userOrId, string $reason, ?\App\Models\Order $order = null): void
+    {
+        $user = $userOrId instanceof User ? $userOrId : User::find((int) $userOrId);
+        if (!$user) return;
+
+        // Only evaluate customers who are not already restricted/suspended/deactivated
+        if ($user->isRestricted() || $user->isSuspended() || $user->isDeactivated()) {
+            return;
+        }
+
+        DB::transaction(function () use ($user, $reason, $order) {
+            $freshUser = User::where('id', $user->id)->lockForUpdate()->first();
+            if (!$freshUser) return;
+
+            $newStreak = ((int) $freshUser->consecutive_cancellations) + 1;
+            $freshUser->update(['consecutive_cancellations' => $newStreak]);
+
+            // Threshold: 10 consecutive qualifying cancellations triggers automatic restriction
+            if ($newStreak >= 10 && $freshUser->account_status === User::STATUS_ACTIVE) {
+                $restrictionReason = "10 consecutive order cancellations. Last cancellation reason: {$reason}";
+                $freshUser->applyConsecutiveCancellationRestriction($restrictionReason);
+
+                SecurityAuditLogger::logSecurityEvent(
+                    event: 'AUTOMATIC_ACCOUNT_RESTRICTED',
+                    target: "user:{$freshUser->id}",
+                    details: [
+                        'target_id'             => $freshUser->id,
+                        'target_name'           => $freshUser->name,
+                        'consecutive_streak'    => $newStreak,
+                        'threshold'             => 10,
+                        'last_order_id'         => $order?->id,
+                        'reason'                => $restrictionReason,
+                        'source'                => 'AUTOMATIC',
+                    ],
+                    level: 'warning'
+                );
+            }
+        });
+    }
+
+    /**
+     * Record a customer successful delivered order, which atomically resets the cancellation streak to 0.
+     */
+    public function recordCustomerSuccessfulOrder(User|int $userOrId, ?\App\Models\Order $order = null): void
+    {
+        $user = $userOrId instanceof User ? $userOrId : User::find((int) $userOrId);
+        if (!$user) return;
+
+        $user->resetCancellationStreak();
+    }
+
+    /**
+     * Record a qualifying rider delivery failure and evaluate the consecutive failure threshold (5 failures).
+     */
+    public function recordRiderDeliveryFailure(Rider|int $riderOrId, string $reason, ?\App\Models\Delivery $delivery = null): void
+    {
+        $rider = $riderOrId instanceof Rider ? $riderOrId : Rider::find((int) $riderOrId);
+        if (!$rider) return;
+
+        if ($rider->isRestricted() || $rider->isSuspended() || $rider->isDeactivated()) {
+            return;
+        }
+
+        DB::transaction(function () use ($rider, $reason, $delivery) {
+            $freshRider = Rider::where('id', $rider->id)->lockForUpdate()->first();
+            if (!$freshRider) return;
+
+            $newStreak = ((int) $freshRider->consecutive_delivery_failures) + 1;
+            $freshRider->update(['consecutive_delivery_failures' => $newStreak]);
+
+            // Threshold: 5 consecutive qualifying delivery failures triggers automatic restriction
+            if ($newStreak >= 5 && $freshRider->account_status === Rider::STATUS_ACTIVE) {
+                $restrictionReason = "5 consecutive failed deliveries. Last failure reason: {$reason}";
+                $freshRider->applyConsecutiveFailureRestriction($restrictionReason);
+
+                try {
+                    broadcast(new \App\Events\RiderStatusUpdated($freshRider->fresh()));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('RiderStatusUpdated broadcast error on auto-restrict: ' . $e->getMessage());
+                }
+
+                SecurityAuditLogger::logSecurityEvent(
+                    event: 'AUTOMATIC_RIDER_RESTRICTED',
+                    target: "rider:{$freshRider->id}",
+                    details: [
+                        'target_id'          => $freshRider->id,
+                        'target_name'        => $freshRider->name,
+                        'consecutive_streak' => $newStreak,
+                        'threshold'          => 5,
+                        'last_delivery_id'   => $delivery?->id,
+                        'reason'             => $restrictionReason,
+                        'source'             => 'AUTOMATIC',
+                    ],
+                    level: 'warning'
+                );
+            }
+        });
+    }
+
+    /**
+     * Record a rider successful delivery, which atomically resets the failure streak to 0.
+     */
+    public function recordRiderSuccessfulDelivery(Rider|int $riderOrId, ?\App\Models\Delivery $delivery = null): void
+    {
+        $rider = $riderOrId instanceof Rider ? $riderOrId : Rider::find((int) $riderOrId);
+        if (!$rider) return;
+
+        $rider->resetFailureStreak();
+    }
+    /**
      * Change the account status of a user or rider with strict safety checks.
      */
     public function changeStatus(

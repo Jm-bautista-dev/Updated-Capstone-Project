@@ -299,6 +299,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/accounts', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'index'])->name('accounts.index');
             Route::get('/accounts/{type}/{id}', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'show'])->name('accounts.show');
             Route::post('/accounts/{type}/{id}/status', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'updateStatus'])->name('accounts.update-status');
+            Route::post('/accounts/{type}/{id}/remove-restriction', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'removeRestriction'])->name('accounts.remove-restriction');
+            Route::post('/accounts/{type}/{id}/restrict', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'restrict'])->name('accounts.restrict');
             Route::post('/accounts/{type}/{id}/restore', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'restore'])->name('accounts.restore');
             Route::delete('/accounts/{type}/{id}', [App\Http\Controllers\SuperAdmin\AccountGovernanceController::class, 'destroy'])->name('accounts.destroy');
 

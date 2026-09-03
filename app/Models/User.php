@@ -33,6 +33,11 @@ class User extends Authenticatable
         'deactivated_at',
         'status_changed_by',
         'is_order_restricted',
+        'consecutive_cancellations',
+        'restriction_source',
+        'restriction_reason',
+        'restriction_removed_at',
+        'restriction_removed_by',
         'branch_id',
         'phone_verified_at',
         'cod_restricted',
@@ -188,6 +193,78 @@ class User extends Authenticatable
     public function codRestrictedBy()
     {
         return $this->belongsTo(User::class, 'cod_restricted_by');
+    }
+
+    public function restrictionRemovedBy()
+    {
+        return $this->belongsTo(User::class, 'restriction_removed_by');
+    }
+
+    /**
+     * Lift any active account restriction and reset the consecutive streak.
+     */
+    public function liftAccountRestriction(User $actor, ?string $reason = null): void
+    {
+        $this->update([
+            'account_status'            => self::STATUS_ACTIVE,
+            'is_order_restricted'       => false,
+            'status_reason'             => null,
+            'restricted_at'             => null,
+            'consecutive_cancellations' => 0,
+            'restriction_source'        => null,
+            'restriction_reason'        => null,
+            'restriction_removed_at'    => now(),
+            'restriction_removed_by'    => $actor->id,
+            'status_changed_by'         => $actor->id,
+        ]);
+
+        $this->clearCodRestriction($actor);
+    }
+
+    /**
+     * Apply manual restriction by an administrator.
+     */
+    public function applyManualAccountRestriction(User $actor, string $reason): void
+    {
+        $this->update([
+            'account_status'      => self::STATUS_RESTRICTED,
+            'is_order_restricted' => true,
+            'status_reason'       => $reason,
+            'restriction_source'  => 'MANUAL',
+            'restriction_reason'  => $reason,
+            'restricted_at'       => now(),
+            'status_changed_by'   => $actor->id,
+        ]);
+
+        $this->applyManualCodRestriction($actor, $reason);
+    }
+
+    /**
+     * Apply automatic restriction from consecutive cancellations threshold (10 cancellations).
+     */
+    public function applyConsecutiveCancellationRestriction(string $reason = '10 consecutive order cancellations'): void
+    {
+        $this->update([
+            'account_status'      => self::STATUS_RESTRICTED,
+            'is_order_restricted' => true,
+            'status_reason'       => $reason,
+            'restriction_source'  => 'AUTOMATIC',
+            'restriction_reason'  => $reason,
+            'restricted_at'       => now(),
+        ]);
+
+        $tempDays = (int) config('cod_security.temporary_restriction_days', 7);
+        $this->applyTemporaryCodRestriction($tempDays, $reason);
+    }
+
+    /**
+     * Reset cancellation streak to 0 upon successful order delivery.
+     */
+    public function resetCancellationStreak(): void
+    {
+        if ((int) $this->consecutive_cancellations > 0) {
+            $this->update(['consecutive_cancellations' => 0]);
+        }
     }
 
     /**

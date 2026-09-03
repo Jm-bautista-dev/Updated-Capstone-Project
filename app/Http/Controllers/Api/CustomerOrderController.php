@@ -229,6 +229,11 @@ class CustomerOrderController extends Controller
             $inventoryService = new \App\Services\InventoryService();
             $inventoryService->restoreForOrder($order);
 
+            // Record customer cancellation in consecutive streak tracking
+            if ($order->user_id) {
+                app(\App\Services\AccountGovernanceService::class)->recordCustomerCancellation($order->user_id, $reason, $order);
+            }
+
             DB::commit();
 
             try {

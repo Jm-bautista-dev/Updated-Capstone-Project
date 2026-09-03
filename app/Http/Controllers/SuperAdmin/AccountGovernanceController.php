@@ -118,6 +118,10 @@ class AccountGovernanceController extends Controller
      */
     private function formatUserAccount(User $u): array
     {
+        $isRestricted = ($u->account_status ?? 'active') === 'restricted'
+            || (bool) $u->is_order_restricted
+            || (bool) $u->cod_restricted;
+
         return [
             'id'                     => $u->id,
             'type'                   => 'user',
@@ -126,7 +130,13 @@ class AccountGovernanceController extends Controller
             'phone'                  => $u->mobile_number,
             'role'                   => $u->role,
             'account_status'         => $u->account_status ?? 'active',
-            'status_reason'          => $u->status_reason,
+            'status_reason'          => $u->status_reason ?? $u->restriction_reason,
+            'is_restricted'          => $isRestricted,
+            'restriction_source'     => $u->restriction_source ?? ($u->cod_restriction_source ?: 'MANUAL'),
+            'restriction_reason'     => $u->restriction_reason ?? $u->status_reason ?? $u->cod_restriction_reason,
+            'restricted_at'          => $u->restricted_at?->toIso8601String() ?? $u->cod_restricted_at?->toIso8601String(),
+            'consecutive_streak'     => (int) ($u->consecutive_cancellations ?? 0),
+            'streak_threshold'       => 10,
             'branch'                 => $u->branch?->name ?? 'All Branches',
             'branch_id'              => $u->branch_id,
             'is_order_restricted'    => (bool) $u->is_order_restricted,
@@ -140,6 +150,9 @@ class AccountGovernanceController extends Controller
      */
     private function formatRiderAccount(Rider $r): array
     {
+        $isRestricted = ($r->account_status ?? 'active') === 'restricted'
+            || (bool) $r->is_delivery_restricted;
+
         return [
             'id'                     => $r->id,
             'type'                   => 'rider',
@@ -148,7 +161,13 @@ class AccountGovernanceController extends Controller
             'phone'                  => $r->phone,
             'role'                   => 'rider',
             'account_status'         => $r->account_status ?? 'active',
-            'status_reason'          => $r->status_reason,
+            'status_reason'          => $r->status_reason ?? $r->restriction_reason,
+            'is_restricted'          => $isRestricted,
+            'restriction_source'     => $r->restriction_source ?? 'MANUAL',
+            'restriction_reason'     => $r->restriction_reason ?? $r->status_reason,
+            'restricted_at'          => $r->restricted_at?->toIso8601String(),
+            'consecutive_streak'     => (int) ($r->consecutive_delivery_failures ?? 0),
+            'streak_threshold'       => 5,
             'branch'                 => $r->branch?->name ?? 'Unassigned',
             'branch_id'              => $r->branch_id,
             'is_order_restricted'    => false,
@@ -257,6 +276,80 @@ class AccountGovernanceController extends Controller
             );
 
             return response()->json($result, $result['success'] ? 200 : 422);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /super-admin/accounts/{type}/{id}/remove-restriction
+     * Dedicated Super Admin endpoint to lift active restrictions and reset consecutive streaks.
+     */
+    public function removeRestriction(Request $request, string $type, $id): JsonResponse
+    {
+        $admin = $request->user();
+        if (!$admin || !$admin->isSuperAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: Only Super Admins can remove account restrictions.'], 403);
+        }
+
+        /** @var User|Rider|null $target */
+        $target = $type === 'rider' ? Rider::find($id) : User::find($id);
+
+        if (!$target) {
+            return response()->json(['success' => false, 'message' => 'Account not found.'], 404);
+        }
+
+        $reason = $request->input('reason', 'Restriction removed by Super Admin');
+
+        try {
+            $result = $this->governanceService->liftRestriction(
+                target: $target,
+                reason: $reason,
+                actor: $admin
+            );
+
+            return response()->json($result, 200);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /super-admin/accounts/{type}/{id}/restrict
+     * Dedicated Super Admin endpoint to manually restrict an account.
+     */
+    public function restrict(Request $request, string $type, $id): JsonResponse
+    {
+        $admin = $request->user();
+        if (!$admin || !$admin->isSuperAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: Only Super Admins can manually restrict accounts.'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason'            => 'required|string|min:3|max:500',
+            'restrict_new_only' => 'nullable|boolean',
+        ]);
+
+        /** @var User|Rider|null $target */
+        $target = $type === 'rider' ? Rider::find($id) : User::find($id);
+
+        if (!$target) {
+            return response()->json(['success' => false, 'message' => 'Account not found.'], 404);
+        }
+
+        try {
+            $result = $this->governanceService->restrictAccount(
+                target: $target,
+                reason: $validated['reason'],
+                actor: $admin,
+                options: ['restrict_new_only' => $validated['restrict_new_only'] ?? false]
+            );
+
+            return response()->json($result, 200);
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {

@@ -2,14 +2,19 @@ import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
 import {
     AlertTriangle,
+    Ban,
     CheckCircle2,
     Filter,
     RefreshCw,
     Search,
     Shield,
+    ShieldAlert,
+    ShieldCheck,
+    ShieldOff,
     Trash2,
     UserCheck,
     Users,
+    Zap,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import SuperAdminLayout from '@/layouts/SuperAdminLayout';
@@ -23,6 +28,12 @@ interface AccountRecord {
     role: string;
     account_status: string;
     status_reason?: string;
+    is_restricted?: boolean;
+    restriction_source?: 'AUTOMATIC' | 'MANUAL';
+    restriction_reason?: string;
+    restricted_at?: string;
+    consecutive_streak?: number;
+    streak_threshold?: number;
     branch: string;
     branch_id?: number;
     is_order_restricted?: boolean;
@@ -56,7 +67,7 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
 
     // Modal States
     const [selectedAccount, setSelectedAccount] = useState<AccountRecord | null>(null);
-    const [actionType, setActionType] = useState<'status' | 'restore' | 'delete' | null>(null);
+    const [actionType, setActionType] = useState<'status' | 'restore' | 'delete' | 'remove_restriction' | 'restrict' | null>(null);
     const [newStatus, setNewStatus] = useState('suspended');
     const [reason, setReason] = useState('');
     const [force, setForce] = useState(false);
@@ -75,7 +86,7 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
         );
     };
 
-    const openActionModal = (account: AccountRecord, type: 'status' | 'restore' | 'delete') => {
+    const openActionModal = (account: AccountRecord, type: 'status' | 'restore' | 'delete' | 'remove_restriction' | 'restrict') => {
         setSelectedAccount(account);
         setActionType(type);
         setReason('');
@@ -96,7 +107,22 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
         setFeedback(null);
 
         try {
-            if (actionType === 'status') {
+            if (actionType === 'remove_restriction') {
+                const res = await axios.post(
+                    `/super-admin/accounts/${selectedAccount.type}/${selectedAccount.id}/remove-restriction`,
+                    { reason: reason || 'Restriction removed by Super Admin' }
+                );
+                setFeedback({ type: 'success', message: res.data.message || 'Account restriction lifted and streak reset.' });
+            } else if (actionType === 'restrict') {
+                const res = await axios.post(
+                    `/super-admin/accounts/${selectedAccount.type}/${selectedAccount.id}/restrict`,
+                    {
+                        reason,
+                        restrict_new_only: restrictNewOnly,
+                    }
+                );
+                setFeedback({ type: 'success', message: res.data.message || 'Account restricted successfully.' });
+            } else if (actionType === 'status') {
                 const res = await axios.post(
                     `/super-admin/accounts/${selectedAccount.type}/${selectedAccount.id}/status`,
                     {
@@ -151,20 +177,56 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
         }
     };
 
-    const getStatusBadge = (st: string) => {
-        switch (st) {
+    const getStatusBadge = (acc: AccountRecord) => {
+        if (acc.account_status === 'restricted' || acc.is_restricted) {
+            if (acc.restriction_source === 'AUTOMATIC') {
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                        <Zap className="size-3 text-amber-500" />
+                        Auto Restricted
+                    </span>
+                );
+            }
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20">
+                    <ShieldAlert className="size-3 text-orange-500" />
+                    Manual Restricted
+                </span>
+            );
+        }
+
+        switch (acc.account_status) {
             case 'active':
-                return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                        <CheckCircle2 className="size-3 text-emerald-500" />
+                        Active
+                    </span>
+                );
             case 'under_review':
-                return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
-            case 'restricted':
-                return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                        Under Review
+                    </span>
+                );
             case 'suspended':
-                return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20">
+                        Suspended
+                    </span>
+                );
             case 'deactivated':
-                return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
+                return (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20">
+                        Deactivated
+                    </span>
+                );
             default:
-                return 'bg-slate-100 text-slate-700 border-slate-200';
+                return (
+                    <span className="inline-block px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border bg-slate-100 text-slate-700 border-slate-200">
+                        {acc.account_status}
+                    </span>
+                );
         }
     };
 
@@ -193,10 +255,10 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                     <div>
                         <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                             <Users className="size-6 text-rose-600" />
-                            Account Governance & Moderation
+                            Account Governance & Restriction Center
                         </h1>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            Authoritative control center for investigating, restricting, suspending, and moderating accounts across MAKI DESU.
+                            Manage user and rider accounts, inspect consecutive violation streaks, apply manual restrictions, and lift active restrictions with Super Admin authority.
                         </p>
                     </div>
                 </div>
@@ -241,8 +303,8 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                             >
                                 <option value="">All Statuses</option>
                                 <option value="active">Active</option>
-                                <option value="under_review">Under Review</option>
                                 <option value="restricted">Restricted</option>
+                                <option value="under_review">Under Review</option>
                                 <option value="suspended">Suspended</option>
                                 <option value="deactivated">Deactivated</option>
                             </select>
@@ -285,89 +347,136 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                     <th className="p-4">Account</th>
                                     <th className="p-4">Role</th>
-                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Status & Reason</th>
+                                    <th className="p-4">Violation Streak</th>
                                     <th className="p-4">Branch</th>
-                                    <th className="p-4">Created</th>
                                     <th className="p-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 text-xs">
-                                {accounts.data.map((acc) => (
-                                    <tr key={`${acc.type}-${acc.id}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                                        {/* Name & Contact */}
-                                        <td className="p-4">
-                                            <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                                                {acc.name}
-                                                {acc.active_deliveries ? (
-                                                    <span className="bg-amber-500/10 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-md font-mono font-bold">
-                                                        {acc.active_deliveries} active delivery
+                                {accounts.data.map((acc) => {
+                                    const isCurrentlyRestricted = acc.account_status === 'restricted' || acc.is_restricted;
+                                    const streak = acc.consecutive_streak ?? 0;
+                                    const threshold = acc.streak_threshold ?? (acc.type === 'rider' ? 5 : 10);
+                                    const streakPct = Math.min(100, Math.round((streak / threshold) * 100));
+
+                                    return (
+                                        <tr key={`${acc.type}-${acc.id}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                                            {/* Name & Contact */}
+                                            <td className="p-4">
+                                                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                                    {acc.name}
+                                                    {acc.active_deliveries ? (
+                                                        <span className="bg-amber-500/10 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-md font-mono font-bold">
+                                                            {acc.active_deliveries} active delivery
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <div className="text-slate-400 text-[11px] font-mono mt-0.5">
+                                                    {acc.email} {acc.phone ? `• ${acc.phone}` : ''}
+                                                </div>
+                                            </td>
+
+                                            {/* Role */}
+                                            <td className="p-4">
+                                                <span className={`inline-block px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getRoleBadge(acc.role)}`}>
+                                                    {acc.role}
+                                                </span>
+                                            </td>
+
+                                            {/* Status & Reason */}
+                                            <td className="p-4">
+                                                <div>{getStatusBadge(acc)}</div>
+                                                {(acc.status_reason || acc.restriction_reason) && (
+                                                    <p className="text-[10px] text-slate-400 italic mt-1 truncate max-w-xs" title={acc.status_reason || acc.restriction_reason}>
+                                                        &quot;{acc.status_reason || acc.restriction_reason}&quot;
+                                                    </p>
+                                                )}
+                                                {acc.restricted_at && (
+                                                    <span className="text-[9px] text-slate-400 font-mono block mt-0.5">
+                                                        Restricted on: {new Date(acc.restricted_at).toLocaleDateString()}
                                                     </span>
-                                                ) : null}
-                                            </div>
-                                            <div className="text-slate-400 text-[11px] font-mono mt-0.5">
-                                                {acc.email} {acc.phone ? `• ${acc.phone}` : ''}
-                                            </div>
-                                        </td>
+                                                )}
+                                            </td>
 
-                                        {/* Role */}
-                                        <td className="p-4">
-                                            <span className={`inline-block px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getRoleBadge(acc.role)}`}>
-                                                {acc.role}
-                                            </span>
-                                        </td>
+                                            {/* Consecutive Streak */}
+                                            <td className="p-4">
+                                                <div className="flex flex-col gap-1 max-w-[130px]">
+                                                    <div className="flex items-center justify-between text-[11px] font-bold">
+                                                        <span className={streak > 0 ? (streak >= threshold ? 'text-rose-600 font-black' : 'text-amber-600') : 'text-slate-400'}>
+                                                            {streak} / {threshold}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-400 font-semibold uppercase">
+                                                            {acc.type === 'rider' ? 'Failures' : 'Cancels'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full transition-all ${
+                                                                streak >= threshold
+                                                                    ? 'bg-rose-500'
+                                                                    : streak > 0
+                                                                    ? 'bg-amber-500'
+                                                                    : 'bg-slate-300 dark:bg-slate-700'
+                                                            }`}
+                                                            style={{ width: `${streakPct}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                        {/* Status */}
-                                        <td className="p-4">
-                                            <span className={`inline-block px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getStatusBadge(acc.account_status)}`}>
-                                                {acc.account_status.replace('_', ' ')}
-                                            </span>
-                                            {acc.status_reason && (
-                                                <p className="text-[10px] text-slate-400 italic mt-1 truncate max-w-xs">
-                                                    &quot;{acc.status_reason}&quot;
-                                                </p>
-                                            )}
-                                        </td>
+                                            {/* Branch */}
+                                            <td className="p-4 text-slate-600 dark:text-slate-400 font-semibold">
+                                                {acc.branch}
+                                            </td>
 
-                                        {/* Branch */}
-                                        <td className="p-4 text-slate-600 dark:text-slate-400 font-semibold">
-                                            {acc.branch}
-                                        </td>
+                                            {/* Actions */}
+                                            <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                                {isCurrentlyRestricted ? (
+                                                    <button
+                                                        onClick={() => openActionModal(acc, 'remove_restriction')}
+                                                        className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1 shadow-xs"
+                                                    >
+                                                        <ShieldOff className="size-3" />
+                                                        Remove Restriction
+                                                    </button>
+                                                ) : acc.account_status === 'suspended' || acc.account_status === 'deactivated' ? (
+                                                    <button
+                                                        onClick={() => openActionModal(acc, 'restore')}
+                                                        className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
+                                                    >
+                                                        <UserCheck className="size-3" />
+                                                        Restore
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => openActionModal(acc, 'restrict')}
+                                                        className="px-2.5 py-1.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
+                                                    >
+                                                        <Ban className="size-3" />
+                                                        Restrict
+                                                    </button>
+                                                )}
 
-                                        {/* Created */}
-                                        <td className="p-4 text-slate-400 text-[11px] font-mono">
-                                            {new Date(acc.created_at).toLocaleDateString()}
-                                        </td>
-
-                                        {/* Actions */}
-                                        <td className="p-4 text-right space-x-1.5">
-                                            {acc.account_status === 'suspended' || acc.account_status === 'deactivated' ? (
-                                                <button
-                                                    onClick={() => openActionModal(acc, 'restore')}
-                                                    className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
-                                                >
-                                                    <UserCheck className="size-3" />
-                                                    Restore
-                                                </button>
-                                            ) : (
                                                 <button
                                                     onClick={() => openActionModal(acc, 'status')}
-                                                    className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
+                                                    className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
                                                 >
                                                     <Shield className="size-3" />
                                                     Moderate
                                                 </button>
-                                            )}
 
-                                            <button
-                                                onClick={() => openActionModal(acc, 'delete')}
-                                                className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
-                                            >
-                                                <Trash2 className="size-3" />
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                <button
+                                                    onClick={() => openActionModal(acc, 'delete')}
+                                                    className="px-2.5 py-1.5 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-xl text-[11px] font-bold transition inline-flex items-center gap-1"
+                                                >
+                                                    <Trash2 className="size-3" />
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
 
                                 {accounts.data.length === 0 && (
                                     <tr>
@@ -381,15 +490,20 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                     </div>
                 </div>
 
-                {/* MODAL: Moderate / Restore / Delete */}
+                {/* MODAL: Remove Restriction / Restrict / Moderate / Restore / Delete */}
                 {actionType && selectedAccount && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                                    {actionType === 'remove_restriction' && <ShieldOff className="size-5 text-emerald-500" />}
+                                    {actionType === 'restrict' && <Ban className="size-5 text-orange-500" />}
                                     {actionType === 'status' && <Shield className="size-5 text-amber-500" />}
                                     {actionType === 'restore' && <CheckCircle2 className="size-5 text-emerald-500" />}
                                     {actionType === 'delete' && <AlertTriangle className="size-5 text-rose-500" />}
+
+                                    {actionType === 'remove_restriction' && `Remove Restriction: ${selectedAccount.name}`}
+                                    {actionType === 'restrict' && `Restrict Account: ${selectedAccount.name}`}
                                     {actionType === 'status' && `Moderate: ${selectedAccount.name}`}
                                     {actionType === 'restore' && `Restore Account: ${selectedAccount.name}`}
                                     {actionType === 'delete' && `Safe Delete: ${selectedAccount.name}`}
@@ -414,6 +528,77 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                                 </div>
                             )}
 
+                            {/* REMOVE RESTRICTION MODAL */}
+                            {actionType === 'remove_restriction' && (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-2">
+                                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                                            <ShieldCheck className="size-4" />
+                                            Super Admin Override Authority
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                                            Lifting this restriction will immediately restore <strong>{selectedAccount.name}</strong> ({selectedAccount.role}) to <strong>ACTIVE</strong> status, clear all restriction flags, and <strong>reset the consecutive violation streak to 0</strong>.
+                                        </p>
+                                        {(selectedAccount.restriction_reason || selectedAccount.status_reason) && (
+                                            <div className="text-[11px] bg-white/60 dark:bg-slate-900/60 p-2.5 rounded-xl border border-emerald-500/10">
+                                                <span className="font-bold text-slate-500">Current Reason:</span>{' '}
+                                                <span className="italic text-slate-800 dark:text-slate-200">
+                                                    &quot;{selectedAccount.restriction_reason || selectedAccount.status_reason}&quot;
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                                            Removal Reason / Notes (Audit Log)
+                                        </label>
+                                        <textarea
+                                            value={reason}
+                                            onChange={(e) => setReason(e.target.value)}
+                                            placeholder="Explain why this restriction is being lifted (e.g., Customer verified via call, Rider appeal resolved)..."
+                                            rows={3}
+                                            className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-slate-100"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* RESTRICT ACCOUNT MODAL */}
+                            {actionType === 'restrict' && (
+                                <div className="space-y-4">
+                                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        Manually restrict <strong>{selectedAccount.name}</strong> ({selectedAccount.role}). This will block placing new orders (customers) or accepting deliveries (riders).
+                                    </p>
+
+                                    {selectedAccount.type === 'rider' && (
+                                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                                            <input
+                                                type="checkbox"
+                                                checked={restrictNewOnly}
+                                                onChange={(e) => setRestrictNewOnly(e.target.checked)}
+                                                className="rounded-md border-slate-300 text-rose-600"
+                                            />
+                                            <span>Restrict New Deliveries Only (Allow current in-flight deliveries to complete)</span>
+                                        </label>
+                                    )}
+
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                                            Mandatory Reason (Audit Log) <span className="text-rose-500">*</span>
+                                        </label>
+                                        <textarea
+                                            value={reason}
+                                            onChange={(e) => setReason(e.target.value)}
+                                            placeholder="Mandatory administrative reason for applying this manual restriction..."
+                                            rows={3}
+                                            className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-slate-100"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* MODERATE STATUS MODAL */}
                             {actionType === 'status' && (
                                 <div className="space-y-4">
                                     <div>
@@ -485,6 +670,7 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                                 </div>
                             )}
 
+                            {/* RESTORE MODAL */}
                             {actionType === 'restore' && (
                                 <div className="space-y-4">
                                     <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -505,6 +691,7 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                                 </div>
                             )}
 
+                            {/* DELETE MODAL */}
                             {actionType === 'delete' && (
                                 <div className="space-y-4">
                                     <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-700 dark:text-amber-400">
@@ -533,18 +720,18 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
                                     Cancel
                                 </button>
                                 <button
-                                    disabled={submitting || (actionType !== 'restore' && !reason.trim())}
+                                    disabled={submitting || (actionType === 'restrict' && !reason.trim()) || (actionType === 'status' && !reason.trim())}
                                     onClick={handleExecuteAction}
                                     className={`px-5 py-2 rounded-2xl text-xs font-bold text-white transition flex items-center gap-1.5 ${
-                                        actionType === 'delete'
-                                            ? 'bg-rose-600 hover:bg-rose-700'
-                                            : actionType === 'restore'
+                                        actionType === 'remove_restriction' || actionType === 'restore'
                                             ? 'bg-emerald-600 hover:bg-emerald-700'
+                                            : actionType === 'restrict' || actionType === 'delete'
+                                            ? 'bg-rose-600 hover:bg-rose-700'
                                             : 'bg-amber-600 hover:bg-amber-700'
                                     }`}
                                 >
                                     {submitting ? <RefreshCw className="size-3.5 animate-spin" /> : null}
-                                    Confirm Action
+                                    {actionType === 'remove_restriction' ? 'Confirm Lift Restriction' : 'Confirm Action'}
                                 </button>
                             </div>
                         </div>

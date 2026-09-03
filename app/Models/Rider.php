@@ -36,6 +36,11 @@ class Rider extends Authenticatable
         'deactivated_at',
         'status_changed_by',
         'is_delivery_restricted',
+        'consecutive_delivery_failures',
+        'restriction_source',
+        'restriction_reason',
+        'restriction_removed_at',
+        'restriction_removed_by',
         'is_active',
         'role',
         'last_active_at',
@@ -134,6 +139,71 @@ class Rider extends Authenticatable
     public function statusChangedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'status_changed_by');
+    }
+
+    public function restrictionRemovedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'restriction_removed_by');
+    }
+
+    /**
+     * Lift any active account restriction and reset the consecutive streak.
+     */
+    public function liftAccountRestriction(User $actor, ?string $reason = null): void
+    {
+        $this->update([
+            'account_status'                 => self::STATUS_ACTIVE,
+            'is_delivery_restricted'         => false,
+            'status_reason'                  => null,
+            'restricted_at'                  => null,
+            'consecutive_delivery_failures'  => 0,
+            'restriction_source'             => null,
+            'restriction_reason'             => null,
+            'restriction_removed_at'         => now(),
+            'restriction_removed_by'         => $actor->id,
+            'status_changed_by'              => $actor->id,
+        ]);
+    }
+
+    /**
+     * Apply manual restriction by an administrator.
+     */
+    public function applyManualAccountRestriction(User $actor, string $reason): void
+    {
+        $this->update([
+            'account_status'         => self::STATUS_RESTRICTED,
+            'is_delivery_restricted' => true,
+            'status_reason'          => $reason,
+            'restriction_source'     => 'MANUAL',
+            'restriction_reason'     => $reason,
+            'restricted_at'          => now(),
+            'status_changed_by'      => $actor->id,
+        ]);
+    }
+
+    /**
+     * Apply automatic restriction from consecutive failure threshold (5 failures).
+     */
+    public function applyConsecutiveFailureRestriction(string $reason = '5 consecutive failed deliveries'): void
+    {
+        $this->update([
+            'account_status'         => self::STATUS_RESTRICTED,
+            'is_delivery_restricted' => true,
+            'status_reason'          => $reason,
+            'restriction_source'     => 'AUTOMATIC',
+            'restriction_reason'     => $reason,
+            'restricted_at'          => now(),
+        ]);
+    }
+
+    /**
+     * Reset failure streak to 0 upon successful delivery completion.
+     */
+    public function resetFailureStreak(): void
+    {
+        if ((int) $this->consecutive_delivery_failures > 0) {
+            $this->update(['consecutive_delivery_failures' => 0]);
+        }
     }
 
     public function moderationCases(): HasMany

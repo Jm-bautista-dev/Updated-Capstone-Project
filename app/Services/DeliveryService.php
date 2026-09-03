@@ -687,6 +687,11 @@ class DeliveryService
                 'reason'      => $reason,
             ]);
 
+            // Track rider failure streak if rider was assigned and failure is rider-attributable
+            if ($delivery->rider_id && !str_contains(strtolower($reason), 'customer') && !str_contains(strtolower($reason), 'store') && !str_contains(strtolower($reason), 'system')) {
+                app(\App\Services\AccountGovernanceService::class)->recordRiderDeliveryFailure($delivery->rider_id, $reason, $delivery);
+            }
+
             event(new OrderStatusUpdated($delivery->fresh(), 'admin', $previousStatus ?? null));
 
             return $delivery->fresh();
