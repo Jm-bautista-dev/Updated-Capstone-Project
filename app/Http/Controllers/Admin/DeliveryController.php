@@ -14,6 +14,7 @@ use App\Services\PickupOrderService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
@@ -57,37 +58,7 @@ class DeliveryController extends Controller
         $deliveriesCollection = $this->fetchDeliveriesCollection($user, $filterType, $branchIdFilter, $view, $statusFilter, $riderIdFilter, $datePreset, $search, $request, $activeDeliveryStatuses);
 
         // 2. Sort & Paginate
-        if ($view === 'today') {
-            $sortedDeliveries = $deliveriesCollection->sort(function ($a, $b) {
-                $aActive = $a->is_active_op ? 0 : 1;
-                $bActive = $b->is_active_op ? 0 : 1;
-                if ($aActive !== $bActive) {
-                    return $aActive <=> $bActive;
-                }
-                return strtotime((string) $a->created_at) <=> strtotime((string) $b->created_at);
-            })->values();
-        } else {
-            $sortedDeliveries = $deliveriesCollection->sortByDesc('created_at')->values();
-        }
-
-        // Assign queue position numbers to active items
-        $queuePos = 1;
-        $sortedDeliveries->transform(function ($item) use (&$queuePos) {
-            $item->queue_position = $item->is_active_op ? $queuePos++ : null;
-            return $item;
-        });
-
-        $page = LengthAwarePaginator::resolveCurrentPage();
-        $perPage = 50;
-        $pagedItems = $sortedDeliveries->slice(($page - 1) * $perPage, $perPage)->values();
-
-        $deliveries = new LengthAwarePaginator(
-            $pagedItems,
-            $sortedDeliveries->count(),
-            $perPage,
-            $page,
-            ['path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->query()]
-        );
+        $deliveries = $this->paginateDeliveriesCollection($deliveriesCollection, $view, $request);
 
         // 3. Fleet & Delivery Statistics
         $availableRiders = $this->getAvailableRidersData($user);
@@ -112,6 +83,43 @@ class DeliveryController extends Controller
             'branches'       => Branch::orderBy('name')->get(['id', 'name']),
             'stats'          => $stats,
         ]);
+    }
+
+    /**
+     * Sort and paginate deliveries collection for operations queue.
+     */
+    private function paginateDeliveriesCollection(Collection $deliveriesCollection, string $view, Request $request): LengthAwarePaginator
+    {
+        if ($view === 'today') {
+            $sortedDeliveries = $deliveriesCollection->sort(function ($a, $b) {
+                $aActive = $a->is_active_op ? 0 : 1;
+                $bActive = $b->is_active_op ? 0 : 1;
+                if ($aActive !== $bActive) {
+                    return $aActive <=> $bActive;
+                }
+                return strtotime((string) $a->created_at) <=> strtotime((string) $b->created_at);
+            })->values();
+        } else {
+            $sortedDeliveries = $deliveriesCollection->sortByDesc('created_at')->values();
+        }
+
+        $queuePos = 1;
+        $sortedDeliveries->transform(function ($item) use (&$queuePos) {
+            $item->queue_position = $item->is_active_op ? $queuePos++ : null;
+            return $item;
+        });
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 50;
+        $pagedItems = $sortedDeliveries->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return new LengthAwarePaginator(
+            $pagedItems,
+            $sortedDeliveries->count(),
+            $perPage,
+            $page,
+            ['path' => LengthAwarePaginator::resolveCurrentPath(), 'query' => $request->query()]
+        );
     }
 
     /**
