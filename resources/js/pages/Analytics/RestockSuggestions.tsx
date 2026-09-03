@@ -230,7 +230,7 @@ export default function RestockSuggestions() {
                 )}
               </h1>
               <p className="hidden sm:block text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">
-                Adaptive demand � Trend-aware � Volatility-weighted safety buffers
+                Adaptive demand – Trend-aware – Volatility-weighted safety buffers
               </p>
             </div>
           </div>
@@ -296,11 +296,11 @@ export default function RestockSuggestions() {
                     <p className="font-bold leading-relaxed">
                       Tomorrow's predicted revenue is{' '}
                       <strong className="font-black text-foreground">{fmt(tomorrow_forecast)}</strong>
-                      {' '}(range: {fmt(forecast_lower)} � {fmt(forecast_upper)}).{' '}
+                      {' '}(range: {fmt(forecast_lower)} – {fmt(forecast_upper)}).{' '}
                       {demandAboveAvg
-                        ? `Demand is ${Math.round(((demand_ratio ?? 1) - 1) * 100)}% above average � buffers have been increased automatically.`
+                        ? `Demand is ${Math.round(((demand_ratio ?? 1) - 1) * 100)}% above average – buffers have been increased automatically.`
                         : demandBelowAvg
-                          ? `Demand is ${Math.round((1 - (demand_ratio ?? 1)) * 100)}% below average � conservative restocking applied.`
+                          ? `Demand is ${Math.round((1 - (demand_ratio ?? 1)) * 100)}% below average – conservative restocking applied.`
                           : 'Demand is in line with the historical average.'}
                     </p>
                   </div>
@@ -497,7 +497,7 @@ export default function RestockSuggestions() {
                                       <p className="font-bold text-sm text-foreground leading-tight">{s.name}</p>
                                       <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[8px] font-bold text-(--ops-text-muted) uppercase">{s.days_of_data}d data</span>
-                                        <span className="text-[8px] text-(--ops-text-faint)">�</span>
+                                        <span className="text-[8px] text-(--ops-text-faint)">•</span>
                                         <span className={cn('text-[8px] font-black uppercase', volatilityColor(s.volatility))}>
                                           {s.volatility} volatility
                                         </span>
@@ -543,7 +543,7 @@ export default function RestockSuggestions() {
                                     {s.predicted_usage} {s.unit}
                                   </Badge>
                                   <p className="text-[8px] text-(--ops-text-muted) font-mono mt-1 font-bold">
-                                    {s.predicted_usage_lower} � {s.predicted_usage_upper}
+                                    {s.predicted_usage_lower} – {s.predicted_usage_upper}
                                   </p>
                                 </td>
 
@@ -730,7 +730,7 @@ export default function RestockSuggestions() {
                     <CardContent className="p-6 space-y-3.5 text-[10px] text-(--ops-text-secondary) font-bold uppercase tracking-wide leading-relaxed">
                       <div className="flex items-start gap-2.5">
                         <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">1</span>
-                        <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders � recipes.</p>
+                        <p><strong>Actual Consumption</strong>: track of ingredient usage from sale orders & recipes.</p>
                       </div>
                       <div className="flex items-start gap-2.5">
                         <span className="size-5 rounded-md bg-(--ops-surface-sunken) border border-(--ops-border) flex items-center justify-center text-[9px] text-primary shrink-0">2</span>
