@@ -123,6 +123,7 @@ export default function PickupDashboard({
     // Reschedule Modal Form
     const [newPickupDate, setNewPickupDate] = useState('');
     const [newPickupTime, setNewPickupTime] = useState('');
+    const [rescheduleReason, setRescheduleReason] = useState('');
     // Real-time Echo updates
     useEffect(() => {
         if (!echo) return;

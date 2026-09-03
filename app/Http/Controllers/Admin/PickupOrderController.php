@@ -62,14 +62,17 @@ class PickupOrderController extends Controller
 
         $now = Carbon::now(PickupOrderService::DEFAULT_TIMEZONE);
 
-        // UTC boundaries for "today" in Manila timezone — fixes whereDate() timezone mismatch
-        $todayStartUtc = $now->copy()->startOfDay()->utc();
-        $todayEndUtc   = $now->copy()->endOfDay()->utc();
+        // Support both local and UTC boundaries for "today" to handle both server and database timezone setups
+        $todayStartLocal = $now->copy()->startOfDay();
+        $todayEndLocal   = $now->copy()->endOfDay();
+        $todayStartUtc   = $todayStartLocal->copy()->utc();
+        $todayEndUtc     = $todayEndLocal->copy()->utc();
 
         if ($view === 'today') {
             // All pickups scheduled for today or active from earlier
-            $query->where(function ($q) use ($todayStartUtc, $todayEndUtc) {
-                $q->whereBetween('scheduled_pickup_at', [$todayStartUtc, $todayEndUtc])
+            $query->where(function ($q) use ($todayStartLocal, $todayEndLocal, $todayStartUtc, $todayEndUtc) {
+                $q->whereBetween('scheduled_pickup_at', [$todayStartLocal, $todayEndLocal])
+                  ->orWhereBetween('scheduled_pickup_at', [$todayStartUtc, $todayEndUtc])
                   ->orWhereIn('status', ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'customer_arrived']);
             })->orderByRaw("
                 CASE 
@@ -97,12 +100,24 @@ class PickupOrderController extends Controller
         }
 
         $stats = [
-            'today_total'     => (clone $statsQuery)->whereBetween('scheduled_pickup_at', [$todayStartUtc, $todayEndUtc])->count(),
-            'pending_prep'    => (clone $statsQuery)->whereIn('status', ['pending', 'confirmed'])->whereBetween('scheduled_pickup_at', [$todayStartUtc, $todayEndUtc])->count(),
+            'today_total'     => (clone $statsQuery)->where(function ($q) use ($todayStartLocal, $todayEndLocal, $todayStartUtc, $todayEndUtc) {
+                $q->whereBetween('scheduled_pickup_at', [$todayStartLocal, $todayEndLocal])
+                  ->orWhereBetween('scheduled_pickup_at', [$todayStartUtc, $todayEndUtc]);
+            })->count(),
+            'pending_prep'    => (clone $statsQuery)->whereIn('status', ['pending', 'confirmed'])->where(function ($q) use ($todayStartLocal, $todayEndLocal, $todayStartUtc, $todayEndUtc) {
+                $q->whereBetween('scheduled_pickup_at', [$todayStartLocal, $todayEndLocal])
+                  ->orWhereBetween('scheduled_pickup_at', [$todayStartUtc, $todayEndUtc]);
+            })->count(),
             'preparing'       => (clone $statsQuery)->where('status', 'preparing')->count(),
             'ready'           => (clone $statsQuery)->where('status', 'ready_for_pickup')->count(),
-            'completed_today' => (clone $statsQuery)->where('status', 'completed')->whereBetween('pickup_completed_at', [$todayStartUtc, $todayEndUtc])->count(),
-            'no_shows'        => (clone $statsQuery)->where('status', 'no_show')->whereBetween('updated_at', [$todayStartUtc, $todayEndUtc])->count(),
+            'completed_today' => (clone $statsQuery)->where('status', 'completed')->where(function ($q) use ($todayStartLocal, $todayEndLocal, $todayStartUtc, $todayEndUtc) {
+                $q->whereBetween('pickup_completed_at', [$todayStartLocal, $todayEndLocal])
+                  ->orWhereBetween('pickup_completed_at', [$todayStartUtc, $todayEndUtc]);
+            })->count(),
+            'no_shows'        => (clone $statsQuery)->where('status', 'no_show')->where(function ($q) use ($todayStartLocal, $todayEndLocal, $todayStartUtc, $todayEndUtc) {
+                $q->whereBetween('updated_at', [$todayStartLocal, $todayEndLocal])
+                  ->orWhereBetween('updated_at', [$todayStartUtc, $todayEndUtc]);
+            })->count(),
         ];
 
         // Branches list with full pickup operational settings

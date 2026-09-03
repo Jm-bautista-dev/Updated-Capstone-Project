@@ -52,7 +52,7 @@ class Sale extends Model
     {
         $array = parent::toArray();
         $user = \Illuminate\Support\Facades\Auth::user();
-        if (!$user || !$user->isAdmin()) {
+        if (!$user || !method_exists($user, 'isAdmin') || !$user->isAdmin()) {
             unset(
                 $array['cost_total'],
                 $array['profit']

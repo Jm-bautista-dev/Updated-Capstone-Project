@@ -59,6 +59,16 @@ class Rider extends Authenticatable
         'remember_token',
     ];
 
+    public function isAdmin(): bool
+    {
+        return false;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return false;
+    }
+
     protected $casts = [
         'password'               => 'hashed',
         'is_active'              => 'boolean',
