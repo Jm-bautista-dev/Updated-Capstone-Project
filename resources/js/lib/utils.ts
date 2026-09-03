@@ -53,3 +53,42 @@ export function formatCurrency(amount: number | string | null | undefined): stri
     return `₱${Number(num).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/**
+ * Robust Relative Time Formatter.
+ * Compares absolute UTC timestamps, defensively clamping any future/negative elapsed time to 'just now'.
+ */
+export function formatRelativeTime(dateStrOrMinutes?: string | number | null): string {
+    if (dateStrOrMinutes === null || dateStrOrMinutes === undefined) {
+        return 'just now';
+    }
+
+    if (typeof dateStrOrMinutes === 'number') {
+        if (dateStrOrMinutes <= 0) return 'just now';
+        if (dateStrOrMinutes < 60) return `${Math.floor(dateStrOrMinutes)}m ago`;
+        const hours = Math.floor(dateStrOrMinutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    const eventTime = new Date(dateStrOrMinutes).getTime();
+    if (isNaN(eventTime)) return 'just now';
+
+    const elapsedMs = Date.now() - eventTime;
+    const elapsedMinutes = Math.floor(elapsedMs / 60000);
+
+    if (elapsedMinutes <= 0) {
+        return 'just now';
+    }
+    if (elapsedMinutes < 60) {
+        return `${elapsedMinutes}m ago`;
+    }
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+        return `${elapsedHours}h ago`;
+    }
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays}d ago`;
+}
+
+

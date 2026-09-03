@@ -630,7 +630,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                     "{delivery.cancellation_reason || 'No reason provided'}"
                                 </p>
                                 <p className="text-[9px] text-rose-600/60 mt-2 font-bold uppercase">
-                                    Cancelled by {delivery.cancelled_by_name || 'System'} • {delivery.cancelled_at}
+                                    Cancelled by {delivery.cancelled_by_name || 'System'} • {delivery.cancelled_at ? `${formatDate(delivery.cancelled_at)} at ${formatTime(delivery.cancelled_at)}` : ''}
                                 </p>
                             </div>
                         )}

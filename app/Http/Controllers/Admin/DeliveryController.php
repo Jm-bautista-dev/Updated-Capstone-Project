@@ -248,7 +248,7 @@ class DeliveryController extends Controller
             $delivery->is_failed          = $delivery->status === Delivery::STATUS_FAILED;
             $delivery->can_mark_failed    = $delivery->canMarkFailed();
             $delivery->cancelled_by_name  = $delivery->cancelledBy?->name;
-            $delivery->waiting_minutes    = (int) now()->diffInMinutes($delivery->created_at);
+            $delivery->waiting_minutes    = $delivery->created_at ? max(0, (int) $delivery->created_at->diffInMinutes(now(), false)) : 0;
             $delivery->is_active_op       = in_array($delivery->status, $activeDeliveryStatuses);
 
             return $delivery;
@@ -558,7 +558,7 @@ class DeliveryController extends Controller
             }
 
             $lastUpdated = $rider->location_updated_at ?? $rider->last_active_at;
-            $secondsAgo = $lastUpdated ? (int) now()->diffInSeconds($lastUpdated) : 9999;
+            $secondsAgo = $lastUpdated ? max(0, (int) $lastUpdated->diffInSeconds(now(), false)) : 9999;
 
             // Stale Location Classification
             if ($secondsAgo < 30) {

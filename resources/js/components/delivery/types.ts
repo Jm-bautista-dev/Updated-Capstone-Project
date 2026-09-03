@@ -166,8 +166,43 @@ export const STATUS_GROUPS = [
 export const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 
-export const formatTime = (dateStr: string) =>
-    new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export const formatTime = (dateStr: string) => {
+    try {
+        return new Date(dateStr).toLocaleTimeString('en-PH', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Manila',
+        });
+    } catch {
+        return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+};
 
-export const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+export const formatDate = (dateStr: string) => {
+    try {
+        return new Date(dateStr).toLocaleDateString('en-PH', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            timeZone: 'Asia/Manila',
+        });
+    } catch {
+        return new Date(dateStr).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+};
+
+export const formatRelativeMinutes = (minutes?: number | null): string => {
+    if (minutes === undefined || minutes === null || minutes <= 0) {
+        return 'just now';
+    }
+    if (minutes < 60) {
+        return `${Math.floor(minutes)}m ago`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+};
+

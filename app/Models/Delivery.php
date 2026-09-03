@@ -46,6 +46,8 @@ class Delivery extends Model
     ];
 
     protected $casts = [
+        'created_at'   => 'datetime',
+        'updated_at'   => 'datetime',
         'accepted_at'  => 'datetime',
         'picked_up_at' => 'datetime',
         'transit_at'   => 'datetime',

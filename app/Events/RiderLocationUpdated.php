@@ -47,7 +47,7 @@ class RiderLocationUpdated implements ShouldBroadcast
     public function broadcastWith(): array
     {
         $lastUpdated = $this->rider->location_updated_at ?? now();
-        $secondsAgo = (int) now()->diffInSeconds($lastUpdated);
+        $secondsAgo = max(0, (int) $lastUpdated->diffInSeconds(now(), false));
 
         if ($secondsAgo < 30) {
             $signalStatus = 'live';

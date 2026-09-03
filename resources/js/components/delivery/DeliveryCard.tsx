@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 
 import type { Delivery } from './types';
-import { formatCurrency, formatTime } from './types';
+import { formatCurrency, formatRelativeMinutes, formatTime } from './types';
 
 interface DeliveryCardProps {
     delivery: Delivery;
@@ -100,7 +100,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                             "font-bold px-1.5 py-0.2 rounded-md text-[9px]",
                                             delivery.waiting_minutes > 30 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                                         )}>
-                                            {delivery.waiting_minutes}m ago
+                                            {formatRelativeMinutes(delivery.waiting_minutes)}
                                         </span>
                                     )}
                                 </div>
