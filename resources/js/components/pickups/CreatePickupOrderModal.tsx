@@ -25,7 +25,6 @@ import {
     ChevronUp,
     Clock,
     DollarSign,
-    Info,
     MessageCircle,
     Minus,
     Plus,
@@ -384,7 +383,7 @@ export default function CreatePickupOrderModal({
     return (
         <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
             {/* ── Widescreen POS Dialog Container (Section 2 & 17) ────────────── */}
-            <DialogContent className="w-[calc(100vw-32px)] sm:w-[calc(100vw-48px)] max-w-[1400px] h-[92vh] max-h-[920px] p-0 overflow-hidden bg-[#FAFAFA] dark:bg-[#101015] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl flex flex-col">
+            <DialogContent className="w-[calc(100vw-32px)] sm:w-[calc(100vw-48px)] max-w-350 h-[92vh] max-h-230 p-0 overflow-hidden bg-[#FAFAFA] dark:bg-[#101015] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl flex flex-col">
                 
                 {/* ── 1. Fixed Header (Section 15 & 17) ───────────────────────── */}
                 <header className="px-6 py-4 border-b border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#14141C] shrink-0">
@@ -494,7 +493,7 @@ export default function CreatePickupOrderModal({
                             </div>
 
                             {/* Spacious Responsive Product Grid (Section 5, 6) */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-5 gap-3.5 max-h-[440px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-5 gap-3.5 max-h-110 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800">
                                 {filteredProducts.length === 0 ? (
                                     <div className="col-span-full py-12 text-center rounded-2xl border border-dashed border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/30 dark:bg-white/2">
                                         <ShoppingBag className="size-10 text-[#E75480]/40 mx-auto mb-2" />
@@ -1056,7 +1055,7 @@ export default function CreatePickupOrderModal({
                         </div>
 
                         {/* ── Financial Summary Breakdown (Section 9, 10) ────────── */}
-                        <div className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10 space-y-2.5 bg-white dark:bg-[#181822] p-4 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs">
+                        <div className="space-y-2.5 bg-white dark:bg-[#181822] p-4 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs">
                             <div className="flex justify-between text-xs text-[#7D6B6E] dark:text-zinc-400">
                                 <span>Subtotal</span>
                                 <span className="font-bold text-[#3D2C2E] dark:text-white font-mono">
@@ -1094,7 +1093,7 @@ export default function CreatePickupOrderModal({
                             {formatCurrency(cartTotalAmount)}
                         </span>
                         <span>•</span>
-                        <span className="truncate max-w-[200px]">
+                        <span className="truncate max-w-50">
                             {selectedSlot ? `${format(selectedDate, 'MMM d')} @ ${selectedSlot.display_time}` : 'No pickup slot selected'}
                         </span>
                     </div>
