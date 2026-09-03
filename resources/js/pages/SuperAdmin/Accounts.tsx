@@ -401,7 +401,7 @@ export default function Accounts({ accounts, branches, filters }: AccountsProps)
 
                                             {/* Consecutive Streak */}
                                             <td className="p-4">
-                                                <div className="flex flex-col gap-1 max-w-[130px]">
+                                                <div className="flex flex-col gap-1 max-w-32">
                                                     <div className="flex items-center justify-between text-[11px] font-bold">
                                                         <span className={streak > 0 ? (streak >= threshold ? 'text-rose-600 font-black' : 'text-amber-600') : 'text-slate-400'}>
                                                             {streak} / {threshold}
