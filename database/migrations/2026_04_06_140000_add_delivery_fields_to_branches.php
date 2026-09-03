@@ -11,10 +11,10 @@ return new class extends Migration
         Schema::table('branches', function (Blueprint $table) {
             $table->decimal('latitude', 10, 7)->nullable()->after('address');
             $table->decimal('longitude', 10, 7)->nullable()->after('latitude');
-            $table->decimal('delivery_radius_km', 5, 2)->default(5.00)->after('longitude');
+            $table->decimal('delivery_radius_km', 5, 2)->nullable()->default(5.00)->after('longitude');
             $table->boolean('has_internal_riders')->default(false)->after('delivery_radius_km');
-            $table->decimal('base_delivery_fee', 8, 2)->default(49.00)->after('has_internal_riders');
-            $table->decimal('per_km_fee', 8, 2)->default(15.00)->after('base_delivery_fee');
+            $table->decimal('base_delivery_fee', 8, 2)->nullable()->default(49.00)->after('has_internal_riders');
+            $table->decimal('per_km_fee', 8, 2)->nullable()->default(15.00)->after('base_delivery_fee');
         });
     }
 

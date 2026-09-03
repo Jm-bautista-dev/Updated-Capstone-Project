@@ -115,8 +115,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
             Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 
-            // Branch location/settings update (Admin only)
+            // Branch location/settings management (Admin only)
+            Route::post('branches', [BranchController::class, 'store'])->name('branches.store');
             Route::put('branches/{id}', [BranchController::class, 'update'])->name('branches.update');
+            Route::get('branches/stats', [BranchController::class, 'stats'])->name('branches.stats');
 
             // Administrative Inventory & Product Management
             Route::post('products', [App\Http\Controllers\ProductsController::class, 'store'])->name('products.store');

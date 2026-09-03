@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Building2, Search, Sparkles } from 'lucide-react';
+import { Building2, Plus, Search, Sparkles } from 'lucide-react';
 import React from 'react';
 import { Input } from '@/components/ui/input';
 
@@ -9,6 +9,7 @@ interface BranchesHeroProps {
     onSearchChange: (query: string) => void;
     viewMode: 'grid' | 'table';
     onViewModeChange: (mode: 'grid' | 'table') => void;
+    onAddBranch?: () => void;
 }
 
 export function BranchesHero({
@@ -17,6 +18,7 @@ export function BranchesHero({
     onSearchChange,
     viewMode,
     onViewModeChange,
+    onAddBranch,
 }: BranchesHeroProps) {
     return (
         <motion.div
@@ -88,6 +90,17 @@ export function BranchesHero({
                             Table View
                         </button>
                     </div>
+
+                    {onAddBranch && (
+                        <button
+                            type="button"
+                            onClick={onAddBranch}
+                            className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-linear-to-r from-[#E75480] to-[#D43B66] text-white shadow-md shadow-[#E75480]/20 hover:from-[#D43B66] hover:to-[#C02E58] text-xs font-black uppercase tracking-wider cursor-pointer transition-all"
+                        >
+                            <Plus className="size-4" />
+                            <span>Add Hub</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

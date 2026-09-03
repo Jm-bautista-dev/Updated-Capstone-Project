@@ -10,12 +10,12 @@ export interface Branch {
     id: number;
     name: string;
     address: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    delivery_radius_km: number | null;
+    latitude: number | string | null;
+    longitude: number | string | null;
+    delivery_radius_km: number | string | null;
     has_internal_riders: boolean;
-    base_delivery_fee: number | null;
-    per_km_fee: number | null;
+    base_delivery_fee: number | string | null;
+    per_km_fee: number | string | null;
 }
 
 interface BranchCardProps {
@@ -28,9 +28,9 @@ export function BranchCard({ branch }: BranchCardProps) {
         address: branch.address ?? '',
         latitude: branch.latitude?.toString() ?? '',
         longitude: branch.longitude?.toString() ?? '',
-        delivery_radius_km: branch.delivery_radius_km?.toString() ?? '5',
+        delivery_radius_km: branch.delivery_radius_km !== null ? branch.delivery_radius_km.toString() : '',
         has_internal_riders: branch.has_internal_riders,
-        base_delivery_fee: branch.base_delivery_fee?.toString() ?? '49',
+        base_delivery_fee: branch.base_delivery_fee !== null ? branch.base_delivery_fee.toString() : '',
         per_km_fee: branch.per_km_fee?.toString() ?? '15',
     });
 
@@ -169,6 +169,18 @@ export function BranchCard({ branch }: BranchCardProps) {
                             return;
                         }
 
+                        const radius = parseFloat(data.delivery_radius_km);
+                        if (data.delivery_radius_km === '' || isNaN(radius) || radius <= 0) {
+                            setGeoError('Delivery radius is required and must be greater than zero.');
+                            return;
+                        }
+
+                        const fee = parseFloat(data.base_delivery_fee);
+                        if (data.base_delivery_fee === '' || isNaN(fee) || fee < 0) {
+                            setGeoError('Base delivery fee is required and cannot be negative.');
+                            return;
+                        }
+
                         put(`/branches/${branch.id}`, {
                             preserveScroll: true,
                             onSuccess: () => console.log('Branch Update Successful'),
@@ -176,6 +188,9 @@ export function BranchCard({ branch }: BranchCardProps) {
                                 console.error('Branch Update Failed', err);
                                 if (err.latitude || err.longitude) {
                                     setGeoError('Coordinates rejected by server.');
+                                } else {
+                                    const first = Object.values(err)[0];
+                                    if (first) setGeoError(String(first));
                                 }
                             },
                         });
@@ -262,24 +277,36 @@ export function BranchCard({ branch }: BranchCardProps) {
                     <div className="border-t border-[#F8C8DC]/40 dark:border-white/10 pt-4 space-y-4">
                         <div className="grid grid-cols-3 gap-3">
                             <div>
-                                <label className="text-[9px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase">Radius (km)</label>
+                                <label className="text-[9px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase flex items-center justify-between">
+                                    <span>Radius (km)</span>
+                                    <span className="text-rose-500 font-bold">*</span>
+                                </label>
                                 <Input
                                     disabled={!isEditing}
                                     type="number"
+                                    step="0.1"
+                                    min="0.1"
                                     value={data.delivery_radius_km}
                                     onChange={(e) => setData('delivery_radius_km', e.target.value)}
                                     className="mt-1 h-9 rounded-xl font-mono text-xs bg-white dark:bg-[#181820]"
+                                    required
                                 />
                             </div>
 
                             <div>
-                                <label className="text-[9px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase">Base Fee (₱)</label>
+                                <label className="text-[9px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase flex items-center justify-between">
+                                    <span>Base Fee (₱)</span>
+                                    <span className="text-rose-500 font-bold">*</span>
+                                </label>
                                 <Input
                                     disabled={!isEditing}
                                     type="number"
+                                    step="0.01"
+                                    min="0"
                                     value={data.base_delivery_fee}
                                     onChange={(e) => setData('base_delivery_fee', e.target.value)}
                                     className="mt-1 h-9 rounded-xl font-mono text-xs bg-white dark:bg-[#181820]"
+                                    required
                                 />
                             </div>
 

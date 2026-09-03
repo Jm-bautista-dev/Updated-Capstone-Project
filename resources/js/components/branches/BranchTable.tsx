@@ -65,15 +65,21 @@ export function BranchTable({ branches, onSelectBranch }: BranchTableProps) {
                                 </td>
 
                                 <td className="py-4 px-4 text-center font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                    {branch.delivery_radius_km ?? 5} km
+                                    {branch.delivery_radius_km !== null && branch.delivery_radius_km !== '' && !isNaN(Number(branch.delivery_radius_km))
+                                        ? `${parseFloat(branch.delivery_radius_km.toString()).toFixed(1)} km`
+                                        : '—'}
                                 </td>
 
                                 <td className="py-4 px-4 text-right font-mono font-bold text-[#E75480] dark:text-[#FF4F81]">
-                                    ₱{branch.base_delivery_fee ?? 49}
+                                    {branch.base_delivery_fee !== null && branch.base_delivery_fee !== '' && !isNaN(Number(branch.base_delivery_fee))
+                                        ? `₱${parseFloat(branch.base_delivery_fee.toString()).toFixed(2)}`
+                                        : '—'}
                                 </td>
 
                                 <td className="py-4 px-4 text-right font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                    ₱{branch.per_km_fee ?? 15}
+                                    {branch.per_km_fee !== null && branch.per_km_fee !== '' && !isNaN(Number(branch.per_km_fee))
+                                        ? `₱${parseFloat(branch.per_km_fee.toString()).toFixed(2)}`
+                                        : '—'}
                                 </td>
 
                                 <td className="py-4 px-4 text-center">

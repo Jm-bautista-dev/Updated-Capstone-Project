@@ -1,32 +1,65 @@
 import { motion } from 'framer-motion';
 import { Bike, Building2, MapPin, Navigation } from 'lucide-react';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { formatCurrency } from '@/lib/utils';
 
-interface Branch {
-    id: number;
-    name: string;
-    address: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    delivery_radius_km: number | null;
-    has_internal_riders: boolean;
-    base_delivery_fee: number | null;
-    per_km_fee: number | null;
+import type { Branch } from './BranchCard';
+
+export type { Branch };
+
+export interface BranchStatsData {
+    total_branches?: number;
+    internal_fleet_count?: number;
+    average_radius_km?: number | string | null;
+    average_base_fee?: number | string | null;
 }
 
 interface BranchesStatsProps {
     branches: Branch[];
+    stats?: BranchStatsData;
 }
 
-export function BranchesStats({ branches }: BranchesStatsProps) {
-    const totalHubs = branches.length;
-    const internalFleetCount = branches.filter((b) => b.has_internal_riders).length;
+export function BranchesStats({ branches, stats }: BranchesStatsProps) {
+    const totalHubs = stats?.total_branches ?? branches.length;
+    const internalFleetCount = stats?.internal_fleet_count ?? branches.filter((b) => b.has_internal_riders).length;
     
-    const validRadii = branches.map((b) => b.delivery_radius_km).filter((r): r is number => r !== null && !isNaN(r));
-    const avgRadius = validRadii.length > 0 ? (validRadii.reduce((a, b) => a + b, 0) / validRadii.length).toFixed(1) : '5.0';
+    // Average radius calculation (server-authoritative with defensive fallback)
+    const avgRadiusValue = useMemo(() => {
+        if (stats?.average_radius_km !== undefined && stats.average_radius_km !== null) {
+            const val = Number(stats.average_radius_km);
+            return !isNaN(val) && isFinite(val) && val > 0 ? val : null;
+        }
 
-    const validFees = branches.map((b) => b.base_delivery_fee).filter((f): f is number => f !== null && !isNaN(f));
-    const avgBaseFee = validFees.length > 0 ? (validFees.reduce((a, b) => a + b, 0) / validFees.length).toFixed(0) : '49';
+        const validRadii = branches
+            .map((b) => (b.delivery_radius_km !== null && b.delivery_radius_km !== '' ? Number(b.delivery_radius_km) : NaN))
+            .filter((r) => !isNaN(r) && isFinite(r) && r > 0);
+
+        if (validRadii.length === 0) return null;
+        return validRadii.reduce((a, b) => a + b, 0) / validRadii.length;
+    }, [branches, stats]);
+
+    // Average base fee calculation (server-authoritative with defensive fallback)
+    const avgBaseFeeValue = useMemo(() => {
+        if (stats?.average_base_fee !== undefined && stats.average_base_fee !== null) {
+            const val = Number(stats.average_base_fee);
+            return !isNaN(val) && isFinite(val) && val >= 0 ? val : null;
+        }
+
+        const validFees = branches
+            .map((b) => (b.base_delivery_fee !== null && b.base_delivery_fee !== '' ? Number(b.base_delivery_fee) : NaN))
+            .filter((f) => !isNaN(f) && isFinite(f) && f >= 0);
+
+        if (validFees.length === 0) return null;
+        return validFees.reduce((a, b) => a + b, 0) / validFees.length;
+    }, [branches, stats]);
+
+    const displayRadius = avgRadiusValue !== null && !isNaN(avgRadiusValue) && isFinite(avgRadiusValue)
+        ? `${avgRadiusValue.toFixed(1)} km`
+        : '—';
+
+    const displayBaseFee = avgBaseFeeValue !== null && !isNaN(avgBaseFeeValue) && isFinite(avgBaseFeeValue)
+        ? formatCurrency(avgBaseFeeValue)
+        : '—';
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-['Outfit']">
@@ -70,7 +103,7 @@ export function BranchesStats({ branches }: BranchesStatsProps) {
                 </div>
                 <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Avg Radius</p>
-                    <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono mt-0.5">{avgRadius} km</h3>
+                    <h3 className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono mt-0.5">{displayRadius}</h3>
                     <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Geofence coverage zone</p>
                 </div>
             </motion.div>
@@ -85,7 +118,7 @@ export function BranchesStats({ branches }: BranchesStatsProps) {
                 </div>
                 <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Avg Base Fee</p>
-                    <h3 className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono mt-0.5">₱{avgBaseFee}</h3>
+                    <h3 className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono mt-0.5">{displayBaseFee}</h3>
                     <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Starting delivery charge</p>
                 </div>
             </motion.div>

@@ -20,7 +20,8 @@ use App\Http\Controllers\Api\CustomerOrderController;
 
 // Direct Top-Picks & Branches API endpoints
 Route::get('top-picks', [TopPickController::class, 'index']);
-Route::get('branches',  [BranchController::class, 'apiIndex']);
+Route::get('branches',        [BranchController::class, 'apiIndex']);
+Route::get('branches/stats',  [BranchController::class, 'stats']);
 Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeliveryDistanceController::class, 'calculate']);
 
 // External Operations API (Mobile App Entry)

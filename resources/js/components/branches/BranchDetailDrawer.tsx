@@ -100,21 +100,27 @@ export function BranchDetailDrawer({ branch, open, onClose }: BranchDetailDrawer
                             <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 text-center">
                                 <p className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase">Radius</p>
                                 <p className="text-lg font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] mt-0.5">
-                                    {branch.delivery_radius_km ?? 5} km
+                                    {branch.delivery_radius_km !== null && branch.delivery_radius_km !== '' && !isNaN(Number(branch.delivery_radius_km))
+                                        ? `${parseFloat(branch.delivery_radius_km.toString()).toFixed(1)} km`
+                                        : '—'}
                                 </p>
                             </div>
 
                             <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 text-center">
                                 <p className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase">Base Fee</p>
                                 <p className="text-lg font-black font-mono text-[#E75480] dark:text-[#FF4F81] mt-0.5">
-                                    ₱{branch.base_delivery_fee ?? 49}
+                                    {branch.base_delivery_fee !== null && branch.base_delivery_fee !== '' && !isNaN(Number(branch.base_delivery_fee))
+                                        ? `₱${parseFloat(branch.base_delivery_fee.toString()).toFixed(2)}`
+                                        : '—'}
                                 </p>
                             </div>
 
                             <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 text-center">
                                 <p className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] uppercase">Per KM</p>
                                 <p className="text-lg font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] mt-0.5">
-                                    ₱{branch.per_km_fee ?? 15}
+                                    {branch.per_km_fee !== null && branch.per_km_fee !== '' && !isNaN(Number(branch.per_km_fee))
+                                        ? `₱${parseFloat(branch.per_km_fee.toString()).toFixed(2)}`
+                                        : '—'}
                                 </p>
                             </div>
                         </div>

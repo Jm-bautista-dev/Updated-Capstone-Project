@@ -4,18 +4,21 @@ import React, { useMemo, useState } from 'react';
 import { BranchCard, type Branch } from '@/components/branches/BranchCard';
 import { BranchDetailDrawer } from '@/components/branches/BranchDetailDrawer';
 import { BranchesHero } from '@/components/branches/BranchesHero';
-import { BranchesStats } from '@/components/branches/BranchesStats';
+import { BranchesStats, type BranchStatsData } from '@/components/branches/BranchesStats';
 import { BranchTable } from '@/components/branches/BranchTable';
+import { CreateBranchModal } from '@/components/branches/CreateBranchModal';
 import AppLayout from '@/layouts/app-layout';
 
 interface Props {
     branches: Branch[];
+    stats?: BranchStatsData;
 }
 
-export default function BranchesIndex({ branches }: Props) {
+export default function BranchesIndex({ branches, stats }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const [selectedDrawerBranch, setSelectedDrawerBranch] = useState<Branch | null>(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     // Filter branches based on search query
     const filteredBranches = useMemo(() => {
@@ -41,10 +44,11 @@ export default function BranchesIndex({ branches }: Props) {
                     onSearchChange={setSearchQuery}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
+                    onAddBranch={() => setIsCreateModalOpen(true)}
                 />
 
                 {/* KPI Metrics Strip */}
-                <BranchesStats branches={branches} />
+                <BranchesStats branches={branches} stats={stats} />
 
                 {/* Branch Display Content Area */}
                 {viewMode === 'grid' ? (
@@ -60,6 +64,12 @@ export default function BranchesIndex({ branches }: Props) {
                     />
                 )}
             </div>
+
+            {/* Create Branch Modal */}
+            <CreateBranchModal
+                open={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
 
             {/* Branch Detail Drawer */}
             <BranchDetailDrawer
