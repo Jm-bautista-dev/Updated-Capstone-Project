@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:public/build/assets/minimize-2-C69_s40W.js
-import{c as e}from"./createLucideIcon-6sJmGIR-.js";const i=[["polyline",{points:"4 14 10 14 10 20",key:"11kfnr"}],["polyline",{points:"20 10 14 10 14 4",key:"rlmsce"}],["line",{x1:"14",x2:"21",y1:"10",y2:"3",key:"o5lafz"}],["line",{x1:"3",x2:"10",y1:"21",y2:"14",key:"1atl0r"}]],o=e("Minimize2",i);export{o as M};
-========
-import{c as e}from"./createLucideIcon-UrDVSK7n.js";const i=[["polyline",{points:"4 14 10 14 10 20",key:"11kfnr"}],["polyline",{points:"20 10 14 10 14 4",key:"rlmsce"}],["line",{x1:"14",x2:"21",y1:"10",y2:"3",key:"o5lafz"}],["line",{x1:"3",x2:"10",y1:"21",y2:"14",key:"1atl0r"}]],o=e("Minimize2",i);export{o as M};
->>>>>>>> c1bcda7f (update):public/build/assets/minimize-2-D6aNam6D.js

@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:public/build/assets/alert-error-CYWQ2cK2.js
-import{j as r}from"./app-BIxvGvg_.js";import{A as l,a as n,b as o}from"./alert-CPdDNaoc.js";import{C as a}from"./circle-alert-DUfZ3hG9.js";function d({errors:e,title:t}){return r.jsxs(l,{variant:"destructive",children:[r.jsx(a,{}),r.jsx(n,{children:t||"Something went wrong."}),r.jsx(o,{children:r.jsx("ul",{className:"list-inside list-disc text-sm",children:Array.from(new Set(e)).map((s,i)=>r.jsx("li",{children:s},i))})})]})}export{d as A};
-========
-import{j as r}from"./app-BRPB8yMe.js";import{A as l,a as n,b as o}from"./alert-BiZsN6W2.js";import{C as a}from"./circle-alert-DHmPE-_f.js";function d({errors:e,title:t}){return r.jsxs(l,{variant:"destructive",children:[r.jsx(a,{}),r.jsx(n,{children:t||"Something went wrong."}),r.jsx(o,{children:r.jsx("ul",{className:"list-inside list-disc text-sm",children:Array.from(new Set(e)).map((s,i)=>r.jsx("li",{children:s},i))})})]})}export{d as A};
->>>>>>>> c1bcda7f (update):public/build/assets/alert-error-CStxcsrp.js
