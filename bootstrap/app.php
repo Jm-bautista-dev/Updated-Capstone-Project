@@ -46,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\SystemMaintenanceMiddleware::class);
         $middleware->append(\App\Http\Middleware\NetworkTraceMiddleware::class);
         $middleware->append(\App\Http\Middleware\CheckAccountStatusMiddleware::class);
+        $middleware->append(\App\Http\Middleware\SetSecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, $e) {
