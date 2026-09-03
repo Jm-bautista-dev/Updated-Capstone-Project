@@ -133,7 +133,7 @@ class ReportController extends Controller
                 ->latest()
                 ->get();
 
-            return $sales->map(function ($sale) {
+            return $sales->map(function ($sale) use ($user) {
                 $saleCogs = 0.0;
                 if ($sale->items->isNotEmpty()) {
                     foreach ($sale->items as $item) {
