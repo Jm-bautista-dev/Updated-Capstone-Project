@@ -108,8 +108,8 @@ class ReportController extends Controller
             $payload['rows'] = $this->compileAllRows($payload, Auth::user());
         }
         
-        // Cache the formatted report payload for 5 minutes
-        \Illuminate\Support\Facades\Cache::put('report_export_' . $token, $payload, 300);
+        // Cache the formatted report payload for 2 hours
+        \Illuminate\Support\Facades\Cache::put('report_export_' . $token, $payload, now()->addHours(2));
 
         return response()->json(['token' => $token]);
     }
