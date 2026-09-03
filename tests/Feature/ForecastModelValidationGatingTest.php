@@ -84,8 +84,8 @@ class ForecastModelValidationGatingTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Analytics/ForecastBenchmarking')
-            ->where('benchmark.validation.status', 'INSUFFICIENT_DATA')
-            ->where('benchmark.validation.production_ready', false)
+            ->where('benchmark.validation.status', fn ($status) => $status === 'INSUFFICIENT_DATA')
+            ->where('benchmark.validation.production_ready', fn ($ready) => $ready === false)
         );
     }
 
