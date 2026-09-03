@@ -125,6 +125,52 @@ class ForecastService
 
         $rangeStr = $series[0]['date'] . ' to ' . end($series)['date'];
 
+        // 8. Explicit Model Validation Gates for Production-Readiness
+        $minHistoryDays = (int) config('forecast.min_history_days', 90);
+        $maxMapeThreshold = (float) config('forecast.max_mape', 20.0);
+        $maxWapeThreshold = (float) config('forecast.max_wape', 20.0);
+
+        $bestWape = (float) ($bestModel['wape'] ?? 100.0);
+        $bestMape = (float) ($bestModel['mape'] ?? 100.0);
+
+        $isHistorySufficient = $totalDays >= $minHistoryDays;
+        // In demand forecasting, acceptable error requires WAPE <= threshold AND MAPE <= threshold
+        // (or WAPE <= threshold when intermittent/small sales volumes inflate unweighted MAPE)
+        $isErrorAcceptable = ($bestWape <= $maxWapeThreshold) && ($bestMape <= $maxMapeThreshold || $bestWape <= 15.0);
+
+        if (!$isHistorySufficient) {
+            $validationStatus = 'INSUFFICIENT_DATA';
+            $validationStatusLabel = 'Insufficient Data';
+            $productionReady = false;
+            $validationReason = "Historical coverage ({$totalDays} days) is below the minimum required {$minHistoryDays}-day window for production validation.";
+        } elseif (!$isErrorAcceptable) {
+            $validationStatus = 'NEEDS_IMPROVEMENT';
+            $validationStatusLabel = 'Needs Improvement';
+            $productionReady = false;
+            $validationReason = "Observed error (MAPE: {$bestMape}%, WAPE: {$bestWape}%) exceeds the acceptable target threshold (<= {$maxMapeThreshold}%).";
+        } else {
+            $validationStatus = 'PRODUCTION_READY';
+            $validationStatusLabel = 'Production Ready';
+            $productionReady = true;
+            $validationReason = "Passed all validation gates: {$totalDays} days history (>= {$minHistoryDays}d) and {$bestWape}% WAPE (<= {$maxWapeThreshold}%).";
+        }
+
+        $validation = [
+            'status' => $validationStatus,
+            'status_label' => $validationStatusLabel,
+            'production_ready' => $productionReady,
+            'reason' => $validationReason,
+            'historical_days' => $totalDays,
+            'min_history_days' => $minHistoryDays,
+            'validation_days' => $validationSize,
+            'best_mape' => $bestMape,
+            'best_wape' => $bestWape,
+            'max_mape_threshold' => $maxMapeThreshold,
+            'max_wape_threshold' => $maxWapeThreshold,
+            'validation_completed' => true,
+            'accuracy_definition' => '100% - WAPE on out-of-sample walk-forward test set',
+        ];
+
         // Save benchmark run to database if user is authenticated
         if (Auth::check()) {
             ForecastBenchmark::create([
@@ -146,6 +192,7 @@ class ForecastService
             'best_metrics' => $bestModel,
             'rankings' => $rankings,
             'quality' => $dataQuality,
+            'validation' => $validation,
             'processing_time' => $processingTime,
             'validation_method' => 'Walk-Forward Time-Series Validation (last ' . $validationSize . ' days test set)',
             'val_actuals' => array_column($valSet, 'total'),
@@ -245,9 +292,10 @@ class ForecastService
             'prediction' => $forecastList[0]['predicted'] ?? 0.0,
             'prediction_lower' => $forecastList[0]['lower'] ?? 0.0,
             'prediction_upper' => $forecastList[0]['upper'] ?? 0.0,
-            'confidence' => $benchmarkResult['best_metrics']['accuracy'],
+            'confidence' => $benchmarkResult['best_metrics']['accuracy'] ?? 0,
             'recommended_model' => $recommendedModel,
             'benchmark' => $benchmarkResult,
+            'validation' => $benchmarkResult['validation'] ?? null,
             'insights' => $insights
         ];
     }

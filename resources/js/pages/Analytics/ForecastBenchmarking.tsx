@@ -59,6 +59,22 @@ type SavedForecastRow = {
   };
 };
 
+export interface ValidationMetadata {
+  status: 'PRODUCTION_READY' | 'NEEDS_IMPROVEMENT' | 'INSUFFICIENT_DATA' | 'NOT_VALIDATED' | 'VALIDATION_ERROR';
+  status_label: string;
+  production_ready: boolean;
+  reason: string;
+  historical_days: number;
+  min_history_days: number;
+  validation_days: number;
+  best_mape: number;
+  best_wape: number;
+  max_mape_threshold: number;
+  max_wape_threshold: number;
+  validation_completed: boolean;
+  accuracy_definition?: string;
+}
+
 interface BenchmarkData {
   rankings?: BenchmarkRow[];
   val_dates?: string[];
@@ -70,7 +86,8 @@ interface BenchmarkData {
   error?: string;
   total_transactions?: number;
   processing_time?: number;
-  quality?: { score?: number; label?: string; status?: string; missing_days?: number; outliers?: number; completeness?: number };
+  quality?: { score?: number; label?: string; status?: string; missing_days?: number; outliers?: number; completeness?: number; total_days?: number };
+  validation?: ValidationMetadata;
 }
 
 interface BenchmarkPageProps {
@@ -291,10 +308,15 @@ export default function ForecastBenchmarking() {
                 </Card>
 
                 <Card className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4 relative shadow-sm flex flex-col justify-between min-h-22.5">
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Accuracy Score</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[8px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Accuracy (100 - WAPE)</p>
+                    <span className="text-[9px] text-(--ops-text-muted)" title="Accuracy is defined as 100% - WAPE (Weighted Absolute Percentage Error) on out-of-sample validation periods.">ⓘ</span>
+                  </div>
                   <div>
                     <h3 className="text-2xl font-black text-emerald-500 mt-1 font-mono">{benchmark?.best_metrics?.accuracy}%</h3>
-                    <p className="text-[7px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest">Historical fit index</p>
+                    <p className="text-[7px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest truncate" title={`WAPE: ${benchmark?.best_metrics?.wape}%`}>
+                      WAPE: {benchmark?.best_metrics?.wape}%
+                    </p>
                   </div>
                 </Card>
 
@@ -309,13 +331,52 @@ export default function ForecastBenchmarking() {
                 <Card className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4 relative shadow-sm flex flex-col justify-between min-h-22.5">
                   <p className="text-[8px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Validation Status</p>
                   <div>
-                    <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-wider rounded-md mt-1.5 px-2 py-0.5">
-                      Production Ready
-                    </Badge>
-                    <p className="text-[7px] text-(--ops-text-faint) font-bold uppercase mt-1.5 tracking-widest">Operational rating</p>
+                    {(() => {
+                      const val = benchmark?.validation;
+                      const status = val?.status || (benchmark?.error ? 'VALIDATION_ERROR' : 'NOT_VALIDATED');
+                      const label = val?.status_label || (benchmark?.error ? 'Validation Error' : 'Not Validated');
+
+                      let badgeClass = 'bg-rose-500/10 text-rose-500 border-rose-500/20';
+                      if (status === 'PRODUCTION_READY') {
+                        badgeClass = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+                      } else if (status === 'NEEDS_IMPROVEMENT') {
+                        badgeClass = 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+                      } else if (status === 'INSUFFICIENT_DATA') {
+                        badgeClass = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                      }
+
+                      return (
+                        <>
+                          <Badge className={cn("text-[8px] font-black uppercase tracking-wider rounded-md mt-1.5 px-2 py-0.5 border", badgeClass)}>
+                            {label}
+                          </Badge>
+                          <p className="text-[7px] text-(--ops-text-faint) font-bold uppercase mt-1.5 tracking-widest truncate" title={val?.reason || 'Validation status'}>
+                            {val?.production_ready ? 'Gating Criteria Passed' : 'Gating Criteria Failed'}
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </Card>
               </div>
+
+              {/* Validation Gate Audit Banner if Not Ready */}
+              {benchmark?.validation && !benchmark.validation.production_ready && (
+                <div className="p-4 rounded-[14px] bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                  <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[10px]">
+                    <FiAlertTriangle className="size-3.5" />
+                    <span>Model Validation Gating Notice: {benchmark.validation.status_label}</span>
+                  </div>
+                  <p className="text-xs text-foreground/80">
+                    {benchmark.validation.reason}
+                  </p>
+                  <div className="flex flex-wrap gap-4 pt-1 text-[10px] font-mono text-(--ops-text-muted)">
+                    <span>History Coverage: <b>{benchmark.validation.historical_days} days</b> (Required: ≥ {benchmark.validation.min_history_days}d)</span>
+                    <span>Best WAPE: <b>{benchmark.validation.best_wape}%</b> (Threshold: ≤ {benchmark.validation.max_wape_threshold}%)</span>
+                    <span>Best MAPE: <b>{benchmark.validation.best_mape}%</b> (Threshold: ≤ {benchmark.validation.max_mape_threshold}%)</span>
+                  </div>
+                </div>
+              )}
 
               {/* Benchmark Summary and Selecting panel */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -331,11 +392,21 @@ export default function ForecastBenchmarking() {
                   <div className="divide-y divide-(--ops-border-subtle) text-xs font-semibold space-y-2">
                     {[
                       { l: 'Dataset Range', v: benchmark?.dataset_range || 'N/A' },
+                      { l: 'Historical Window', v: `${benchmark?.validation?.historical_days ?? benchmark?.quality?.total_days ?? 0} days (Min: ${benchmark?.validation?.min_history_days ?? 90}d)` },
                       { l: 'Validation Method', v: 'Walk-Forward Splitting' },
-                      { l: 'Models Evaluated', v: '6 Active Algorithms' },
+                      { l: 'Models Evaluated', v: `${benchmark?.rankings?.length || 6} Active Algorithms` },
                       { l: 'Best Performing Model', v: benchmark?.best_model || 'N/A', highlight: true },
-                      { l: 'Fit Forecast Accuracy', v: (benchmark?.best_metrics?.accuracy ?? 0) + '%', success: true },
-                      { l: 'Confidence Level', v: 'High (Optimal)', success: true },
+                      { l: 'Fit Accuracy (100 - WAPE)', v: (benchmark?.best_metrics?.accuracy ?? 0) + '%', success: (benchmark?.best_metrics?.accuracy ?? 0) >= 80 },
+                      { 
+                        l: 'Validation Decision', 
+                        v: benchmark?.validation?.status_label || 'Pending', 
+                        success: benchmark?.validation?.production_ready === true 
+                      },
+                      { 
+                        l: 'Confidence Level', 
+                        v: benchmark?.validation?.production_ready ? 'High (Production Validated)' : (benchmark?.validation?.status === 'INSUFFICIENT_DATA' ? 'Limited (Short History)' : 'Low (High Variance)'), 
+                        success: benchmark?.validation?.production_ready === true 
+                      },
                       { l: 'Audit Status', v: 'Verified & Documented' }
                     ].map((row, idx) => (
                       <div key={idx} className="pt-2 flex justify-between gap-4">
