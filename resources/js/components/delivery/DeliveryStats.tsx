@@ -52,6 +52,16 @@ export default function DeliveryStats({ stats, activeStatusFilter, onStatusFilte
             border: 'border-indigo-200 dark:border-indigo-900/30',
         },
         {
+            key: 'picked_up',
+            label: 'Picked Up',
+            count: stats.picked_up ?? 0,
+            subtext: 'Package collected',
+            icon: PackageCheck,
+            color: 'text-purple-600 dark:text-purple-400',
+            bg: 'bg-purple-100/60 dark:bg-purple-950/40',
+            border: 'border-purple-200 dark:border-purple-900/30',
+        },
+        {
             key: 'in_transit',
             label: 'In Transit',
             count: stats.in_transit ?? stats.active ?? 0,
@@ -84,7 +94,7 @@ export default function DeliveryStats({ stats, activeStatusFilter, onStatusFilte
     ];
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3 font-['Outfit'] w-full min-w-0 max-w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 sm:gap-3 font-['Outfit'] w-full min-w-0 max-w-full">
             {pipelineItems.map((item) => {
                 const Icon = item.icon;
                 return (

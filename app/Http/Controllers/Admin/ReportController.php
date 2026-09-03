@@ -79,21 +79,7 @@ class ReportController extends Controller
             });
         }
 
-        $analytics = $user->isAdmin() ? $this->buildAnalytics($request, $branchId) : [
-            'trend_data'         => [],
-            'category_data'      => [],
-            'top_product'        => null,
-            'peak_day'           => null,
-            'total_revenue'      => $todaySales,
-            'cogs'               => null,
-            'operating_expenses' => null,
-            'total_expenses'     => null,
-            'total_profit'       => null,
-            'gross_profit'       => null,
-            'profit_margin'      => null,
-            'total_orders'       => $sales->total(),
-            'cancelled_count'    => 0,
-        ];
+        $analytics = $this->buildAnalytics($request, $branchId);
 
         return Inertia::render('Admin/Reports/Index', array_merge(
             [
@@ -299,7 +285,7 @@ class ReportController extends Controller
             'cogs'               => $isAdmin ? $metrics['cogs'] : 0,
             'operating_expenses' => $isAdmin ? $metrics['operating_expenses'] : 0,
             'total_expenses'     => $isAdmin ? $metrics['total_expenses'] : 0,
-            'total_profit'       => $isAdmin ? $metrics['net_profit'] : 0,
+            'total_profit'       => $metrics['net_profit'],
             'gross_profit'       => $isAdmin ? $metrics['gross_profit'] : 0,
             'profit_margin'      => $isAdmin ? $metrics['net_margin'] : 0,
             'total_orders'       => $metrics['total_orders'],

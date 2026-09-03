@@ -1430,7 +1430,8 @@ class RiderController extends Controller
             return $user;
         }
         if ($user) {
-            return Rider::where('id', $user->id)
+            return Rider::where('user_id', $user->id)
+                ->orWhere('id', $user->id)
                 ->orWhere('email', $user->email)
                 ->first();
         }

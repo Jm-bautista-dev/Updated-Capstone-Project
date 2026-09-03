@@ -177,6 +177,7 @@ class OrderStatusUpdated implements ShouldBroadcastNow
                 'tracking_number'       => $this->delivery->tracking_number,
                 'status'                => $this->delivery->status,
                 'status_label'          => $statusLabel,
+                'status_color'          => $this->delivery->getStatusColor(),
                 'previous_status'       => $this->previousStatus,
                 'route_phase'           => $routePhase,
                 'active_destination'    => $activeDestination,

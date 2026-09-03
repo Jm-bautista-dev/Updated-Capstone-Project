@@ -61,6 +61,7 @@ export function DeliveryHero({
                             { id: 'all', label: 'All Orders' },
                             { id: 'pending', label: 'Pending' },
                             { id: 'preparing', label: 'Preparing' },
+                            { id: 'picked_up', label: 'Picked Up' },
                             { id: 'in_transit', label: 'In Transit' },
                             { id: 'delivered', label: 'Delivered' },
                         ].map((tab) => (

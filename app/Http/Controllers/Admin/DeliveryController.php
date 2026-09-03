@@ -328,7 +328,8 @@ class DeliveryController extends Controller
             'preparing'        => (clone $baseDeliveryQuery)->where('status', 'preparing')->count(),
             'ready'            => (clone $baseDeliveryQuery)->where('status', 'ready_for_pickup')->count(),
             'assigned'         => (clone $baseDeliveryQuery)->where('status', 'assigned_to_rider')->count(),
-            'in_transit'       => (clone $baseDeliveryQuery)->whereIn('status', ['picked_up', 'in_transit'])->count(),
+            'picked_up'        => (clone $baseDeliveryQuery)->where('status', 'picked_up')->count(),
+            'in_transit'       => (clone $baseDeliveryQuery)->whereIn('status', ['in_transit', 'out_for_delivery'])->count(),
             'delivered'        => (clone $baseDeliveryQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
             'delivered_today'  => (clone $baseDeliveryQuery)->where('status', 'delivered')->where(function ($dq) {
                                       $dq->whereDate('delivered_at', today())

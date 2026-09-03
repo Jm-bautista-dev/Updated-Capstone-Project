@@ -144,6 +144,41 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             debouncedReload();
         };
 
+        const getStatusColorFor = (status: string) => {
+            switch (status) {
+                case 'waiting_for_kitchen': return 'bg-orange-100 text-orange-700';
+                case 'pending':             return 'bg-slate-100 text-slate-600';
+                case 'preparing':           return 'bg-blue-100 text-blue-700';
+                case 'ready_for_pickup':    return 'bg-amber-100 text-amber-700';
+                case 'assigned_to_rider':   return 'bg-indigo-100 text-indigo-700';
+                case 'picked_up':           return 'bg-purple-100 text-purple-700';
+                case 'in_transit':
+                case 'out_for_delivery':    return 'bg-violet-100 text-violet-700';
+                case 'delivered':           return 'bg-emerald-100 text-emerald-700';
+                case 'cancelled':           return 'bg-rose-100 text-rose-700';
+                case 'failed_delivery':     return 'bg-red-100 text-red-800';
+                default:                    return 'bg-gray-100 text-gray-600';
+            }
+        };
+
+        const getStatusLabelFor = (status: string, fallback?: string) => {
+            if (fallback) return fallback;
+            switch (status) {
+                case 'waiting_for_kitchen': return 'New Order';
+                case 'pending':             return 'Pending';
+                case 'preparing':           return 'Preparing';
+                case 'ready_for_pickup':    return 'Ready for Pickup';
+                case 'assigned_to_rider':   return 'Rider Assigned';
+                case 'picked_up':           return 'Picked Up';
+                case 'in_transit':
+                case 'out_for_delivery':    return 'In Transit';
+                case 'delivered':           return 'Delivered';
+                case 'cancelled':           return 'Cancelled';
+                case 'failed_delivery':     return 'Failed Delivery';
+                default:                    return status.replace(/_/g, ' ');
+            }
+        };
+
         const handleStatusUpdate = (e: {
             delivery_id?: number;
             order_id?: number;
@@ -151,6 +186,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             order_number?: string;
             status?: string;
             status_label?: string;
+            status_color?: string;
             rider_id?: number | null;
             rider_name?: string | null;
             proof_of_delivery_url?: string | null;
@@ -171,7 +207,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                             return {
                                 ...item,
                                 status: e.status,
-                                status_label: e.status_label || e.status.replace('_', ' '),
+                                status_label: getStatusLabelFor(e.status, e.status_label),
+                                status_color: e.status_color || getStatusColorFor(e.status),
                                 is_delivered: e.status === 'delivered',
                                 delivered_at: e.delivered_at || (e.status === 'delivered' ? (e.timestamp || new Date().toISOString()) : item.delivered_at),
                                 rider_id: e.rider_id !== undefined ? e.rider_id : item.rider_id,
@@ -195,7 +232,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                         return {
                             ...prev,
                             status: e.status,
-                            status_label: e.status_label || e.status.replace('_', ' '),
+                            status_label: getStatusLabelFor(e.status, e.status_label),
+                            status_color: e.status_color || getStatusColorFor(e.status),
                             is_delivered: e.status === 'delivered',
                             delivered_at: e.delivered_at || (e.status === 'delivered' ? (e.timestamp || new Date().toISOString()) : prev.delivered_at),
                             rider_id: e.rider_id !== undefined ? e.rider_id : prev.rider_id,
