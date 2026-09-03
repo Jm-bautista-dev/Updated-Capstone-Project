@@ -1,9 +1,8 @@
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiBell } from 'react-icons/fi';
-import { toast } from 'sonner';
 import { NotificationDropdown, type Notification } from '@/components/notification-dropdown';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,7 +11,6 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { globalNotificationManager } from '@/lib/global-notification-manager';
-import { playOrderNotificationSound } from '@/lib/order-audio';
 
 interface AuthState {
     user?: {

@@ -152,20 +152,20 @@ export const GlobalToastContainer: React.FC = () => {
                             <div className="text-[11px] text-muted-foreground bg-gray-50/80 dark:bg-white/5 p-2 rounded-2xl border border-gray-100 dark:border-white/5 mb-2.5 space-y-0.5">
                                 <div className="flex items-center justify-between">
                                     <span>Customer:</span>
-                                    <span className="font-bold text-foreground truncate max-w-[180px]">
+                                    <span className="font-bold text-foreground truncate max-w-45">
                                         {item.customer_name || 'Mobile Customer'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span>Branch / Items:</span>
-                                    <span className="font-semibold text-foreground truncate max-w-[180px]">
+                                    <span className="font-semibold text-foreground truncate max-w-45">
                                         {item.branch_name || 'Branch'} {item.items_count ? `• ${item.items_count} item(s)` : ''}
                                     </span>
                                 </div>
                                 {item.reason && (
                                     <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-semibold pt-0.5 border-t border-gray-200/50 dark:border-white/5">
                                         <span>Reason:</span>
-                                        <span className="truncate max-w-[180px]">{item.reason}</span>
+                                        <span className="truncate max-w-45">{item.reason}</span>
                                     </div>
                                 )}
                             </div>

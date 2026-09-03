@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 import echo from '@/echo';
 import { globalNotificationManager } from '@/lib/global-notification-manager';
@@ -158,11 +158,6 @@ export function useRealTime(branchId?: number | null) {
                     window.dispatchEvent(new CustomEvent('new-order-received', { detail: e }));
                 }
 
-                const formattedPrice = typeof e.total_amount === 'number' 
-                    ? `₱${e.total_amount.toFixed(2)}` 
-                    : e.total_amount 
-                        ? `₱${e.total_amount}` 
-                        : '';
                 // Post into centralized 5-second queue with max-3 stack limit
                 const isPickup = e.fulfillment_type === 'pickup' || e.is_pickup;
                 globalNotificationManager.notify({

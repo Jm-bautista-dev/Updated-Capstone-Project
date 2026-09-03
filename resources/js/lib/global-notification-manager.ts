@@ -252,7 +252,6 @@ class GlobalNotificationManager {
         this.persistDismissedId(id);
 
         // Remove from visible
-        const prevVisibleCount = this.visibleList.length;
         this.visibleList = this.visibleList.filter((item) => item.id !== id);
         this.queueList = this.queueList.filter((item) => item.id !== id);
 
