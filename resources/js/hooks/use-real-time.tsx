@@ -2,6 +2,7 @@ import { router, usePage } from '@inertiajs/react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import echo from '@/echo';
+import { globalNotificationManager } from '@/lib/global-notification-manager';
 import { orderAlertManager } from '@/lib/order-alert-manager';
 import { playOrderNotificationSound } from '@/lib/order-audio';
 
@@ -162,59 +163,27 @@ export function useRealTime(branchId?: number | null) {
                     : e.total_amount 
                         ? `₱${e.total_amount}` 
                         : '';
-                const itemDetails = e.items_count ? `${e.items_count} item${e.items_count > 1 ? 's' : ''}` : '';
-
-                toast.custom((t) => (
-                    React.createElement('div', {
-                        className: "flex flex-col gap-3 p-4.5 bg-white dark:bg-[#121218] border-2 border-emerald-500/50 dark:border-emerald-400/60 rounded-3xl shadow-[0_20px_40px_-15px_rgba(16,185,129,0.3)] backdrop-blur-2xl max-w-sm w-full font-['Outfit'] animate-in fade-in slide-in-from-top-4 duration-300 relative overflow-hidden"
-                    }, [
-                        React.createElement('div', { key: 'glow', className: "absolute -top-12 -right-12 size-32 rounded-full bg-emerald-500/10 dark:from-emerald-500/20 blur-2xl pointer-events-none" }),
-                        React.createElement('div', { key: 'header', className: "flex items-center justify-between gap-2 relative z-10" }, [
-                            React.createElement('div', { key: 'title-group', className: "flex items-center gap-2.5" }, [
-                                React.createElement('div', { key: 'icon', className: "size-8.5 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-sm shrink-0 border border-emerald-500/30" }, "🔔"),
-                                React.createElement('div', { key: 'title-text', className: "min-w-0" }, [
-                                    React.createElement('div', { key: 'badge-row', className: "flex items-center gap-1.5" }, [
-                                        React.createElement('span', { key: 'badge', className: "text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block leading-tight" }, "NEW ONLINE ORDER"),
-                                        React.createElement('span', { key: 'dot', className: "size-1.5 rounded-full bg-emerald-500 animate-ping" })
-                                    ]),
-                                    React.createElement('h4', { key: 'heading', className: "text-base font-extrabold font-mono text-gray-900 dark:text-white leading-tight truncate" }, displayOrderNum)
-                                ])
-                            ]),
-                            formattedPrice ? React.createElement('span', { key: 'price', className: "text-xs font-mono font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-300 dark:border-emerald-800/60 shrink-0" }, formattedPrice) : null
-                        ]),
-                        React.createElement('div', { key: 'body', className: "text-xs text-muted-foreground leading-snug space-y-0.5 relative z-10 bg-muted/30 dark:bg-white/5 p-2.5 rounded-2xl border border-border/50" }, [
-                            React.createElement('div', { key: 'cust-row', className: "flex items-center justify-between" }, [
-                                React.createElement('span', { key: 'lbl', className: "text-[11px] font-medium text-muted-foreground" }, "Customer:"),
-                                React.createElement('span', { key: 'val', className: "font-bold text-foreground text-xs" }, e.customer_name || 'Mobile Customer')
-                            ]),
-                            React.createElement('div', { key: 'branch-row', className: "flex items-center justify-between" }, [
-                                React.createElement('span', { key: 'lbl2', className: "text-[11px] font-medium text-muted-foreground" }, "Branch & Items:"),
-                                React.createElement('span', { key: 'val2', className: "font-semibold text-foreground text-xs" }, `${branchStr}${itemDetails ? ` • ${itemDetails}` : ''}`)
-                            ])
-                        ]),
-                        React.createElement('div', { key: 'actions', className: "flex items-center gap-2 pt-0.5 relative z-10" }, [
-                            React.createElement('button', {
-                                key: 'view',
-                                onClick: () => {
-                                    toast.dismiss(t);
-                                    const targetUrl = e.order_id 
-                                        ? `/deliveries?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}` 
-                                        : '/deliveries';
-                                    router.visit(targetUrl);
-                                },
-                                className: "flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                            }, [
-                                React.createElement('span', { key: 'icon-v' }, "👁️"),
-                                React.createElement('span', { key: 'txt-v' }, "VIEW ORDER")
-                            ]),
-                            React.createElement('button', {
-                                key: 'dismiss',
-                                onClick: () => toast.dismiss(t),
-                                className: "px-3.5 h-9 text-xs font-bold text-muted-foreground hover:bg-muted/60 dark:hover:bg-white/10 rounded-2xl transition-all cursor-pointer active:scale-95"
-                            }, "DISMISS")
-                        ])
-                    ])
-                ), { duration: 15000, position: 'top-right' });
+                // Post into centralized 5-second queue with max-3 stack limit
+                const isPickup = e.fulfillment_type === 'pickup' || e.is_pickup;
+                globalNotificationManager.notify({
+                    id: e.order_id || `order_${Date.now()}`,
+                    type: isPickup ? 'pickup' : 'order',
+                    title: isPickup ? 'New Pickup Order' : 'New Online Order',
+                    order_number: displayOrderNum,
+                    customer_name: e.customer_name || 'Mobile Customer',
+                    branch_name: branchStr,
+                    total_amount: e.total_amount,
+                    items_count: e.items_count || 1,
+                    link_url: e.order_id
+                        ? (isPickup
+                            ? `/pickups?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`
+                            : `/deliveries?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`)
+                        : '/deliveries',
+                    link_text: 'VIEW ORDER',
+                    duration_ms: 5000,
+                    auto_dismiss: true,
+                    created_at: Date.now(),
+                });
 
                 router.reload({ 
                     only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats'],
@@ -238,99 +207,23 @@ export function useRealTime(branchId?: number | null) {
                 }
 
                 const displayOrderNum = e.order_number || (e.order_id ? `ORD-${e.order_id}` : 'ORD-NEW');
+                const branchStr = e.branch_name || 'Branch';
 
-                toast.custom((t) => (
-                    React.createElement('div', {
-                        className: "flex flex-col gap-3 p-4.5 bg-white dark:bg-[#121218] border-2 border-amber-500/60 dark:border-amber-400/70 rounded-3xl shadow-[0_20px_40px_-15px_rgba(245,158,11,0.3)] backdrop-blur-2xl max-w-sm w-full font-['Outfit'] animate-in fade-in slide-in-from-top-4 duration-300 relative overflow-hidden"
-                    }, [
-                        React.createElement('div', { key: 'glow', className: "absolute -top-12 -right-12 size-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" }),
-                        React.createElement('div', { key: 'header', className: "flex items-center justify-between gap-2 relative z-10" }, [
-                            React.createElement('div', { key: 'title-group', className: "flex items-center gap-2.5" }, [
-                                React.createElement('div', { key: 'icon', className: "size-8.5 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black text-sm shrink-0 border border-amber-500/30" }, "⚠"),
-                                React.createElement('div', { key: 'title-text', className: "min-w-0" }, [
-                                    React.createElement('div', { key: 'badge-row', className: "flex items-center gap-1.5" }, [
-                                        React.createElement('span', { key: 'badge', className: "text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 block leading-tight" }, "CANCELLATION REQUEST"),
-                                        React.createElement('span', { key: 'dot', className: "size-1.5 rounded-full bg-amber-500 animate-ping" })
-                                    ]),
-                                    React.createElement('h4', { key: 'heading', className: "text-base font-extrabold font-mono text-gray-900 dark:text-white leading-tight truncate" }, displayOrderNum)
-                                ])
-                            ])
-                        ]),
-                        React.createElement('div', { key: 'body', className: "text-xs text-muted-foreground leading-snug space-y-1 relative z-10 bg-amber-500/5 p-3 rounded-2xl border border-amber-500/20" }, [
-                            React.createElement('div', { key: 'rider-row', className: "flex items-center justify-between" }, [
-                                React.createElement('span', { key: 'lbl', className: "text-[11px] font-medium text-muted-foreground" }, "Rider:"),
-                                React.createElement('span', { key: 'val', className: "font-bold text-foreground text-xs" }, e.rider_name || 'Rider')
-                            ]),
-                            React.createElement('div', { key: 'cust-row', className: "flex items-center justify-between" }, [
-                                React.createElement('span', { key: 'lbl2', className: "text-[11px] font-medium text-muted-foreground" }, "Customer:"),
-                                React.createElement('span', { key: 'val2', className: "font-semibold text-foreground text-xs" }, e.customer_name || 'Customer')
-                            ]),
-                            React.createElement('div', { key: 'branch-row', className: "flex items-center justify-between" }, [
-                                React.createElement('span', { key: 'lbl3', className: "text-[11px] font-medium text-muted-foreground" }, "Branch:"),
-                                React.createElement('span', { key: 'val3', className: "font-semibold text-foreground text-xs" }, e.branch_name || 'Branch')
-                            ]),
-                            React.createElement('div', { key: 'reason-row', className: "mt-1 pt-1 border-t border-amber-500/10" }, [
-                                React.createElement('span', { key: 'lbl4', className: "text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 block" }, "Reason:"),
-                                React.createElement('span', { key: 'val4', className: "font-medium text-foreground text-xs block" }, e.reason + (e.notes ? ` (${e.notes})` : ''))
-                            ])
-                        ]),
-                        React.createElement('div', { key: 'actions', className: "flex items-center gap-2 pt-0.5 relative z-10" }, [
-                            React.createElement('button', {
-                                key: 'reject',
-                                onClick: async () => {
-                                    try {
-                                        const res = await fetch(`/api/v1/cancellation-requests/${e.cancellation_request_id}/reject`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                                                'Accept': 'application/json',
-                                            },
-                                            body: JSON.stringify({ rejection_reason: 'Rejected by cashier' })
-                                        });
-                                        const data = await res.json();
-                                        if (res.ok && data.success) {
-                                            toast.dismiss(t);
-                                            toast.success(`Cancellation request for ${displayOrderNum} REJECTED.`);
-                                            router.reload();
-                                        } else {
-                                            toast.error(data.message || 'Failed to reject cancellation request.');
-                                        }
-                                    } catch {
-                                        toast.error('Network error while processing decision.');
-                                    }
-                                },
-                                className: "px-3 h-9 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-2xl transition-all cursor-pointer active:scale-95 shrink-0"
-                            }, "REJECT"),
-                            React.createElement('button', {
-                                key: 'accept',
-                                onClick: async () => {
-                                    try {
-                                        const res = await fetch(`/api/v1/cancellation-requests/${e.cancellation_request_id}/accept`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-                                                'Accept': 'application/json',
-                                            },
-                                        });
-                                        const data = await res.json();
-                                        if (res.ok && data.success) {
-                                            toast.dismiss(t);
-                                            toast.success(`Cancellation request for ${displayOrderNum} ACCEPTED. Order cancelled.`);
-                                            router.reload();
-                                        } else {
-                                            toast.error(data.message || 'Failed to accept cancellation request.');
-                                        }
-                                    } catch {
-                                        toast.error('Network error while processing decision.');
-                                    }
-                                },
-                                className: "flex-1 h-9 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
-                            }, "ACCEPT")
-                        ])
-                    ])
-                ), { duration: 30000, position: 'top-right' });
+                // Post into centralized managed queue
+                globalNotificationManager.notify({
+                    id: `cancel_req_${e.cancellation_request_id || e.order_id}`,
+                    type: 'cancellation',
+                    title: 'Cancellation Request',
+                    order_number: displayOrderNum,
+                    customer_name: e.customer_name || 'Customer',
+                    branch_name: branchStr,
+                    reason: e.reason + (e.notes ? ` (${e.notes})` : ''),
+                    link_url: `/deliveries?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`,
+                    link_text: 'REVIEW REQUEST',
+                    duration_ms: 8000,
+                    auto_dismiss: true,
+                    created_at: Date.now(),
+                });
 
                 router.reload({
                     only: ['summary', 'recentOrders', 'orders', 'deliveries', 'stats'],

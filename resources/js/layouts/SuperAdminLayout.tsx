@@ -1,6 +1,8 @@
 import { usePage } from '@inertiajs/react';
 import React from 'react';
+import { Toaster } from 'sonner';
 import { FlashMessages } from '@/components/flash-messages';
+import { GlobalToastContainer } from '@/components/notifications/GlobalToastContainer';
 import { SuperAdminSidebar } from '@/components/super-admin/SuperAdminSidebar';
 import { SuperAdminTopBar } from '@/components/super-admin/SuperAdminTopBar';
 
@@ -42,6 +44,9 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
                 <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full space-y-8 overflow-y-auto">
                     {children}
                 </main>
+
+                <Toaster position="top-right" richColors expand={false} visibleToasts={3} />
+                <GlobalToastContainer />
             </div>
         </div>
     );
