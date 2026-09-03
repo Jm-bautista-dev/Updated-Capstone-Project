@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
+use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
 
 class DeliveryController extends Controller
@@ -29,7 +30,7 @@ class DeliveryController extends Controller
     /**
      * Delivery & Operations dashboard — paginated list for Delivery orders ONLY.
      */
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $user = Auth::user();
         $view = $request->input('view', 'today');
