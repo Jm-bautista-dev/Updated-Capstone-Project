@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\User;
 use App\Models\Wastage;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -16,6 +17,84 @@ use Illuminate\Support\Facades\DB;
  */
 class FinancialMetricsService
 {
+    /**
+     * Compute authoritative Today's Revenue and transaction telemetry for a specific branch scope and user.
+     * Respects Manila timezone [startOfToday, endOfToday], qualifying 'completed' status, discounts, and delivery fees.
+     */
+    public function getTodayRevenueMetrics(?int $branchId = null, ?User $user = null): array
+    {
+        $manilaTz = 'Asia/Manila';
+        $startToday = Carbon::now($manilaTz)->startOfDay();
+        $endToday = Carbon::now($manilaTz)->endOfDay();
+
+        $query = Sale::with(['items', 'delivery'])
+            ->where('status', 'completed')
+            ->whereBetween('created_at', [$startToday, $endToday]);
+
+        // Authorization scoping
+        if ($user && !$user->isAdmin()) {
+            $query->where('branch_id', $user->branch_id);
+            $effectiveBranchId = (int) $user->branch_id;
+        } else {
+            if ($branchId && $branchId !== 0) {
+                $query->where('branch_id', $branchId);
+                $effectiveBranchId = $branchId;
+            } else {
+                $effectiveBranchId = null;
+            }
+        }
+
+        $sales = $query->get();
+
+        $todayRevenue = 0.0;
+        $totalDeliveryFees = 0.0;
+        $completedCount = $sales->count();
+
+        foreach ($sales as $sale) {
+            $saleDeliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+            $saleDiscount = (float) ($sale->discount ?? 0.0);
+            $totalDeliveryFees += $saleDeliveryFee;
+
+            if ($sale->subtotal !== null) {
+                $productRev = max(0.0, (float) $sale->subtotal - $saleDiscount);
+            } elseif ($sale->items->isNotEmpty()) {
+                $productRev = max(0.0, (float) $sale->items->sum('subtotal') - $saleDiscount);
+            } else {
+                $productRev = max(0.0, (float) $sale->total - $saleDeliveryFee);
+            }
+
+            $todayRevenue += $productRev;
+        }
+
+        // Active Queue Counts for Today
+        $queueQuery = Sale::whereBetween('created_at', [$startToday, $endToday]);
+        if ($user && !$user->isAdmin()) {
+            $queueQuery->where('branch_id', $user->branch_id);
+        } elseif ($effectiveBranchId) {
+            $queueQuery->where('branch_id', $effectiveBranchId);
+        }
+
+        $pendingCount = (clone $queueQuery)->where('status', 'pending')->count();
+        $preparingCount = (clone $queueQuery)->where('status', 'preparing')->count();
+        $cancelledCount = (clone $queueQuery)->where('status', 'cancelled')->count();
+
+        $avgOrderValue = $completedCount > 0 ? round($todayRevenue / $completedCount, 2) : 0.0;
+
+        return [
+            'today_revenue'     => round($todayRevenue, 2),
+            'delivery_fees'     => round($totalDeliveryFees, 2),
+            'total_collected'   => round($todayRevenue + $totalDeliveryFees, 2),
+            'completed_today'   => $completedCount,
+            'pending'           => $pendingCount,
+            'preparing'         => $preparingCount,
+            'cancelled_today'   => $cancelledCount,
+            'avg_order_value'   => $avgOrderValue,
+            'branch_id'         => $effectiveBranchId,
+            'timezone'          => 'Asia/Manila',
+            'metric_label'      => "Today's Revenue",
+            'definition'        => 'Recognized net product revenue from completed transactions today (after discounts, excluding delivery fees)',
+        ];
+    }
     /**
      * Compute comprehensive financial metrics for completed sales and operational expenses.
      */

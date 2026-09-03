@@ -39,23 +39,11 @@ class ReportController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $todayQuery = Sale::where('status', 'completed')
-            ->whereDate('created_at', today())
-            ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
-            ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId));
-
-        $todaySalesList = (clone $todayQuery)->with(['items', 'delivery'])->get();
-        $todaySales = 0.0;
-        foreach ($todaySalesList as $s) {
-            $fee = (float) ($s->delivery_fee ?? $s->delivery?->delivery_fee ?? 0.0);
-            if ($s->subtotal !== null) {
-                $todaySales += (float) $s->subtotal;
-            } elseif ($s->items->isNotEmpty()) {
-                $todaySales += (float) $s->items->sum('subtotal');
-            } else {
-                $todaySales += max(0.0, (float) $s->total - $fee);
-            }
-        }
+        $todayMetrics = app(\App\Services\FinancialMetricsService::class)->getTodayRevenueMetrics(
+            $branchId ? (int) $branchId : null,
+            $user
+        );
+        $todaySales = $todayMetrics['today_revenue'];
 
         $shifts = CashierShift::with('cashier')
             ->when(!$user->isAdmin(), fn($q) => $q

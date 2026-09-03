@@ -77,20 +77,23 @@ class SalesController extends Controller
             });
         }
 
+        $todayMetrics = app(\App\Services\FinancialMetricsService::class)->getTodayRevenueMetrics(
+            $branchId ? (int) $branchId : null,
+            $user
+        );
+
         return Inertia::render('Sales/Index', [
-            'sales'    => $sales,
-            'branches' => $branches,
-            'filters'  => [
+            'sales'         => $sales,
+            'branches'      => $branches,
+            'filters'       => [
                 'status'    => $status,
                 'search'    => $search,
                 'branch_id' => $branchId ? (string) $branchId : 'all',
             ],
-            'isAdmin'  => $user->isAdmin(),
-            'stats'    => [
-                'pending'         => (clone $statsScope)->where('status', 'pending')->count(),
-                'preparing'       => (clone $statsScope)->where('status', 'preparing')->count(),
-                'completed_today' => (clone $statsScope)->where('status', 'completed')->whereDate('created_at', today())->count(),
-            ],
+            'isAdmin'       => $user->isAdmin(),
+            'stats'         => $todayMetrics,
+            'today_metrics' => $todayMetrics,
+            'today_sales'   => $todayMetrics['today_revenue'],
         ]);
     }
 

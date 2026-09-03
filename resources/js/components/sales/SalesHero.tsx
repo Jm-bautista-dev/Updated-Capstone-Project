@@ -62,9 +62,14 @@ export type Sale = {
 };
 
 interface SalesStats {
+    today_revenue?: number | string;
     pending?: number | string;
     preparing?: number | string;
     completed_today?: number | string;
+    cancelled_today?: number | string;
+    avg_order_value?: number | string;
+    definition?: string;
+    timezone?: string;
     [key: string]: unknown;
 }
 
@@ -79,33 +84,20 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
         new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amt);
 
     const { totalRevenue, completedCount, pendingCount, avgOrderValue } = useMemo(() => {
-        let rev = 0;
-        let completed = 0;
-        let pending = 0;
+        const rev = stats?.today_revenue !== undefined ? Number(stats.today_revenue) : 0;
+        const completed = stats?.completed_today !== undefined ? Number(stats.completed_today) : 0;
+        const pending = stats?.pending !== undefined ? Number(stats.pending) : 0;
+        const avg = stats?.avg_order_value !== undefined 
+            ? Number(stats.avg_order_value) 
+            : (completed > 0 ? rev / completed : 0);
 
-        sales.forEach((s) => {
-            if (s.status === 'completed') {
-                const fee = Number(s.delivery_fee ?? s.delivery?.delivery_fee ?? 0);
-                const sub = s.subtotal !== undefined && s.subtotal !== null
-                    ? Number(s.subtotal)
-                    : (s.items && s.items.length > 0
-                        ? s.items.reduce((acc, it) => acc + Number(it.subtotal || 0), 0)
-                        : Math.max(0, Number(s.total || 0) - fee));
-                rev += sub;
-                completed++;
-            } else if (s.status === 'pending' || s.status === 'preparing') {
-                pending++;
-            }
-        });
-
-        const avg = completed > 0 ? rev / completed : 0;
         return {
             totalRevenue: rev,
-            completedCount: stats?.completed_today ? Number(stats.completed_today) : completed,
-            pendingCount: stats?.pending ? Number(stats.pending) : pending,
+            completedCount: completed,
+            pendingCount: pending,
             avgOrderValue: avg,
         };
-    }, [sales, stats]);
+    }, [stats]);
 
     return (
         <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 lg:p-10 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300">
@@ -139,7 +131,7 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
                 {/* KPI Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     
-                    {/* Gross Revenue Card */}
+                    {/* Today's Revenue Card */}
                     <motion.div
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -147,7 +139,10 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
                         className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-[#E75480]/40 transition-all duration-300"
                     >
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Gross Revenue</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Today's Revenue</span>
+                                <span className="text-[10px] text-(--ops-text-muted) cursor-help" title={stats?.definition || "Recognized net food revenue from completed transactions today (after discounts, excluding delivery fees)"}>ⓘ</span>
+                            </div>
                             <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
                                 <DollarSign className="size-5" />
                             </div>
@@ -158,7 +153,7 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
                             </h2>
                             <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold font-mono">
                                 <TrendingUp className="size-3.5" />
-                                <span>+14.2% vs yesterday</span>
+                                <span>Completed sales recorded today</span>
                             </div>
                         </div>
                     </motion.div>
