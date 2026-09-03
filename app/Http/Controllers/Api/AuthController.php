@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Rider;
 use App\Models\EmailVerification;
+use App\Services\SecurityAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -125,21 +126,15 @@ class AuthController extends Controller
             ], 403);
         }
 
-        if (isset($user->is_active) && !$user->is_active) {
-            return response()->json([
-                'status'         => 'error',
-                'account_status' => 'deactivated',
-                'message'        => 'This account is currently inactive.',
-            ], 403);
+        if ($user instanceof Rider) {
+            $user->update([
+                'is_active'      => true,
+                'status'         => 'available',
+                'last_active_at' => now(),
+            ]);
         }
 
         $token = $user->createToken('mobile-token')->plainTextToken;
-
-        if ($user instanceof Rider || (isset($user->role) && $user->role === 'rider')) {
-            if ($user instanceof Rider) {
-                $user->update(['status' => 'available', 'last_active_at' => now()]);
-            }
-        }
 
         Log::info('[AUTH SYSTEM] Login Successful', [
             'user_id' => $user->id,
@@ -165,10 +160,54 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
+            if ($user instanceof Rider) {
+                $activeDeliveries = method_exists($user, 'activeDeliveriesCount') ? $user->activeDeliveriesCount() : 0;
+
+                // Set operational presence to offline, but account_status remains ACTIVE
+                $user->update([
+                    'status'         => 'offline',
+                    'is_active'      => false,
+                    'last_active_at' => now(),
+                ]);
+
+                if ($activeDeliveries > 0) {
+                    Log::warning('[RIDER LOGOUT DURING ACTIVE DELIVERY]', [
+                        'rider_id'          => $user->id,
+                        'rider_name'        => $user->name,
+                        'active_deliveries' => $activeDeliveries,
+                    ]);
+                    SecurityAuditLogger::logSecurityEvent(
+                        event: 'RIDER_LOGOUT_ACTIVE_DELIVERY_WARNING',
+                        target: "rider:{$user->id}",
+                        details: [
+                            'rider_id'          => $user->id,
+                            'rider_name'        => $user->name,
+                            'active_deliveries' => $activeDeliveries,
+                            'account_status'    => $user->account_status ?? 'active',
+                            'note'              => 'Rider logged out while carrying active delivery. Account status remains active; delivery assignment preserved.',
+                        ],
+                        level: 'warning'
+                    );
+                } else {
+                    SecurityAuditLogger::logSecurityEvent(
+                        event: 'RIDER_LOGOUT',
+                        target: "rider:{$user->id}",
+                        details: [
+                            'rider_id'       => $user->id,
+                            'rider_name'     => $user->name,
+                            'account_status' => $user->account_status ?? 'active',
+                            'result'         => 'NO_ACCOUNT_RESTRICTION',
+                        ],
+                        level: 'info'
+                    );
+                }
+            }
+
             if ($user && $user->currentAccessToken()) {
                 $user->currentAccessToken()->delete();
             }
-            return response()->json(['success' => true, 'message' => 'Logged out']);
+
+            return response()->json(['success' => true, 'message' => 'Logged out successfully']);
         } catch (\Exception $e) {
             return response()->json(['success' => true, 'message' => 'Logged out (Force)']);
         }

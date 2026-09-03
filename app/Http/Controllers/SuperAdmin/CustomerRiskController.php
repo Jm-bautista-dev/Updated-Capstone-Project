@@ -52,18 +52,21 @@ class CustomerRiskController extends Controller
         $customers->getCollection()->transform(function (User $customer) {
             $riskData = $this->riskService->evaluateCustomerRisk($customer);
             return [
-                'id'                     => $customer->id,
-                'name'                   => $customer->name,
-                'email'                  => $customer->email,
-                'mobile_number'          => $customer->mobile_number,
-                'is_phone_verified'      => $customer->isPhoneVerified(),
-                'phone_verified_at'      => $customer->phone_verified_at?->toIso8601String(),
-                'cod_restricted'         => $customer->isCodRestricted(),
-                'cod_restriction_reason' => $customer->cod_restriction_reason,
-                'risk_level_override'    => $customer->risk_level_override,
-                'risk_level'             => $riskData['risk_level'],
-                'metrics'                => $riskData['metrics'],
-                'created_at'             => $customer->created_at?->toIso8601String(),
+                'id'                         => $customer->id,
+                'name'                       => $customer->name,
+                'email'                      => $customer->email,
+                'mobile_number'              => $customer->mobile_number,
+                'is_phone_verified'          => $customer->isPhoneVerified(),
+                'phone_verified_at'          => $customer->phone_verified_at?->toIso8601String(),
+                'cod_restricted'             => $customer->isCodRestricted(),
+                'cod_restriction_reason'     => $customer->cod_restriction_reason,
+                'cod_restriction_source'     => $customer->cod_restriction_source,
+                'cod_restriction_expires_at' => $customer->cod_restriction_expires_at?->toIso8601String(),
+                'cod_restricted_at'          => $customer->cod_restricted_at?->toIso8601String(),
+                'risk_level_override'        => $customer->risk_level_override,
+                'risk_level'                 => $riskData['risk_level'],
+                'metrics'                    => $riskData['metrics'],
+                'created_at'                 => $customer->created_at?->toIso8601String(),
             ];
         });
 
@@ -105,18 +108,21 @@ class CustomerRiskController extends Controller
         return response()->json([
             'success'   => true,
             'customer'  => [
-                'id'                     => $customer->id,
-                'name'                   => $customer->name,
-                'email'                  => $customer->email,
-                'mobile_number'          => $customer->mobile_number,
-                'is_phone_verified'      => $customer->isPhoneVerified(),
-                'phone_verified_at'      => $customer->phone_verified_at,
-                'cod_restricted'         => $customer->isCodRestricted(),
-                'cod_restriction_reason' => $customer->cod_restriction_reason,
-                'risk_level_override'    => $customer->risk_level_override,
-                'risk_level'             => $riskData['risk_level'],
-                'metrics'                => $riskData['metrics'],
-                'orders'                 => $customer->orders,
+                'id'                         => $customer->id,
+                'name'                       => $customer->name,
+                'email'                      => $customer->email,
+                'mobile_number'              => $customer->mobile_number,
+                'is_phone_verified'          => $customer->isPhoneVerified(),
+                'phone_verified_at'          => $customer->phone_verified_at,
+                'cod_restricted'             => $customer->isCodRestricted(),
+                'cod_restriction_reason'     => $customer->cod_restriction_reason,
+                'cod_restriction_source'     => $customer->cod_restriction_source,
+                'cod_restriction_expires_at' => $customer->cod_restriction_expires_at,
+                'cod_restricted_at'          => $customer->cod_restricted_at,
+                'risk_level_override'        => $customer->risk_level_override,
+                'risk_level'                 => $riskData['risk_level'],
+                'metrics'                    => $riskData['metrics'],
+                'orders'                     => $customer->orders,
             ]
         ]);
     }
@@ -149,20 +155,26 @@ class CustomerRiskController extends Controller
         $prevState = [
             'cod_restricted'         => (bool) $customer->cod_restricted,
             'cod_restriction_reason' => $customer->cod_restriction_reason,
+            'cod_restriction_source' => $customer->cod_restriction_source,
             'risk_level_override'    => $customer->risk_level_override,
         ];
 
         $overrideRisk = $validated['risk_level_override'] === 'AUTO' ? null : ($validated['risk_level_override'] ?? null);
 
-        $customer->update([
-            'cod_restricted'         => $validated['cod_restricted'],
-            'cod_restriction_reason' => $validated['cod_restricted'] ? $validated['reason'] : null,
-            'risk_level_override'    => $overrideRisk,
-        ]);
+        if ($validated['cod_restricted']) {
+            $customer->applyManualCodRestriction($admin, $validated['reason']);
+        } else {
+            $customer->clearCodRestriction($admin);
+        }
+
+        if (array_key_exists('risk_level_override', $validated)) {
+            $customer->update(['risk_level_override' => $overrideRisk]);
+        }
 
         $newState = [
             'cod_restricted'         => (bool) $customer->cod_restricted,
             'cod_restriction_reason' => $customer->cod_restriction_reason,
+            'cod_restriction_source' => $customer->cod_restriction_source,
             'risk_level_override'    => $customer->risk_level_override,
         ];
 

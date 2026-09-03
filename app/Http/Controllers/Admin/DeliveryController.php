@@ -283,7 +283,7 @@ class DeliveryController extends Controller
                     'name'                    => $rider->name,
                     'phone'                   => $rider->phone,
                     'is_active'               => (bool) $rider->is_active,
-                    'account_status'          => $rider->is_active ? 'active' : 'inactive',
+                    'account_status'          => $rider->account_status ?? 'active',
                     'status'                  => $isOutForDelivery ? 'busy' : ($rider->status ?: ($rider->is_active ? 'available' : 'offline')),
                     'branch_id'               => $rider->branch_id,
                     'branch_name'             => $rider->branch?->name ?? 'Global',

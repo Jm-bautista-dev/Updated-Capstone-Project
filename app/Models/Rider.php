@@ -115,12 +115,12 @@ class Rider extends Authenticatable
 
     public function canLogin(): bool
     {
-        return !$this->isSuspended() && !$this->isDeactivated() && (bool) $this->is_active;
+        return !$this->isSuspended() && !$this->isDeactivated();
     }
 
     public function canAcceptDeliveries(): bool
     {
-        return $this->canLogin() && !(bool) $this->is_delivery_restricted;
+        return $this->canLogin() && !(bool) $this->is_delivery_restricted && (bool) $this->is_active && $this->status !== 'offline';
     }
 
     public function hasHistoricalBusinessRecords(): bool

@@ -69,25 +69,36 @@ class CodEligibilityService
 
         // 4. RESTRICTED Risk Level
         if ($riskLevel === 'RESTRICTED') {
+            $reason = !empty($riskData['reason'])
+                ? $riskData['reason']
+                : 'Cash on Delivery is unavailable for this account. Please select an online payment method.';
+            if (!empty($riskData['restriction_expires_at'])) {
+                $expiresFormatted = \Illuminate\Support\Carbon::parse($riskData['restriction_expires_at'])->toFormattedDateString();
+                $reason .= " (Temporary restriction until {$expiresFormatted})";
+            }
             return [
-                'eligible'              => false,
-                'risk_level'            => 'RESTRICTED',
-                'requires_verification' => false,
-                'max_cod_amount'        => 0.0,
-                'reason'                => 'Cash on Delivery is unavailable for this account. Please select an online payment method.',
+                'eligible'               => false,
+                'risk_level'             => 'RESTRICTED',
+                'requires_verification'  => false,
+                'max_cod_amount'         => 0.0,
+                'reason'                 => $reason,
+                'restriction_source'     => $riskData['restriction_source'] ?? null,
+                'restriction_expires_at' => $riskData['restriction_expires_at'] ?? null,
             ];
         }
 
         // 5. HIGH_RISK Level
         if ($riskLevel === 'HIGH_RISK') {
-            $highMax = (float) config('cod_security.max_cod_amount.HIGH_RISK', 0.00);
-            if ($highMax <= 0 || $orderAmount > $highMax) {
+            $highMax = (float) config('cod_security.max_cod_amount.HIGH_RISK', 500.00);
+            if ($highMax <= 0 || ($orderAmount > 0 && $orderAmount > $highMax)) {
                 return [
                     'eligible'              => false,
                     'risk_level'            => 'HIGH_RISK',
                     'requires_verification' => true,
                     'max_cod_amount'        => $highMax,
-                    'reason'                => 'Cash on Delivery is temporarily unavailable for this account. Please use online payment.',
+                    'reason'                => $highMax > 0
+                        ? "Cash on Delivery for this account is limited to ₱" . number_format($highMax, 2) . ". Please use online payment for this order total."
+                        : 'Cash on Delivery is temporarily unavailable for this account. Please use online payment.',
                 ];
             }
         }
@@ -95,7 +106,7 @@ class CodEligibilityService
         // 6. MEDIUM_RISK Level
         if ($riskLevel === 'MEDIUM_RISK') {
             $mediumMax = (float) config('cod_security.max_cod_amount.MEDIUM_RISK', 1500.00);
-            if ($orderAmount > $mediumMax) {
+            if ($orderAmount > 0 && $orderAmount > $mediumMax) {
                 return [
                     'eligible'              => false,
                     'risk_level'            => 'MEDIUM_RISK',
@@ -108,7 +119,7 @@ class CodEligibilityService
 
         // 7. LOW_RISK Level
         $lowMax = (float) config('cod_security.max_cod_amount.LOW_RISK', 5000.00);
-        if ($orderAmount > $lowMax) {
+        if ($orderAmount > 0 && $orderAmount > $lowMax) {
             return [
                 'eligible'              => false,
                 'risk_level'            => 'LOW_RISK',
@@ -124,6 +135,7 @@ class CodEligibilityService
             'risk_level'            => $riskLevel,
             'requires_verification' => false,
             'max_cod_amount'        => match ($riskLevel) {
+                'HIGH_RISK'   => (float) config('cod_security.max_cod_amount.HIGH_RISK', 500.00),
                 'MEDIUM_RISK' => (float) config('cod_security.max_cod_amount.MEDIUM_RISK', 1500.00),
                 default       => (float) config('cod_security.max_cod_amount.LOW_RISK', 5000.00),
             },

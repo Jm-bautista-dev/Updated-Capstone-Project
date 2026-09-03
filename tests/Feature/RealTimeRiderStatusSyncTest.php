@@ -128,7 +128,7 @@ class RealTimeRiderStatusSyncTest extends TestCase
             ->assertJson([
                 'success'        => true,
                 'is_active'      => false,
-                'account_status' => 'inactive',
+                'account_status' => 'active',
                 'status'         => 'offline',
             ]);
 
@@ -140,7 +140,7 @@ class RealTimeRiderStatusSyncTest extends TestCase
             $payload = $event->broadcastWith();
             return $event->rider->id === $this->riderVictoria->id &&
                    $payload['is_active'] === false &&
-                   $payload['account_status'] === 'inactive' &&
+                   $payload['account_status'] === 'active' &&
                    $payload['status'] === 'offline' &&
                    $payload['can_be_assigned'] === false;
         });

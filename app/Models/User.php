@@ -37,6 +37,10 @@ class User extends Authenticatable
         'phone_verified_at',
         'cod_restricted',
         'cod_restriction_reason',
+        'cod_restriction_source',
+        'cod_restricted_at',
+        'cod_restriction_expires_at',
+        'cod_restricted_by',
         'risk_level_override',
         'last_notifications_read_at',
         'must_change_password',
@@ -115,7 +119,75 @@ class User extends Authenticatable
 
     public function isCodRestricted(): bool
     {
-        return (bool) $this->cod_restricted || $this->isRestricted();
+        if ($this->isRestricted() || $this->isSuspended() || $this->isDeactivated()) {
+            return true;
+        }
+
+        if (!(bool) $this->cod_restricted) {
+            return false;
+        }
+
+        // Manual admin restriction remains until explicitly removed by admin
+        if ($this->cod_restriction_source === 'MANUAL') {
+            return true;
+        }
+
+        // Automatic temporary restriction expires after expiration timestamp
+        if ($this->cod_restriction_expires_at && \Illuminate\Support\Carbon::now()->gt($this->cod_restriction_expires_at)) {
+            return false;
+        }
+
+        return (bool) $this->cod_restricted;
+    }
+
+    /**
+     * Apply an automatic temporary COD restriction with expiration.
+     */
+    public function applyTemporaryCodRestriction(int $days, string $reason): void
+    {
+        $this->update([
+            'cod_restricted'             => true,
+            'cod_restriction_reason'     => $reason,
+            'cod_restriction_source'     => 'AUTOMATIC',
+            'cod_restricted_at'          => now(),
+            'cod_restriction_expires_at' => now()->addDays($days),
+            'cod_restricted_by'          => null,
+        ]);
+    }
+
+    /**
+     * Apply a manual COD restriction by an administrator.
+     */
+    public function applyManualCodRestriction(User $actor, string $reason, ?\DateTimeInterface $expiresAt = null): void
+    {
+        $this->update([
+            'cod_restricted'             => true,
+            'cod_restriction_reason'     => $reason,
+            'cod_restriction_source'     => 'MANUAL',
+            'cod_restricted_at'          => now(),
+            'cod_restriction_expires_at' => $expiresAt,
+            'cod_restricted_by'          => $actor->id,
+        ]);
+    }
+
+    /**
+     * Clear COD restriction.
+     */
+    public function clearCodRestriction(?User $actor = null): void
+    {
+        $this->update([
+            'cod_restricted'             => false,
+            'cod_restriction_reason'     => null,
+            'cod_restriction_source'     => null,
+            'cod_restricted_at'          => null,
+            'cod_restriction_expires_at' => null,
+            'cod_restricted_by'          => null,
+        ]);
+    }
+
+    public function codRestrictedBy()
+    {
+        return $this->belongsTo(User::class, 'cod_restricted_by');
     }
 
     /**
@@ -137,6 +209,16 @@ class User extends Authenticatable
     public function orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function deliveryAttempts()
+    {
+        return $this->hasMany(DeliveryAttempt::class, 'customer_id');
     }
 
     public function statusChangedBy()
@@ -183,6 +265,8 @@ class User extends Authenticatable
             'suspended_at'               => 'datetime',
             'deactivated_at'             => 'datetime',
             'cod_restricted'             => 'boolean',
+            'cod_restricted_at'          => 'datetime',
+            'cod_restriction_expires_at' => 'datetime',
             'is_order_restricted'        => 'boolean',
             'password'                   => 'hashed',
             'two_factor_confirmed_at'    => 'datetime',

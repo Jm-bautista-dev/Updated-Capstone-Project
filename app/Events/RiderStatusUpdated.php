@@ -73,7 +73,7 @@ class RiderStatusUpdated implements ShouldBroadcastNow
             'branch_id'               => $this->rider->branch_id,
             'branch_name'             => $this->rider->branch?->name ?? 'Global',
             'is_active'               => (bool) $this->rider->is_active,
-            'account_status'          => $this->rider->is_active ? 'active' : 'inactive',
+            'account_status'          => $this->rider->account_status ?? 'active',
             'status'                  => $this->rider->status, // 'available' | 'busy' | 'offline'
             'is_out_for_delivery'     => $isOutForDelivery,
             'can_be_assigned'         => $canBeAssigned,

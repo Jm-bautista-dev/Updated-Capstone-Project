@@ -16,6 +16,12 @@ return [
     // Active order limits
     'max_active_orders_per_customer' => env('MAX_ACTIVE_ORDERS_PER_CUSTOMER', 2),
 
+    // Rolling window for active risk calculation (days)
+    'rolling_window_days' => env('COD_ROLLING_WINDOW_DAYS', 60),
+
+    // Temporary restriction duration when algorithmically triggered (days)
+    'temporary_restriction_days' => env('COD_TEMPORARY_RESTRICTION_DAYS', 7),
+
     // Require verified phone number for COD orders
     'require_verified_phone_for_cod' => env('REQUIRE_VERIFIED_PHONE_FOR_COD', true),
 
@@ -23,25 +29,25 @@ return [
     'max_cod_amount' => [
         'LOW_RISK'    => env('COD_MAX_AMOUNT_LOW_RISK', 5000.00),
         'MEDIUM_RISK' => env('COD_MAX_AMOUNT_MEDIUM_RISK', 1500.00),
-        'HIGH_RISK'   => env('COD_MAX_AMOUNT_HIGH_RISK', 0.00), // 0 means COD blocked
+        'HIGH_RISK'   => env('COD_MAX_AMOUNT_HIGH_RISK', 500.00),
         'RESTRICTED'  => 0.00,
     ],
 
-    // Risk calculation thresholds
+    // Risk calculation thresholds within rolling window
     'risk_thresholds' => [
         'medium_risk_refusals'       => 1,
         'high_risk_refusals'         => 2,
         'restricted_refusals'        => 3,
         'medium_risk_failed_events'  => 2,
-        'high_risk_failed_events'    => 4,
-        'restricted_failed_events'   => 6,
-        'high_risk_failed_ratio'     => 0.40, // 40% failed COD orders if >= 3 total orders
+        'high_risk_failed_events'    => 3,
+        'restricted_failed_events'   => 5,
+        'high_risk_failed_ratio'     => 0.40, // 40% failed COD orders if >= 3 total orders in window
         'minimum_orders_for_ratio'   => 3,
     ],
 
     // Consecutive successful delivered orders required to lower risk
     'trust_restoration' => [
-        'consecutive_successful_to_demote' => 3,
+        'consecutive_successful_to_demote' => 2,
     ],
 
     // Controlled failure reason taxonomy & attribution mapping

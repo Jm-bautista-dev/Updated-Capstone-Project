@@ -1277,7 +1277,7 @@ class RiderController extends Controller
                 'success'        => true,
                 'message'        => 'Rider status updated successfully.',
                 'is_active'      => (bool) $freshRider->is_active,
-                'account_status' => $freshRider->is_active ? 'active' : 'inactive',
+                'account_status' => $freshRider->account_status ?? 'active',
                 'status'         => $freshRider->status,
                 'rider'          => [
                     'id'                  => $freshRider->id,
@@ -1285,7 +1285,7 @@ class RiderController extends Controller
                     'branch_id'           => $freshRider->branch_id,
                     'branch_name'         => $freshRider->branch?->name ?? 'Global',
                     'is_active'           => (bool) $freshRider->is_active,
-                    'account_status'      => $freshRider->is_active ? 'active' : 'inactive',
+                    'account_status'      => $freshRider->account_status ?? 'active',
                     'status'              => $freshRider->status,
                     'is_out_for_delivery' => $isOutForDelivery,
                     'can_be_assigned'     => $canBeAssigned,
