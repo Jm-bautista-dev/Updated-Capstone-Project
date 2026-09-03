@@ -435,7 +435,7 @@ export function useRealTime(branchId?: number | null) {
             const userRole = (auth?.user?.role || '').toLowerCase();
             const userBranchId = branchId || auth?.user?.branch_id;
 
-            if (userRole === 'admin') {
+            if (userRole === 'admin' || userRole === 'super_admin') {
                 echo.private('admin.orders')
                     .listen('OrderCreated', handleOrderNotification)
                     .listen('.OrderCreated', handleOrderNotification)

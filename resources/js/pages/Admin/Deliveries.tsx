@@ -111,7 +111,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
 
         // Determine channels to subscribe to
         const channelsToSubscribe: string[] = [];
-        if (userRole === 'admin') {
+        if (userRole === 'admin' || userRole === 'super_admin') {
             channelsToSubscribe.push('admin.orders');
             if (branchFilterId) {
                 channelsToSubscribe.push(`branch.${branchFilterId}.orders`);
@@ -122,6 +122,18 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
 
         if (channelsToSubscribe.length === 0) return;
 
+        let reloadTimeout: ReturnType<typeof setTimeout> | null = null;
+        const debouncedReload = () => {
+            if (reloadTimeout) clearTimeout(reloadTimeout);
+            reloadTimeout = setTimeout(() => {
+                router.reload({
+                    only: ['deliveries', 'stats', 'availableRiders', 'allRiders'],
+                    preserveScroll: true,
+                    preserveState: true,
+                } as Parameters<typeof router.reload>[0]);
+            }, 300);
+        };
+
         const handleNewOrder = (e: unknown) => {
             const eventData = e as { fulfillment_type?: string; is_pickup?: boolean };
             if (eventData?.fulfillment_type === 'pickup' || eventData?.is_pickup) {
@@ -129,11 +141,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                 return;
             }
             console.log('Real-time new delivery received in Deliveries page:', e);
-            router.reload({
-                only: ['deliveries', 'stats', 'availableRiders', 'allRiders'],
-                preserveScroll: true,
-                preserveState: true,
-            } as Parameters<typeof router.reload>[0]);
+            debouncedReload();
         };
 
         const handleStatusUpdate = (e: {
@@ -201,12 +209,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                 });
             }
 
-            // 2. Refresh Inertia props without full page reload
-            router.reload({
-                only: ['deliveries', 'stats', 'availableRiders', 'allRiders'],
-                preserveScroll: true,
-                preserveState: true,
-            } as Parameters<typeof router.reload>[0]);
+            // 2. Refresh Inertia props with debounce
+            debouncedReload();
         };
 
         const handleRiderUpdate = (e: {
@@ -291,7 +295,23 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
             return chName;
         });
 
+        const fallbackInterval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                debouncedReload();
+            }
+        }, 25000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                debouncedReload();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
+            if (reloadTimeout) clearTimeout(reloadTimeout);
+            clearInterval(fallbackInterval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             activeChannels.forEach(chName => {
                 echo?.leave(chName);
             });

@@ -160,8 +160,45 @@ class PickupOrderService
             $branchId = $data['branch_id'] ?? $cashier->branch_id ?? 1;
             $branch = Branch::findOrFail($branchId);
 
-            $scheduledPickupAt = Carbon::parse($data['scheduled_pickup_at'], self::DEFAULT_TIMEZONE);
-            $prepTimeMinutes = (int) ($data['estimated_prep_time_minutes'] ?? 20);
+            $tz = self::DEFAULT_TIMEZONE;
+            $now = Carbon::now($tz);
+            $scheduledPickupAt = Carbon::parse($data['scheduled_pickup_at'], $tz);
+            $leadTimeMinutes = (int) ($branch->pickup_lead_time_minutes ?? 20);
+            $prepTimeMinutes = (int) ($data['estimated_prep_time_minutes'] ?? $leadTimeMinutes);
+
+            // 1. Validate not in past (with 2-minute grace for client submission latency)
+            if ($scheduledPickupAt->isBefore($now->copy()->subMinutes(2))) {
+                throw new \Exception("Cannot schedule a pickup in the past.");
+            }
+
+            // 2. Validate operating hours
+            $openStr = $branch->pickup_opening_time ?? '09:00:00';
+            $closeStr = $branch->pickup_closing_time ?? '21:00:00';
+            $cutoffMin = (int) ($branch->pickup_cutoff_before_close_minutes ?? 30);
+
+            $openingDateTime = Carbon::parse($scheduledPickupAt->toDateString() . ' ' . $openStr, $tz);
+            $closingDateTime = Carbon::parse($scheduledPickupAt->toDateString() . ' ' . $closeStr, $tz);
+            $lastSlotDateTime = $closingDateTime->copy()->subMinutes($cutoffMin);
+
+            if ($scheduledPickupAt->lt($openingDateTime) || $scheduledPickupAt->gt($lastSlotDateTime)) {
+                throw new \Exception("Selected pickup time ({$scheduledPickupAt->format('g:i A')}) is outside branch pickup hours ({$openingDateTime->format('g:i A')} to {$lastSlotDateTime->format('g:i A')}).");
+            }
+
+            // 3. Race condition & slot capacity protection with pessimistic lock
+            $slotKey = $scheduledPickupAt->format('Y-m-d H:i:00');
+            $maxPerSlot = (int) ($branch->pickup_max_orders_per_slot ?? 10);
+
+            $currentSlotOrdersCount = Order::where('branch_id', $branchId)
+                ->where('fulfillment_type', Order::FULFILLMENT_PICKUP)
+                ->where('scheduled_pickup_at', $slotKey)
+                ->whereNotIn('status', ['cancelled'])
+                ->lockForUpdate()
+                ->count();
+
+            if ($currentSlotOrdersCount >= $maxPerSlot) {
+                throw new \Exception("Pickup slot for {$scheduledPickupAt->format('g:i A')} is fully booked ({$currentSlotOrdersCount}/{$maxPerSlot} orders). Please select another time.");
+            }
+
             $prepStartAt = $scheduledPickupAt->copy()->subMinutes($prepTimeMinutes);
 
             // Generate order number and verification code

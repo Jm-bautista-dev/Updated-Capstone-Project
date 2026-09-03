@@ -164,31 +164,45 @@ class ReviewController extends Controller
             }
 
             // ── ONE REVIEW PER PURCHASE (Update or Create) ────────────────────
+            $hasComment = !empty(trim((string) ($validated['comment'] ?? '')));
+            $existingReview = ProductReview::where('order_item_id', $orderItem->id)->first();
+
+            $updateData = [
+                'user_id'    => $user->id,
+                'product_id' => $validated['product_id'],
+                'order_id'   => $order->id,
+                'branch_id'  => $order->branch_id,
+                'rating'     => (int) $validated['rating'],
+                'comment'    => $hasComment ? trim($validated['comment']) : null,
+                'status'     => ProductReview::STATUS_PUBLISHED,
+            ];
+
+            // Auto-reply rule:
+            // Only trigger when rating exists AND comment is empty/null.
+            // If customer provided a written comment, preserve it without auto-reply overwrite.
+            if (!$hasComment && (!$existingReview || empty($existingReview->admin_response))) {
+                $updateData['admin_response'] = 'Thank you for your rating! We appreciate your feedback.';
+                $updateData['admin_responded_at'] = now();
+            }
+
             $review = ProductReview::updateOrCreate(
                 ['order_item_id' => $orderItem->id],
-                [
-                    'user_id'    => $user->id,
-                    'product_id' => $validated['product_id'],
-                    'order_id'   => $order->id,
-                    'branch_id'  => $order->branch_id,
-                    'rating'     => (int) $validated['rating'],
-                    'comment'    => $validated['comment'] ?? null,
-                    'status'     => ProductReview::STATUS_PUBLISHED,
-                ]
+                $updateData
             );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Thank you! Your review has been submitted successfully.',
                 'data'    => [
-                    'id'            => $review->id,
-                    'product_id'    => $review->product_id,
-                    'order_id'      => $review->order_id,
-                    'order_item_id' => $review->order_item_id,
-                    'rating'        => $review->rating,
-                    'comment'       => $review->comment,
-                    'status'        => $review->status,
-                    'created_at'    => $review->created_at?->toIso8601String(),
+                    'id'             => $review->id,
+                    'product_id'     => $review->product_id,
+                    'order_id'       => $review->order_id,
+                    'order_item_id'  => $review->order_item_id,
+                    'rating'         => $review->rating,
+                    'comment'        => $review->comment,
+                    'admin_response' => $review->admin_response,
+                    'status'         => $review->status,
+                    'created_at'     => $review->created_at?->toIso8601String(),
                 ]
             ], 201);
         } catch (\Throwable $e) {

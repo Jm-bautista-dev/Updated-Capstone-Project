@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Events\SaleCreated;
 use App\Events\StockUpdated;
 use App\Models\CashierShift;
+use App\Models\ProductAddon;
 
 class SaleService
 {
@@ -91,20 +92,65 @@ class SaleService
 
                 $computedCost = $product->computeProductCost($branchId);
 
-                $itemCost    = $computedCost * $qty;
-                $itemSelling = (float) $product->selling_price * $qty;
+                $addonTotal = 0.0;
+                $addonCost = 0.0;
+                $normalizedAddons = [];
+
+                if (!empty($item['selected_addons'])) {
+                    $rawAddons = is_string($item['selected_addons']) 
+                        ? json_decode($item['selected_addons'], true) 
+                        : $item['selected_addons'];
+
+                    if (is_array($rawAddons)) {
+                        foreach ($rawAddons as $rawAd) {
+                            $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
+                            $adModel = $addonId ? ProductAddon::find($addonId) : null;
+                            
+                            $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
+                            $adPrice = $adModel ? (float) $adModel->price : (float) ($rawAd['price'] ?? 0);
+                            $adCost = $adModel ? (float) ($adModel->cost_price ?? 0) : (float) ($rawAd['cost_price'] ?? 0);
+                            $adQty = (float) ($rawAd['quantity'] ?? 1);
+
+                            $adLineTotal = $adPrice * $adQty;
+                            $adLineCost = $adCost * $adQty;
+
+                            $addonTotal += $adLineTotal;
+                            $addonCost += $adLineCost;
+
+                            // Deduct inventory if addon is linked to an ingredient
+                            if ($adModel && $adModel->ingredient_id) {
+                                $needed = (float) $adModel->ingredient_quantity * $adQty * $qty;
+                                $ingredientRequirements[$adModel->ingredient_id] =
+                                    ($ingredientRequirements[$adModel->ingredient_id] ?? 0) + $needed;
+                            }
+
+                            $normalizedAddons[] = [
+                                'addon_id' => $addonId,
+                                'name'     => $adName,
+                                'price'    => $adPrice,
+                                'quantity' => $adQty,
+                                'subtotal' => $adLineTotal,
+                            ];
+                        }
+                    }
+                }
+
+                $itemCost    = ($computedCost * $qty) + ($addonCost * $qty);
+                $itemSelling = ((float) $product->selling_price * $qty) + ($addonTotal * $qty);
                 $itemProfit  = $itemSelling - $itemCost;
 
                 $costTotal  += $itemCost;
                 $saleProfit += $itemProfit;
 
                 $saleItemsData[] = [
-                    'product_id' => $product->id,
-                    'quantity'   => $qty,
-                    'unit_price' => $product->selling_price,
-                    'cost_price' => $computedCost,
-                    'subtotal'   => $itemSelling,
-                    'profit'     => $itemProfit,
+                    'product_id'      => $product->id,
+                    'quantity'        => $qty,
+                    'unit_price'      => $product->selling_price,
+                    'cost_price'      => $computedCost,
+                    'subtotal'        => $itemSelling,
+                    'addon_total'     => $addonTotal * $qty,
+                    'selected_addons' => $normalizedAddons,
+                    'profit'          => $itemProfit,
                 ];
             }
 
@@ -144,6 +190,7 @@ class SaleService
                 }
             }
 
+<<<<<<< HEAD
             $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
             $costTotal = round($costTotal, 2);
 
@@ -206,6 +253,30 @@ class SaleService
                 $paidAmount = $saleTotal;
                 $changeAmount = 0.00;
             }
+=======
+            $orderType = $data['type'] ?? 'dine-in';
+            $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
+            $rawDiscount = isset($data['discount']) ? (float) $data['discount'] : 0.00;
+            
+            // Server-authoritative validation:
+            // Discount must be a valid number, non-negative, and cannot exceed product subtotal
+            if (is_nan($rawDiscount) || is_infinite($rawDiscount) || $rawDiscount < 0) {
+                $rawDiscount = 0.00;
+            }
+            $discount = round(min($productSubtotal, $rawDiscount), 2);
+            $discountType = $data['discount_type'] ?? null;
+            $discountDetails = $data['discount_details'] ?? null;
+
+            $netProductSales = round(max(0.0, $productSubtotal - $discount), 2);
+            $deliveryFee = ($orderType === 'delivery' && !empty($data['delivery_info']['delivery_fee'])) 
+                ? round(max(0.0, (float) $data['delivery_info']['delivery_fee']), 2) 
+                : 0.00;
+            $saleTotal = round($netProductSales + $deliveryFee, 2);
+            $saleProfit = round($netProductSales - $costTotal, 2);
+
+            $paidAmount = isset($data['paid_amount']) ? round((float) $data['paid_amount'], 2) : $saleTotal;
+            $changeAmount = max(0.0, round($paidAmount - $saleTotal, 2));
+>>>>>>> c1bcda7f (update)
 
             $sale = Sale::create([
                 'order_number'     => $orderRef,

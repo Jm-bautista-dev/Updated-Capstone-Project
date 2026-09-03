@@ -70,11 +70,48 @@ class ReportController extends Controller
             ->paginate(20, ['*'], 'shifts_page')
             ->withQueryString();
 
+        if (!$user->isAdmin()) {
+            $sales->getCollection()->transform(function ($sale) {
+                $sale->cost_total = null;
+                $sale->profit = null;
+                $sale->makeHidden(['cost_total', 'profit']);
+                if ($sale->items) {
+                    $sale->items->transform(function ($item) {
+                        $item->cost_price = null;
+                        $item->profit = null;
+                        $item->makeHidden(['cost_price', 'profit']);
+                        if ($item->product) {
+                            $item->product->cost_price = null;
+                            $item->product->makeHidden(['cost_price']);
+                        }
+                        return $item;
+                    });
+                }
+                return $sale;
+            });
+        }
+
+        $analytics = $user->isAdmin() ? $this->buildAnalytics($request, $branchId) : [
+            'trend_data'         => [],
+            'category_data'      => [],
+            'top_product'        => null,
+            'peak_day'           => null,
+            'total_revenue'      => $todaySales,
+            'cogs'               => null,
+            'operating_expenses' => null,
+            'total_expenses'     => null,
+            'total_profit'       => null,
+            'gross_profit'       => null,
+            'profit_margin'      => null,
+            'total_orders'       => $sales->total(),
+            'cancelled_count'    => 0,
+        ];
+
         return Inertia::render('Admin/Reports/Index', array_merge(
             [
                 'sales'       => $sales,
                 'shifts'      => $shifts,
-                'cashiers'    => User::where('role', 'cashier')->get(),
+                'cashiers'    => $user->isAdmin() ? User::where('role', 'cashier')->get() : [],
                 'branches'    => Branch::orderBy('name')->get(),
                 'filters'     => array_merge(
                     $request->only(['date_from', 'date_to', 'cashier_id', 'status']),
@@ -83,7 +120,7 @@ class ReportController extends Controller
                 'today_sales' => $todaySales,
                 'isAdmin'     => $user->isAdmin(),
             ],
-            $this->buildAnalytics($request, $branchId)
+            $analytics
         ));
     }
 
@@ -155,7 +192,12 @@ class ReportController extends Controller
                     'status'           => ucfirst($sale->status),
                     'product_subtotal' => '₱' . number_format($productSubtotal, 2),
                     'delivery_fee'     => '₱' . number_format($deliveryFee, 2),
+<<<<<<< HEAD
                     'total'            => '₱' . number_format($sale->total, 2),
+=======
+                    'total'            => '₱' . number_format((float) $sale->total, 2),
+                    'profit'           => $user->isAdmin() ? ('₱' . number_format($saleProfit, 2)) : 'N/A',
+>>>>>>> c1bcda7f (update)
                 ];
 
                 if ($user->isAdmin()) {
@@ -182,11 +224,11 @@ class ReportController extends Controller
                     'cashier' => $shift->cashier?->name ?? 'N/A',
                     'opened_at' => $shift->opened_at->format('M d, Y H:i'),
                     'closed_at' => $shift->closed_at ? $shift->closed_at->format('M d, Y H:i') : 'Active',
-                    'starting_cash' => '₱' . number_format($shift->starting_cash, 2),
-                    'cash_sales' => '₱' . number_format($shift->total_cash_sales, 2),
-                    'expected_balance' => '₱' . number_format($shift->expected_balance, 2),
-                    'actual_cash' => $shift->actual_cash !== null ? '₱' . number_format($shift->actual_cash, 2) : 'N/A',
-                    'difference' => $shift->difference !== null ? '₱' . number_format($shift->difference, 2) : 'N/A',
+                    'starting_cash' => '₱' . number_format((float) $shift->starting_cash, 2),
+                    'cash_sales' => '₱' . number_format((float) ($shift->total_cash_sales ?? 0), 2),
+                    'expected_balance' => '₱' . number_format((float) ($shift->expected_balance ?? 0), 2),
+                    'actual_cash' => $shift->actual_cash !== null ? '₱' . number_format((float) $shift->actual_cash, 2) : 'N/A',
+                    'difference' => $shift->difference !== null ? '₱' . number_format((float) $shift->difference, 2) : 'N/A',
                     'status' => ucfirst($shift->status),
                 ];
             })->toArray();

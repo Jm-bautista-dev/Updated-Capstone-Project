@@ -90,17 +90,31 @@ export function usePrinterStatus() {
 
     useEffect(() => {
         let isMounted = true;
+<<<<<<< HEAD
         const runCheck = async () => {
+=======
+
+        const syncStatus = async () => {
+>>>>>>> c1bcda7f (update)
             const isHealthy = await checkPrintBridgeHealth();
             if (isMounted) {
                 setStatus(isHealthy ? 'ready' : 'offline');
             }
         };
 
+<<<<<<< HEAD
         runCheck();
         const interval = setInterval(runCheck, 60000);
         return () => {
             isMounted = false;
+=======
+        const interval = setInterval(syncStatus, 15000);
+        const timer = setTimeout(syncStatus, 0);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timer);
+>>>>>>> c1bcda7f (update)
             clearInterval(interval);
         };
     }, []);

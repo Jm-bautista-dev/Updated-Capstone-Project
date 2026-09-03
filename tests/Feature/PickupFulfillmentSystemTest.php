@@ -188,7 +188,11 @@ class PickupFulfillmentSystemTest extends TestCase
      */
     public function test_cashier_can_create_manual_facebook_pickup_order(): void
     {
-        $scheduledPickupAt = Carbon::now('Asia/Manila')->addHours(3)->format('Y-m-d H:i:s');
+        $scheduledPickupTime = Carbon::today('Asia/Manila')->setTime(14, 0, 0);
+        if ($scheduledPickupTime->isPast()) {
+            $scheduledPickupTime->addDay();
+        }
+        $scheduledPickupAt = $scheduledPickupTime->format('Y-m-d H:i:s');
 
         $payload = [
             'customer_name'               => 'Juan Dela Cruz',

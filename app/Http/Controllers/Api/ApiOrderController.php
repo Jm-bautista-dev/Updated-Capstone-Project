@@ -92,6 +92,7 @@ class ApiOrderController extends Controller
                 'items.*.product_id'  => 'required|exists:products,id',
                 'items.*.quantity'    => 'required|numeric|min:0.1',
                 'items.*.price'       => 'required|numeric|min:0',
+                'items.*.selected_addons' => 'nullable|array',
                 'total_amount'        => 'required|numeric|min:0',
                 'delivery_fee'        => 'nullable|numeric|min:0',
                 'distance_km'         => 'nullable|numeric|min:0',
@@ -899,18 +900,49 @@ class ApiOrderController extends Controller
 
             $unitPrice = (float) $product->selling_price;
             $qty       = (int) $itemData['quantity'];
-            $lineTotal = round($unitPrice * $qty, 2);
+
+            $addonTotal = 0.0;
+            $normalizedAddons = [];
+            if (!empty($itemData['selected_addons'])) {
+                $rawAddons = is_string($itemData['selected_addons']) 
+                    ? json_decode($itemData['selected_addons'], true) 
+                    : $itemData['selected_addons'];
+
+                if (is_array($rawAddons)) {
+                    foreach ($rawAddons as $rawAd) {
+                        $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
+                        $adModel = $addonId ? \App\Models\ProductAddon::find($addonId) : null;
+                        $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
+                        $adPrice = $adModel ? (float) $adModel->price : (float) ($rawAd['price'] ?? 0);
+                        $adQty = (float) ($rawAd['quantity'] ?? 1);
+                        $adLineTotal = round($adPrice * $adQty, 2);
+
+                        $addonTotal += $adLineTotal;
+                        $normalizedAddons[] = [
+                            'addon_id' => $addonId,
+                            'name'     => $adName,
+                            'price'    => $adPrice,
+                            'quantity' => $adQty,
+                            'subtotal' => $adLineTotal,
+                        ];
+                    }
+                }
+            }
+
+            $lineTotal = round(($unitPrice + $addonTotal) * $qty, 2);
             $itemsTotal += $lineTotal;
 
             $resolvedItems[] = [
-                'product_id'   => (int) $itemData['product_id'],
-                'quantity'     => $qty,
-                'price'        => $unitPrice,
-                'unit_price'   => $unitPrice,
-                'line_total'   => $lineTotal,
-                'product_name' => $product->name,
-                'image_path'   => $product->image_path,
-                'notes'        => $itemData['notes'] ?? null,
+                'product_id'      => (int) $itemData['product_id'],
+                'quantity'        => $qty,
+                'price'           => $unitPrice,
+                'unit_price'      => $unitPrice,
+                'line_total'      => $lineTotal,
+                'addon_total'     => round($addonTotal * $qty, 2),
+                'selected_addons' => $normalizedAddons,
+                'product_name'    => $product->name,
+                'image_path'      => $product->image_path,
+                'notes'           => $itemData['notes'] ?? null,
             ];
         }
 

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 export interface PosCartItem {
     id: number;
@@ -26,6 +26,7 @@ export interface PosCartItem {
 }
 
 export type DiscountType =
+    | 'five_percent'
     | 'senior_citizen'
     | 'pwd'
     | 'solo_parent'
@@ -63,6 +64,13 @@ const DISCOUNT_PRESETS: {
     requiresId: boolean;
     idLabel: string;
 }[] = [
+    {
+        type: 'five_percent',
+        label: '5% Promotional Discount',
+        defaultRate: 5,
+        requiresId: false,
+        idLabel: 'Promo Code / Ref No.',
+    },
     {
         type: 'senior_citizen',
         label: 'Senior Citizen (20%)',
@@ -130,9 +138,6 @@ function ApplyDiscountForm({
     onRemoveDiscount,
     onClose,
 }: FormProps) {
-    const formatCurrency = (amt: number) =>
-        new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amt);
-
     const [selectedType, setSelectedType] = useState<DiscountType>(() => currentDiscount?.type || 'senior_citizen');
     const [ratePercent, setRatePercent] = useState<number>(() => currentDiscount?.percentage ?? 20);
     const [fixedAmount, setFixedAmount] = useState<number>(() => currentDiscount?.fixedAmount ?? 0);

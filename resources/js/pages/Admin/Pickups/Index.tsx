@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     ShoppingBag,
     Clock,
@@ -15,6 +15,7 @@ import {
     DollarSign,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import CreatePickupOrderModal, { type PickupBranch, type PickupProduct } from '@/components/pickups/CreatePickupOrderModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -28,23 +29,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import echo from '@/echo';
 import AppLayout from '@/layouts/app-layout';
 
-interface ProductItem {
-    id: number;
-    name: string;
-    selling_price: number;
-    category: string;
-    stock: number;
-}
+type ProductItem = PickupProduct;
 
-interface Branch {
-    id: number;
-    name: string;
-    address: string;
-}
+type Branch = PickupBranch;
 
 interface OrderItem {
     id: number;
@@ -135,6 +125,7 @@ export default function PickupDashboard({
     const [newPickupTime, setNewPickupTime] = useState('');
     const [rescheduleReason, setRescheduleReason] = useState('');
 
+<<<<<<< HEAD
     // Manual Order Form
     const { data: manualData, setData: setManualData, post: postManual, processing: manualProcessing, reset: resetManual } = useForm({
         customer_name: '',
@@ -152,9 +143,12 @@ export default function PickupDashboard({
         total_amount: 0,
     });
 
+=======
+>>>>>>> c1bcda7f (update)
     // Real-time Echo updates
     useEffect(() => {
         if (!echo) return;
+        const echoClient = echo;
 
         const channelsToSubscribe: string[] = [];
         if (isAdmin) {
@@ -178,7 +172,11 @@ export default function PickupDashboard({
 
         const echoInstance = echo;
         const activeChannels = channelsToSubscribe.map(chName => {
+<<<<<<< HEAD
             const ch = echoInstance.private(chName);
+=======
+            const ch = echoClient.private(chName);
+>>>>>>> c1bcda7f (update)
             ch.listen('.OrderCreated', handlePickupEvent)
               .listen('OrderCreated', handlePickupEvent)
               .listen('App\\Events\\OrderCreated', handlePickupEvent)
@@ -190,7 +188,7 @@ export default function PickupDashboard({
 
         return () => {
             activeChannels.forEach(chName => {
-                echo?.leave(chName);
+                echoClient.leave(chName);
             });
         };
     }, [isAdmin, filters.branch_id, authBranchId]);
@@ -250,53 +248,6 @@ export default function PickupDashboard({
                 setNewPickupDate('');
                 setNewPickupTime('');
                 setRescheduleReason('');
-            },
-        });
-    };
-
-    // Add item to manual order
-    const handleAddManualItem = (productId: number) => {
-        const prod = products.find(p => p.id === productId);
-        if (!prod) return;
-
-        const existing = manualData.items.find(i => i.product_id === productId);
-        let updatedItems;
-        if (existing) {
-            updatedItems = manualData.items.map(i =>
-                i.product_id === productId ? { ...i, quantity: i.quantity + 1 } : i
-            );
-        } else {
-            updatedItems = [
-                ...manualData.items,
-                { product_id: prod.id, quantity: 1, price: prod.selling_price, name: prod.name },
-            ];
-        }
-
-        const newTotal = updatedItems.reduce((acc, it) => acc + (it.price * it.quantity), 0);
-        setManualData({
-            ...manualData,
-            items: updatedItems,
-            total_amount: newTotal,
-        });
-    };
-
-    const handleRemoveManualItem = (productId: number) => {
-        const updatedItems = manualData.items.filter(i => i.product_id !== productId);
-        const newTotal = updatedItems.reduce((acc, it) => acc + (it.price * it.quantity), 0);
-        setManualData({
-            ...manualData,
-            items: updatedItems,
-            total_amount: newTotal,
-        });
-    };
-
-    const handleManualSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        postManual('/pickups/manual', {
-            preserveScroll: true,
-            onSuccess: () => {
-                setIsManualModalOpen(false);
-                resetManual();
             },
         });
     };
@@ -826,209 +777,13 @@ export default function PickupDashboard({
             </Dialog>
 
             {/* ── Modal 3: Manual Facebook / Phone Pickup Order ─────────────── */}
-            <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-primary">
-                            <Plus className="w-5 h-5" />
-                            Create External Pickup Order (Facebook / Phone)
-                        </DialogTitle>
-                        <DialogDescription>
-                            Create a verified pickup order for customers messaging on Facebook or calling by phone.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form onSubmit={handleManualSubmit} className="space-y-4 pt-2">
-                        {/* Customer Information */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-customer-name">Customer Name *</Label>
-                                <Input
-                                    id="manual-customer-name"
-                                    placeholder="e.g. Maria Santos"
-                                    value={manualData.customer_name}
-                                    onChange={(e) => setManualData('customer_name', e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-phone">Contact Number</Label>
-                                <Input
-                                    id="manual-phone"
-                                    placeholder="e.g. 09171234567"
-                                    value={manualData.contact_number}
-                                    onChange={(e) => setManualData('contact_number', e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Source & Reference */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-source">Order Channel *</Label>
-                                <select
-                                    id="manual-source"
-                                    className="w-full text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
-                                    value={manualData.order_source}
-                                    onChange={(e) => setManualData('order_source', e.target.value)}
-                                >
-                                    <option value="facebook_messenger">Facebook / Messenger</option>
-                                    <option value="phone_call">Phone Call</option>
-                                    <option value="walk_in">Walk-in</option>
-                                    <option value="other">Other External</option>
-                                </select>
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-ref">Source Reference / FB Profile</Label>
-                                <Input
-                                    id="manual-ref"
-                                    placeholder="e.g. FB: Maria S / Messenger Thread"
-                                    value={manualData.source_reference}
-                                    onChange={(e) => setManualData('source_reference', e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Branch & Scheduled Pickup */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-branch">Pickup Branch *</Label>
-                                <select
-                                    id="manual-branch"
-                                    className="w-full text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
-                                    value={manualData.branch_id}
-                                    onChange={(e) => setManualData('branch_id', Number(e.target.value))}
-                                    required
-                                >
-                                    {branches.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-pickup-datetime">Scheduled Pickup Date & Time *</Label>
-                                <Input
-                                    id="manual-pickup-datetime"
-                                    type="datetime-local"
-                                    value={manualData.scheduled_pickup_at}
-                                    onChange={(e) => setManualData('scheduled_pickup_at', e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* Item Selection */}
-                        <div className="space-y-2 border-t border-b border-gray-200 dark:border-gray-800 py-3">
-                            <Label className="font-semibold text-sm">Select Menu Products *</Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1 bg-gray-50 dark:bg-gray-800/40 rounded-lg">
-                                {products.map(prod => (
-                                    <button
-                                        type="button"
-                                        key={prod.id}
-                                        onClick={() => handleAddManualItem(prod.id)}
-                                        className="text-left p-2 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-primary transition-colors text-xs"
-                                    >
-                                        <div className="font-medium truncate">{prod.name}</div>
-                                        <div className="text-gray-500 font-mono">₱{prod.selling_price.toFixed(2)}</div>
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Selected Items */}
-                            {manualData.items.length > 0 && (
-                                <div className="mt-2 space-y-1.5">
-                                    <p className="text-xs font-semibold text-gray-500">Order Items ({manualData.items.length}):</p>
-                                    {manualData.items.map(item => (
-                                        <div key={item.product_id} className="flex items-center justify-between bg-white dark:bg-gray-900 p-2 rounded border border-gray-200 dark:border-gray-800 text-xs">
-                                            <span>{item.quantity}x {item.name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-mono font-bold">₱{(item.price * item.quantity).toFixed(2)}</span>
-                                                <button
-                                                    type="button"
-                                                    className="text-red-500 hover:text-red-700 text-xs font-bold"
-                                                    onClick={() => handleRemoveManualItem(item.product_id)}
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <div className="text-right font-bold text-sm text-primary pt-1">
-                                        Total: ₱{manualData.total_amount.toFixed(2)}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Payment Settings */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-payment-method">Payment Method</Label>
-                                <select
-                                    id="manual-payment-method"
-                                    className="w-full text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
-                                    value={manualData.payment_method}
-                                    onChange={(e) => setManualData('payment_method', e.target.value)}
-                                >
-                                    <option value="cash">Cash on Counter</option>
-                                    <option value="gcash">GCash</option>
-                                    <option value="maya">Maya</option>
-                                    <option value="card">Credit/Debit Card</option>
-                                </select>
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-payment-status">Payment Status</Label>
-                                <select
-                                    id="manual-payment-status"
-                                    className="w-full text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
-                                    value={manualData.payment_status}
-                                    onChange={(e) => setManualData('payment_status', e.target.value)}
-                                >
-                                    <option value="unpaid">Unpaid (Pay on Pickup)</option>
-                                    <option value="paid">Paid (Verified Receipt)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Notes */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-pickup-notes">Customer Pickup Notes</Label>
-                                <Textarea
-                                    id="manual-pickup-notes"
-                                    placeholder="e.g. Extra napkins, no spicy sauce"
-                                    className="text-xs h-16"
-                                    value={manualData.pickup_notes}
-                                    onChange={(e) => setManualData('pickup_notes', e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="manual-internal-notes">Internal Kitchen/POS Notes</Label>
-                                <Textarea
-                                    id="manual-internal-notes"
-                                    placeholder="e.g. Customer messaged via FB Messenger @ 2:30 PM"
-                                    className="text-xs h-16"
-                                    value={manualData.internal_notes}
-                                    onChange={(e) => setManualData('internal_notes', e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <DialogFooter className="pt-3">
-                            <Button type="button" variant="outline" onClick={() => setIsManualModalOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={manualProcessing || manualData.items.length === 0}
-                                className="bg-primary hover:bg-primary/90 text-white font-semibold"
-                            >
-                                {manualProcessing ? 'Creating Order...' : 'Create Pickup Order'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <CreatePickupOrderModal
+                open={isManualModalOpen}
+                onClose={() => setIsManualModalOpen(false)}
+                branches={branches}
+                products={products}
+                authBranchId={authBranchId}
+            />
         </AppLayout>
     );
 }

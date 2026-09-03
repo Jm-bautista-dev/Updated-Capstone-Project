@@ -13,16 +13,37 @@ class ReceiptFormatterService
 
     /**
      * Clean and format branch name for receipt header.
+     * Displays ONLY the branch name (e.g. "VICTORIA", "STA. CRUZ") and NEVER "MAKI DESU".
      * E.g. "Maki Desu Victoria" -> "VICTORIA", "Maki Desu Sta. Cruz" -> "STA. CRUZ"
      */
     public static function formatBranchHeading(?string $branchName): string
     {
-        if (empty($branchName)) {
-            return 'STORE RECEIPT';
+        if (empty($branchName) || !trim($branchName)) {
+            return 'STORE';
         }
 
-        $cleaned = preg_replace('/^Maki\s*Desu\s*[-–—:]*\s*/i', '', trim($branchName));
-        return strtoupper(trim($cleaned ?: $branchName));
+        $trimmed = trim($branchName);
+
+        // Strip "MAKI DESU" prefixes, suffixes, and trailing "Branch"
+        $cleaned = preg_replace('/^Maki\s*Desu\s*[-–—:]*\s*/i', '', $trimmed);
+        $cleaned = preg_replace('/\s*[-–—:]*\s*Maki\s*Desu$/i', '', $cleaned);
+        $cleaned = preg_replace('/\s+Branch$/i', '', $cleaned);
+        $cleaned = trim($cleaned);
+
+        // Standardize common branch names if matched
+        if (preg_match('/^sta\.?\s*cruz$/i', $cleaned) || preg_match('/^santa\s*cruz$/i', $cleaned)) {
+            return 'STA. CRUZ';
+        }
+        if (preg_match('/^victoria$/i', $cleaned)) {
+            return 'VICTORIA';
+        }
+
+        // If the cleaned result is empty or still "MAKI DESU", fallback to STORE
+        if (empty($cleaned) || strcasecmp($cleaned, 'Maki Desu') === 0) {
+            return 'STORE';
+        }
+
+        return strtoupper($cleaned);
     }
 
     /**
@@ -52,11 +73,25 @@ class ReceiptFormatterService
             $unitPrice = (float) ($item->unit_price ?? $item->price ?? 0);
             $subtotal = (float) ($item->subtotal ?? ($qty * $unitPrice));
 
+            $addons = [];
+            if (!empty($item->selected_addons)) {
+                $rawAddons = is_string($item->selected_addons) ? json_decode($item->selected_addons, true) : $item->selected_addons;
+                if (is_array($rawAddons)) {
+                    foreach ($rawAddons as $ad) {
+                        $addons[] = [
+                            'name'  => $ad['name'] ?? 'Add-on',
+                            'price' => (float) ($ad['price'] ?? 0),
+                        ];
+                    }
+                }
+            }
+
             $items[] = [
                 'name'       => $productName,
                 'quantity'   => $qty,
                 'unit_price' => $unitPrice,
                 'subtotal'   => $subtotal,
+                'addons'     => $addons,
             ];
         }
 
@@ -166,6 +201,14 @@ class ReceiptFormatterService
             } else {
                 $truncatedName = mb_strimwidth($name, 0, 22, '..');
                 $lines[] = sprintf("%-22s %4s %14s", $truncatedName, $qty, $priceStr);
+            }
+
+            // Print Add-ons under item if present
+            if (!empty($item['addons'])) {
+                foreach ($item['addons'] as $ad) {
+                    $adPrice = $ad['price'] > 0 ? ('PHP ' . number_format($ad['price'], 2)) : '';
+                    $lines[] = $this->twoColumn("  + " . mb_strimwidth($ad['name'], 0, $cols - 14, '..'), $adPrice, $cols);
+                }
             }
         }
 
@@ -281,6 +324,14 @@ class ReceiptFormatterService
             } else {
                 $truncatedName = mb_strimwidth($name, 0, 22, '..');
                 $out .= sprintf("%-22s %4s %14s\n", $truncatedName, $qty, $priceStr);
+            }
+
+            // Print Add-ons under item in ESC/POS
+            if (!empty($item['addons'])) {
+                foreach ($item['addons'] as $ad) {
+                    $adPrice = $ad['price'] > 0 ? ('PHP ' . number_format($ad['price'], 2)) : '';
+                    $out .= $this->twoColumn("  + " . mb_strimwidth($ad['name'], 0, $cols - 14, '..'), $adPrice, $cols) . "\n";
+                }
             }
         }
         $out .= str_repeat('-', $cols) . "\n";

@@ -35,7 +35,16 @@ class CartController extends Controller
             }
 
             $totalAmount = $cart->items->reduce(function ($carry, $item) {
-                return $carry + ($item->quantity * $item->product->selling_price);
+                $itemAddonSum = 0.0;
+                if (!empty($item->selected_addons)) {
+                    $rawAddons = is_string($item->selected_addons) ? json_decode($item->selected_addons, true) : $item->selected_addons;
+                    if (is_array($rawAddons)) {
+                        foreach ($rawAddons as $ad) {
+                            $itemAddonSum += (float) ($ad['price'] ?? 0) * (float) ($ad['quantity'] ?? 1);
+                        }
+                    }
+                }
+                return $carry + ($item->quantity * ((float) $item->product->selling_price + $itemAddonSum));
             }, 0);
 
             return response()->json([
@@ -43,7 +52,7 @@ class CartController extends Controller
                 'data' => [
                     'branch' => $cart->branch,
                     'items' => $cart->items,
-                    'total_amount' => $totalAmount
+                    'total_amount' => round($totalAmount, 2)
                 ]
             ]);
         } catch (\Throwable $e) {
@@ -59,15 +68,17 @@ class CartController extends Controller
     {
         try {
             $request->validate([
-                'product_id' => 'required|exists:products,id',
-                'quantity' => 'required|numeric|min:0.1',
+                'product_id'      => 'required|exists:products,id',
+                'quantity'        => 'required|numeric|min:0.1',
+                'selected_addons' => 'nullable|array',
             ]);
 
             $user = $request->user();
             $product = Product::with('ingredients')->findOrFail($request->product_id);
             $productBranchId = $product->branch_id;
+            $selectedAddons = $request->input('selected_addons', []);
 
-            return DB::transaction(function () use ($user, $product, $productBranchId, $request) {
+            return DB::transaction(function () use ($user, $product, $productBranchId, $selectedAddons, $request) {
                 $cart = Cart::firstOrCreate(['user_id' => $user->id]);
 
                 if ($cart->branch_id && $productBranchId && $cart->branch_id !== $productBranchId) {
@@ -88,7 +99,12 @@ class CartController extends Controller
                     $cart->update(['branch_id' => $effectiveBranchId]);
                 }
 
-                $cartItem = $cart->items()->where('product_id', $product->id)->first();
+                // Check for existing cart item with identical product and addons
+                $cartItem = $cart->items()
+                    ->where('product_id', $product->id)
+                    ->where('selected_addons', !empty($selectedAddons) ? json_encode($selectedAddons) : null)
+                    ->first();
+
                 $currentQty = $cartItem ? (float) $cartItem->quantity : 0;
                 $targetQty = $currentQty + (float) $request->quantity;
 
@@ -107,9 +123,10 @@ class CartController extends Controller
                     ]);
                 } else {
                     $cart->items()->create([
-                        'product_id' => $product->id,
-                        'quantity' => $request->quantity,
-                        'branch_id' => $effectiveBranchId
+                        'product_id'      => $product->id,
+                        'quantity'        => $request->quantity,
+                        'branch_id'       => $effectiveBranchId,
+                        'selected_addons' => !empty($selectedAddons) ? $selectedAddons : null,
                     ]);
                 }
 

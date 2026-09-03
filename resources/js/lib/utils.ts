@@ -37,5 +37,19 @@ export function formatReceiptBranchHeading(branchName?: string | null): string {
         return 'VICTORIA';
     }
 
-    return (cleaned || trimmed).toUpperCase();
+    if (!cleaned || /^maki\s*desu$/i.test(cleaned)) {
+        return 'STORE';
+    }
+
+    return cleaned.toUpperCase();
 }
+
+/**
+ * Universal Currency Formatter for Philippine Peso (₱).
+ * Guaranteed cross-platform rendering on Desktop, Tablet, and Mobile WebViews.
+ */
+export function formatCurrency(amount: number | string | null | undefined): string {
+    const num = typeof amount === 'string' ? parseFloat(amount) || 0 : (amount ?? 0);
+    return `₱${Number(num).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+

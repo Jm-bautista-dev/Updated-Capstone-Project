@@ -87,7 +87,11 @@ class ProductsController extends Controller
                 $product->branch_breakdown = $availability['branch_breakdown'] ?? [];
             }
 
+<<<<<<< HEAD
             if ($user->isAdmin()) {
+=======
+            if ($user && $user->isAdmin()) {
+>>>>>>> c1bcda7f (update)
                 $costPrice = $product->computeProductCost($branchId);
                 $product->cost_price = $costPrice;
                 $product->cost = $costPrice;
@@ -96,6 +100,10 @@ class ProductsController extends Controller
                 $product->cost_price = null;
                 $product->cost = null;
                 $product->has_cost = false;
+<<<<<<< HEAD
+=======
+                $product->makeHidden(['cost_price']);
+>>>>>>> c1bcda7f (update)
             }
             $product->is_direct = !$product->hasRecipe();
 

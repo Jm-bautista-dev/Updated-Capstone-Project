@@ -54,8 +54,31 @@ class SalesController extends Controller
             }
         }
 
+        $sales = $query->latest()->paginate(15)->withQueryString();
+
+        if (!$user->isAdmin()) {
+            $sales->getCollection()->transform(function ($sale) {
+                $sale->cost_total = null;
+                $sale->profit = null;
+                $sale->makeHidden(['cost_total', 'profit']);
+                if ($sale->items) {
+                    $sale->items->transform(function ($item) {
+                        $item->cost_price = null;
+                        $item->profit = null;
+                        $item->makeHidden(['cost_price', 'profit']);
+                        if ($item->product) {
+                            $item->product->cost_price = null;
+                            $item->product->makeHidden(['cost_price']);
+                        }
+                        return $item;
+                    });
+                }
+                return $sale;
+            });
+        }
+
         return Inertia::render('Sales/Index', [
-            'sales'    => $query->latest()->paginate(15)->withQueryString(),
+            'sales'    => $sales,
             'branches' => $branches,
             'filters'  => [
                 'status'    => $status,

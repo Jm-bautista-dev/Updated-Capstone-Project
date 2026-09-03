@@ -19,11 +19,14 @@ class SaleItem extends Model
         'unit_price',
         'cost_price',
         'subtotal',
+        'addon_total',
+        'selected_addons',
         'profit',
         'created_at',
         'updated_at',
     ];
 
+<<<<<<< HEAD
     public function toArray(): array
     {
         $array = parent::toArray();
@@ -36,6 +39,17 @@ class SaleItem extends Model
         }
         return $array;
     }
+=======
+    protected $casts = [
+        'quantity'        => 'float',
+        'unit_price'      => 'float',
+        'cost_price'      => 'float',
+        'subtotal'        => 'float',
+        'addon_total'     => 'float',
+        'profit'          => 'float',
+        'selected_addons' => 'array',
+    ];
+>>>>>>> c1bcda7f (update)
 
     public function sale()
     {

@@ -20,14 +20,18 @@ class OrderItem extends Model
         'product_name',// snapshot of product name at purchase time
         'image_path',  // snapshot of product image at purchase time
         'notes',
+        'selected_addons',
+        'addon_total',
     ];
 
     protected $casts = [
-        'product_id' => 'integer',
-        'quantity'   => 'integer',
-        'price'      => 'float',
-        'unit_price' => 'float',
-        'line_total' => 'float',
+        'product_id'      => 'integer',
+        'quantity'        => 'integer',
+        'price'           => 'float',
+        'unit_price'      => 'float',
+        'line_total'      => 'float',
+        'addon_total'     => 'float',
+        'selected_addons' => 'array',
     ];
 
     /**

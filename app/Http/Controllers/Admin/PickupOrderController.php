@@ -105,8 +105,18 @@ class PickupOrderController extends Controller
             'no_shows'        => (clone $statsQuery)->where('status', 'no_show')->whereBetween('updated_at', [$todayStartUtc, $todayEndUtc])->count(),
         ];
 
-        // Branches list
-        $branches = Branch::where('pickup_enabled', true)->get(['id', 'name', 'address']);
+        // Branches list with full pickup operational settings
+        $branches = Branch::where('pickup_enabled', true)->get([
+            'id', 
+            'name', 
+            'address',
+            'pickup_opening_time',
+            'pickup_closing_time',
+            'pickup_lead_time_minutes',
+            'pickup_slot_interval_minutes',
+            'pickup_max_orders_per_slot',
+            'pickup_cutoff_before_close_minutes',
+        ]);
 
         // Products for manual order creation modal
         $productsQuery = Product::with('category');
@@ -125,6 +135,7 @@ class PickupOrderController extends Controller
                 'selling_price' => (float) $product->selling_price,
                 'category'      => $product->category?->name ?? 'General',
                 'stock'         => $avail['available'],
+                'image_url'     => \App\Utils\ImageHelper::resolveUrl($product->image_path, 'products'),
             ];
         });
 
@@ -260,5 +271,27 @@ class PickupOrderController extends Controller
         ]);
 
         return redirect()->back()->with('success', "Order #{$order->order_number} rescheduled to {$newTime->format('M d, Y • g:i A')}");
+    }
+
+    /**
+     * GET /pickups/slots
+     * Return available pickup time slots and capacity for a specific branch and date.
+     */
+    public function slots(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id' => 'required|integer|exists:branches,id',
+            'date'      => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $slotsData = $this->pickupService->getAvailableTimeSlots(
+            branchId: (int) $validated['branch_id'],
+            date: $validated['date'] ?? null
+        );
+
+        return response()->json([
+            'success' => true,
+            'data'    => $slotsData,
+        ]);
     }
 }

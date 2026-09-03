@@ -209,11 +209,12 @@ class AccountGovernanceService
             throw new \RuntimeException('Unauthorized to resolve moderation cases.');
         }
 
+        /** @var Rider|User|null $target */
         $target = $case->target_type === 'rider'
             ? Rider::find($case->target_id)
             : User::find($case->target_id);
 
-        if ($target) {
+        if ($target instanceof User || $target instanceof Rider) {
             match ($decision) {
                 'clear'      => $this->changeStatus($target, User::STATUS_ACTIVE, "Case #{$case->case_number} cleared: {$notes}", $actor),
                 'restrict'   => $this->changeStatus($target, User::STATUS_RESTRICTED, "Case #{$case->case_number} restricted: {$notes}", $actor),

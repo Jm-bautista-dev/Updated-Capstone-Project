@@ -649,4 +649,23 @@ class Product extends Model
 
         return round((float) ($this->cost_price ?? 0.0), 4);
     }
+
+    /**
+     * Add-ons / Modifiers available for this product.
+     */
+    public function addons(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductAddon::class);
+    }
+
+    /**
+     * Get all applicable add-ons (product-specific + global).
+     */
+    public function getAvailableAddonsAttribute()
+    {
+        return ProductAddon::where(function ($q) {
+            $q->where('product_id', $this->id)->orWhereNull('product_id');
+        })->where('is_active', true)->get();
+    }
 }
+

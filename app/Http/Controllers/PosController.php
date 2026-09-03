@@ -51,6 +51,13 @@ class PosController extends Controller
             $product->is_low_stock = $availability['is_low_stock'];
 
             $product->image_url = \App\Utils\ImageHelper::resolveUrl($product->image_path, 'products');
+            $product->cost_price = null;
+            $product->makeHidden(['cost_price']);
+            $product->available_addons = $product->available_addons->map(fn($ad) => [
+                'id'    => $ad->id,
+                'name'  => $ad->name,
+                'price' => (float) $ad->price,
+            ])->values();
             return $product;
         });
 
@@ -111,6 +118,7 @@ class PosController extends Controller
 
     public function store(Request $request)
     {
+<<<<<<< HEAD
         // ── Normalize JSON-encoded fields from multipart/form-data ──────────
         if (is_string($request->input('items'))) {
             $decodedItems = json_decode($request->input('items'), true);
@@ -123,6 +131,28 @@ class PosController extends Controller
             $decodedDetails = json_decode($request->input('discount_details'), true);
             if (json_last_error() === JSON_ERROR_NONE && is_array($decodedDetails)) {
                 $request->merge(['discount_details' => $decodedDetails]);
+=======
+        // When submitted via FormData (e.g. proof of delivery attachment or forceFormData),
+        // nested objects like discount_details or items may arrive as serialized JSON strings.
+        if ($request->has('discount_details') && is_string($request->input('discount_details'))) {
+            $decoded = json_decode($request->input('discount_details'), true);
+            if (is_array($decoded)) {
+                $request->merge(['discount_details' => $decoded]);
+            }
+        }
+
+        if ($request->has('items') && is_string($request->input('items'))) {
+            $decoded = json_decode($request->input('items'), true);
+            if (is_array($decoded)) {
+                $request->merge(['items' => $decoded]);
+            }
+        }
+
+        if ($request->has('delivery_info') && is_string($request->input('delivery_info'))) {
+            $decoded = json_decode($request->input('delivery_info'), true);
+            if (is_array($decoded)) {
+                $request->merge(['delivery_info' => $decoded]);
+>>>>>>> c1bcda7f (update)
             }
         }
 

@@ -211,6 +211,12 @@ class ProductController extends Controller
             'average_rating' => $product->average_rating,
             'review_count'   => $product->review_count,
             'quantity_sold'  => $product->quantity_sold,
+            'addons'         => $product->available_addons->map(fn($ad) => [
+                'id'        => $ad->id,
+                'name'      => $ad->name,
+                'price'     => (float) $ad->price,
+                'is_active' => (bool) $ad->is_active,
+            ])->values(),
         ];
     }
 }

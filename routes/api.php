@@ -211,6 +211,7 @@ Route::prefix('v1')->group(function () {
         Route::get('customer/eligible-reviews', [App\Http\Controllers\Api\ReviewController::class, 'getEligibleReviews']);
         Route::get('customer/reviews', [App\Http\Controllers\Api\ReviewController::class, 'getCustomerReviews']);
         Route::post('reviews', [App\Http\Controllers\Api\ReviewController::class, 'store']);
+        Route::post('customer/reviews', [App\Http\Controllers\Api\ReviewController::class, 'store']);
         Route::put('reviews/{id}', [App\Http\Controllers\Api\ReviewController::class, 'update']);
 
         // Notifications (legacy Laravel model notifications)

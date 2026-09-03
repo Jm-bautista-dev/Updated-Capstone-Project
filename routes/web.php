@@ -202,6 +202,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('pickups', [App\Http\Controllers\Admin\PickupOrderController::class, 'index'])->name('pickups.index');
             Route::get('admin/pickups', [App\Http\Controllers\Admin\PickupOrderController::class, 'index'])->name('admin.pickups.index');
             Route::post('pickups/manual', [App\Http\Controllers\Admin\PickupOrderController::class, 'storeManual'])->name('pickups.manual');
+            Route::get('pickups/slots', [App\Http\Controllers\Admin\PickupOrderController::class, 'slots'])->name('pickups.slots');
             Route::post('pickups/{id}/status', [App\Http\Controllers\Admin\PickupOrderController::class, 'updateStatus'])->name('pickups.update-status');
             Route::post('pickups/{id}/verify-complete', [App\Http\Controllers\Admin\PickupOrderController::class, 'verifyComplete'])->name('pickups.verify-complete');
             Route::post('pickups/{id}/reschedule', [App\Http\Controllers\Admin\PickupOrderController::class, 'reschedule'])->name('pickups.reschedule');

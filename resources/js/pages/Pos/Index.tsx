@@ -39,13 +39,20 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
 import { usePrinterStatus, sendToLocalPrintBridge, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
   id: number;
   name: string;
   image_url: string | null;
 };
+
+export interface SelectedAddon {
+  addon_id?: number;
+  name: string;
+  price: number;
+  quantity?: number;
+}
 
 type Product = {
   id: number;
@@ -56,9 +63,13 @@ type Product = {
   stock: number;
   is_low_stock?: boolean;
   image_url: string | null;
+  available_addons?: { id: number; name: string; price: number }[];
 };
 
-type CartItem = Product & { quantity: number };
+type CartItem = Product & { 
+  quantity: number;
+  selected_addons?: SelectedAddon[];
+};
 
 interface ActiveShift {
   id: number;
@@ -224,11 +235,22 @@ export default function PosIndex() {
     return Math.round(computed * 100) / 100;
   }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch?.base_delivery_fee, branch?.per_km_fee]);
 
+  const [addonModalItem, setAddonModalItem] = useState<CartItem | null>(null);
+
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+<<<<<<< HEAD
   const cartSubtotal = useMemo(() => {
     const raw = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
     return Math.round(raw * 100) / 100;
   }, [cart]);
+=======
+  const cartBaseSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
+  const cartAddonsTotal = useMemo(() => cart.reduce((sum, item) => {
+    const addonsSum = (item.selected_addons || []).reduce((aSum, a) => aSum + (a.price * (a.quantity || 1)), 0);
+    return sum + (addonsSum * item.quantity);
+  }, 0), [cart]);
+  const cartSubtotal = useMemo(() => cartBaseSubtotal + cartAddonsTotal, [cartBaseSubtotal, cartAddonsTotal]);
+>>>>>>> c1bcda7f (update)
 
   // Dynamic Discount Calculation based on current cart
   const discountAmount = useMemo(() => {
@@ -407,7 +429,11 @@ export default function PosIndex() {
 
     const formData = new FormData();
     formData.append('type', orderType);
-    formData.append('items', JSON.stringify(cart.map(item => ({ id: item.id, quantity: item.quantity }))));
+    formData.append('items', JSON.stringify(cart.map(item => ({ 
+      id: item.id, 
+      quantity: item.quantity,
+      selected_addons: item.selected_addons || [] 
+    }))));
     formData.append('total', String(cartTotal));
     formData.append('payment_method', paymentMethod);
     formData.append('paid_amount', String(paid));
@@ -431,6 +457,9 @@ export default function PosIndex() {
       cart.forEach((item, index) => {
         formData.append(`items[${index}][id]`, String(item.id));
         formData.append(`items[${index}][quantity]`, String(item.quantity));
+        if (item.selected_addons && item.selected_addons.length > 0) {
+          formData.append(`items[${index}][selected_addons]`, JSON.stringify(item.selected_addons));
+        }
       });
 
       Object.entries({ ...deliveryInfo, delivery_fee: deliveryFee }).forEach(([key, value]) => {
@@ -445,6 +474,9 @@ export default function PosIndex() {
       cart.forEach((item, index) => {
         formData.append(`items[${index}][id]`, String(item.id));
         formData.append(`items[${index}][quantity]`, String(item.quantity));
+        if (item.selected_addons && item.selected_addons.length > 0) {
+          formData.append(`items[${index}][selected_addons]`, JSON.stringify(item.selected_addons));
+        }
       });
     }
 
@@ -506,10 +538,6 @@ export default function PosIndex() {
         setIsSubmitting(false);
       }
     });
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
   };
 
   const getCategoryIcon = (name: string) => {
@@ -872,10 +900,31 @@ export default function PosIndex() {
                         </div>
                         <div>
                           <h4 className="text-sm font-extrabold uppercase text-[#3D2C2E] dark:text-white tracking-tight">{item.name}</h4>
-                          <p className="text-xs font-medium text-[#7D6B6E] dark:text-zinc-400 mt-0.5">Unit Price: {formatCurrency(item.selling_price)}</p>
-                          <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                            Subtotal: {formatCurrency(item.selling_price * item.quantity)}
-                          </p>
+                          <p className="text-xs font-medium text-[#7D6B6E] dark:text-zinc-400 mt-0.5">Base: {formatCurrency(item.selling_price)}</p>
+                          
+                          {item.selected_addons && item.selected_addons.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.selected_addons.map((ad, idx) => (
+                                <span key={idx} className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#FFF5F7] dark:bg-[#1E1E21] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10">
+                                  +{ad.name} ({formatCurrency(ad.price)})
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setAddonModalItem(item)}
+                              className="text-[11px] font-extrabold text-[#E75480] hover:underline cursor-pointer flex items-center gap-1"
+                            >
+                              <span>+ Add-ons</span>
+                            </button>
+                            <span className="text-[#7D6B6E]/40">•</span>
+                            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                              Subtotal: {formatCurrency(((item.selling_price + (item.selected_addons || []).reduce((aSum, a) => aSum + (a.price * (a.quantity || 1)), 0))) * item.quantity)}
+                            </p>
+                          </div>
                         </div>
                       </div>
 
@@ -1003,6 +1052,18 @@ export default function PosIndex() {
                     
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300">
+                        <span>Base Subtotal</span>
+                        <span className="font-extrabold text-[#3D2C2E] dark:text-white">{formatCurrency(cartBaseSubtotal)}</span>
+                      </div>
+
+                      {cartAddonsTotal > 0 && (
+                        <div className="flex justify-between text-[#E75480] dark:text-[#FF4F81] font-semibold">
+                          <span>Add-ons Total</span>
+                          <span className="font-extrabold">+{formatCurrency(cartAddonsTotal)}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between text-[#7D6B6E] dark:text-zinc-300 font-bold">
                         <span>Subtotal</span>
                         <span className="font-extrabold text-[#3D2C2E] dark:text-white">{formatCurrency(cartSubtotal)}</span>
                       </div>
@@ -1446,6 +1507,83 @@ export default function PosIndex() {
             toast.info('Discount removed.');
           }}
         />
+
+        {/* Add-ons Selection Modal */}
+        <Dialog open={!!addonModalItem} onOpenChange={(open) => !open && setAddonModalItem(null)}>
+          <DialogContent className="max-w-md p-6 bg-white dark:bg-[#121218] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black uppercase tracking-tight text-[#3D2C2E] dark:text-white">
+                Customize Add-ons
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[#7D6B6E] dark:text-zinc-400">
+                Select extras and modifiers for <strong className="text-[#3D2C2E] dark:text-white">{addonModalItem?.name}</strong>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-3 space-y-2.5">
+              {[
+                { id: 1, name: 'Extra Sauce', price: 20 },
+                { id: 2, name: 'Extra Wasabi', price: 15 },
+                { id: 3, name: 'Extra Toppings', price: 30 },
+                ...(addonModalItem?.available_addons || [])
+              ].reduce((acc: { id: number; name: string; price: number }[], curr) => {
+                if (!acc.some(item => item.name.toLowerCase() === curr.name.toLowerCase())) {
+                  acc.push(curr);
+                }
+                return acc;
+              }, []).map((addon) => {
+                const isSelected = !!addonModalItem?.selected_addons?.some(a => a.name.toLowerCase() === addon.name.toLowerCase());
+                return (
+                  <button
+                    key={addon.name}
+                    type="button"
+                    onClick={() => {
+                      if (!addonModalItem) return;
+                      const currentSelected = addonModalItem.selected_addons || [];
+                      const exists = currentSelected.some(a => a.name.toLowerCase() === addon.name.toLowerCase());
+                      const updated = exists
+                        ? currentSelected.filter(a => a.name.toLowerCase() !== addon.name.toLowerCase())
+                        : [...currentSelected, { addon_id: addon.id, name: addon.name, price: addon.price, quantity: 1 }];
+                      
+                      const updatedItem = { ...addonModalItem, selected_addons: updated };
+                      setAddonModalItem(updatedItem);
+                      setCart(prev => prev.map(it => it.id === addonModalItem.id ? updatedItem : it));
+                    }}
+                    className={cn(
+                      "w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer text-xs font-bold",
+                      isSelected
+                        ? "bg-[#E75480]/10 border-[#E75480] text-[#E75480] dark:text-[#FF4F81]"
+                        : "bg-[#FFF5F7]/50 dark:bg-[#181820] border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-white hover:border-[#E75480]/40"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "size-5 rounded-lg border flex items-center justify-center text-xs font-black",
+                        isSelected ? "bg-[#E75480] text-white border-[#E75480]" : "border-zinc-300 dark:border-zinc-700"
+                      )}>
+                        {isSelected && '✓'}
+                      </div>
+                      <span>{addon.name}</span>
+                    </div>
+                    <span className="font-mono text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                      +{formatCurrency(addon.price)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                className="w-full h-11 rounded-2xl bg-[#E75480] hover:bg-[#D43B66] text-white font-extrabold uppercase text-xs shadow-md cursor-pointer"
+                onClick={() => setAddonModalItem(null)}
+              >
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
