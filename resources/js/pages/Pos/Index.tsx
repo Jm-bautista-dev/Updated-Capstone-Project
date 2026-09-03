@@ -238,19 +238,12 @@ export default function PosIndex() {
   const [addonModalItem, setAddonModalItem] = useState<CartItem | null>(null);
 
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-<<<<<<< HEAD
-  const cartSubtotal = useMemo(() => {
-    const raw = cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0);
-    return Math.round(raw * 100) / 100;
-  }, [cart]);
-=======
   const cartBaseSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
   const cartAddonsTotal = useMemo(() => cart.reduce((sum, item) => {
     const addonsSum = (item.selected_addons || []).reduce((aSum, a) => aSum + (a.price * (a.quantity || 1)), 0);
     return sum + (addonsSum * item.quantity);
   }, 0), [cart]);
   const cartSubtotal = useMemo(() => cartBaseSubtotal + cartAddonsTotal, [cartBaseSubtotal, cartAddonsTotal]);
->>>>>>> c1bcda7f (update)
 
   // Dynamic Discount Calculation based on current cart
   const discountAmount = useMemo(() => {

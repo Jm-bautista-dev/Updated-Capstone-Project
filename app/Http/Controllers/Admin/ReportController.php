@@ -192,12 +192,8 @@ class ReportController extends Controller
                     'status'           => ucfirst($sale->status),
                     'product_subtotal' => '₱' . number_format($productSubtotal, 2),
                     'delivery_fee'     => '₱' . number_format($deliveryFee, 2),
-<<<<<<< HEAD
-                    'total'            => '₱' . number_format($sale->total, 2),
-=======
                     'total'            => '₱' . number_format((float) $sale->total, 2),
                     'profit'           => $user->isAdmin() ? ('₱' . number_format($saleProfit, 2)) : 'N/A',
->>>>>>> c1bcda7f (update)
                 ];
 
                 if ($user->isAdmin()) {

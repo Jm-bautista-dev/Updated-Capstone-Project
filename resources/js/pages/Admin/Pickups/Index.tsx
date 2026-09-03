@@ -123,28 +123,6 @@ export default function PickupDashboard({
     // Reschedule Modal Form
     const [newPickupDate, setNewPickupDate] = useState('');
     const [newPickupTime, setNewPickupTime] = useState('');
-    const [rescheduleReason, setRescheduleReason] = useState('');
-
-<<<<<<< HEAD
-    // Manual Order Form
-    const { data: manualData, setData: setManualData, post: postManual, processing: manualProcessing, reset: resetManual } = useForm({
-        customer_name: '',
-        contact_number: '',
-        order_source: 'facebook_messenger',
-        source_reference: '',
-        branch_id: authBranchId || (branches[0]?.id ?? 1),
-        scheduled_pickup_at: '',
-        estimated_prep_time_minutes: 20,
-        payment_method: 'cash',
-        payment_status: 'unpaid',
-        pickup_notes: '',
-        internal_notes: '',
-        items: [] as Array<{ product_id: number; quantity: number; price: number; name: string }>,
-        total_amount: 0,
-    });
-
-=======
->>>>>>> c1bcda7f (update)
     // Real-time Echo updates
     useEffect(() => {
         if (!echo) return;
@@ -170,13 +148,8 @@ export default function PickupDashboard({
             router.reload({ only: ['pickups', 'stats'] });
         };
 
-        const echoInstance = echo;
         const activeChannels = channelsToSubscribe.map(chName => {
-<<<<<<< HEAD
-            const ch = echoInstance.private(chName);
-=======
             const ch = echoClient.private(chName);
->>>>>>> c1bcda7f (update)
             ch.listen('.OrderCreated', handlePickupEvent)
               .listen('OrderCreated', handlePickupEvent)
               .listen('App\\Events\\OrderCreated', handlePickupEvent)

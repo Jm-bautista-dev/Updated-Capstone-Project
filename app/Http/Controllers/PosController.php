@@ -118,20 +118,6 @@ class PosController extends Controller
 
     public function store(Request $request)
     {
-<<<<<<< HEAD
-        // ── Normalize JSON-encoded fields from multipart/form-data ──────────
-        if (is_string($request->input('items'))) {
-            $decodedItems = json_decode($request->input('items'), true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedItems)) {
-                $request->merge(['items' => $decodedItems]);
-            }
-        }
-
-        if (is_string($request->input('discount_details'))) {
-            $decodedDetails = json_decode($request->input('discount_details'), true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedDetails)) {
-                $request->merge(['discount_details' => $decodedDetails]);
-=======
         // When submitted via FormData (e.g. proof of delivery attachment or forceFormData),
         // nested objects like discount_details or items may arrive as serialized JSON strings.
         if ($request->has('discount_details') && is_string($request->input('discount_details'))) {
@@ -152,7 +138,6 @@ class PosController extends Controller
             $decoded = json_decode($request->input('delivery_info'), true);
             if (is_array($decoded)) {
                 $request->merge(['delivery_info' => $decoded]);
->>>>>>> c1bcda7f (update)
             }
         }
 

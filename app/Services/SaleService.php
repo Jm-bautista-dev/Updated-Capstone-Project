@@ -190,7 +190,6 @@ class SaleService
                 }
             }
 
-<<<<<<< HEAD
             $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
             $costTotal = round($costTotal, 2);
 
@@ -253,30 +252,6 @@ class SaleService
                 $paidAmount = $saleTotal;
                 $changeAmount = 0.00;
             }
-=======
-            $orderType = $data['type'] ?? 'dine-in';
-            $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
-            $rawDiscount = isset($data['discount']) ? (float) $data['discount'] : 0.00;
-            
-            // Server-authoritative validation:
-            // Discount must be a valid number, non-negative, and cannot exceed product subtotal
-            if (is_nan($rawDiscount) || is_infinite($rawDiscount) || $rawDiscount < 0) {
-                $rawDiscount = 0.00;
-            }
-            $discount = round(min($productSubtotal, $rawDiscount), 2);
-            $discountType = $data['discount_type'] ?? null;
-            $discountDetails = $data['discount_details'] ?? null;
-
-            $netProductSales = round(max(0.0, $productSubtotal - $discount), 2);
-            $deliveryFee = ($orderType === 'delivery' && !empty($data['delivery_info']['delivery_fee'])) 
-                ? round(max(0.0, (float) $data['delivery_info']['delivery_fee']), 2) 
-                : 0.00;
-            $saleTotal = round($netProductSales + $deliveryFee, 2);
-            $saleProfit = round($netProductSales - $costTotal, 2);
-
-            $paidAmount = isset($data['paid_amount']) ? round((float) $data['paid_amount'], 2) : $saleTotal;
-            $changeAmount = max(0.0, round($paidAmount - $saleTotal, 2));
->>>>>>> c1bcda7f (update)
 
             $sale = Sale::create([
                 'order_number'     => $orderRef,
