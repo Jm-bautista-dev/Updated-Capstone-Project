@@ -12,20 +12,39 @@ export interface Employee {
     branch?: { id: number; name: string } | null;
 }
 
+export interface EmployeeKpis {
+    total?: number;
+    admins?: number;
+    cashiers?: number;
+    assigned_branches?: number;
+}
+
 interface EmployeesHeroProps {
     employees: Employee[];
+    kpis?: EmployeeKpis;
     onOpenAddModal: () => void;
 }
 
-export function EmployeesHero({ employees, onOpenAddModal }: EmployeesHeroProps) {
+export function EmployeesHero({ employees, kpis, onOpenAddModal }: EmployeesHeroProps) {
     const stats = useMemo(() => {
-        const total = employees.length;
-        const admins = employees.filter((e) => e.role?.toLowerCase() === 'admin').length;
-        const cashiers = employees.filter((e) => e.role?.toLowerCase() === 'cashier').length;
-        const assignedBranches = new Set(employees.map((e) => e.branch_id).filter(Boolean)).size;
+        const total = kpis?.total ?? employees.length;
+
+        // Strict business rule: Count ADMIN role accounts ONLY.
+        // SUPER_ADMIN, STAFF, CASHIER, RIDER, CUSTOMER are explicitly excluded from this KPI.
+        const admins = kpis?.admins ?? employees.filter((e) => {
+            const role = (e.role || '').trim().toLowerCase();
+            return role === 'admin';
+        }).length;
+
+        const cashiers = kpis?.cashiers ?? employees.filter((e) => {
+            const role = (e.role || '').trim().toLowerCase();
+            return role === 'cashier' || role === 'staff';
+        }).length;
+
+        const assignedBranches = kpis?.assigned_branches ?? new Set(employees.map((e) => e.branch_id).filter(Boolean)).size;
 
         return { total, admins, cashiers, assignedBranches };
-    }, [employees]);
+    }, [employees, kpis]);
 
     return (
         <motion.div
@@ -97,7 +116,7 @@ export function EmployeesHero({ employees, onOpenAddModal }: EmployeesHeroProps)
                     <div>
                         <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Administrators</p>
                         <h3 className="text-2xl font-black text-[#E75480] dark:text-[#FF4F81] font-mono mt-0.5">{stats.admins}</h3>
-                        <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Full system access</p>
+                        <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Admin role accounts</p>
                     </div>
                 </motion.div>
 

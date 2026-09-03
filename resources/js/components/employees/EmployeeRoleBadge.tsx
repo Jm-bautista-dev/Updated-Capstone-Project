@@ -2,7 +2,7 @@ import { Shield, User } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-export type EmployeeRole = 'admin' | 'cashier' | string;
+export type EmployeeRole = 'super_admin' | 'admin' | 'cashier' | string;
 
 interface EmployeeRoleBadgeProps {
     role: EmployeeRole;
@@ -10,10 +10,16 @@ interface EmployeeRoleBadgeProps {
 }
 
 export function EmployeeRoleBadge({ role, className }: EmployeeRoleBadgeProps) {
-    const normalizeRole = role?.toLowerCase() || 'cashier';
+    const normalizeRole = (role || 'cashier').trim().toLowerCase();
 
     const getRoleDetails = (r: string) => {
         switch (r) {
+            case 'super_admin':
+                return {
+                    label: 'Super Admin',
+                    icon: Shield,
+                    style: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 dark:border-purple-500/30',
+                };
             case 'admin':
                 return {
                     label: 'Admin Access',

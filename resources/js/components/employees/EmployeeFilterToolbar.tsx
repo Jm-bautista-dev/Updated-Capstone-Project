@@ -69,6 +69,9 @@ export function EmployeeFilterToolbar({
                             <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10">
                                 All Roles
                             </SelectItem>
+                            <SelectItem value="super_admin" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-purple-600 dark:text-purple-400 cursor-pointer dark:focus:bg-white/10">
+                                Super Admin
+                            </SelectItem>
                             <SelectItem value="admin" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-[#E75480] dark:text-[#FF4F81] cursor-pointer dark:focus:bg-white/10">
                                 Admin Access
                             </SelectItem>

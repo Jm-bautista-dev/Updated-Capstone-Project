@@ -14,13 +14,31 @@ class EmployeeController extends Controller
 {
     public function index()
     {
+        $employeeQuery = User::with('branch')
+            ->where('role', '!=', User::ROLE_CUSTOMER);
+
+        $employees = (clone $employeeQuery)
+            ->latest()
+            ->get();
+
+        // Calculate authoritative backend KPIs matching the roster definition:
+        // Rule: ADMINISTRATORS KPI counts active ADMIN accounts ONLY (User::ROLE_ADMIN).
+        // SUPER_ADMIN is strictly EXCLUDED from the administrators count.
+        $activeQuery = (clone $employeeQuery)->where(function ($q) {
+            $q->whereNull('account_status')->orWhere('account_status', '!=', User::STATUS_DEACTIVATED);
+        });
+
+        $kpis = [
+            'total'             => (clone $activeQuery)->count(),
+            'admins'            => (clone $activeQuery)->where('role', User::ROLE_ADMIN)->count(),
+            'cashiers'          => (clone $activeQuery)->where('role', User::ROLE_CASHIER)->count(),
+            'assigned_branches' => (clone $activeQuery)->whereNotNull('branch_id')->distinct('branch_id')->count('branch_id'),
+        ];
+
         return Inertia::render('Admin/Employees/Index', [
-            'employees' => User::with('branch')
-                ->where('id', '!=', Auth::id())
-                ->where('role', '!=', User::ROLE_CUSTOMER)
-                ->latest()
-                ->get(),
+            'employees' => $employees,
             'branches'  => Branch::orderBy('name')->get(),
+            'kpis'      => $kpis,
         ]);
     }
 

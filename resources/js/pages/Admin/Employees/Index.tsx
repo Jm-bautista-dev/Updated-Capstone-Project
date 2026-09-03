@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { EmployeeDrawer } from '@/components/employees/EmployeeDrawer';
 import { EmployeeFilterToolbar } from '@/components/employees/EmployeeFilterToolbar';
 import { EmployeeGrid } from '@/components/employees/EmployeeGrid';
-import { EmployeesHero } from '@/components/employees/EmployeesHero';
+import { EmployeesHero, type EmployeeKpis } from '@/components/employees/EmployeesHero';
 import { EmployeeTable, type Employee } from '@/components/employees/EmployeeTable';
 import { type ViewMode } from '@/components/products/ViewSwitcher';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -47,9 +47,10 @@ interface PageProps {
 interface Props {
     employees: Employee[];
     branches: Array<{ id: number; name: string }>;
+    kpis?: EmployeeKpis;
 }
 
-export default function EmployeeIndex({ employees, branches }: Props) {
+export default function EmployeeIndex({ employees, branches, kpis }: Props) {
     const { props } = usePage<PageProps>();
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -254,7 +255,7 @@ export default function EmployeeIndex({ employees, branches }: Props) {
 
             <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-['Outfit'] transition-colors duration-300">
                 {/* Hero Header & Summary Cards */}
-                <EmployeesHero employees={employees} onOpenAddModal={openCreateModal} />
+                <EmployeesHero employees={employees} kpis={kpis} onOpenAddModal={openCreateModal} />
 
                 {/* Filter Toolbar */}
                 <EmployeeFilterToolbar
