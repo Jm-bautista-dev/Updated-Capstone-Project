@@ -384,6 +384,7 @@ export default function CreatePickupOrderModal({
         <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
             {/* ── Widescreen POS Dialog Container (Section 2 & 17) ────────────── */}
             <DialogContent
+                showCloseButton={false}
                 style={{ width: 'min(1400px, calc(100vw - 32px))', maxWidth: 'min(1400px, calc(100vw - 32px))', height: '92vh', maxHeight: '920px' }}
                 className="flex! flex-col! p-0! gap-0! max-w-none! overflow-hidden bg-[#FAFAFA] dark:bg-[#101015] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl"
             >
