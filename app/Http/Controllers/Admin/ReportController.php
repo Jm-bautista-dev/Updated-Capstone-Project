@@ -216,15 +216,54 @@ class ReportController extends Controller
         
         $filename = str_replace([' ', '/'], '_', $payload['reportName'] ?? 'report') . '_' . date('Y-m-d') . '.pdf';
 
-        $pdf = Pdf::loadView('reports.dynamic_pdf', compact('payload'));
-        
-        if (isset($payload['orientation']) && $payload['orientation'] === 'landscape') {
-            $pdf->setPaper($payload['paperSize'] ?? 'A4', 'landscape');
-        } else {
-            $pdf->setPaper($payload['paperSize'] ?? 'A4', 'portrait');
-        }
+        try {
+            $pdf = Pdf::loadView('reports.dynamic_pdf', compact('payload'));
+            $pdf->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled'      => true,
+                'defaultFont'          => 'sans-serif',
+                'tempDir'              => sys_get_temp_dir(),
+                'chroot'               => base_path(),
+            ]);
+            
+            if (isset($payload['orientation']) && $payload['orientation'] === 'landscape') {
+                $pdf->setPaper($payload['paperSize'] ?? 'A4', 'landscape');
+            } else {
+                $pdf->setPaper($payload['paperSize'] ?? 'A4', 'portrait');
+            }
 
-        return $pdf->download($filename);
+            return $pdf->download($filename);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('PDF Export Generation Failed', [
+                'token' => $token,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            // If it failed due to chart rendering, retry without chart image
+            if (!empty($payload['chartImage'])) {
+                try {
+                    $payloadWithoutChart = $payload;
+                    unset($payloadWithoutChart['chartImage']);
+                    $pdf = Pdf::loadView('reports.dynamic_pdf', ['payload' => $payloadWithoutChart]);
+                    $pdf->setOptions([
+                        'isHtml5ParserEnabled' => true,
+                        'isRemoteEnabled'      => false,
+                        'defaultFont'          => 'sans-serif',
+                    ]);
+                    if (isset($payload['orientation']) && $payload['orientation'] === 'landscape') {
+                        $pdf->setPaper($payload['paperSize'] ?? 'A4', 'landscape');
+                    } else {
+                        $pdf->setPaper($payload['paperSize'] ?? 'A4', 'portrait');
+                    }
+                    return $pdf->download($filename);
+                } catch (\Throwable $fallbackException) {
+                    \Illuminate\Support\Facades\Log::error('PDF Export Fallback Failed: ' . $fallbackException->getMessage());
+                }
+            }
+
+            abort(500, 'Unable to generate PDF report: ' . $e->getMessage());
+        }
     }
 
     public function exportExcel(Request $request)
