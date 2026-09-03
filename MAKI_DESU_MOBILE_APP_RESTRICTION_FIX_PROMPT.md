@@ -1,23 +1,33 @@
-# MAKI DESU MOBILE APP — SECURITY, COD ELIGIBILITY & RIDER LIFECYCLE COMPATIBILITY PROMPT
+# MAKI DESU MOBILE APP — RESTRICTION SYSTEM, CONSECUTIVE STREAKS & RIDER LIFECYCLE COMPATIBILITY PROMPT
 
 > **Target Audience**: Mobile Application Developers & AI Assistants working on the MAKI DESU Flutter/React Native/Native iOS & Android mobile apps.  
-> **Backend Ecosystem Version**: MAKI DESU Production API v1.2 (Forgiving COD Risk & Rider Governance Architecture).
+> **Backend Ecosystem Version**: MAKI DESU Production API v1.3 (Consecutive Violation Streaks & Super Admin Override Engine).
 
 ---
 
-## 1. Executive Summary & Problem Resolution
+## 1. Overview of Backend Upgrades
 
-In previous backend revisions, two major false positives affected mobile users:
-1. **Rider False Restriction**: When a rider toggled off-duty or logged out of the mobile app, the backend incorrectly mapped `is_active = false` to `account_status = 'inactive'`, which caused web dashboards to display the rider as "Restricted/Deactivated" and blocked subsequent mobile logins with `"This account is currently inactive."`
-2. **Customer COD Permanent Restriction**: Customers with past delivery failures from months ago were permanently locked out of Cash on Delivery even after having zero active orders.
+The MAKI DESU backend has been updated with a **forgiving, consecutive-only account restriction and governance engine**:
 
-**The backend has now been fully updated with a decoupled, forgiving governance engine.**
+1. **Consecutive Cancellation Rule (Customer App)**:
+   - Automatic restrictions **ONLY** trigger if a customer accumulates **10 consecutive qualifying cancellations**.
+   - **Any successful delivered order immediately resets the cancellation streak to 0.**
+   - Historical or non-consecutive cancellations across weeks/months do NOT lock out users.
+2. **Consecutive Failure Rule (Rider App)**:
+   - Automatic restrictions **ONLY** trigger if a rider accumulates **5 consecutive qualifying delivery failures**.
+   - **Any successful delivery immediately resets the failure streak to 0.**
+   - App logout, network drops, closing the app, or customer refusals **NEVER** count as rider delivery failures.
+3. **Super Admin Instant Override**:
+   - Super Admin can lift any active restriction at any time via the web management portal.
+   - When a restriction is lifted, the user/rider account is restored to `active` and their violation streak is **reset to 0**.
 
 ---
 
-## 2. Rider State Architecture (Decoupled Governance vs. Presence)
+## 2. Rider Mobile App Guidelines
 
-The backend now strictly enforces 4 distinct lifecycle dimensions for riders:
+### A. Lifecycle State Architecture (Decoupled Governance vs. Presence)
+
+The backend strictly separates administrative governance from real-time presence:
 
 | Dimension | Field | Allowed Values | Description |
 | :--- | :--- | :--- | :--- |
@@ -26,36 +36,40 @@ The backend now strictly enforces 4 distinct lifecycle dimensions for riders:
 | **Operational Duty** | `is_active` | `true`, `false` | Rider on-duty toggle (online vs off-duty). |
 | **Presence State** | `status` | `available`, `busy`, `offline` | Real-time dispatching state. |
 
-### Key Rules for Mobile Riders:
+### B. Mobile Rider Behavior & Best Practices:
 - **Logging out** (`POST /api/v1/logout`) or toggling off-duty (`PATCH /api/v1/rider/status`) sets `status = 'offline'` and `is_active = false`, but **NEVER touches `account_status`** (it remains `'active'`).
 - **Logging in** (`POST /api/v1/login`) will **ALWAYS succeed** for active riders, automatically transitioning them to `status = 'available'` and `is_active = true`.
-- **Logout During Active Delivery**: If a rider logs out while having an active in-transit delivery, the order is **preserved in transit** and an operational audit alert is logged on the dispatch dashboard.
+- **Handling Restricted Riders**:
+  - If a rider's `account_status` is `'restricted'`, the rider app should display a persistent banner:  
+    > *"Your account has been temporarily restricted due to 5 consecutive delivery failures. Please contact your branch administrator to review and lift this restriction."*
+  - Do NOT log the rider out forcefully; allow them to view past completed delivery logs and contact support.
 
 ---
 
-## 3. Customer COD Risk & Eligibility Architecture
+## 3. Customer Mobile App Guidelines
 
-The Cash on Delivery engine has transitioned to a **60-day rolling window with automatic expiration**:
+### A. Consecutive Cancellation Handling
+- When a customer attempts to cancel an order (`POST /api/v1/orders/{id}/cancel`), the backend safely checks order status.
+- If a customer account is restricted (`account_status === 'restricted'` or `is_order_restricted === true`), attempting to checkout will return:
+  ```json
+  {
+    "success": false,
+    "message": "Your account is temporarily restricted from placing new orders due to repeated order cancellations. Please contact customer support."
+  }
+  ```
+- **Mobile Action**: Display this message in an informative alert modal with a "Contact Support" button.
 
-| Risk Tier | Max COD Limit | Trigger Conditions (Rolling 60 Days) | Notes |
-| :--- | :--- | :--- | :--- |
-| **`LOW_RISK`** | **₱5,000.00** | 0 refusals, < 2 failed events | Full COD privileges. |
-| **`MEDIUM_RISK`** | **₱1,500.00** | 1 refusal OR 2-3 customer attributable failures | Capped order value. |
-| **`HIGH_RISK`** | **₱500.00** | 2 refusals OR 3-4 customer attributable failures | Micro-order limit or online payment required. |
-| **`RESTRICTED`** | **₱0.00** | 3+ refusals OR 5+ failures within 60 days | Algorithmic restriction auto-expires after **7 days** (`cod_restriction_expires_at`). |
-
-### Key Rules for Mobile Customer Checkout:
-- **Active Orders Limit**: Customers with **2 or more active delivery orders** (`pending`, `confirmed`, `preparing`, `assigned_to_rider`, `in_transit`) cannot place a new COD order until existing orders arrive. Once delivered, COD is immediately restored.
-- **Trust Recovery**: Every **2 consecutive successful delivered orders** actively reduces the customer's risk level by 1 tier.
-- **Explainable Prompts**: When COD is ineligible, the API returns human-friendly `reason` and `restriction_expires_at` timestamps to display directly in the mobile checkout modal.
+### B. Cash on Delivery (COD) Dynamic Eligibility
+- Call `POST /api/v1/checkout/cod-eligibility` before presenting COD as a payment option.
+- If `eligible: false`, render the returned `reason` beneath the disabled COD radio option and highlight Online Payment methods (GCash / Maya / Card).
 
 ---
 
-## 4. API Endpoints & Request/Response Contracts
+## 4. API Endpoints & Contracts
 
 ### A. Rider Login
 - **Endpoint**: `POST /api/v1/login`
-- **Request Body**:
+- **Request**:
 ```json
 {
   "email": "rider@makidesu.com",
@@ -83,10 +97,9 @@ The Cash on Delivery engine has transitioned to a **60-day rolling window with a
 
 ---
 
-### B. Rider Status Toggle / Go Offline
+### B. Rider Status Toggle
 - **Endpoint**: `PATCH /api/v1/rider/status`
-- **Headers**: `Authorization: Bearer <TOKEN>`
-- **Request Body**:
+- **Request**:
 ```json
 {
   "status": "offline",
@@ -100,42 +113,15 @@ The Cash on Delivery engine has transitioned to a **60-day rolling window with a
   "message": "Rider status updated successfully.",
   "is_active": false,
   "account_status": "active",
-  "status": "offline",
-  "rider": {
-    "id": 5,
-    "name": "Juan Dela Cruz",
-    "branch_id": 1,
-    "branch_name": "Maki Desu Santa Cruz",
-    "is_active": false,
-    "account_status": "active",
-    "status": "offline",
-    "is_out_for_delivery": false,
-    "can_be_assigned": false,
-    "active_deliveries": 0,
-    "last_active_at": "2026-09-03T13:30:00+00:00"
-  }
+  "status": "offline"
 }
 ```
 
 ---
 
-### C. Rider Logout
-- **Endpoint**: `POST /api/v1/logout`
-- **Headers**: `Authorization: Bearer <TOKEN>`
-- **Response `200 OK`**:
-```json
-{
-  "success": true,
-  "message": "Logged out successfully"
-}
-```
-
----
-
-### D. Customer COD Eligibility Pre-Check
+### C. Customer COD Eligibility Check
 - **Endpoint**: `POST /api/v1/checkout/cod-eligibility`
-- **Headers**: `Authorization: Bearer <TOKEN>`
-- **Request Body**:
+- **Request**:
 ```json
 {
   "order_amount": 1200.00,
@@ -154,7 +140,7 @@ The Cash on Delivery engine has transitioned to a **60-day rolling window with a
   }
 }
 ```
-- **Response `200 OK` (Temporary Restriction)**:
+- **Response `200 OK` (Temporarily Restricted)**:
 ```json
 {
   "success": true,
@@ -162,7 +148,7 @@ The Cash on Delivery engine has transitioned to a **60-day rolling window with a
     "eligible": false,
     "risk_level": "RESTRICTED",
     "max_cod_amount": 0.0,
-    "reason": "Account has 3 recorded delivery refusals within the last 60 days. (Temporary restriction until Sep 10, 2026)",
+    "reason": "Account is temporarily restricted. Please select an online payment method.",
     "restriction_source": "AUTOMATIC",
     "restriction_expires_at": "2026-09-10T13:30:00+00:00"
   }
@@ -173,8 +159,6 @@ The Cash on Delivery engine has transitioned to a **60-day rolling window with a
 
 ## 5. Mobile App Implementation Checklist
 
-- [ ] **Rider Auth Store**: Ensure the mobile app checks `account_status` (not `is_active` or `status`) to determine if a rider's account is suspended/deactivated.
-- [ ] **Offline Banner**: Show "You are currently off-duty" when `is_active == false` or `status == 'offline'`, with a simple toggle button to "Go Online".
-- [ ] **Checkout COD Option**:
-  - When selecting COD in the customer app, call `/api/v1/checkout/cod-eligibility`.
-  - If `eligible: false`, display the returned `reason` clearly under the disabled COD radio button and guide the customer to Online Payment (GCash / Maya / Card).
+- [ ] **Rider Presence vs. Suspension**: Ensure the mobile app only blocks access if `account_status === 'suspended'` or `account_status === 'deactivated'`. An `is_active === false` or `status === 'offline'` state is simply the rider being off-duty.
+- [ ] **Order Restriction Alert**: In Customer Checkout, handle 422/403 order restriction errors by showing a clean dialog with the backend reason and a quick link to Customer Support.
+- [ ] **COD Disabled Tooltip**: In Customer Payment Selection, if COD is ineligible, show the backend `reason` in small italicized text under the disabled COD button and default selection to GCash/Card.
