@@ -383,7 +383,10 @@ export default function CreatePickupOrderModal({
     return (
         <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
             {/* ── Widescreen POS Dialog Container (Section 2 & 17) ────────────── */}
-            <DialogContent className="w-[calc(100vw-32px)] sm:w-[calc(100vw-48px)] max-w-350 h-[92vh] max-h-230 p-0 overflow-hidden bg-[#FAFAFA] dark:bg-[#101015] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl flex flex-col">
+            <DialogContent
+                style={{ width: 'min(1400px, calc(100vw - 32px))', maxWidth: 'min(1400px, calc(100vw - 32px))', height: '92vh', maxHeight: '920px' }}
+                className="flex! flex-col! p-0! gap-0! max-w-none! overflow-hidden bg-[#FAFAFA] dark:bg-[#101015] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl"
+            >
                 
                 {/* ── 1. Fixed Header (Section 15 & 17) ───────────────────────── */}
                 <header className="px-6 py-4 border-b border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#14141C] shrink-0">
@@ -419,12 +422,12 @@ export default function CreatePickupOrderModal({
                 </header>
 
                 {/* ── 2. Two-Column Scrollable Body (Sections 3, 4, 9) ───────── */}
-                <form onSubmit={handleSubmit} className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
                     
                     {/* ══════════════════════════════════════════════════════════
                         LEFT COLUMN: Product Catalog (65–70% width) + Notes + Payment
                         ══════════════════════════════════════════════════════════ */}
-                    <div className="lg:col-span-8 xl:col-span-8 overflow-y-auto p-5 sm:p-6 space-y-6 border-r border-[#F8C8DC]/40 dark:border-white/10 scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800">
+                    <div className="flex-1 min-w-0 overflow-y-auto p-5 sm:p-6 space-y-6 border-r border-[#F8C8DC]/40 dark:border-white/10 scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800">
                         
                         {/* ── SECTION A: Product Catalog (Section 4, 5, 6, 7, 8) ─── */}
                         <div className="bg-white dark:bg-[#16161E] p-5 sm:p-6 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-xs space-y-4">
@@ -493,7 +496,7 @@ export default function CreatePickupOrderModal({
                             </div>
 
                             {/* Spacious Responsive Product Grid (Section 5, 6) */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 2xl:grid-cols-5 gap-3.5 max-h-110 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800">
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3.5 max-h-115 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800">
                                 {filteredProducts.length === 0 ? (
                                     <div className="col-span-full py-12 text-center rounded-2xl border border-dashed border-[#F8C8DC]/60 dark:border-white/10 bg-[#FFF5F7]/30 dark:bg-white/2">
                                         <ShoppingBag className="size-10 text-[#E75480]/40 mx-auto mb-2" />
@@ -671,7 +674,7 @@ export default function CreatePickupOrderModal({
                     {/* ══════════════════════════════════════════════════════════
                         RIGHT COLUMN: Order Summary & Pickup Details (30–35% width)
                         ══════════════════════════════════════════════════════════ */}
-                    <div className="lg:col-span-4 xl:col-span-4 bg-linear-to-b from-[#FFF5F7]/40 via-white to-white dark:from-[#16161D] dark:via-[#14141A] dark:to-[#121218] flex flex-col justify-between overflow-y-auto scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800 p-5 sm:p-6 space-y-5">
+                    <div className="w-full lg:w-95 xl:w-105 shrink-0 bg-linear-to-b from-[#FFF5F7]/40 via-white to-white dark:from-[#16161D] dark:via-[#14141A] dark:to-[#121218] flex flex-col justify-between overflow-y-auto scrollbar-thin scrollbar-thumb-pink-200 dark:scrollbar-thumb-zinc-800 p-5 sm:p-6 space-y-5">
                         
                         <div className="space-y-5">
                             {/* Order Summary Header */}
