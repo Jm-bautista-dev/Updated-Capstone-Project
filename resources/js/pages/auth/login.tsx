@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { 
     Mail, 
     Lock, 
@@ -46,6 +46,7 @@ const generatePetals = () => {
 
 export default function Login({ status, canResetPassword }: Props) {
     const [showPassword, setShowPassword] = useState(false);
+    const prefersReducedMotion = useReducedMotion();
     const petals = useMemo(() => generatePetals(), []);
 
     return (
@@ -75,52 +76,54 @@ export default function Login({ status, canResetPassword }: Props) {
             <div className="w-full lg:w-[60%] min-h-105 lg:min-h-screen relative flex flex-col justify-between p-8 sm:p-12 lg:p-16 z-10 border-b lg:border-b-0 lg:border-r border-[#F8C8DC]/30 bg-linear-to-br from-[#FFF9FA]/80 via-[#FFF5F7]/40 to-[#FFF9FA]/90 backdrop-blur-md overflow-hidden">
                 
                 {/* Floating Sakura Petals Animation */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-                    {petals.map((petal) => (
-                        <motion.div
-                            key={petal.id}
-                            initial={{
-                                y: -40,
-                                x: 0,
-                                rotate: petal.initialRotate,
-                                opacity: 0
-                            }}
-                            animate={{
-                                y: ['0vh', '110vh'],
-                                x: [0, petal.sway, -petal.sway, petal.sway / 2],
-                                rotate: [petal.initialRotate, petal.initialRotate + 360],
-                                opacity: [0, petal.opacity, petal.opacity, 0]
-                            }}
-                            transition={{
-                                duration: petal.duration,
-                                repeat: Infinity,
-                                delay: petal.delay,
-                                ease: "linear"
-                            }}
-                            style={{
-                                position: 'absolute',
-                                left: petal.left,
-                                width: petal.size,
-                                height: petal.size,
-                            }}
-                        >
-                            {/* SVG Sakura Petal Shape */}
-                            <svg viewBox="0 0 30 30" fill="none" className="w-full h-full text-[#E75480]/30 drop-shadow-sm">
-                                <path 
-                                    d="M15 0C15 0 20 8 20 15C20 22 15 30 15 30C15 30 10 22 10 15C10 8 15 0 15 0Z" 
-                                    fill="currentColor"
-                                    transform="rotate(25 15 15)"
-                                />
-                            </svg>
-                        </motion.div>
-                    ))}
-                </div>
+                {!prefersReducedMotion && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+                        {petals.map((petal) => (
+                            <motion.div
+                                key={petal.id}
+                                initial={{
+                                    y: -40,
+                                    x: 0,
+                                    rotate: petal.initialRotate,
+                                    opacity: 0
+                                }}
+                                animate={{
+                                    y: ['0vh', '110vh'],
+                                    x: [0, petal.sway, -petal.sway, petal.sway / 2],
+                                    rotate: [petal.initialRotate, petal.initialRotate + 360],
+                                    opacity: [0, petal.opacity, petal.opacity, 0]
+                                }}
+                                transition={{
+                                    duration: petal.duration,
+                                    repeat: Infinity,
+                                    delay: petal.delay,
+                                    ease: "linear"
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    left: petal.left,
+                                    width: petal.size,
+                                    height: petal.size,
+                                }}
+                            >
+                                {/* SVG Sakura Petal Shape */}
+                                <svg viewBox="0 0 30 30" fill="none" className="w-full h-full text-[#E75480]/30 drop-shadow-sm">
+                                    <path 
+                                        d="M15 0C15 0 20 8 20 15C20 22 15 30 15 30C15 30 10 22 10 15C10 8 15 0 15 0Z" 
+                                        fill="currentColor"
+                                        transform="rotate(25 15 15)"
+                                    />
+                                </svg>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Top Header & Brand Pill */}
                 <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     className="flex items-center justify-between z-10 relative"
                 >
                     <div className="flex items-center gap-3">
@@ -150,9 +153,9 @@ export default function Login({ status, canResetPassword }: Props) {
 
                     {/* Animated Mount Fuji & Sun Minimalist Art */}
                     <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
+                        initial={false}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                         className="mb-8 relative w-48 h-24"
                     >
                         {/* Sun Circle */}
@@ -171,9 +174,9 @@ export default function Login({ status, canResetPassword }: Props) {
                     </motion.div>
 
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={false}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     >
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E75480]/10 border border-[#E75480]/20 text-[#E75480] text-xs font-semibold tracking-wider uppercase mb-4">
                             <Sparkles className="size-3.5" />
@@ -194,9 +197,9 @@ export default function Login({ status, canResetPassword }: Props) {
 
                     {/* Floating Glass Feature Cards */}
                     <motion.div 
-                        initial={{ opacity: 0, y: 30 }}
+                        initial={false}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         className="grid grid-cols-2 gap-4 mt-8 max-w-md"
                     >
                         <div className="p-4 rounded-2xl bg-white/60 border border-white/80 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.06)] backdrop-blur-xl hover:bg-white/80 transition-all duration-300 group">
@@ -223,9 +226,9 @@ export default function Login({ status, canResetPassword }: Props) {
 
                 {/* Bottom Footer Quote */}
                 <motion.div 
-                    initial={{ opacity: 0 }}
+                    initial={false}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.7 }}
+                    transition={{ duration: 0.5 }}
                     className="z-10 relative flex items-center justify-between text-xs text-[#9E8B8E] border-t border-[#F8C8DC]/30 pt-6"
                 >
                     <span>© {new Date().getFullYear()} Maki Desu Inc. All rights reserved.</span>
@@ -239,9 +242,9 @@ export default function Login({ status, canResetPassword }: Props) {
             <div className="w-full lg:w-[40%] flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 z-10 relative my-auto min-h-137.5">
                 
                 <motion.div 
-                    initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     className="w-full max-w-md"
                 >
                     {/* Main Floating Glass Card */}

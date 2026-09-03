@@ -15,33 +15,45 @@ export function PerformanceSummary({
     avgOrderOverall,
     cashierCount,
 }: PerformanceSummaryProps) {
+    // Dynamic calculation of velocity based on operational transaction benchmarks
+    const velocityProgress = Math.min(100, Math.max(0, cashierCount > 0 ? Math.round((totalTx / (cashierCount * 30)) * 100) : (totalTx > 0 ? 100 : 0)));
+    const uptimeProgress = cashierCount > 0 ? 100 : 0;
+    // Benchmark average order target ₱500
+    const basketProgress = Math.min(100, Math.max(0, Math.round((avgOrderOverall / 500) * 100)));
+
     const healthCards = [
         {
             title: 'Store Performance Velocity',
-            status: 'Optimal Pace',
-            statusColor: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50',
-            description: `${cashierCount} registers active across filtered branches`,
+            status: totalTx > 0 ? 'Optimal Pace' : 'Idle',
+            statusColor: totalTx > 0 
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50'
+                : 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800',
+            description: `${cashierCount} register${cashierCount === 1 ? '' : 's'} active across filtered branches`,
             icon: ShieldCheck,
             metric: `${totalTx} Completed Orders`,
-            progress: 88,
+            progress: velocityProgress,
         },
         {
             title: 'Register Operating Health',
-            status: 'Excellent',
-            statusColor: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50',
-            description: 'Zero transaction errors or shift discrepancies reported',
+            status: cashierCount > 0 ? 'Operational' : 'Standby',
+            statusColor: cashierCount > 0
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50'
+                : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50',
+            description: cashierCount > 0 ? 'All active registers synced and responding' : 'No active terminal shifts currently open',
             icon: HeartPulse,
-            metric: '100% System Uptime',
-            progress: 96,
+            metric: `${uptimeProgress}% System Uptime`,
+            progress: uptimeProgress,
         },
         {
             title: 'Average Basket Density',
-            status: 'Good Target',
-            statusColor: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/50',
+            status: avgOrderOverall >= 400 ? 'Exceeds Target' : (avgOrderOverall > 0 ? 'On Track' : 'Baseline'),
+            statusColor: avgOrderOverall >= 400
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50'
+                : 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/50',
             description: 'Average transaction checkout value',
             icon: Zap,
             metric: new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(avgOrderOverall),
-            progress: 74,
+            progress: basketProgress,
         },
     ];
 

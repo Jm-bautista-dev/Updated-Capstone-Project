@@ -14,7 +14,7 @@ export interface KPICardProps {
     title: string;
     value: string | number;
     icon: LucideIcon;
-    trend?: 'up' | 'down';
+    trend?: 'up' | 'down' | 'neutral';
     trendValue?: string;
     comparison?: string;
     loading?: boolean;
@@ -36,6 +36,7 @@ export function KPICard({
     index = 0,
 }: KPICardProps) {
     const isUp = trend === 'up';
+    const isDown = trend === 'down';
 
     return (
         <motion.div
@@ -61,10 +62,12 @@ export function KPICard({
                                 'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-2xs',
                                 isUp
                                     ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50'
-                                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200/60 dark:border-rose-800/50'
+                                    : isDown
+                                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200/60 dark:border-rose-800/50'
+                                    : 'bg-zinc-50 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400 border-zinc-200/60 dark:border-zinc-800/50'
                             )}
                         >
-                            {isUp ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                            {isUp ? <ArrowUpRight className="size-3.5" /> : isDown ? <ArrowDownRight className="size-3.5" /> : null}
                             <span>{trendValue}</span>
                         </div>
                     )}

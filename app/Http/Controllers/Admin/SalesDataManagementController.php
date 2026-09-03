@@ -300,9 +300,10 @@ class SalesDataManagementController extends Controller
         $importedCount = 0;
         $updatedCount = 0;
         $skippedCount = 0;
+        $duplicatesSkippedCount = 0;
 
         try {
-            DB::transaction(function () use ($importMode, $duplicateMode, $mapping, $rows, $request, &$importedCount, &$updatedCount, &$skippedCount) {
+            DB::transaction(function () use ($importMode, $duplicateMode, $mapping, $rows, $request, &$importedCount, &$updatedCount, &$skippedCount, &$duplicatesSkippedCount) {
                 
                 // Cache referenced items
                 $branches = Branch::all()->keyBy(fn($b) => strtolower(trim($b->name)));
@@ -332,6 +333,9 @@ class SalesDataManagementController extends Controller
                 }
 
                 // Batch process rows
+                $seenOrderNumbersInUpload = [];
+                $duplicatesSkippedCount = 0;
+
                 foreach ($rows as $row) {
                     $orderNum = trim($row[$mapping['order_number']] ?? '');
                     $dateStr = trim($row[$mapping['date']] ?? '');
@@ -341,6 +345,11 @@ class SalesDataManagementController extends Controller
                     $price = (float)($row[$mapping['unit_price']] ?? 0);
                     $total = (float)($row[$mapping['total']] ?? 0);
                     $cashierVal = isset($mapping['cashier']) ? trim($row[$mapping['cashier']] ?? '') : '';
+
+                    if (empty($orderNum)) {
+                        $skippedCount++;
+                        continue;
+                    }
 
                     // Lookup references
                     $cleanBranch = strtolower(trim($branchVal));
@@ -366,13 +375,24 @@ class SalesDataManagementController extends Controller
                     // Resolve date
                     $createdAt = date('Y-m-d H:i:s', strtotime($dateStr));
 
-                    // Check duplicate sales
+                    // Check intra-upload duplicate
+                    $isDuplicateInUpload = isset($seenOrderNumbersInUpload[$orderNum]);
+                    $seenOrderNumbersInUpload[$orderNum] = true;
+
+                    if ($isDuplicateInUpload && ($importMode === 'add_new' || $duplicateMode === 'skip')) {
+                        $skippedCount++;
+                        $duplicatesSkippedCount++;
+                        continue;
+                    }
+
+                    // Check existing database duplicate
                     /** @var Sale|null $existingSale */
                     $existingSale = Sale::where('order_number', $orderNum)->first();
 
                     if ($existingSale) {
                         if ($importMode === 'add_new' || $duplicateMode === 'skip') {
                             $skippedCount++;
+                            $duplicatesSkippedCount++;
                             continue;
                         }
 
@@ -410,37 +430,44 @@ class SalesDataManagementController extends Controller
                         $costTotal = $itemCost * $qty;
                         $profit = $total - $costTotal;
 
-                        // Create new Sale
-                        $newSale = Sale::create([
-                            'order_number' => $orderNum,
-                            'user_id' => $cashierId,
-                            'branch_id' => $branchId,
-                            'type' => 'dine-in',
-                            'total' => $total,
-                            'paid_amount' => $total,
-                            'change_amount' => 0,
-                            'payment_method' => 'cash',
-                            'status' => 'completed',
-                            'cost_total' => $costTotal,
-                            'profit' => $profit,
-                        ]);
+                        // Create new Sale with database unique constraint violation guard
+                        try {
+                            $newSale = Sale::create([
+                                'order_number' => $orderNum,
+                                'user_id' => $cashierId,
+                                'branch_id' => $branchId,
+                                'type' => 'dine-in',
+                                'total' => $total,
+                                'paid_amount' => $total,
+                                'change_amount' => 0,
+                                'payment_method' => 'cash',
+                                'status' => 'completed',
+                                'cost_total' => $costTotal,
+                                'profit' => $profit,
+                            ]);
 
-                        // Update timestamps manually to match uploaded historical date
-                        $newSale->created_at = $createdAt;
-                        $newSale->updated_at = $createdAt;
-                        $newSale->save();
+                            // Update timestamps manually to match uploaded historical date
+                            $newSale->created_at = $createdAt;
+                            $newSale->updated_at = $createdAt;
+                            $newSale->save();
 
-                        SaleItem::create([
-                            'sale_id' => $newSale->id,
-                            'product_id' => $product->id,
-                            'quantity' => $qty,
-                            'unit_price' => $price,
-                            'cost_price' => $itemCost,
-                            'subtotal' => $total,
-                            'profit' => $profit,
-                        ]);
+                            SaleItem::create([
+                                'sale_id' => $newSale->id,
+                                'product_id' => $product->id,
+                                'quantity' => $qty,
+                                'unit_price' => $price,
+                                'cost_price' => $itemCost,
+                                'subtotal' => $total,
+                                'profit' => $profit,
+                            ]);
 
-                        $importedCount++;
+                            $importedCount++;
+                        } catch (\Illuminate\Database\UniqueConstraintViolationException | \Illuminate\Database\QueryException $e) {
+                            // Caught concurrent duplicate insertion or database unique constraint
+                            $skippedCount++;
+                            $duplicatesSkippedCount++;
+                            continue;
+                        }
                     }
                 }
             });
@@ -474,8 +501,16 @@ class SalesDataManagementController extends Controller
                 'imported' => $importedCount,
                 'updated' => $updatedCount,
                 'skipped' => $skippedCount,
+                'duplicates_skipped' => $duplicatesSkippedCount,
                 'duration' => $duration,
                 'backupCreated' => $backupResult ? $backupResult->backup_name : null,
+                'summary' => [
+                    'processed' => count($rows),
+                    'imported' => $importedCount,
+                    'updated' => $updatedCount,
+                    'duplicates' => $duplicatesSkippedCount,
+                    'skipped' => $skippedCount,
+                ],
             ]);
 
         } catch (\Exception $e) {

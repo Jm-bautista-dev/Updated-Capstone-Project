@@ -847,8 +847,23 @@ class ApiOrderController extends Controller
     {
         $distanceKm = 0.0;
         $deliveryFee = 0.0;
+        $breakdown = null;
 
-        if (!$isPickup && $branch && $branch->latitude && $branch->longitude && isset($validated['latitude'], $validated['longitude'])) {
+        if (!$isPickup) {
+            if (!$branch || !$branch->latitude || !$branch->longitude) {
+                return [
+                    'success' => false,
+                    'message' => 'Store branch delivery location is not configured. Please contact support.',
+                ];
+            }
+
+            if (!isset($validated['latitude'], $validated['longitude']) || $validated['latitude'] === null || $validated['longitude'] === null) {
+                return [
+                    'success' => false,
+                    'message' => 'Delivery location coordinates are required for delivery orders.',
+                ];
+            }
+
             $earthRadius = 6371; // km
             $latFrom = deg2rad((float) $branch->latitude);
             $lonFrom = deg2rad((float) $branch->longitude);
@@ -863,22 +878,30 @@ class ApiOrderController extends Controller
             
             $distanceKm = round($angle * $earthRadius, 2);
 
-            if (!$branch->isWithinRadius($distanceKm)) {
+            if ($distanceKm < 0 || !is_finite($distanceKm)) {
                 return [
                     'success' => false,
-                    'message' => 'Out of delivery range. The maximum distance is ' . $branch->delivery_radius_km . 'km.',
+                    'message' => 'Invalid delivery distance calculated. Please verify destination coordinates.',
                 ];
             }
 
-            if (method_exists($branch, 'calculateDeliveryFee')) {
-                $deliveryFee = (float) $branch->calculateDeliveryFee($distanceKm);
+            if (!$branch->isWithinRadius($distanceKm)) {
+                return [
+                    'success' => false,
+                    'message' => 'Out of delivery range. The maximum distance is ' . ($branch->delivery_radius_km ?? 15) . 'km.',
+                ];
             }
+
+            $feeService = app(\App\Services\DeliveryFeeService::class);
+            $breakdown = $feeService->calculateFee($branch, $distanceKm);
+            $deliveryFee = $breakdown['delivery_fee'];
         }
 
         return [
             'success'      => true,
             'distance_km'  => $distanceKm,
             'delivery_fee' => $deliveryFee,
+            'breakdown'    => $breakdown,
         ];
     }
 

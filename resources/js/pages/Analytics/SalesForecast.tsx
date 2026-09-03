@@ -102,9 +102,17 @@ const ChartTooltip = ({ active, payload }: { active?: boolean; payload?: ChartTo
 
 interface TrendData {
   slope?: number;
-  direction?: string;
+  raw_slope?: number;
+  formatted_slope?: string;
+  direction?: 'up' | 'down' | 'flat' | string;
   percentage?: number;
+  formatted_percentage?: string;
+  method?: string;
+  points_used?: number;
+  unit?: string;
   label?: string;
+  is_available?: boolean;
+  formula?: string;
 }
 
 interface SalesForecastPageProps {
@@ -316,22 +324,38 @@ export default function SalesForecast() {
                   {/* Growth Slope */}
                   <Card className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">Growth Slope</p>
-                      <span className={cn(
-                        "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-[6px] border bg-transparent",
-                        (trend?.slope ?? 0) >= 0 
-                          ? "text-emerald-500 border-emerald-500/10" 
-                          : "text-rose-500 border-rose-500/10"
-                      )}>
-                        {(trend?.percentage ?? 0) > 0 ? '+' : ''}{trend?.percentage}% Overall
-                      </span>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)" title={trend?.label || "Average forecast change per day"}>Growth Slope</p>
+                      {trend?.is_available !== false && trend?.percentage !== undefined ? (
+                        <span className={cn(
+                          "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-[6px] border bg-transparent",
+                          (trend?.slope ?? 0) > 0.005 
+                            ? "text-emerald-500 border-emerald-500/10" 
+                            : (trend?.slope ?? 0) < -0.005
+                              ? "text-rose-500 border-rose-500/10"
+                              : "text-zinc-400 border-zinc-500/10"
+                        )}>
+                          {(trend?.percentage ?? 0) > 0 ? '+' : ''}{trend?.percentage}% Overall
+                        </span>
+                      ) : (
+                        <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-[6px] border bg-transparent text-zinc-400 border-zinc-500/10">
+                          N/A
+                        </span>
+                      )}
                     </div>
                     <div>
-                      <h3 className={cn('text-2xl font-black tabular-nums leading-none', (trend?.slope ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                        {(trend?.slope ?? 0) >= 0 ? '+' : ''}{formatCurrency(trend?.slope)}
-                        <span className="text-[10px] font-bold text-(--ops-text-faint) ml-1">/ day</span>
-                      </h3>
-                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest font-mono">Telemetry prediction rate</p>
+                      {trend?.is_available !== false && trend?.slope !== undefined ? (
+                        <h3 className={cn('text-2xl font-black tabular-nums leading-none', (trend?.slope ?? 0) > 0.005 ? 'text-emerald-500' : (trend?.slope ?? 0) < -0.005 ? 'text-rose-500' : 'text-zinc-400')}>
+                          {(trend?.slope ?? 0) > 0.005 ? '+' : ''}{formatCurrency(trend?.slope)}
+                          <span className="text-[10px] font-bold text-(--ops-text-faint) ml-1">/ day</span>
+                        </h3>
+                      ) : (
+                        <h3 className="text-xl font-bold text-zinc-400 tabular-nums leading-none">
+                          Unavailable
+                        </h3>
+                      )}
+                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1 tracking-widest font-mono" title={trend?.formula || "Least-Squares Linear Regression"}>
+                        {trend?.label || "Average forecast change per day"}
+                      </p>
                     </div>
                   </Card>
 

@@ -1,6 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { FiShield, FiArrowLeft } from 'react-icons/fi';
+import { Mail, ArrowLeft, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import AppLogo from '@/components/app-logo';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,50 +12,55 @@ import { email } from '@/routes/password';
 
 export default function ForgotPassword({ status }: { status?: string }) {
     return (
-        <div className="min-h-screen w-full relative overflow-hidden bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6 font-['Outfit'] antialiased transition-colors duration-300">
-            <Head title="Account Recovery Gateway" />
-            
-            {/* Sakura-style radial pulses (System Consistency) */}
-            <div className="absolute top-[-15%] right-[-10%] w-[600px] h-[600px] bg-rose-500/[0.03] dark:bg-rose-500/[0.08] blur-[100px] rounded-full pointer-events-none animate-pulse duration-[10000ms]" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-rose-500/[0.02] dark:bg-rose-500/[0.06] blur-[100px] rounded-full pointer-events-none animate-pulse duration-[8000ms]" />
+        <div className="min-h-screen w-full bg-[#FFFDFE] flex flex-col justify-center items-center p-6 relative overflow-hidden font-['Outfit'] antialiased selection:bg-[#E75480]/15 selection:text-[#E75480]">
+            <Head title="Account Recovery — Maki Desu" />
+
+            {/* Ambient Background Aura Gradients */}
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+                {/* Warm Sakura Top Light */}
+                <div className="absolute -top-[20%] -left-[10%] w-[60vw] h-[60vw] max-w-200 max-h-200 rounded-full bg-radial from-[#FADADD]/40 via-[#F8C8DC]/15 to-transparent blur-3xl" />
+                {/* Soft Rose Bottom Glow */}
+                <div className="absolute -bottom-[15%] right-[20%] w-[50vw] h-[50vw] max-w-175 max-h-175 rounded-full bg-radial from-[#FFE4E1]/50 via-[#FFF0F5]/20 to-transparent blur-3xl" />
+                {/* Discreet Seigaiha / Subtle Grid Pattern overlay */}
+                <div 
+                    className="absolute inset-0 opacity-[0.035]"
+                    style={{
+                        backgroundImage: `radial-gradient(#E75480 0.75px, transparent 0.75px), radial-gradient(#E75480 0.75px, #FFFDFE 0.75px)`,
+                        backgroundSize: '30px 30px',
+                        backgroundPosition: '0 0, 15px 15px'
+                    }}
+                />
+            </div>
 
             <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="w-full max-w-md relative z-10"
+                initial={false}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full max-w-md relative z-10 my-auto"
             >
                 {/* Header Branding */}
-                <div className="flex flex-col items-center mb-10">
-                    <div className="flex items-center gap-4 mb-3">
-                        <div className="w-[3px] h-10 bg-rose-600 dark:bg-rose-500 rounded-full" />
-                        <div>
-                             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-gray-900 dark:text-white leading-none">
-                                Maki <span className="text-rose-600 dark:text-rose-500">Desu</span>
-                            </h2>
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500 mt-1">Operations Platform</p>
-                        </div>
+                <div className="flex flex-col items-center mb-8">
+                    <div className="p-3 rounded-2xl bg-white/80 border border-[#F8C8DC]/40 shadow-sm backdrop-blur-xl mb-3">
+                        <AppLogo />
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E75480]/10 border border-[#E75480]/20 text-[#E75480] text-xs font-bold tracking-wider uppercase">
+                        <Sparkles className="size-3.5" />
+                        <span>Account Recovery Gateway</span>
                     </div>
                 </div>
 
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl border border-gray-100 dark:border-gray-700 shadow-2xl shadow-rose-900/5 rounded-[2.5rem] p-10 overflow-hidden relative group transition-colors duration-300">
+                {/* Floating Glass Card */}
+                <div className="bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_25px_60px_-15px_rgba(231,84,128,0.12)] rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden transition-all duration-300">
                     
-                    {/* Access Badge */}
-                    <div className="flex items-center justify-between mb-10 text-sm">
-                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700">
-                             <FiShield className="size-3 text-rose-600 dark:text-rose-500" />
-                             <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 italic">Account Recovery Gateway</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest font-bold">Internal Service</span>
-                        </div>
-                    </div>
+                    {/* Top Decorative Accent Light */}
+                    <div className="absolute top-0 inset-x-0 h-1.5 bg-linear-to-r from-transparent via-[#E75480] to-transparent opacity-60" />
 
-                    <div className="mb-8 font-black">
-                        <h1 className="text-xs uppercase tracking-[0.2em] text-gray-900 dark:text-white mb-2 italic">Request Recovery Link</h1>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-[0.1em] leading-relaxed font-bold">
-                             Enter your email to receive authorized password reset instructions for your staff account.
+                    <div className="mb-6">
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#3D2C2E] tracking-tight">
+                            Reset Password
+                        </h1>
+                        <p className="text-xs sm:text-sm text-[#7D6B6E] mt-1.5 font-medium leading-relaxed">
+                            Enter your verified terminal email address to receive secure password recovery instructions.
                         </p>
                     </div>
 
@@ -63,16 +69,25 @@ export default function ForgotPassword({ status }: { status?: string }) {
                             <>
                                 <div className="space-y-5">
                                     <div className="space-y-2">
-                                        <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 ml-1">Verified Terminal Email</Label>
-                                        <div className="relative group/input">
+                                        <Label 
+                                            htmlFor="email" 
+                                            className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] ml-1 flex items-center justify-between"
+                                        >
+                                            <span>Staff Email Address</span>
+                                        </Label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#A08E91] group-focus-within:text-[#E75480] transition-colors">
+                                                <Mail className="size-4" />
+                                            </div>
                                             <Input
                                                 id="email"
                                                 type="email"
                                                 name="email"
-                                                autoComplete="off"
+                                                autoComplete="email"
                                                 autoFocus
-                                                placeholder="staff@makidesu.com"
-                                                className="h-12 border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-2xl focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder:text-gray-300 dark:placeholder:text-gray-600 font-medium text-sm pl-4"
+                                                required
+                                                placeholder="identity@makidesu.com"
+                                                className="h-13 pl-11 pr-4 bg-white/70 border-[#F8C8DC]/60 text-[#3D2C2E] rounded-2xl focus:ring-4 focus:ring-[#E75480]/15 focus:border-[#E75480] transition-all duration-200 placeholder:text-[#C5B8BA] font-medium text-sm shadow-xs hover:border-[#E75480]/40"
                                             />
                                         </div>
                                         <InputError message={errors.email} />
@@ -81,29 +96,38 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
                                 <Button
                                     type="submit"
-                                    className="w-full h-14 bg-rose-600 dark:bg-rose-500 hover:bg-rose-700 dark:hover:bg-rose-600 text-white dark:text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-rose-100 dark:shadow-none hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2"
+                                    className="w-full h-13 bg-linear-to-r from-[#E75480] via-[#F472B6] to-[#E75480] bg-size-[200%_auto] hover:bg-right text-white rounded-2xl font-bold text-sm tracking-wide shadow-[0_12px_30px_-8px_rgba(231,84,128,0.35)] hover:shadow-[0_16px_35px_-6px_rgba(231,84,128,0.45)] hover:-translate-y-0.5 active:scale-[0.985] transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
                                     disabled={processing}
                                 >
-                                    {processing ? <Spinner className="text-white" /> : "Send Reset Link"}
+                                    {processing ? (
+                                        <Spinner className="text-white size-5" />
+                                    ) : (
+                                        <>
+                                            <span>Send Recovery Link</span>
+                                            <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform duration-200" />
+                                        </>
+                                    )}
                                 </Button>
                             </>
                         )}
                     </Form>
                     
                     {status && (
-                        <div className="mt-8 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 flex items-center gap-3">
-                            <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-500 uppercase tracking-widest leading-none">
-                                {status}
-                            </p>
+                        <div className="mt-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/60 flex items-center gap-2.5 text-xs font-semibold text-emerald-800">
+                            <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                            <span>{status}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="mt-10 text-center">
-                    <Link href={login()} className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-colors inline-flex items-center justify-center gap-2 group">
-                        <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
-                        Back to login gateway
+                {/* Back to Login Link */}
+                <div className="mt-8 text-center">
+                    <Link 
+                        href={login()} 
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-[#7D6B6E] hover:text-[#E75480] transition-colors py-1 px-3 rounded-full hover:bg-white/50"
+                    >
+                        <ArrowLeft className="size-3.5" />
+                        <span>Return to login gateway</span>
                     </Link>
                 </div>
             </motion.div>

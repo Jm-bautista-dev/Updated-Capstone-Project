@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Events\SaleCreated;
 use App\Events\StockUpdated;
+use App\Models\Branch;
 use App\Models\CashierShift;
 use App\Models\ProductAddon;
 
@@ -233,9 +234,34 @@ class SaleService
             $discount = round(min($productSubtotal, max(0.0, $discount)), 2);
             $netProductSales = round(max(0.0, $productSubtotal - $discount), 2);
 
-            $deliveryFee = ($orderType === 'delivery' && !empty($data['delivery_info']['delivery_fee'])) 
-                ? round((float) $data['delivery_info']['delivery_fee'], 2) 
-                : 0.00;
+            $deliveryFee = 0.00;
+            if ($orderType === 'delivery') {
+                $rawFee = $data['delivery_info']['delivery_fee'] ?? null;
+                $distanceKm = isset($data['delivery_info']['distance_km']) ? (float) $data['delivery_info']['distance_km'] : null;
+                $branch = Branch::find($branchId);
+
+                if ($distanceKm !== null && $distanceKm < 0) {
+                    throw new \Exception("Delivery distance cannot be negative.");
+                }
+
+                if ($rawFee !== null) {
+                    $parsedFee = (float) $rawFee;
+                    if ($parsedFee < 0 || !is_finite($parsedFee)) {
+                        throw new \Exception("Delivery fee must be a valid non-negative number.");
+                    }
+                    $maxFee = (float) (config('delivery.max_delivery_fee') ?: 300.00);
+                    if ($maxFee > 0 && $parsedFee > $maxFee) {
+                        throw new \Exception("Delivery fee (₱" . number_format($parsedFee, 2) . ") exceeds maximum configured limit of ₱" . number_format($maxFee, 2) . ".");
+                    }
+                    $deliveryFee = round($parsedFee, 2);
+                } elseif ($branch && $distanceKm !== null) {
+                    $feeService = app(\App\Services\DeliveryFeeService::class);
+                    $calculated = $feeService->calculateFee($branch, $distanceKm, $netProductSales);
+                    $deliveryFee = $calculated['delivery_fee'];
+                } elseif ($branch) {
+                    $deliveryFee = round((float) ($branch->base_delivery_fee ?? 49.00), 2);
+                }
+            }
 
             $saleTotal = round($netProductSales + $deliveryFee, 2);
             $saleProfit = round($netProductSales - $costTotal, 2);

@@ -41,10 +41,12 @@ class RiderController extends Controller
         $riders = $query->latest()->paginate(15)->withQueryString();
 
         $stats = [
-            'total' => Rider::count(),
-            'available' => Rider::where('status', 'available')->count(),
-            'busy' => Rider::where('status', 'busy')->count(),
-            'offline' => Rider::where('status', 'offline')->count(),
+            'total'     => Rider::count(),
+            'available' => Rider::where('status', 'available')->where('is_active', true)->count(),
+            'busy'      => Rider::where('status', 'busy')->where('is_active', true)->count(),
+            'offline'   => Rider::where(function ($q) {
+                $q->where('status', 'offline')->orWhereNull('status');
+            })->where('is_active', true)->count(),
         ];
 
         return Inertia::render('Admin/Riders/Index', [

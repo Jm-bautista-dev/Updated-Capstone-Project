@@ -48,6 +48,12 @@ class Sale extends Model
         'change_amount'    => 'decimal:2',
     ];
 
+    protected $appends = [
+        'product_revenue',
+        'delivery_fee_amount',
+        'delivery_fee_breakdown',
+    ];
+
     public function toArray(): array
     {
         $array = parent::toArray();
@@ -90,6 +96,42 @@ class Sale extends Model
         }
 
         return (float) ($this->delivery?->delivery_fee ?? 0);
+    }
+
+    /**
+     * Authoritative delivery fee breakdown & sanity metrics.
+     */
+    public function getDeliveryFeeBreakdownAttribute(): ?array
+    {
+        $fee = (float) ($this->delivery_fee ?? $this->delivery?->delivery_fee ?? 0);
+        if ($fee <= 0 && $this->type !== 'delivery') {
+            return null;
+        }
+
+        $distance = $this->delivery?->distance_km !== null ? (float) $this->delivery->distance_km : null;
+        $branch = $this->branch ?: $this->order?->branch;
+        $subtotal = $this->subtotal !== null ? (float) $this->subtotal : max(0.0, (float) $this->total - $fee);
+
+        if ($branch && $distance !== null) {
+            /** @var \App\Services\DeliveryFeeService $service */
+            $service = app(\App\Services\DeliveryFeeService::class);
+            return $service->calculateFee($branch, $distance, $subtotal);
+        }
+
+        $warningRatio = (float) config('delivery.delivery_fee_warning_ratio', 0.75);
+        $ratio = $subtotal > 0 ? round(($fee / $subtotal) * 100, 2) : null;
+        $isHighRatio = $ratio !== null && ($ratio / 100) >= $warningRatio;
+
+        return [
+            'delivery_fee'        => $fee,
+            'base_fee'            => (float) ($branch?->base_delivery_fee ?? 49.00),
+            'actual_distance_km'  => $distance,
+            'fee_to_subtotal_pct' => $ratio,
+            'is_high_fee_ratio'   => $isHighRatio,
+            'warning_message'     => $isHighRatio
+                ? "Delivery fee (₱" . number_format($fee, 2) . ") is {$ratio}% of food subtotal (₱" . number_format($subtotal, 2) . ")."
+                : null,
+        ];
     }
 
     public function order()

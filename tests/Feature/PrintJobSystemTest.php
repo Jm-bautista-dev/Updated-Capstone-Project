@@ -191,9 +191,9 @@ class PrintJobSystemTest extends TestCase
 
         $printJob = PrintJob::where('sale_id', $sale->id)->first();
 
-        $this->assertEquals('STA CRUZ', $printJob->receipt_data['branch_name']);
+        $this->assertEquals('STA. CRUZ', $printJob->receipt_data['branch_name']);
         $this->assertEquals(58, $printJob->paper_width);
-        $this->assertStringContainsString('STA CRUZ', $printJob->formatted_text);
+        $this->assertStringContainsString('STA. CRUZ', $printJob->formatted_text);
     }
 
     public function test_print_job_idempotency_prevents_duplicate_receipts()

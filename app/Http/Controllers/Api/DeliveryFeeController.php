@@ -48,22 +48,23 @@ class DeliveryFeeController extends Controller
         
         $distanceKm = round($angle * $earthRadius, 2);
 
-        $isWithinRadius = $branch->isWithinRadius($distanceKm);
-        
-        $fee = 0;
-        if ($isWithinRadius && method_exists($branch, 'calculateDeliveryFee')) {
-            $fee = $branch->calculateDeliveryFee($distanceKm);
-        }
+        $feeService = app(\App\Services\DeliveryFeeService::class);
+        $subtotal = $request->filled('subtotal') ? (float) $request->input('subtotal') : null;
+        $breakdown = $feeService->calculateFee($branch, $distanceKm, $subtotal);
+
+        $isWithinRadius = $breakdown['is_within_radius'];
+        $fee = $breakdown['delivery_fee'];
 
         return response()->json([
-            'success' => true,
+            'success'        => true,
             'is_deliverable' => $isWithinRadius,
             'distance_km'    => $distanceKm,
             'delivery_fee'   => $fee,
-            'max_radius_km'  => $branch->delivery_radius_km,
+            'max_radius_km'  => $breakdown['max_radius_km'],
+            'breakdown'      => $breakdown,
             'message'        => $isWithinRadius 
                                 ? 'Address is deliverable.' 
-                                : 'Out of delivery range. Max distance is ' . $branch->delivery_radius_km . 'km.'
+                                : 'Out of delivery range. Max distance is ' . $breakdown['max_radius_km'] . 'km.'
         ]);
     }
 }

@@ -274,12 +274,35 @@ export function SalesDrawer({
                                                 </div>
                                             )}
                                             {fee > 0 && (
-                                                <div className="flex items-center justify-between text-[#7D6B6E] dark:text-[#94A3B8]">
-                                                    <span className="flex items-center gap-1">
-                                                        <Truck className="size-3 text-purple-500" />
-                                                        <span>Delivery Fee</span>
-                                                    </span>
-                                                    <span className="font-bold text-purple-600 dark:text-purple-400">+{formatCurrency(fee)}</span>
+                                                <div className="space-y-1.5 pt-1">
+                                                    <div className="flex items-center justify-between text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                        <span className="flex items-center gap-1">
+                                                            <Truck className="size-3 text-purple-500" />
+                                                            <span>Delivery Fee</span>
+                                                            {sale.delivery_fee_breakdown?.actual_distance_km ? (
+                                                                <span className="text-[10px] font-normal text-slate-500">
+                                                                    ({sale.delivery_fee_breakdown.actual_distance_km} km)
+                                                                </span>
+                                                            ) : null}
+                                                        </span>
+                                                        <span className="font-bold text-purple-600 dark:text-purple-400">+{formatCurrency(fee)}</span>
+                                                    </div>
+                                                    {sale.delivery_fee_breakdown?.formula_description && (
+                                                        <div className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8] bg-purple-50/50 dark:bg-purple-950/20 p-2 rounded-xl border border-purple-200/40 dark:border-purple-900/30 space-y-1">
+                                                            <div className="flex items-center justify-between font-medium">
+                                                                <span>Calculation Breakdown:</span>
+                                                                <span className="font-bold">₱{Number(fee).toFixed(2)}</span>
+                                                            </div>
+                                                            <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono">
+                                                                {sale.delivery_fee_breakdown.formula_description}
+                                                            </p>
+                                                            {sale.delivery_fee_breakdown.is_high_fee_ratio && (
+                                                                <div className="pt-0.5 text-[9px] text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                                                    <span>ℹ️ High fee-to-subtotal ratio ({sale.delivery_fee_breakdown.fee_to_subtotal_pct}%) due to distance ({sale.delivery_fee_breakdown.rounded_distance_km} km).</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </>

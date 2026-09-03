@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { DollarSign, ShoppingBag, TrendingUp, CheckCircle, Clock, Store } from 'lucide-react';
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 export type SaleItem = {
     id: number;
@@ -40,7 +41,24 @@ export type Sale = {
     delivery?: {
         id?: number;
         delivery_fee?: number;
+        distance_km?: number;
+        customer_name?: string;
+        customer_address?: string;
         status?: string;
+    };
+    delivery_fee_breakdown?: {
+        delivery_fee?: number;
+        base_fee?: number;
+        per_km_fee?: number;
+        free_distance_km?: number;
+        actual_distance_km?: number;
+        rounded_distance_km?: number;
+        chargeable_distance?: number;
+        distance_charge?: number;
+        fee_to_subtotal_pct?: number;
+        is_high_fee_ratio?: boolean;
+        warning_message?: string;
+        formula_description?: string;
     };
     branch_id?: number;
     cashier: {
@@ -61,6 +79,18 @@ export type Sale = {
     };
 };
 
+interface MetricDelta {
+    current_value?: number;
+    previous_value?: number;
+    difference?: number;
+    delta_percentage?: number | null;
+    formatted_delta?: string;
+    trend?: 'up' | 'down' | 'neutral';
+    comparison_label?: string;
+    state?: string;
+    badge_text?: string;
+}
+
 interface SalesStats {
     today_revenue?: number | string;
     pending?: number | string;
@@ -68,6 +98,8 @@ interface SalesStats {
     completed_today?: number | string;
     cancelled_today?: number | string;
     avg_order_value?: number | string;
+    revenue_delta?: MetricDelta;
+    orders_delta?: MetricDelta;
     definition?: string;
     timezone?: string;
     [key: string]: unknown;
@@ -98,6 +130,9 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
             avgOrderValue: avg,
         };
     }, [stats]);
+
+    const revenueDelta = stats?.revenue_delta;
+    const ordersDelta = stats?.orders_delta;
 
     return (
         <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-white via-[#FFF5F7]/80 to-[#FADADD]/40 dark:from-[#121218] dark:via-[#161622]/90 dark:to-[#0A0A10] p-6 sm:p-8 lg:p-10 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.12)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] backdrop-blur-2xl transition-colors duration-300">
@@ -151,9 +186,16 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
                             <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
                                 {formatCurrency(totalRevenue)}
                             </h2>
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+                            <div className={cn(
+                                "flex items-center gap-1.5 text-xs font-bold font-mono",
+                                revenueDelta?.trend === 'down'
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : revenueDelta?.trend === 'neutral'
+                                    ? "text-zinc-500 dark:text-zinc-400"
+                                    : "text-emerald-600 dark:text-emerald-400"
+                            )}>
                                 <TrendingUp className="size-3.5" />
-                                <span>Completed sales recorded today</span>
+                                <span>{revenueDelta?.formatted_delta ? `${revenueDelta.formatted_delta} ${revenueDelta.comparison_label || 'vs yesterday'}` : 'Completed sales today'}</span>
                             </div>
                         </div>
                     </motion.div>
@@ -175,8 +217,15 @@ export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
                             <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
                                 {completedCount}
                             </h2>
-                            <div className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-bold font-mono">
-                                Verified transactions today
+                            <div className={cn(
+                                "text-xs font-bold font-mono",
+                                ordersDelta?.trend === 'down'
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : ordersDelta?.trend === 'neutral'
+                                    ? "text-zinc-500 dark:text-zinc-400"
+                                    : "text-[#7D6B6E] dark:text-[#94A3B8]"
+                            )}>
+                                {ordersDelta?.formatted_delta ? `${ordersDelta.formatted_delta} ${ordersDelta.comparison_label || 'vs yesterday'}` : 'Verified transactions today'}
                             </div>
                         </div>
                     </motion.div>

@@ -158,9 +158,9 @@ export default function CashierPerformance() {
                         title="Total Sales Revenue"
                         value={formatCurrency(stats.totalSales)}
                         icon={DollarSign}
-                        trend="up"
-                        trendValue="+18.4%"
-                        comparison="register total"
+                        trend="neutral"
+                        trendValue="Active"
+                        comparison="filtered period"
                         sparklineData={[{ value: 30 }, { value: 65 }, { value: 90 }]}
                         badgeText="Gross Sales"
                         index={0}
@@ -169,8 +169,8 @@ export default function CashierPerformance() {
                         title="Total Transactions"
                         value={stats.totalTx.toLocaleString()}
                         icon={ShoppingCart}
-                        trend="up"
-                        trendValue="+12.5%"
+                        trend="neutral"
+                        trendValue="Volume"
                         comparison="completed receipts"
                         sparklineData={[{ value: 20 }, { value: 55 }, { value: 80 }]}
                         badgeText="Volume"
@@ -180,8 +180,8 @@ export default function CashierPerformance() {
                         title="Overall Avg Order"
                         value={formatCurrency(stats.avgOrderOverall)}
                         icon={BarChart2}
-                        trend="up"
-                        trendValue="+8.1%"
+                        trend="neutral"
+                        trendValue="Average"
                         comparison="per order avg"
                         sparklineData={[{ value: 40 }, { value: 60 }, { value: 75 }]}
                         badgeText="Basket Avg"

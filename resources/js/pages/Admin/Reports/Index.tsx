@@ -419,6 +419,18 @@ interface PaginatedData<T> {
     links: Array<{ url?: string; label: string; active: boolean }>;
 }
 
+interface MetricDelta {
+    current_value?: number;
+    previous_value?: number;
+    difference?: number;
+    delta_percentage?: number | null;
+    formatted_delta?: string;
+    trend?: 'up' | 'down' | 'neutral';
+    comparison_label?: string;
+    state?: string;
+    badge_text?: string;
+}
+
 interface BranchItem {
     id: number;
     name: string;
@@ -438,10 +450,36 @@ interface AdminReportsProps {
     cancelled_count: number;
     today_sales: number;
     isAdmin?: boolean;
+    revenue_delta?: MetricDelta;
+    orders_delta?: MetricDelta;
+    expenses_delta?: MetricDelta;
+    profit_delta?: MetricDelta;
+    today_revenue_delta?: MetricDelta;
+    today_orders_delta?: MetricDelta;
 }
 
 // ── ADMIN REPORTS DASHBOARD ──
-function AdminReports({ sales, shifts, filters, branches = [], trend_data, category_data, total_revenue, total_expenses, total_profit, total_orders, cancelled_count, today_sales, isAdmin = false }: AdminReportsProps) {
+function AdminReports({ 
+    sales, 
+    shifts, 
+    filters, 
+    branches = [], 
+    trend_data, 
+    category_data, 
+    total_revenue, 
+    total_expenses, 
+    total_profit, 
+    total_orders, 
+    cancelled_count, 
+    today_sales, 
+    isAdmin = false,
+    revenue_delta,
+    orders_delta,
+    expenses_delta,
+    profit_delta,
+    today_revenue_delta,
+    today_orders_delta
+}: AdminReportsProps) {
     const pageAuth = (usePage().props as unknown as { auth?: { user?: { role?: string } } })?.auth?.user;
     const isAdminUser = isAdmin || pageAuth?.role === 'admin' || pageAuth?.role === 'super_admin';
 
@@ -639,9 +677,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                             title="Today's Revenue"
                             value={formatCurrency(today_sales ?? 0)}
                             icon={Zap}
-                            trend="up"
-                            trendValue="+14.2%"
-                            comparison="vs yesterday"
+                            trend={today_revenue_delta?.trend || 'up'}
+                            trendValue={today_revenue_delta?.formatted_delta || (today_sales > 0 ? '+0.0%' : '0.0%')}
+                            comparison={today_revenue_delta?.comparison_label || 'vs yesterday'}
                             sparklineData={[{ value: 45 }, { value: 65 }, { value: 80 }, { value: 95 }]}
                             badgeText="Live Today"
                             index={0}
@@ -650,9 +688,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                             title={getPeriodLabel(filters, 'Sales')}
                             value={formatCurrency(total_revenue ?? 0)}
                             icon={TrendingUp}
-                            trend="up"
-                            trendValue="+8.4%"
-                            comparison="vs previous timeframe"
+                            trend={revenue_delta?.trend || 'up'}
+                            trendValue={revenue_delta?.formatted_delta || (total_revenue > 0 ? '+0.0%' : '0.0%')}
+                            comparison={revenue_delta?.comparison_label || 'vs previous timeframe'}
                             sparklineData={[{ value: 30 }, { value: 45 }, { value: 60 }, { value: 80 }]}
                             badgeText="Total Revenue"
                             index={1}
@@ -661,9 +699,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                             title={getPeriodLabel(filters, 'Orders')}
                             value={(total_orders ?? 0).toLocaleString()}
                             icon={ShoppingBag}
-                            trend="up"
-                            trendValue="+12.5%"
-                            comparison="completed volume"
+                            trend={orders_delta?.trend || 'neutral'}
+                            trendValue={orders_delta?.formatted_delta || '0.0%'}
+                            comparison={orders_delta?.comparison_label || 'completed volume'}
                             sparklineData={[{ value: 40 }, { value: 60 }, { value: 70 }, { value: 85 }]}
                             badgeText="Fulfillment"
                             index={2}
@@ -673,9 +711,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                 title="Operating Expenses"
                                 value={formatCurrency(total_expenses ?? 0)}
                                 icon={Receipt}
-                                trend="down"
-                                trendValue="COGS"
-                                comparison="cost of goods sold"
+                                trend={expenses_delta?.trend || 'down'}
+                                trendValue={expenses_delta?.formatted_delta || 'COGS'}
+                                comparison={expenses_delta?.comparison_label || 'cost of goods sold'}
                                 sparklineData={[{ value: 25 }, { value: 40 }, { value: 55 }, { value: 70 }]}
                                 badgeText="Expenses"
                                 index={3}
@@ -686,9 +724,9 @@ function AdminReports({ sales, shifts, filters, branches = [], trend_data, categ
                                 title="Net Profit"
                                 value={formatCurrency(total_profit ?? 0)}
                                 icon={TrendingUp}
-                                trend="up"
-                                trendValue="Margin"
-                                comparison="revenue minus expenses"
+                                trend={profit_delta?.trend || 'up'}
+                                trendValue={profit_delta?.formatted_delta || 'Margin'}
+                                comparison={profit_delta?.comparison_label || 'revenue minus expenses'}
                                 sparklineData={[{ value: 20 }, { value: 50 }, { value: 65 }, { value: 88 }]}
                                 badgeText="Margin"
                                 index={4}
@@ -1021,10 +1059,26 @@ interface CashierReportsProps {
     today_sales: number;
     total_revenue: number;
     total_orders: number;
+    revenue_delta?: MetricDelta;
+    orders_delta?: MetricDelta;
+    today_revenue_delta?: MetricDelta;
+    today_orders_delta?: MetricDelta;
 }
 
 // ── CASHIER REPORTS ──
-function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, total_revenue, total_orders }: CashierReportsProps) {
+function CashierReports({
+    sales,
+    shifts,
+    cashiers = [],
+    filters,
+    today_sales,
+    total_revenue,
+    total_orders,
+    revenue_delta,
+    orders_delta,
+    today_revenue_delta,
+    today_orders_delta
+}: CashierReportsProps) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [cashierId, setCashierId] = useState(filters.cashier_id || 'all');
@@ -1174,9 +1228,9 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
                         title="Sales Today"
                         value={formatCurrency(today_sales ?? 0)}
                         icon={Zap}
-                        trend="up"
-                        trendValue="+14.2%"
-                        comparison="register today"
+                        trend={today_revenue_delta?.trend || 'up'}
+                        trendValue={today_revenue_delta?.formatted_delta || (today_sales > 0 ? '+0.0%' : '0.0%')}
+                        comparison={today_revenue_delta?.comparison_label || 'vs yesterday'}
                         sparklineData={[{ value: 40 }, { value: 60 }, { value: 85 }]}
                         badgeText="Live Shift"
                         index={0}
@@ -1185,9 +1239,9 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
                         title={getPeriodLabel(filters, 'Sales')}
                         value={formatCurrency(total_revenue ?? 0)}
                         icon={DollarSign}
-                        trend="up"
-                        trendValue="+18.4%"
-                        comparison="period total"
+                        trend={revenue_delta?.trend || 'up'}
+                        trendValue={revenue_delta?.formatted_delta || (total_revenue > 0 ? '+0.0%' : '0.0%')}
+                        comparison={revenue_delta?.comparison_label || 'period total'}
                         sparklineData={[{ value: 30 }, { value: 65 }, { value: 90 }]}
                         badgeText="Gross Sales"
                         index={1}
@@ -1196,9 +1250,9 @@ function CashierReports({ sales, shifts, cashiers = [], filters, today_sales, to
                         title={getPeriodLabel(filters, 'Orders')}
                         value={(total_orders ?? 0).toLocaleString()}
                         icon={ShoppingBag}
-                        trend="up"
-                        trendValue="+12.5%"
-                        comparison="completed receipts"
+                        trend={orders_delta?.trend || 'neutral'}
+                        trendValue={orders_delta?.formatted_delta || '0.0%'}
+                        comparison={orders_delta?.comparison_label || 'completed receipts'}
                         sparklineData={[{ value: 20 }, { value: 55 }, { value: 80 }]}
                         badgeText="Fulfillment"
                         index={2}

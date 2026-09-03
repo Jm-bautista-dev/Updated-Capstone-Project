@@ -138,6 +138,8 @@ class AnalyticsController extends Controller
     {
         $metricsService = new \App\Services\FinancialMetricsService();
         $metrics = $metricsService->getSummaryMetrics($startDate, null, $branchId);
+        $popMetrics = $metricsService->getPeriodOverPeriodMetrics($startDate, Carbon::now(), $branchId);
+        $dodMetrics = $metricsService->getDayOverDayMetrics($branchId);
 
         $stockQuery = IngredientStock::whereHas('ingredient');
         if ($branchId) {
@@ -152,6 +154,12 @@ class AnalyticsController extends Controller
             'total_profit'       => $metrics['net_profit'],
             'profit_margin'      => $metrics['net_margin'],
             'total_orders'       => $metrics['total_orders'],
+            'revenue_delta'      => $popMetrics['revenue'],
+            'expenses_delta'     => $popMetrics['expenses'],
+            'profit_delta'       => $popMetrics['profit'],
+            'orders_delta'       => $popMetrics['orders'],
+            'dod_revenue_delta'  => $dodMetrics['revenue'],
+            'dod_orders_delta'   => $dodMetrics['orders'],
             'low_stock_items'    => $stockQuery->whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
     }

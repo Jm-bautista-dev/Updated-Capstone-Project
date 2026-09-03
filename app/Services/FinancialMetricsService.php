@@ -24,8 +24,8 @@ class FinancialMetricsService
     public function getTodayRevenueMetrics(?int $branchId = null, ?User $user = null): array
     {
         $manilaTz = 'Asia/Manila';
-        $startToday = Carbon::now($manilaTz)->startOfDay();
-        $endToday = Carbon::now($manilaTz)->endOfDay();
+        $startToday = Carbon::now($manilaTz)->startOfDay()->utc();
+        $endToday = Carbon::now($manilaTz)->endOfDay()->utc();
 
         $query = Sale::with(['items', 'delivery'])
             ->where('status', 'completed')
@@ -80,6 +80,8 @@ class FinancialMetricsService
 
         $avgOrderValue = $completedCount > 0 ? round($todayRevenue / $completedCount, 2) : 0.0;
 
+        $dodMetrics = $this->getDayOverDayMetrics($effectiveBranchId, $user);
+
         return [
             'today_revenue'     => round($todayRevenue, 2),
             'delivery_fees'     => round($totalDeliveryFees, 2),
@@ -89,11 +91,201 @@ class FinancialMetricsService
             'preparing'         => $preparingCount,
             'cancelled_today'   => $cancelledCount,
             'avg_order_value'   => $avgOrderValue,
+            'revenue_delta'     => $dodMetrics['revenue'],
+            'orders_delta'      => $dodMetrics['orders'],
+            'expenses_delta'    => $dodMetrics['expenses'],
+            'profit_delta'      => $dodMetrics['profit'],
+            'dod_metrics'       => $dodMetrics,
             'branch_id'         => $effectiveBranchId,
             'timezone'          => 'Asia/Manila',
             'metric_label'      => "Today's Revenue",
             'definition'        => 'Recognized net product revenue from completed transactions today (after discounts, excluding delivery fees)',
         ];
+    }
+
+    /**
+     * Mathematically compute delta between current and previous values with zero-baseline safety.
+     *
+     * @return array<string, mixed>
+     */
+    public function calculateDelta(float $current, float $previous, string $comparisonLabel = 'vs yesterday'): array
+    {
+        $current = round($current, 2);
+        $previous = round($previous, 2);
+        $difference = round($current - $previous, 2);
+
+        if ($previous == 0.0) {
+            if ($current == 0.0) {
+                return [
+                    'current_value'    => $current,
+                    'previous_value'   => $previous,
+                    'difference'       => 0.0,
+                    'delta_percentage' => 0.0,
+                    'formatted_delta'  => '0.0%',
+                    'trend'            => 'neutral',
+                    'comparison_label' => $comparisonLabel,
+                    'state'            => 'zero',
+                    'badge_text'       => 'No change',
+                ];
+            }
+
+            return [
+                'current_value'    => $current,
+                'previous_value'   => $previous,
+                'difference'       => $difference,
+                'delta_percentage' => null,
+                'formatted_delta'  => 'New',
+                'trend'            => 'up',
+                'comparison_label' => $comparisonLabel,
+                'state'            => 'new',
+                'badge_text'       => 'New today',
+            ];
+        }
+
+        $pct = (($current - $previous) / $previous) * 100;
+        $roundedPct = round($pct, 1);
+
+        if ($roundedPct > 0) {
+            $trend = 'up';
+            $formatted = '+' . number_format($roundedPct, 1) . '%';
+            $state = 'positive';
+        } elseif ($roundedPct < 0) {
+            $trend = 'down';
+            $formatted = number_format($roundedPct, 1) . '%';
+            $state = 'negative';
+        } else {
+            $trend = 'neutral';
+            $formatted = '0.0%';
+            $state = 'neutral';
+        }
+
+        return [
+            'current_value'    => $current,
+            'previous_value'   => $previous,
+            'difference'       => $difference,
+            'delta_percentage' => $roundedPct,
+            'formatted_delta'  => $formatted,
+            'trend'            => $trend,
+            'comparison_label' => $comparisonLabel,
+            'state'            => $state,
+            'badge_text'       => $formatted,
+        ];
+    }
+
+    /**
+     * Compute authoritative Day-over-Day (DoD) metrics comparing Asia/Manila today vs yesterday.
+     *
+     * @return array<string, mixed>
+     */
+    public function getDayOverDayMetrics(?int $branchId = null, ?User $user = null): array
+    {
+        $manilaTz = 'Asia/Manila';
+        $todayStart = Carbon::now($manilaTz)->startOfDay();
+        $todayEnd = Carbon::now($manilaTz)->endOfDay();
+        $yesterdayStart = Carbon::now($manilaTz)->subDay()->startOfDay();
+        $yesterdayEnd = Carbon::now($manilaTz)->subDay()->endOfDay();
+
+        $effectiveBranchId = ($user && !$user->isAdmin()) ? (int) $user->branch_id : ($branchId ?: null);
+
+        $todaySummary = $this->getPeriodSummary($todayStart, $todayEnd, $effectiveBranchId);
+        $yesterdaySummary = $this->getPeriodSummary($yesterdayStart, $yesterdayEnd, $effectiveBranchId);
+
+        return [
+            'revenue'  => array_merge(
+                $this->calculateDelta($todaySummary['revenue'], $yesterdaySummary['revenue'], 'vs yesterday'),
+                ['metric_name' => "Today's Revenue"]
+            ),
+            'orders'   => array_merge(
+                $this->calculateDelta((float) $todaySummary['total_orders'], (float) $yesterdaySummary['total_orders'], 'vs yesterday'),
+                ['metric_name' => "Today's Orders"]
+            ),
+            'expenses' => array_merge(
+                $this->calculateDelta($todaySummary['total_expenses'], $yesterdaySummary['total_expenses'], 'vs yesterday'),
+                ['metric_name' => "Operating Expenses"]
+            ),
+            'profit'   => array_merge(
+                $this->calculateDelta($todaySummary['net_profit'], $yesterdaySummary['net_profit'], 'vs yesterday'),
+                ['metric_name' => "Net Profit"]
+            ),
+            'today'     => $todaySummary,
+            'yesterday' => $yesterdaySummary,
+            'timezone'  => $manilaTz,
+        ];
+    }
+
+    /**
+     * Compute period summary and period-over-period comparison against an equal preceding timeframe.
+     *
+     * @return array<string, mixed>
+     */
+    public function getPeriodOverPeriodMetrics($startDate = null, $endDate = null, ?int $branchId = null, ?User $user = null): array
+    {
+        $manilaTz = 'Asia/Manila';
+        $effectiveBranchId = ($user && !$user->isAdmin()) ? (int) $user->branch_id : ($branchId ?: null);
+
+        if (!$startDate && !$endDate) {
+            // Default to past 14 days
+            $currentEnd = Carbon::now($manilaTz)->endOfDay();
+            $currentStart = Carbon::now($manilaTz)->subDays(13)->startOfDay();
+        } else {
+            $currentStart = Carbon::parse($startDate, $manilaTz)->startOfDay();
+            $currentEnd = $endDate ? Carbon::parse($endDate, $manilaTz)->endOfDay() : Carbon::parse($startDate, $manilaTz)->endOfDay();
+        }
+
+        // Duration in whole days
+        $days = max(1, (int) $currentStart->diffInDays($currentEnd) + 1);
+
+        $previousEnd = (clone $currentStart)->subSecond();
+        $previousStart = (clone $previousEnd)->subDays($days - 1)->startOfDay();
+
+        $comparisonLabel = $days === 1
+            ? ($currentStart->isToday() ? 'vs yesterday' : 'vs previous day')
+            : "vs previous {$days} days";
+
+        $currentSummary = $this->getPeriodSummary($currentStart, $currentEnd, $effectiveBranchId);
+        $previousSummary = $this->getPeriodSummary($previousStart, $previousEnd, $effectiveBranchId);
+
+        return [
+            'revenue' => array_merge(
+                $this->calculateDelta($currentSummary['revenue'], $previousSummary['revenue'], $comparisonLabel),
+                ['metric_name' => 'Revenue']
+            ),
+            'orders' => array_merge(
+                $this->calculateDelta((float) $currentSummary['total_orders'], (float) $previousSummary['total_orders'], $comparisonLabel),
+                ['metric_name' => 'Orders']
+            ),
+            'expenses' => array_merge(
+                $this->calculateDelta($currentSummary['total_expenses'], $previousSummary['total_expenses'], $comparisonLabel),
+                ['metric_name' => 'Operating Expenses']
+            ),
+            'profit' => array_merge(
+                $this->calculateDelta($currentSummary['net_profit'], $previousSummary['net_profit'], $comparisonLabel),
+                ['metric_name' => 'Net Profit']
+            ),
+            'current_period' => [
+                'start' => $currentStart->toIso8601String(),
+                'end'   => $currentEnd->toIso8601String(),
+                'days'  => $days,
+            ],
+            'previous_period' => [
+                'start' => $previousStart->toIso8601String(),
+                'end'   => $previousEnd->toIso8601String(),
+                'days'  => $days,
+            ],
+            'current'  => $currentSummary,
+            'previous' => $previousSummary,
+            'timezone' => $manilaTz,
+        ];
+    }
+
+    /**
+     * Compute comprehensive financial metrics for completed sales and operational expenses across a specific datetime boundary.
+     *
+     * @return array<string, mixed>
+     */
+    public function getPeriodSummary($startDate, $endDate, ?int $branchId = null): array
+    {
+        return $this->getSummaryMetrics($startDate, $endDate, $branchId);
     }
     /**
      * Compute comprehensive financial metrics for completed sales and operational expenses.

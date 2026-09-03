@@ -73,15 +73,25 @@ export function PerformanceDrawer({ cashier, open, onClose }: PerformanceDrawerP
                         </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                            <span className="text-[#7D6B6E] dark:text-[#94A3B8]">Target Fulfillment Rate</span>
-                            <span className="font-mono text-emerald-600 dark:text-emerald-400">94.2%</span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-[#FFF5F7] dark:bg-[#1C1C28] overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-500 w-[94.2%]" />
-                        </div>
-                    </div>
+                    {/* Target Benchmark Fulfillment */}
+                    {(() => {
+                        const targetTransactions = 25;
+                        const fulfillmentRate = Math.min(100, Math.max(0, Math.round((cashier.total_transactions / targetTransactions) * 100)));
+                        return (
+                            <div className="p-5 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] space-y-3">
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                    <span className="text-[#7D6B6E] dark:text-[#94A3B8]">Target Fulfillment Rate</span>
+                                    <span className="font-mono text-emerald-600 dark:text-emerald-400">{fulfillmentRate}%</span>
+                                </div>
+                                <div className="h-2 w-full rounded-full bg-[#FFF5F7] dark:bg-[#1C1C28] overflow-hidden">
+                                    <div 
+                                        className="h-full rounded-full bg-emerald-500 transition-all duration-500" 
+                                        style={{ width: `${fulfillmentRate}%` }} 
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </SheetContent>
         </Sheet>

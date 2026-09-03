@@ -273,23 +273,33 @@ class ReportController extends Controller
         // 3. Peak day & cancellations
         $peakDay = $trendData->sortByDesc('Revenue')->first();
         $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
+        $popMetrics = $metricsService->getPeriodOverPeriodMetrics($dateFrom, $dateTo, $branchId, Auth::user());
+        $dodMetrics = $metricsService->getDayOverDayMetrics($branchId, Auth::user());
 
         $isAdmin = Auth::user()?->isAdmin() ?? false;
 
         return [
-            'trend_data'         => $trendData->values(),
-            'category_data'      => $categoryData->values(),
-            'top_product'        => $topProduct,
-            'peak_day'           => $peakDay ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']] : null,
-            'total_revenue'      => $metrics['revenue'],
-            'cogs'               => $isAdmin ? $metrics['cogs'] : 0,
-            'operating_expenses' => $isAdmin ? $metrics['operating_expenses'] : 0,
-            'total_expenses'     => $isAdmin ? $metrics['total_expenses'] : 0,
-            'total_profit'       => $metrics['net_profit'],
-            'gross_profit'       => $isAdmin ? $metrics['gross_profit'] : 0,
-            'profit_margin'      => $isAdmin ? $metrics['net_margin'] : 0,
-            'total_orders'       => $metrics['total_orders'],
-            'cancelled_count'    => $cancelledCount,
+            'trend_data'          => $trendData->values(),
+            'category_data'       => $categoryData->values(),
+            'top_product'         => $topProduct,
+            'peak_day'            => $peakDay ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']] : null,
+            'total_revenue'       => $metrics['revenue'],
+            'cogs'                => $isAdmin ? $metrics['cogs'] : 0,
+            'operating_expenses'  => $isAdmin ? $metrics['operating_expenses'] : 0,
+            'total_expenses'      => $isAdmin ? $metrics['total_expenses'] : 0,
+            'total_profit'        => $metrics['net_profit'],
+            'gross_profit'        => $isAdmin ? $metrics['gross_profit'] : 0,
+            'profit_margin'       => $isAdmin ? $metrics['net_margin'] : 0,
+            'total_orders'        => $metrics['total_orders'],
+            'cancelled_count'     => $cancelledCount,
+            'revenue_delta'       => $popMetrics['revenue'],
+            'orders_delta'        => $popMetrics['orders'],
+            'expenses_delta'      => $popMetrics['expenses'],
+            'profit_delta'        => $popMetrics['profit'],
+            'today_revenue_delta' => $dodMetrics['revenue'],
+            'today_orders_delta'  => $dodMetrics['orders'],
+            'dod_metrics'         => $dodMetrics,
+            'pop_metrics'         => $popMetrics,
         ];
     }
 

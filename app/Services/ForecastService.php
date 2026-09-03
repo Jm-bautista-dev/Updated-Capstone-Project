@@ -286,9 +286,14 @@ class ForecastService
             ];
         }
 
+        // Calculate Growth Slope using Least-Squares Linear Regression over the forecast series
+        $trend = $this->calculateGrowthSlope($forecastList, $forecastValues);
+
         return [
             'historical' => $historicalData,
             'forecast' => $forecastList,
+            'trend' => $trend,
+            'growth_slope' => $trend,
             'prediction' => $forecastList[0]['predicted'] ?? 0.0,
             'prediction_lower' => $forecastList[0]['lower'] ?? 0.0,
             'prediction_upper' => $forecastList[0]['upper'] ?? 0.0,
@@ -297,6 +302,105 @@ class ForecastService
             'benchmark' => $benchmarkResult,
             'validation' => $benchmarkResult['validation'] ?? null,
             'insights' => $insights
+        ];
+    }
+
+    /**
+     * Calculate Growth Slope over the forecast series using Least-Squares Linear Regression.
+     *
+     * @param array $forecastList Formatted forecast points with dates and predicted values
+     * @param array $rawForecastValues Raw unrounded prediction values for maximum precision
+     * @return array<string, mixed>
+     */
+    public function calculateGrowthSlope(array $forecastList, array $rawForecastValues = []): array
+    {
+        $n = count($forecastList);
+        if ($n < 2) {
+            return [
+                'slope'                => 0.0,
+                'raw_slope'            => 0.0,
+                'formatted_slope'      => '₱0.00/day',
+                'percentage'           => 0.0,
+                'formatted_percentage' => '0.0%',
+                'direction'            => 'flat',
+                'method'               => 'INSUFFICIENT_DATA',
+                'points_used'          => $n,
+                'unit'                 => 'PHP_PER_DAY',
+                'label'                => 'Insufficient forecast data',
+                'is_available'         => false,
+            ];
+        }
+
+        // Sort forecastList chronologically by date to guarantee strict ascending time series
+        usort($forecastList, fn($a, $b) => strcmp($a['date'], $b['date']));
+
+        // Extract series values (prefer raw unrounded values if passed, else predicted floats)
+        $yValues = [];
+        if (!empty($rawForecastValues) && count($rawForecastValues) === $n) {
+            $yValues = array_values($rawForecastValues);
+        } else {
+            foreach ($forecastList as $pt) {
+                $yValues[] = (float) ($pt['predicted'] ?? 0.0);
+            }
+        }
+
+        // Compute Least-Squares Linear Regression: y = b0 + b1 * x (x = 1, 2, ..., n)
+        $xSum = ($n * ($n + 1)) / 2;
+        $xMean = $xSum / $n;
+        $ySum = array_sum($yValues);
+        $yMean = $ySum / $n;
+
+        $sxx = 0.0;
+        $sxy = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $x = $i + 1;
+            $y = (float) $yValues[$i];
+            $xDiff = $x - $xMean;
+            $yDiff = $y - $yMean;
+            $sxx += $xDiff * $xDiff;
+            $sxy += $xDiff * $yDiff;
+        }
+
+        $slope = $sxx > 0.0 ? ($sxy / $sxx) : 0.0;
+        $intercept = $yMean - ($slope * $xMean);
+
+        // Overall percentage change over the forecast horizon
+        // Baseline = model initial fitted value y_hat_1 = intercept + slope * 1
+        $baseline = $intercept + $slope;
+        if ($baseline <= 0.0 && !empty($yValues[0]) && $yValues[0] > 0.0) {
+            $baseline = (float) $yValues[0];
+        }
+
+        $totalChange = $slope * ($n - 1);
+        $percentage = 0.0;
+        if ($baseline > 0.0) {
+            $percentage = round(($totalChange / $baseline) * 100, 1);
+        } elseif ($yMean > 0.0) {
+            $percentage = round(($totalChange / $yMean) * 100, 1);
+        }
+
+        $direction = 'flat';
+        if ($slope > 0.005) {
+            $direction = 'up';
+        } elseif ($slope < -0.005) {
+            $direction = 'down';
+        }
+
+        $roundedSlope = round($slope, 2);
+
+        return [
+            'slope'                => $roundedSlope,
+            'raw_slope'            => $slope,
+            'formatted_slope'      => ($slope >= 0 ? '+' : '−') . '₱' . number_format(abs($slope), 2) . '/day',
+            'percentage'           => $percentage,
+            'formatted_percentage' => ($percentage > 0 ? '+' : '') . number_format($percentage, 1) . '%',
+            'direction'            => $direction,
+            'method'               => 'LINEAR_REGRESSION',
+            'points_used'          => $n,
+            'unit'                 => 'PHP_PER_DAY',
+            'label'                => 'Average forecast change per day',
+            'is_available'         => true,
+            'formula'              => "Least-Squares Linear Regression (b1 = {$roundedSlope}/day, N = {$n})",
         ];
     }
 

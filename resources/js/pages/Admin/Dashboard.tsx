@@ -88,6 +88,18 @@ interface BranchItem {
     name: string;
 }
 
+interface MetricDelta {
+    current_value?: number;
+    previous_value?: number;
+    difference?: number;
+    delta_percentage?: number | null;
+    formatted_delta?: string;
+    trend?: 'up' | 'down' | 'neutral';
+    comparison_label?: string;
+    state?: string;
+    badge_text?: string;
+}
+
 interface DashboardProps {
     stats: {
         total_revenue: number;
@@ -95,6 +107,12 @@ interface DashboardProps {
         total_profit: number;
         total_orders: number;
         low_stock_items: number;
+        revenue_delta?: MetricDelta;
+        expenses_delta?: MetricDelta;
+        profit_delta?: MetricDelta;
+        orders_delta?: MetricDelta;
+        dod_revenue_delta?: MetricDelta;
+        dod_orders_delta?: MetricDelta;
     };
     branchStats?: BranchStat[];
     salesOverTime?: SalesOverTimeItem[];
@@ -179,9 +197,9 @@ export default function Dashboard({
                         title="Aggregated Revenue"
                         value={formatCurrency(stats.total_revenue)}
                         icon={DollarSign}
-                        trend="up"
-                        trendValue="+14.2%"
-                        comparison="Accumulated checkouts"
+                        trend={stats.revenue_delta?.trend || 'up'}
+                        trendValue={stats.revenue_delta?.formatted_delta || (stats.total_revenue > 0 ? '+0.0%' : '0.0%')}
+                        comparison={stats.revenue_delta?.comparison_label || 'Accumulated checkouts'}
                         loading={isLoading}
                         sparklineData={salesOverTime?.map((s) => ({ value: s.revenue }))}
                         index={0}
@@ -190,9 +208,9 @@ export default function Dashboard({
                         title="Operating Expenses"
                         value={formatCurrency(stats.total_expenses)}
                         icon={Receipt}
-                        trend="down"
-                        trendValue="COGS"
-                        comparison="Cost of goods sold"
+                        trend={stats.expenses_delta?.trend || 'down'}
+                        trendValue={stats.expenses_delta?.formatted_delta || 'COGS'}
+                        comparison={stats.expenses_delta?.comparison_label || 'Cost of goods sold'}
                         loading={isLoading}
                         sparklineData={salesOverTime?.map((s) => ({ value: Math.max(0, s.revenue - s.profit) }))}
                         index={1}
@@ -201,9 +219,9 @@ export default function Dashboard({
                         title="Net Profit"
                         value={formatCurrency(stats.total_profit)}
                         icon={TrendingUp}
-                        trend="up"
-                        trendValue="Margin"
-                        comparison="Revenue minus expenses"
+                        trend={stats.profit_delta?.trend || 'up'}
+                        trendValue={stats.profit_delta?.formatted_delta || 'Margin'}
+                        comparison={stats.profit_delta?.comparison_label || 'Revenue minus expenses'}
                         loading={isLoading}
                         sparklineData={salesOverTime?.map((s) => ({ value: s.profit }))}
                         index={2}
@@ -212,9 +230,9 @@ export default function Dashboard({
                         title="Volume Traffic"
                         value={stats.total_orders.toLocaleString()}
                         icon={ShoppingBag}
-                        trend="down"
-                        trendValue="-1.8%"
-                        comparison="Total order checkouts"
+                        trend={stats.orders_delta?.trend || 'neutral'}
+                        trendValue={stats.orders_delta?.formatted_delta || '0.0%'}
+                        comparison={stats.orders_delta?.comparison_label || 'Total order checkouts'}
                         loading={isLoading}
                         sparklineData={salesOverTime?.map((s) => ({ value: s.revenue * 0.1 }))}
                         index={3}

@@ -144,26 +144,19 @@ class Branch extends Model
     }
 
     /**
-     * Calculate delivery fee using Grab-style pricing.
-     * Base fee + per-km rate for distance beyond the configured free km.
+     * Calculate delivery fee using authoritative DeliveryFeeService.
      */
     public function calculateDeliveryFee(float $distanceKm): float
     {
-        $base = (float) $this->base_delivery_fee;
-        $perKm = (float) $this->per_km_fee;
-        
-        // As requested: 0-1km = base fee, beyond 1km = extra
-        $freeKm = 1; 
-        
-        $distanceKm = max(0, $distanceKm);
-        
-        // Round to 1 decimal place like enterprise apps
-        $distanceKm = ceil($distanceKm * 10) / 10;
+        $breakdown = app(\App\Services\DeliveryFeeService::class)->calculateFee($this, $distanceKm);
+        return $breakdown['delivery_fee'];
+    }
 
-        $fee = $distanceKm <= $freeKm
-            ? $base
-            : $base + (($distanceKm - $freeKm) * $perKm);
-
-        return max($base, round($fee, 2));
+    /**
+     * Get structured delivery fee breakdown.
+     */
+    public function getDeliveryFeeBreakdown(float $distanceKm, ?float $subtotal = null): array
+    {
+        return app(\App\Services\DeliveryFeeService::class)->calculateFee($this, $distanceKm, $subtotal);
     }
 }

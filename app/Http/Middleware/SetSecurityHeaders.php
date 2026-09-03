@@ -15,7 +15,14 @@ class SetSecurityHeaders
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // 0. Remove X-Powered-By header to prevent technology footprint disclosure
+        if (function_exists('header_remove')) {
+            @header_remove('X-Powered-By');
+        }
+
         $response = $next($request);
+
+        $response->headers->remove('X-Powered-By');
 
         // 1. Strict-Transport-Security (HSTS)
         // Enforce 1-year max-age with all subdomains when running in production or over HTTPS

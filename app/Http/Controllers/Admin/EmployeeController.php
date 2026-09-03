@@ -44,6 +44,13 @@ class EmployeeController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('email')) {
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
+        if ($request->has('name')) {
+            $request->merge(['name' => trim($request->input('name'))]);
+        }
+
         $validated = $request->validate([
             'name' => [
                 'required',
@@ -101,6 +108,13 @@ class EmployeeController extends Controller
 
     public function update(Request $request, User $employee)
     {
+        if ($request->has('email')) {
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
+        if ($request->has('name')) {
+            $request->merge(['name' => trim($request->input('name'))]);
+        }
+
         $validated = $request->validate([
             'name' => [
                 'required',

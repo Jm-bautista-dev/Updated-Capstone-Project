@@ -114,14 +114,13 @@ class PosDeliveryDistanceController extends Controller
         // Ensure minimum 0.5km for local delivery
         $distanceKm = max(0.5, $distanceKm);
 
-        // 3. Compute Delivery Fee using Branch Pricing Rules
-        $deliveryFee = $branch->calculateDeliveryFee($distanceKm);
+        // 3. Compute Delivery Fee using DeliveryFeeService
+        $feeService = app(\App\Services\DeliveryFeeService::class);
+        $subtotal = $request->filled('subtotal') ? (float) $request->input('subtotal') : null;
+        $breakdown = $feeService->calculateFee($branch, $distanceKm, $subtotal);
 
-        // Check if within branch delivery radius if configured
-        $isWithinRadius = true;
-        if (!empty($branch->delivery_radius_km) && (float) $branch->delivery_radius_km > 0) {
-            $isWithinRadius = $distanceKm <= (float) $branch->delivery_radius_km;
-        }
+        $deliveryFee = $breakdown['delivery_fee'];
+        $isWithinRadius = $breakdown['is_within_radius'];
 
         return response()->json([
             'success'            => true,
@@ -130,6 +129,7 @@ class PosDeliveryDistanceController extends Controller
             'duration_seconds'   => $durationSeconds,
             'duration_text'      => $durationText,
             'delivery_fee'       => $deliveryFee,
+            'breakdown'          => $breakdown,
             'is_within_radius'   => $isWithinRadius,
             'delivery_radius_km' => (float) ($branch->delivery_radius_km ?? 15),
             'branch'             => [

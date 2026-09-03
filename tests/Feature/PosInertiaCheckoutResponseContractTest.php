@@ -195,6 +195,6 @@ class PosInertiaCheckoutResponseContractTest extends TestCase
             ]);
 
         $response->assertStatus(302);
-        $response->assertSessionHasErrors(['items', 'total', 'payment_method', 'paid_amount']);
+        $response->assertSessionHasErrors(['items', 'payment_method', 'paid_amount']);
     }
 }

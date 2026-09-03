@@ -92,6 +92,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
             Route::get('analytics/cashier-performance', [AnalyticsController::class, 'cashierPerformance'])->name('analytics.cashier-performance');
             Route::get('analytics/cashier-performance/export', [AnalyticsController::class, 'exportPerformance'])->name('analytics.cashier-performance.export');
+            Route::redirect('analytics/sales', '/analytics/sales-forecast');
             Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
             Route::get('analytics/forecast-benchmarking', [AnalyticsController::class, 'forecastBenchmarking'])->name('analytics.forecast-benchmarking');
             Route::post('analytics/forecast-benchmarking/run', [AnalyticsController::class, 'runBenchmark'])->name('analytics.forecast-benchmarking.run');
