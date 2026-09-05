@@ -128,6 +128,10 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
     const [zoomed, setZoomed] = React.useState(false);
     const [hasError, setHasError] = React.useState(false);
 
+    React.useEffect(() => {
+        setHasError(false);
+    }, [url]);
+
     // Format single valid URL (without trial loops)
     const formattedUrl = React.useMemo(() => {
         if (!url) return null;
