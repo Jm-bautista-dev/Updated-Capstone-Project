@@ -140,31 +140,44 @@ class ProductController extends Controller
      */
     public function getUnifiedMenu(Request $request): JsonResponse
     {
-        $lat = $request->float('lat');
-        $lng = $request->float('lng');
+        $lat = $request->float('lat') ?: $request->float('latitude');
+        $lng = $request->float('lng') ?: $request->float('longitude');
+        $branchId = $request->integer('branch_id');
 
-        if (!$lat || !$lng) {
-            return response()->json(['success' => false, 'message' => 'Coordinates required'], 400);
+        $nearestBranch = null;
+
+        if ($lat && $lng) {
+            $nearestBranch = \App\Models\Branch::select('*')
+                ->selectRaw("(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance", [$lat, $lng, $lat])
+                ->havingRaw('distance <= delivery_radius_km')
+                ->orderBy('distance', 'asc')
+                ->first();
         }
 
-        // 1. Find Nearest Branch within its own radius
-        $nearestBranch = \App\Models\Branch::select('*')
-            ->selectRaw("(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance", [$lat, $lng, $lat])
-            ->havingRaw('distance <= delivery_radius_km')
-            ->orderBy('distance', 'asc')
-            ->first();
+        if (!$nearestBranch && $branchId) {
+            $nearestBranch = \App\Models\Branch::find($branchId);
+        }
 
         if (!$nearestBranch) {
-            return response()->json(['success' => false, 'message' => 'No delivery available in your area'], 404);
+            $nearestBranch = \App\Models\Branch::first();
         }
 
-        // 2. Fetch Strictly local data (Categories and Products)
-        $categories = \App\Models\Category::whereHas('branches', function($q) use ($nearestBranch) {
-            $q->where('branches.id', $nearestBranch->id);
+        if (!$nearestBranch) {
+            return response()->json(['success' => false, 'message' => 'No active branches found', 'categories' => [], 'products' => []], 200);
+        }
+
+        $branchIdResolved = $nearestBranch->id;
+
+        // 2. Fetch local or global data (Categories and Products)
+        $categories = \App\Models\Category::where(function ($q) use ($branchIdResolved) {
+            $q->whereHas('branches', fn($bq) => $bq->where('branches.id', $branchIdResolved))
+              ->orWhereDoesntHave('branches');
         })->get(['id', 'name', 'image_path']);
 
-        $productsQuery = Product::whereHas('branches', function($q) use ($nearestBranch) {
-            $q->where('branches.id', $nearestBranch->id);
+        $productsQuery = Product::where(function ($q) use ($branchIdResolved) {
+            $q->whereHas('branches', fn($bq) => $bq->where('branches.id', $branchIdResolved))
+              ->orWhere('branch_id', $branchIdResolved)
+              ->orWhereNull('branch_id');
         })->with(['unit_model', 'category']);
 
         if ($request->filled('category_id')) {
