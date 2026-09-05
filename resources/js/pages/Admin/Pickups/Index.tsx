@@ -187,7 +187,7 @@ export default function PickupDashboard({
             const orderId = data.order_id;
             const orderNum = data.order_number || (orderId ? `ORD-${orderId}` : 'NEW');
 
-            globalNotificationManager.push({
+            globalNotificationManager.notify({
                 id: 'prep_' + (orderId || Date.now()),
                 type: 'pickup_prep_due',
                 order_id: orderId,

@@ -188,6 +188,13 @@ class GlobalNotificationManager {
     }
 
     /**
+     * Alias for notify()
+     */
+    public push(item: GlobalNotificationItem, broadcast: boolean = true): void {
+        this.notify(item, broadcast);
+    }
+
+    /**
      * Start auto-dismissal countdown timer for a visible toast.
      */
     private startTimer(item: GlobalNotificationItem): void {
