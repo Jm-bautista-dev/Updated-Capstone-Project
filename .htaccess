@@ -10,5 +10,7 @@
 </IfModule>
 
 <IfModule mod_headers.c>
+    Header unset Alt-Svc
+    Header always unset Alt-Svc
     Header always set Alt-Svc "clear"
 </IfModule>

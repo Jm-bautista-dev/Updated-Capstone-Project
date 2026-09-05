@@ -188,8 +188,14 @@ jobs:
                 cat << 'EOF' > .htaccess
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteRule ^(\.env|\.git|composer\.(json|lock)|package\.(json|lock)|artisan|storage/logs) - [F,L,NC]
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+<IfModule mod_headers.c>
+    Header unset Alt-Svc
+    Header always unset Alt-Svc
+    Header always set Alt-Svc "clear"
 </IfModule>
 EOF
             fi
