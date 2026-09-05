@@ -1,4 +1,4 @@
-import { AlertOctagon, Bike, Building2, CheckCircle2, ChevronRight, Clock, Eye, ShoppingBag, Store, Truck, User } from 'lucide-react';
+import { AlertOctagon, Bike, Building2, ChevronRight, Clock, Eye, Store, Truck, User } from 'lucide-react';
 import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
