@@ -368,7 +368,7 @@ export default function Reviews({
         <AppLayout>
             <Head title="Reviews & Ratings — Operations Management" />
 
-            <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6 font-['Outfit']">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 {/* ── HEADER BANNER ────────────────────────────────────────── */}
                 <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-[#FF3366] via-[#E1062C] to-[#FF3366] p-6 sm:p-7 text-white shadow-xl">
                     <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">

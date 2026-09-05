@@ -228,7 +228,7 @@ export default function SalesDataManagementIndex() {
         <AppLayout breadcrumbs={[{ title: 'Sales Data Management', href: '/admin/sales-data' }]}>
             <Head title="Sales Data Management" />
 
-            <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-['Outfit'] transition-colors duration-300">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 {/* Hero Header & KPI Metrics */}
                 <SalesDataHero stats={stats} />
 

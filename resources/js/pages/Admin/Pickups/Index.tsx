@@ -278,7 +278,7 @@ export default function PickupDashboard({
         <AppLayout breadcrumbs={[{ title: 'Pickup Orders & Queue', href: '/pickups' }]}>
             <Head title="Pickup Fulfillment Queue — MAKI DESU" />
 
-            <div className="space-y-6 p-4 md:p-8 max-w-7xl mx-auto">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
