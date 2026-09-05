@@ -237,6 +237,33 @@ export function ProductDrawer({
                         )}
                     </div>
 
+                    {/* Assigned Add-ons & Modifiers */}
+                    <div className="space-y-3 pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] flex items-center gap-1.5">
+                            <Tag className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                            <span>Assigned Add-ons & Modifiers</span>
+                        </span>
+
+                        {(product as unknown as { addons?: Array<{ id: number; name: string; price: number }> }).addons && (product as unknown as { addons?: Array<{ id: number; name: string; price: number }> }).addons!.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {(product as unknown as { addons?: Array<{ id: number; name: string; price: number }> }).addons!.map((ad) => (
+                                    <span
+                                        key={ad.id}
+                                        className="px-3 py-1.5 rounded-xl bg-[#FFF5F7] dark:bg-[#181822] border border-[#F8C8DC]/60 dark:border-white/10 text-xs font-semibold text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-1.5"
+                                    >
+                                        <span>{ad.name}</span>
+                                        <span className="text-[10px] font-mono font-bold text-[#E75480] dark:text-[#FF4F81]">+{formatCurrency(ad.price)}</span>
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-3 rounded-xl bg-[#FFF5F7]/60 dark:bg-[#181822]/60 border border-[#F8C8DC]/30 dark:border-white/10 text-[#9E8B8E] dark:text-[#64748B] text-xs font-medium flex items-center gap-2">
+                                <Info className="size-4 shrink-0" />
+                                <span>No product-specific add-ons assigned.</span>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Quick Actions Footer */}
                     <div className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10 flex flex-wrap gap-3">
                         {product.is_direct && (

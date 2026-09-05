@@ -19,7 +19,7 @@ class AddonController extends Controller
      */
     public function index(Request $request)
     {
-        $addons = AddOn::with(['branch', 'ingredient'])
+        $addons = AddOn::with(['branch', 'ingredient', 'products:id,name'])
             ->orderBy('name')
             ->get();
 
@@ -59,9 +59,11 @@ class AddonController extends Controller
             'stock_linked' => 'boolean',
             'ingredient_id' => 'nullable|required_if:stock_linked,true|exists:ingredients,id',
             'ingredient_quantity' => 'nullable|required_if:stock_linked,true|numeric|min:0.01',
+            'product_ids' => 'nullable|array',
+            'product_ids.*' => 'exists:products,id',
         ]);
 
-        AddOn::create([
+        $addon = AddOn::create([
             'name' => $validated['name'],
             'price' => $validated['price'],
             'cost_price' => $validated['cost_price'] ?? 0,
@@ -71,6 +73,10 @@ class AddonController extends Controller
             'ingredient_id' => !empty($validated['stock_linked']) ? ($validated['ingredient_id'] ?? null) : null,
             'ingredient_quantity' => !empty($validated['stock_linked']) ? ($validated['ingredient_quantity'] ?? 0) : 0,
         ]);
+
+        if (!empty($validated['product_ids'])) {
+            $addon->products()->sync($validated['product_ids']);
+        }
 
         return redirect()->back()->with('success', 'Add-on created successfully');
     }
@@ -89,6 +95,8 @@ class AddonController extends Controller
             'stock_linked' => 'boolean',
             'ingredient_id' => 'nullable|required_if:stock_linked,true|exists:ingredients,id',
             'ingredient_quantity' => 'nullable|required_if:stock_linked,true|numeric|min:0.01',
+            'product_ids' => 'nullable|array',
+            'product_ids.*' => 'exists:products,id',
         ]);
 
         $addon->update([
@@ -102,7 +110,26 @@ class AddonController extends Controller
             'ingredient_quantity' => !empty($validated['stock_linked']) ? ($validated['ingredient_quantity'] ?? 0) : 0,
         ]);
 
+        if (isset($validated['product_ids'])) {
+            $addon->products()->sync($validated['product_ids']);
+        }
+
         return redirect()->back()->with('success', 'Add-on updated successfully');
+    }
+
+    /**
+     * Assign / sync products to an existing add-on.
+     */
+    public function assignProducts(Request $request, AddOn $addon)
+    {
+        $validated = $request->validate([
+            'product_ids' => 'nullable|array',
+            'product_ids.*' => 'exists:products,id',
+        ]);
+
+        $addon->products()->sync($validated['product_ids'] ?? []);
+
+        return redirect()->back()->with('success', 'Product assignments updated');
     }
 
     /**
@@ -110,6 +137,9 @@ class AddonController extends Controller
      */
     public function destroy(AddOn $addon)
     {
+        // Safe delete: detach relationships and delete (or deactivate)
+        $addon->products()->detach();
+        $addon->groups()->detach();
         $addon->delete();
         return redirect()->back()->with('success', 'Add-on deleted successfully');
     }

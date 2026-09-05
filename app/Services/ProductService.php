@@ -63,6 +63,11 @@ class ProductService
                 }
             }
 
+            // Sync assigned add-ons (Optional)
+            if (isset($validated['addon_ids']) && is_array($validated['addon_ids'])) {
+                $product->addons()->sync($validated['addon_ids']);
+            }
+
             $product->refresh();
             $product->update(['cost_price' => $product->computeProductCost($product->branch_id)]);
 
@@ -129,6 +134,11 @@ class ProductService
                         ]);
                     }
                 }
+            }
+
+            // Sync assigned add-ons (Optional)
+            if (isset($validated['addon_ids']) && is_array($validated['addon_ids'])) {
+                $product->addons()->sync($validated['addon_ids']);
             }
 
             $product->refresh();

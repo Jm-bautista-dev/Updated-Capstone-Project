@@ -16,7 +16,7 @@ return new class extends Migration
             Schema::create('product_addons', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('product_id')->nullable()->constrained('products')->nullOnDelete();
-                $table->string('name');
+                $table->string('name')->nullable();
                 $table->decimal('price', 10, 2)->default(0.00);
                 $table->decimal('cost_price', 10, 2)->nullable()->default(0.00);
                 $table->foreignId('ingredient_id')->nullable()->constrained('ingredients')->nullOnDelete();

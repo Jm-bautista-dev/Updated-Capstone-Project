@@ -65,6 +65,7 @@ interface AddOnItem {
     ingredient_quantity?: number | null;
     branch?: { id: number; name: string } | null;
     ingredient?: { id: number; name: string; unit: string; quantity: number } | null;
+    products?: ProductItem[];
 }
 
 interface AddonGroupItem {
@@ -148,6 +149,7 @@ export default function AddonsIndex({
         stock_linked: false,
         ingredient_id: '',
         ingredient_quantity: '',
+        product_ids: [] as number[],
     });
 
     // Group Form
@@ -199,6 +201,7 @@ export default function AddonsIndex({
             stock_linked: false,
             ingredient_id: '',
             ingredient_quantity: '',
+            product_ids: [],
         });
         setAddonModalOpen(true);
     };
@@ -214,8 +217,20 @@ export default function AddonsIndex({
             stock_linked: !!addon.stock_linked,
             ingredient_id: addon.ingredient_id ? String(addon.ingredient_id) : '',
             ingredient_quantity: addon.ingredient_quantity ? String(addon.ingredient_quantity) : '',
+            product_ids: addon.products ? addon.products.map((p) => p.id) : [],
         });
         setAddonModalOpen(true);
+    };
+
+    const toggleAddonProduct = (productId: number) => {
+        const current = [...(addonForm.data.product_ids || [])];
+        const index = current.indexOf(productId);
+        if (index > -1) {
+            current.splice(index, 1);
+        } else {
+            current.push(productId);
+        }
+        addonForm.setData('product_ids', current);
     };
 
     const handleSaveAddon = (e: React.FormEvent) => {
@@ -444,6 +459,7 @@ export default function AddonsIndex({
                                     <tr>
                                         <th className="px-5 py-3.5">Add-on Name</th>
                                         <th className="px-5 py-3.5">Price (₱)</th>
+                                        <th className="px-5 py-3.5">Assigned Products</th>
                                         <th className="px-5 py-3.5">Inventory Tracking</th>
                                         <th className="px-5 py-3.5">Branch Scope</th>
                                         <th className="px-5 py-3.5">Status</th>
@@ -453,7 +469,7 @@ export default function AddonsIndex({
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {filteredAddons.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-5 py-10 text-center text-slate-400">
+                                            <td colSpan={7} className="px-5 py-10 text-center text-slate-400">
                                                 No add-on modifiers found. Click "New Add-on" to create one.
                                             </td>
                                         </tr>
@@ -465,6 +481,27 @@ export default function AddonsIndex({
                                                 </td>
                                                 <td className="px-5 py-3.5 font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                                                     ₱{Number(addon.price).toFixed(2)}
+                                                </td>
+                                                <td className="px-5 py-3.5">
+                                                    {addon.products && addon.products.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                            {addon.products.slice(0, 3).map((p) => (
+                                                                <span
+                                                                    key={p.id}
+                                                                    className="px-2 py-0.5 rounded text-[11px] font-medium bg-pink-50 text-pink-700 dark:bg-pink-950/30 dark:text-pink-300 border border-pink-200/50"
+                                                                >
+                                                                    {p.name}
+                                                                </span>
+                                                            ))}
+                                                            {addon.products.length > 3 && (
+                                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                                                    +{addon.products.length - 3} more
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 italic">No direct products</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-5 py-3.5">
                                                     {addon.stock_linked && addon.ingredient ? (
@@ -783,6 +820,35 @@ export default function AddonsIndex({
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        {/* Direct Product Assignments */}
+                        <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-xs font-semibold">
+                                    Direct Product Assignments ({addonForm.data.product_ids.length} linked)
+                                </Label>
+                                <span className="text-[11px] text-slate-400">Optional (or assign via Product page)</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                                {products.map((p) => {
+                                    const isSelected = addonForm.data.product_ids.includes(p.id);
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={p.id}
+                                            onClick={() => toggleAddonProduct(p.id)}
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                                                isSelected
+                                                    ? 'bg-pink-600 text-white border-transparent shadow-xs'
+                                                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-pink-300'
+                                            }`}
+                                        >
+                                            {p.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between pt-2">

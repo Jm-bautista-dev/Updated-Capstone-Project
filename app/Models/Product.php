@@ -115,6 +115,16 @@ class Product extends Model
     }
 
     /**
+     * Direct many-to-many assigned add-ons from global catalog.
+     */
+    public function addons()
+    {
+        return $this->belongsToMany(AddOn::class, 'product_addons', 'product_id', 'addon_id')
+                    ->withPivot(['is_required', 'max_quantity', 'sort_order', 'is_active'])
+                    ->withTimestamps();
+    }
+
+    /**
      * Fetch all effective modifier groups (direct + linked) with their active add-ons.
      */
     public function getActiveAddonGroups()
@@ -130,6 +140,33 @@ class Product extends Model
             ->get();
 
         return $direct->merge($linked)->unique('id')->values();
+    }
+
+    /**
+     * Fetch all effective add-ons specifically assigned to this product
+     * (via direct product_addons OR active addon_groups).
+     * Returns empty collection if nothing is assigned.
+     */
+    public function getEffectiveAddons()
+    {
+        // 1. Direct active assigned add-ons
+        $directAddons = $this->addons()
+            ->where('add_ons.is_active', true)
+            ->where('product_addons.is_active', true)
+            ->get();
+
+        // 2. Add-ons from active modifier groups
+        $groupAddons = collect();
+        $activeGroups = $this->getActiveAddonGroups();
+        foreach ($activeGroups as $g) {
+            foreach ($g->addOns as $ad) {
+                if ($ad->is_active) {
+                    $groupAddons->push($ad);
+                }
+            }
+        }
+
+        return $directAddons->merge($groupAddons)->unique('id')->values();
     }
 
     /**
@@ -684,24 +721,6 @@ class Product extends Model
         }
 
         return round((float) ($this->cost_price ?? 0.0), 4);
-    }
-
-    /**
-     * Add-ons / Modifiers available for this product.
-     */
-    public function addons(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(ProductAddon::class);
-    }
-
-    /**
-     * Get all applicable add-ons (product-specific + global).
-     */
-    public function getAvailableAddonsAttribute()
-    {
-        return ProductAddon::where(function ($q) {
-            $q->where('product_id', $this->id)->orWhereNull('product_id');
-        })->where('is_active', true)->get();
     }
 }
 

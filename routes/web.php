@@ -142,6 +142,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('admin/addons', [App\Http\Controllers\Admin\AddonController::class, 'index'])->name('admin.addons.index');
             Route::post('admin/addons', [App\Http\Controllers\Admin\AddonController::class, 'store'])->name('admin.addons.store');
             Route::put('admin/addons/{addon}', [App\Http\Controllers\Admin\AddonController::class, 'update'])->name('admin.addons.update');
+            Route::post('admin/addons/{addon}/assign-products', [App\Http\Controllers\Admin\AddonController::class, 'assignProducts'])->name('admin.addons.assign-products');
             Route::delete('admin/addons/{addon}', [App\Http\Controllers\Admin\AddonController::class, 'destroy'])->name('admin.addons.destroy');
 
             Route::post('admin/addon-groups', [App\Http\Controllers\Admin\AddonController::class, 'storeGroup'])->name('admin.addon-groups.store');

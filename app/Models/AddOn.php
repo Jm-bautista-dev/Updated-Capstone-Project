@@ -69,4 +69,14 @@ class AddOn extends Model
                     ->withPivot(['price_override', 'sort_order'])
                     ->withTimestamps();
     }
+
+    /**
+     * Products directly assigned to this add-on.
+     */
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_addons', 'addon_id', 'product_id')
+                    ->withPivot(['is_required', 'max_quantity', 'sort_order', 'is_active'])
+                    ->withTimestamps();
+    }
 }

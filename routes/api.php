@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
     Route::get('top-picks',      [TopPickController::class, 'index']);
     Route::get('branches',       [BranchController::class, 'apiIndex']);
     Route::get('products',       [ProductController::class, 'index']);
+    Route::get('products/{id}',  [ProductController::class, 'show'])->whereNumber('id');
     Route::get('categories',     [CategoryController::class, 'index']);
     Route::get('customer/menu',  [ProductController::class, 'getUnifiedMenu']);
     Route::get('customer/products', [V1ProductController::class, 'getProductsByLocation']);

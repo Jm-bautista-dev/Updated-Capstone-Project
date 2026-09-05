@@ -74,25 +74,35 @@ class PosController extends Controller
                 ];
             })->values();
 
-            // Also provide flat list of available add-ons
-            $flatAddons = collect();
-            foreach ($activeGroups as $group) {
-                foreach ($group->addOns as $ad) {
-                    $flatAddons->push([
-                        'id'    => $ad->id,
-                        'name'  => $ad->name,
-                        'price' => $ad->pivot?->price_override !== null ? (float) $ad->pivot->price_override : (float) $ad->price,
-                    ]);
-                }
-            }
-            if ($flatAddons->isEmpty()) {
-                $flatAddons = \App\Models\AddOn::where('is_active', true)->get()->map(fn($ad) => [
-                    'id'    => $ad->id,
-                    'name'  => $ad->name,
-                    'price' => (float) $ad->price,
+            // Provide product-specific add-ons
+            $effectiveAddons = $product->getEffectiveAddons();
+            $product->available_addons = $effectiveAddons->map(fn($ad) => [
+                'id'           => $ad->id,
+                'name'         => $ad->name,
+                'price'        => (float) $ad->price,
+                'stock_linked' => (bool) $ad->stock_linked,
+            ])->values();
+
+            // If product has direct addons but no groups, wrap them into a default modifier group for the POS modal
+            if ($product->addon_groups->isEmpty() && $effectiveAddons->isNotEmpty()) {
+                $product->addon_groups = collect([
+                    [
+                        'id'             => 'direct_' . $product->id,
+                        'name'           => 'Available Customizations',
+                        'selection_type' => 'multi',
+                        'is_required'    => false,
+                        'min_selections' => 0,
+                        'max_selections' => null,
+                        'addons'         => $effectiveAddons->map(fn($ad) => [
+                            'id'           => $ad->id,
+                            'name'         => $ad->name,
+                            'price'        => (float) $ad->price,
+                            'stock_linked' => (bool) $ad->stock_linked,
+                        ])->values(),
+                    ]
                 ]);
             }
-            $product->available_addons = $flatAddons->unique('id')->values();
+
             return $product;
         });
 

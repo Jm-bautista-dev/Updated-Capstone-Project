@@ -932,21 +932,52 @@ class ApiOrderController extends Controller
                     : $itemData['selected_addons'];
 
                 if (is_array($rawAddons)) {
+                    $effectiveProductAddons = $product->getEffectiveAddons()->keyBy('id');
+
                     foreach ($rawAddons as $rawAd) {
                         $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
-                        $adModel = $addonId ? \App\Models\ProductAddon::find($addonId) : null;
-                        $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
-                        $adPrice = $adModel ? (float) $adModel->price : (float) ($rawAd['price'] ?? 0);
-                        $adQty = (float) ($rawAd['quantity'] ?? 1);
-                        $adLineTotal = round($adPrice * $adQty, 2);
+                        if (!$addonId) continue;
 
+                        /** @var \App\Models\AddOn|null $adModel */
+                        $adModel = \App\Models\AddOn::find($addonId);
+                        if (!$adModel || !$adModel->is_active) {
+                            return ['success' => false, 'message' => "Selected add-on (#{$addonId}) is currently inactive or not found."];
+                        }
+
+                        // Verify that this add-on is assigned to the selected product
+                        if (!$effectiveProductAddons->has($adModel->id)) {
+                            return [
+                                'success' => false,
+                                'message' => "Add-on '{$adModel->name}' is not assigned to product '{$product->name}'."
+                            ];
+                        }
+
+                        $adName = $adModel->name;
+                        // Authoritative backend pricing (client price discarded)
+                        $adPrice = (float) $adModel->price;
+                        $adQty = max(1, (float) ($rawAd['quantity'] ?? 1));
+
+                        // Validate max_quantity if defined on pivot
+                        $pivot = $product->addons()->where('addon_id', $adModel->id)->first()?->pivot;
+                        if ($pivot && $pivot->max_quantity && $adQty > $pivot->max_quantity) {
+                            return [
+                                'success' => false,
+                                'message' => "Maximum quantity for '{$adModel->name}' is {$pivot->max_quantity}."
+                            ];
+                        }
+
+                        $adLineTotal = round($adPrice * $adQty, 2);
                         $addonTotal += $adLineTotal;
+
                         $normalizedAddons[] = [
-                            'addon_id' => $addonId,
-                            'name'     => $adName,
-                            'price'    => $adPrice,
-                            'quantity' => $adQty,
-                            'subtotal' => $adLineTotal,
+                            'addon_id'   => $adModel->id,
+                            'name'       => $adName,
+                            'price'      => $adPrice,
+                            'unit_price' => $adPrice,
+                            'quantity'   => $adQty,
+                            'subtotal'   => $adLineTotal,
+                            'group_id'   => $rawAd['group_id'] ?? null,
+                            'group_name' => $rawAd['group_name'] ?? null,
                         ];
                     }
                 }

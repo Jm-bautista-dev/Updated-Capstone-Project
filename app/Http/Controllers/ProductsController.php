@@ -40,7 +40,7 @@ class ProductsController extends Controller
             ? ($request->filled('branch_id') && $request->input('branch_id') !== 'all' ? (int) $request->input('branch_id') : null)
             : (int) $user->branch_id;
 
-        $query = Product::query()->with(['category', 'ingredients.stocks', 'branch', 'branches']);
+        $query = Product::query()->with(['category', 'ingredients.stocks', 'branch', 'branches', 'addons']);
 
         if ($branchId) {
             $query->where(function ($q) use ($branchId) {
@@ -126,6 +126,7 @@ class ProductsController extends Controller
             'products'        => $products,
             'categories'      => $categoriesQuery->get(),
             'ingredients'     => $ingredientsQuery->get(),
+            'globalAddons'    => \App\Models\AddOn::active()->orderBy('name')->get(['id', 'name', 'price', 'cost_price', 'is_active', 'stock_linked']),
             'summary'         => $summary,
             'branches'        => $user->isAdmin() ? $branches : $branches->where('id', $user->branch_id)->values(),
             'allowedUnits'    => UnitConverter::getAllowedUnits(),
@@ -219,6 +220,8 @@ class ProductsController extends Controller
                 'branch_id'                  => 'required_if:branch_option,single|nullable|exists:branches,id',
                 'branch_ids'                 => 'nullable|array',
                 'branch_ids.*'               => 'exists:branches,id',
+                'addon_ids'                  => 'nullable|array',
+                'addon_ids.*'                => 'exists:add_ons,id',
             ], [
                 'branch_option.required' => 'Please select at least one branch for this product.',
                 'branch_id.required_if'  => 'Please select a valid branch for this product.',
@@ -354,6 +357,8 @@ class ProductsController extends Controller
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
                 'recipe.*.unit'              => 'nullable|string',
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+                'addon_ids'                  => 'nullable|array',
+                'addon_ids.*'                => 'exists:add_ons,id',
             ]);
 
             // Strip manual cost_price/stock if sent in request

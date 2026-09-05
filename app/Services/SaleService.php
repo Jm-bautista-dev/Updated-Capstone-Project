@@ -69,7 +69,7 @@ class SaleService
             }
 
             // 1. Batch-fetch all products with their ingredients (eager loading)
-            $itemIds = array_column($data['items'], 'id');
+            $itemIds = array_map(fn($it) => $it['id'] ?? $it['product_id'] ?? 0, $data['items']);
             $productsQuery = Product::with(['ingredients.stocks'])
                 ->whereIn('id', $itemIds)
                 ->where(function ($q) use ($branchId) {
@@ -90,9 +90,10 @@ class SaleService
             $saleItemsData = [];
 
             foreach ($data['items'] as $item) {
-                $product = $products->get($item['id']);
+                $pId = $item['id'] ?? $item['product_id'] ?? null;
+                $product = $products->get($pId);
                 if (!$product) {
-                    throw new \Exception("Product with ID {$item['id']} is not available in this branch.");
+                    throw new \Exception("Product with ID {$pId} is not available in this branch.");
                 }
 
                 $qty = (float) $item['quantity'];
@@ -155,10 +156,11 @@ class SaleService
                             $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
                             $adModel = $addonId ? (\App\Models\AddOn::find($addonId) ?? ProductAddon::find($addonId)) : null;
                             
-                            $adName = $rawAd['name'] ?? ($adModel?->name ?? 'Add-on');
-                            $adPrice = isset($rawAd['price']) ? (float) $rawAd['price'] : ($adModel ? (float) $adModel->price : 0.0);
-                            $adCost = isset($rawAd['cost_price']) ? (float) $rawAd['cost_price'] : ($adModel ? (float) ($adModel->cost_price ?? 0) : 0.0);
-                            $adQty = (float) ($rawAd['quantity'] ?? 1);
+                            $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
+                            // Authoritative backend pricing: always use database catalog price if model exists
+                            $adPrice = $adModel ? (float) $adModel->price : (isset($rawAd['price']) ? (float) $rawAd['price'] : 0.0);
+                            $adCost = $adModel ? (float) ($adModel->cost_price ?? 0) : (isset($rawAd['cost_price']) ? (float) $rawAd['cost_price'] : 0.0);
+                            $adQty = max(1, (float) ($rawAd['quantity'] ?? 1));
 
                             $adLineTotal = $adPrice * $adQty;
                             $adLineCost = $adCost * $adQty;
@@ -178,6 +180,7 @@ class SaleService
                                 'addon_id'   => $addonId,
                                 'name'       => $adName,
                                 'price'      => $adPrice,
+                                'cost_price' => $adCost,
                                 'quantity'   => $adQty,
                                 'subtotal'   => $adLineTotal,
                                 'group_id'   => $rawAd['group_id'] ?? null,

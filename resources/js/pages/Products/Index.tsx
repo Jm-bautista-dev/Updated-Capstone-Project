@@ -78,6 +78,7 @@ type Product = {
     status: string;
     image_url: string | null;
     ingredients: (Ingredient & { pivot: { quantity_required: string; unit?: string } })[];
+    addons?: { id: number; name: string; price: number; category?: string }[];
     branches: { id: number; name: string }[];
     branch_id: number;
     is_direct: boolean;
@@ -107,6 +108,7 @@ export default function ProductsIndex() {
         currentBranchId?: number | string;
         isAdmin: boolean;
         ingredients: Ingredient[];
+        globalAddons?: Array<{ id: number; name: string; price: number; category?: string }>;
     };
 
     const {
@@ -117,6 +119,7 @@ export default function ProductsIndex() {
         currentBranchId,
         isAdmin = false,
         ingredients = [],
+        globalAddons = [],
     } = pageProps;
 
     const rawProducts = pageProps.products;
@@ -225,6 +228,7 @@ export default function ProductsIndex() {
         branch_id: initialBranchIds.length === 1 ? initialBranchIds[0] : initialBranchId,
         branch_ids: initialBranchIds,
         recipe: [] as { ingredient_id: string; quantity_required: string; unit: string }[],
+        addon_ids: [] as string[],
         unit: 'pcs',
         stock: '0',
     });
@@ -370,6 +374,7 @@ export default function ProductsIndex() {
                 quantity_required: ing.pivot?.quantity_required != null ? String(ing.pivot.quantity_required) : '1',
                 unit: ing.pivot?.unit || ing.unit || 'pcs'
             })) : [],
+            addon_ids: product.addons ? product.addons.map(a => String(a.id)) : [],
             unit: product.unit || 'pcs',
             stock: product.stock != null ? String(product.stock) : '0',
         });
@@ -536,6 +541,17 @@ export default function ProductsIndex() {
             branch_id: newBranchId,
             branch_option: newOption,
         }));
+    };
+
+    const toggleAddon = (id: string) => {
+        const current = [...(data.addon_ids || [])];
+        const index = current.indexOf(id);
+        if (index > -1) {
+            current.splice(index, 1);
+        } else {
+            current.push(id);
+        }
+        setData('addon_ids', current);
     };
 
     return (
@@ -847,6 +863,41 @@ export default function ProductsIndex() {
                                 </div>
                             </div>
 
+                            {/* Available Add-ons / Modifiers */}
+                            {globalAddons && globalAddons.length > 0 && (
+                                <div className="col-span-2 space-y-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">
+                                            Available Add-ons & Modifiers ({data.addon_ids.length} selected)
+                                        </label>
+                                        <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B]">Assign from global catalog</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-2xl bg-[#FFF5F7]/50 dark:bg-[#181820]/50 border border-[#F8C8DC]/40 dark:border-white/10">
+                                        {globalAddons.map((ad) => {
+                                            const isSelected = data.addon_ids.includes(String(ad.id));
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={ad.id}
+                                                    onClick={() => toggleAddon(String(ad.id))}
+                                                    className={cn(
+                                                        "px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5",
+                                                        isSelected
+                                                            ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs"
+                                                            : "bg-white dark:bg-[#121218] text-[#5D4A4D] dark:text-[#94A3B8] border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/50"
+                                                    )}
+                                                >
+                                                    <span>{ad.name}</span>
+                                                    <span className={cn("text-[10px] font-mono font-bold", isSelected ? "text-white/90" : "text-[#E75480] dark:text-[#FF4F81]")}>
+                                                        +₱{Number(ad.price).toFixed(2)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Branch Visibility Tags Selection */}
                             {branches && branches.length > 0 && (
                                 <div className="col-span-2 space-y-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-3">
@@ -1099,6 +1150,41 @@ export default function ProductsIndex() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Available Add-ons / Modifiers */}
+                            {globalAddons && globalAddons.length > 0 && (
+                                <div className="col-span-2 space-y-2 border-t border-[#F8C8DC]/40 dark:border-white/10 pt-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">
+                                            Available Add-ons & Modifiers ({data.addon_ids.length} selected)
+                                        </label>
+                                        <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B]">Assign from global catalog</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-2xl bg-[#FFF5F7]/50 dark:bg-[#181820]/50 border border-[#F8C8DC]/40 dark:border-white/10">
+                                        {globalAddons.map((ad) => {
+                                            const isSelected = data.addon_ids.includes(String(ad.id));
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={ad.id}
+                                                    onClick={() => toggleAddon(String(ad.id))}
+                                                    className={cn(
+                                                        "px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5",
+                                                        isSelected
+                                                            ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs"
+                                                            : "bg-white dark:bg-[#121218] text-[#5D4A4D] dark:text-[#94A3B8] border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/50"
+                                                    )}
+                                                >
+                                                    <span>{ad.name}</span>
+                                                    <span className={cn("text-[10px] font-mono font-bold", isSelected ? "text-white/90" : "text-[#E75480] dark:text-[#FF4F81]")}>
+                                                        +₱{Number(ad.price).toFixed(2)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Branch Visibility Tags Selection */}
                             {branches && branches.length > 0 && (
