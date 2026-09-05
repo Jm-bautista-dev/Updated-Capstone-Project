@@ -246,9 +246,11 @@ class NotificationController extends Controller
     public function markAsRead()
     {
         $user = Auth::user();
-        $user->update([
-            'last_notifications_read_at' => now(),
-        ]);
+        if ($user) {
+            $user->update([
+                'last_notifications_read_at' => now(),
+            ]);
+        }
 
         return response()->json(['success' => true]);
     }

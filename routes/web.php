@@ -78,6 +78,12 @@ Route::get('/storage/{path}', function ($path) {
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
+    // ── Notifications (Admin, Cashier, Super Admin bell dropdown & polling) ──
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/api/v1/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+    Route::post('/api/v1/notifications/mark-as-read', [NotificationController::class, 'markAsRead']);
+
     // ── Change Password (accessible even before password is changed) ──
     Route::get('/change-password', [App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])->name('first-login.change');
     Route::post('/change-password', [App\Http\Controllers\Auth\ChangePasswordController::class, 'update'])->name('first-login.update');
@@ -326,7 +332,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 }); // end auth,verified
 
-Route::post('/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
+Route::match(['get', 'post'], '/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
 
 // ── Root-Level API Route Fallbacks (for mobile app requests with leading slash) ──
 Route::middleware(['auth:sanctum,web'])->group(function () {

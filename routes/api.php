@@ -58,8 +58,8 @@ Route::prefix('v1')->group(function () {
     Route::get('pickup-branches',          [App\Http\Controllers\Api\ApiPickupController::class, 'branches']);
     Route::get('pickup-slots',             [App\Http\Controllers\Api\ApiPickupController::class, 'slots']);
 
-    // Protected Routes (Multi-Auth Support)
-    Route::middleware('auth:sanctum')->group(function () {
+    // Protected Routes (Multi-Auth Support: Sanctum tokens & Web session cookies)
+    Route::middleware(['auth:sanctum,web'])->group(function () {
         
         // Profile & User Management
         Route::get('user', [UserController::class, 'me']);
