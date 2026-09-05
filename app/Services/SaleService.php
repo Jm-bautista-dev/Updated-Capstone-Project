@@ -60,7 +60,7 @@ class SaleService
      */
     public function processSale(array $data): Sale
     {
-        $sale = DB::transaction(function (): Sale use ($data) {
+        $sale = DB::transaction(function () use ($data): Sale {
             /** @var \App\Models\User $user */
             $user     = Auth::user();
             $branchId = $user->branch_id;
