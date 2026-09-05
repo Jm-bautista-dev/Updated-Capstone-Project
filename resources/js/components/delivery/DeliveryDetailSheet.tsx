@@ -137,20 +137,9 @@ function ProofOfDeliveryViewer({ url, deliveredAt, riderName }: {
         if (!url) return null;
         const trimmed = url.trim();
         if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-            try {
-                const parsed = new URL(trimmed);
-                if (typeof window !== 'undefined' && (parsed.hostname === window.location.hostname || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
-                    return parsed.pathname;
-                }
-                return trimmed;
-            } catch {
-                return trimmed;
-            }
+            return trimmed;
         }
-        const clean = trimmed.replace(/^\/?(public\/)?/, '');
-        if (clean.startsWith('storage/')) {
-            return `/${clean}`;
-        }
+        const clean = trimmed.replace(/^\/?(public\/)?(storage\/)?/, '');
         return `/storage/${clean}`;
     }, [url]);
 
@@ -617,7 +606,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         {/* Proof of Delivery — shown when delivered */}
                         {!isPickup && ((delivery.proof_of_delivery_url || delivery.proof_of_delivery) ? (
                             <ProofOfDeliveryViewer
-                                url={delivery.proof_of_delivery_url}
+                                url={delivery.proof_of_delivery_url || delivery.proof_of_delivery}
                                 deliveredAt={delivery.delivered_at}
                                 riderName={delivery.rider?.name}
                             />
