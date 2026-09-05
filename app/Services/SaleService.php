@@ -27,6 +27,26 @@ class SaleService
     }
 
     /**
+     * Map any legacy or specific discount category to the standardized discount categories:
+     * - twenty_percent (senior, pwd, solo parent, national athlete, employee, 20%)
+     * - five_percent (5% promo)
+     * - custom (percentage or fixed amount)
+     */
+    public static function normalizeDiscountType(?string $rawType): ?string
+    {
+        if (!$rawType) {
+            return null;
+        }
+
+        return match ($rawType) {
+            'senior_citizen', 'pwd', 'solo_parent', 'national_athlete', 'employee', 'twenty_percent' => 'twenty_percent',
+            'five_percent' => 'five_percent',
+            'custom', 'custom_percentage', 'custom_fixed' => 'custom',
+            default => $rawType,
+        };
+    }
+
+    /**
      * Process a new sale with strict branch-isolated stock deduction.
      *
      * Rules:
@@ -91,6 +111,34 @@ class SaleService
                     $directRequirements[$product->id] = ($directRequirements[$product->id] ?? 0) + $qty;
                 }
 
+                // Enforce required modifier group validation
+                $productGroups = $product->getActiveAddonGroups();
+                $selectedGroupCounts = [];
+                if (!empty($item['selected_addons'])) {
+                    $rawCheck = is_string($item['selected_addons']) ? json_decode($item['selected_addons'], true) : $item['selected_addons'];
+                    if (is_array($rawCheck)) {
+                        foreach ($rawCheck as $rc) {
+                            $gId = $rc['group_id'] ?? null;
+                            if ($gId) {
+                                $selectedGroupCounts[$gId] = ($selectedGroupCounts[$gId] ?? 0) + (int)($rc['quantity'] ?? 1);
+                            }
+                        }
+                    }
+                }
+
+                foreach ($productGroups as $pGroup) {
+                    $selectedInGroup = $selectedGroupCounts[$pGroup->id] ?? 0;
+                    if ($pGroup->is_required && $selectedInGroup === 0) {
+                        throw new \Exception("Required modifier group '{$pGroup->name}' must have at least " . ($pGroup->min_selections ?: 1) . " selection for product '{$product->name}'.");
+                    }
+                    if ($pGroup->min_selections > 0 && $selectedInGroup < $pGroup->min_selections) {
+                        throw new \Exception("Modifier group '{$pGroup->name}' requires at least {$pGroup->min_selections} selections (got {$selectedInGroup}) for product '{$product->name}'.");
+                    }
+                    if ($pGroup->max_selections !== null && $selectedInGroup > $pGroup->max_selections) {
+                        throw new \Exception("Modifier group '{$pGroup->name}' allows at most {$pGroup->max_selections} selections (got {$selectedInGroup}) for product '{$product->name}'.");
+                    }
+                }
+
                 $computedCost = $product->computeProductCost($branchId);
 
                 $addonTotal = 0.0;
@@ -105,11 +153,11 @@ class SaleService
                     if (is_array($rawAddons)) {
                         foreach ($rawAddons as $rawAd) {
                             $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
-                            $adModel = $addonId ? ProductAddon::find($addonId) : null;
+                            $adModel = $addonId ? (\App\Models\AddOn::find($addonId) ?? ProductAddon::find($addonId)) : null;
                             
-                            $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
-                            $adPrice = $adModel ? (float) $adModel->price : (float) ($rawAd['price'] ?? 0);
-                            $adCost = $adModel ? (float) ($adModel->cost_price ?? 0) : (float) ($rawAd['cost_price'] ?? 0);
+                            $adName = $rawAd['name'] ?? ($adModel?->name ?? 'Add-on');
+                            $adPrice = isset($rawAd['price']) ? (float) $rawAd['price'] : ($adModel ? (float) $adModel->price : 0.0);
+                            $adCost = isset($rawAd['cost_price']) ? (float) $rawAd['cost_price'] : ($adModel ? (float) ($adModel->cost_price ?? 0) : 0.0);
                             $adQty = (float) ($rawAd['quantity'] ?? 1);
 
                             $adLineTotal = $adPrice * $adQty;
@@ -118,19 +166,22 @@ class SaleService
                             $addonTotal += $adLineTotal;
                             $addonCost += $adLineCost;
 
-                            // Deduct inventory if addon is linked to an ingredient
-                            if ($adModel && $adModel->ingredient_id) {
-                                $needed = (float) $adModel->ingredient_quantity * $adQty * $qty;
+                            // Deduct inventory ONLY if addon is stock_linked and linked to an ingredient
+                            $isStockLinked = $adModel ? (bool) ($adModel->stock_linked ?? ($adModel->ingredient_id !== null)) : false;
+                            if ($isStockLinked && $adModel && $adModel->ingredient_id) {
+                                $needed = (float) ($adModel->ingredient_quantity ?? 1.0) * $adQty * $qty;
                                 $ingredientRequirements[$adModel->ingredient_id] =
                                     ($ingredientRequirements[$adModel->ingredient_id] ?? 0) + $needed;
                             }
 
                             $normalizedAddons[] = [
-                                'addon_id' => $addonId,
-                                'name'     => $adName,
-                                'price'    => $adPrice,
-                                'quantity' => $adQty,
-                                'subtotal' => $adLineTotal,
+                                'addon_id'   => $addonId,
+                                'name'       => $adName,
+                                'price'      => $adPrice,
+                                'quantity'   => $adQty,
+                                'subtotal'   => $adLineTotal,
+                                'group_id'   => $rawAd['group_id'] ?? null,
+                                'group_name' => $rawAd['group_name'] ?? null,
                             ];
                         }
                     }
@@ -203,10 +254,11 @@ class SaleService
                 }
             }
 
-            $discountType = $data['discount_type'] ?? ($discountDetails['type'] ?? null);
+            $rawDiscountType = $data['discount_type'] ?? ($discountDetails['type'] ?? null);
+            $discountType = self::normalizeDiscountType($rawDiscountType);
             $discount = 0.00;
 
-            if ($discountType || !empty($discountDetails) || (isset($data['discount']) && (float) $data['discount'] > 0)) {
+            if ($rawDiscountType || !empty($discountDetails) || (isset($data['discount']) && (float) $data['discount'] > 0)) {
                 // Determine eligible subtotal
                 $eligibleItemIds = $discountDetails['eligible_item_ids'] ?? [];
                 $eligibleSubtotal = 0.00;
@@ -218,12 +270,16 @@ class SaleService
                 }
                 $eligibleSubtotal = round($eligibleSubtotal, 2);
 
-                if ($discountType === 'custom_fixed' || (isset($discountDetails['fixed_amount']) && (float) $discountDetails['fixed_amount'] > 0)) {
+                if ($rawDiscountType === 'custom_fixed' || (isset($discountDetails['mode']) && $discountDetails['mode'] === 'fixed') || (isset($discountDetails['fixed_amount']) && (float) $discountDetails['fixed_amount'] > 0)) {
                     $fixedVal = (float) ($discountDetails['fixed_amount'] ?? $data['discount'] ?? 0);
                     $discount = round(min($eligibleSubtotal, max(0.0, $fixedVal)), 2);
                 } elseif (isset($discountDetails['percentage']) && (float) $discountDetails['percentage'] > 0) {
                     $rate = min(100.0, max(0.0, (float) $discountDetails['percentage']));
                     $discount = round(($eligibleSubtotal * $rate) / 100.0, 2);
+                } elseif ($discountType === 'twenty_percent') {
+                    $discount = round(($eligibleSubtotal * 20.0) / 100.0, 2);
+                } elseif ($discountType === 'five_percent') {
+                    $discount = round(($eligibleSubtotal * 5.0) / 100.0, 2);
                 } elseif (isset($data['discount']) && (float) $data['discount'] > 0) {
                     $rawDiscount = (float) $data['discount'];
                     $discount = round(min($productSubtotal, max(0.0, $rawDiscount)), 2);

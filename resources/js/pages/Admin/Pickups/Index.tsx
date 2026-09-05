@@ -239,12 +239,24 @@ export default function PickupDashboard({
         }
     };
 
-    const getStatusBadge = (status: string) => {
+    const getStatusBadge = (orderOrStatus: PickupOrder | string) => {
+        const order = typeof orderOrStatus === 'object' ? orderOrStatus : null;
+        const status = typeof orderOrStatus === 'object' ? orderOrStatus.status : orderOrStatus;
+        const isPrepWindowOpen = !order?.prep_start_at || new Date(order.prep_start_at).getTime() <= Date.now();
+
         switch (status) {
             case 'pending':
-                return <Badge className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">Pending</Badge>;
+                return <Badge className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">Pending (Awaiting Accept)</Badge>;
             case 'confirmed':
-                return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Confirmed</Badge>;
+                if (order && !isPrepWindowOpen) {
+                    return (
+                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 gap-1 font-medium">
+                            <Clock className="w-3 h-3 text-amber-500" />
+                            Scheduled — awaiting prep window
+                        </Badge>
+                    );
+                }
+                return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Ready to Prepare</Badge>;
             case 'preparing':
                 return <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse">Preparing</Badge>;
             case 'ready_for_pickup':
@@ -442,7 +454,7 @@ export default function PickupDashboard({
                                                 )}
                                             </div>
                                             <div className="text-right">
-                                                {getStatusBadge(order.status)}
+                                                {getStatusBadge(order)}
                                                 {order.pickup_verification_code && (
                                                     <div className="mt-1.5 inline-block bg-primary/10 text-primary font-mono font-bold text-xs px-2 py-0.5 rounded border border-primary/20">
                                                         Code: {order.pickup_verification_code}
@@ -507,11 +519,11 @@ export default function PickupDashboard({
                                                     className="w-full text-xs h-8 bg-blue-600 hover:bg-blue-700 text-white"
                                                     onClick={() => handleStatusTransition(order, 'confirmed')}
                                                 >
-                                                    Confirm Order
+                                                    Accept Order
                                                 </Button>
                                             )}
 
-                                            {(order.status === 'pending' || order.status === 'confirmed') && (
+                                            {order.status === 'confirmed' && (
                                                 <Button
                                                     size="sm"
                                                     className="w-full text-xs h-8 bg-orange-600 hover:bg-orange-700 text-white gap-1"

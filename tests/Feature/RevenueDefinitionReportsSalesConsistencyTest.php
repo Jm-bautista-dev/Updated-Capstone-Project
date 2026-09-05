@@ -58,7 +58,7 @@ class RevenueDefinitionReportsSalesConsistencyTest extends TestCase
 
     private function insertSale(int $branchId, float $subtotal, float $discount = 0.0, float $deliveryFee = 0.0, string $status = 'completed', ?Carbon $date = null): int
     {
-        $date = $date ?? Carbon::now('Asia/Manila');
+        $date = $date ? (clone $date)->setTimezone('UTC') : Carbon::now('UTC');
         $total = $subtotal - $discount + $deliveryFee;
 
         return DB::table('sales')->insertGetId([

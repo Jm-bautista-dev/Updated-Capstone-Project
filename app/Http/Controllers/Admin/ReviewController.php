@@ -279,6 +279,7 @@ class ReviewController extends Controller
                 'seen_at'              => $review->seen_at instanceof \DateTimeInterface ? $review->seen_at->format(\DateTimeInterface::ATOM) : ($review->seen_at ? (string) $review->seen_at : null),
                 'is_verified_purchase' => !empty($review->order_id),
                 'admin_response'       => $review->admin_response,
+                'is_auto_reply'        => !empty($review->admin_response) && empty($review->admin_response_by),
                 'admin_responded_at'   => $review->admin_responded_at instanceof \DateTimeInterface ? $review->admin_responded_at->format(\DateTimeInterface::ATOM) : ($review->admin_responded_at ? (string) $review->admin_responded_at : null),
                 'created_at'           => $review->created_at instanceof \DateTimeInterface ? $review->created_at->format(\DateTimeInterface::ATOM) : ($review->created_at ? (string) $review->created_at : null),
                 'user'                 => $review->user ? [

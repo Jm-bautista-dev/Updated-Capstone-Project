@@ -19,15 +19,19 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping
     public function collection()
     {
         $user = auth()->user();
+        $branchId = isset($this->filters['branch_id']) && $this->filters['branch_id'] !== 'all' && $this->filters['branch_id'] !== ''
+            ? (int) $this->filters['branch_id']
+            : null;
 
-        return Sale::with(['cashier'])
+        return Sale::with(['cashier', 'branch'])
             ->when(!$user->isAdmin(), function ($q) use ($user) {
-                return $q->where('user_id', $user->id)
-                         ->where('branch_id', $user->branch_id);
+                return $q->where('branch_id', $user->branch_id);
             })
+            ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
             ->when($this->filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $this->filters['date_from']))
             ->when($this->filters['date_to'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $this->filters['date_to']))
-            ->when(($this->filters['cashier_id'] ?? null) && $user->isAdmin(), fn($q) => $q->where('user_id', $this->filters['cashier_id']))
+            ->when(($this->filters['cashier_id'] ?? null) && $this->filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('user_id', $this->filters['cashier_id']))
+            ->when(($this->filters['status'] ?? null) && $this->filters['status'] !== 'all', fn($q) => $q->where('status', $this->filters['status']))
             ->latest()
             ->get();
     }

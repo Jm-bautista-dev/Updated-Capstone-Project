@@ -26,7 +26,10 @@ export interface PosCartItem {
 }
 
 export type DiscountType =
+    | 'twenty_percent'
     | 'five_percent'
+    | 'custom'
+    // Legacy backward compatibility
     | 'senior_citizen'
     | 'pwd'
     | 'solo_parent'
@@ -45,6 +48,7 @@ export interface PosDiscount {
     idNumber: string;
     eligibleItemIds: number[]; // empty means all items
     notes?: string;
+    mode?: 'percentage' | 'fixed';
 }
 
 interface ApplyDiscountModalProps {
@@ -57,69 +61,36 @@ interface ApplyDiscountModalProps {
 }
 
 const DISCOUNT_PRESETS: {
-    type: DiscountType;
+    type: 'twenty_percent' | 'five_percent' | 'custom';
     label: string;
+    sublabel: string;
     defaultRate: number;
-    isFixed?: boolean;
     requiresId: boolean;
     idLabel: string;
 }[] = [
     {
+        type: 'twenty_percent',
+        label: '20% Discount',
+        sublabel: 'Senior Citizen / PWD / Solo Parent / Athlete',
+        defaultRate: 20,
+        requiresId: true,
+        idLabel: 'Customer / Statutory ID No.',
+    },
+    {
         type: 'five_percent',
-        label: '5% Promotional Discount',
+        label: '5% Discount',
+        sublabel: 'Promotional & Special Discounts',
         defaultRate: 5,
         requiresId: false,
-        idLabel: 'Promo Code / Ref No.',
+        idLabel: 'Promo Code / Reference No.',
     },
     {
-        type: 'senior_citizen',
-        label: 'Senior Citizen (20%)',
-        defaultRate: 20,
-        requiresId: true,
-        idLabel: 'Senior OSCA ID No.',
-    },
-    {
-        type: 'pwd',
-        label: 'Person with Disability / PWD (20%)',
-        defaultRate: 20,
-        requiresId: true,
-        idLabel: 'PWD ID No.',
-    },
-    {
-        type: 'solo_parent',
-        label: 'Solo Parent (20%)',
-        defaultRate: 20,
-        requiresId: true,
-        idLabel: 'Solo Parent ID No.',
-    },
-    {
-        type: 'national_athlete',
-        label: 'National Athlete / Coach (20%)',
-        defaultRate: 20,
-        requiresId: true,
-        idLabel: 'Athlete / Coach ID No.',
-    },
-    {
-        type: 'employee',
-        label: 'Employee / Staff Discount',
-        defaultRate: 20,
-        requiresId: false,
-        idLabel: 'Employee ID No.',
-    },
-    {
-        type: 'custom_percentage',
-        label: 'Custom Percentage (%)',
+        type: 'custom',
+        label: 'Custom Discount',
+        sublabel: 'Custom percentage or fixed amount',
         defaultRate: 10,
         requiresId: false,
         idLabel: 'Approval / Reference No.',
-    },
-    {
-        type: 'custom_fixed',
-        label: 'Custom Fixed Amount (₱)',
-        defaultRate: 0,
-        isFixed: true,
-        requiresId: false,
-        idLabel: 'Approval / Voucher No.',
     },
 ];
 
@@ -131,6 +102,13 @@ interface FormProps {
     onClose: () => void;
 }
 
+function resolveInitialType(type?: DiscountType): 'twenty_percent' | 'five_percent' | 'custom' {
+    if (!type) return 'twenty_percent';
+    if (type === 'five_percent') return 'five_percent';
+    if (type === 'custom' || type === 'custom_percentage' || type === 'custom_fixed') return 'custom';
+    return 'twenty_percent';
+}
+
 function ApplyDiscountForm({
     cart,
     currentDiscount,
@@ -138,7 +116,17 @@ function ApplyDiscountForm({
     onRemoveDiscount,
     onClose,
 }: FormProps) {
-    const [selectedType, setSelectedType] = useState<DiscountType>(() => currentDiscount?.type || 'senior_citizen');
+    const [selectedType, setSelectedType] = useState<'twenty_percent' | 'five_percent' | 'custom'>(() =>
+        resolveInitialType(currentDiscount?.type)
+    );
+
+    const [customMode, setCustomMode] = useState<'percentage' | 'fixed'>(() => {
+        if (currentDiscount?.type === 'custom_fixed' || (currentDiscount?.fixedAmount && currentDiscount.fixedAmount > 0)) {
+            return 'fixed';
+        }
+        return 'percentage';
+    });
+
     const [ratePercent, setRatePercent] = useState<number>(() => currentDiscount?.percentage ?? 20);
     const [fixedAmount, setFixedAmount] = useState<number>(() => currentDiscount?.fixedAmount ?? 0);
     const [customerName, setCustomerName] = useState<string>(() => currentDiscount?.customerName ?? '');
@@ -157,14 +145,18 @@ function ApplyDiscountForm({
         [selectedType]
     );
 
-    const handleTypeChange = (type: DiscountType) => {
+    const handleTypeChange = (type: 'twenty_percent' | 'five_percent' | 'custom') => {
         setSelectedType(type);
         const preset = DISCOUNT_PRESETS.find((p) => p.type === type);
         if (preset) {
-            if (preset.isFixed) {
-                setFixedAmount(0);
-            } else {
-                setRatePercent(preset.defaultRate);
+            if (type === 'twenty_percent') {
+                setRatePercent(20);
+            } else if (type === 'five_percent') {
+                setRatePercent(5);
+            } else if (type === 'custom') {
+                if (customMode === 'percentage' && (ratePercent === 20 || ratePercent === 5)) {
+                    setRatePercent(10);
+                }
             }
         }
         setError(null);
@@ -179,13 +171,24 @@ function ApplyDiscountForm({
             .reduce((acc, it) => acc + (Number(it.selling_price) * Number(it.quantity)), 0);
     }, [cart, applyToAll, selectedItemIds]);
 
+    // Validation for Fixed Discount exceeding Subtotal (Item #1)
+    const isFixedMode = selectedType === 'custom' && customMode === 'fixed';
+    const isFixedExceedingSubtotal = isFixedMode && fixedAmount > eligibleSubtotal;
+
     const calculatedDiscountAmount = useMemo(() => {
-        if (activePreset.isFixed) {
+        if (selectedType === 'twenty_percent') {
+            return (eligibleSubtotal * 20) / 100;
+        }
+        if (selectedType === 'five_percent') {
+            return (eligibleSubtotal * 5) / 100;
+        }
+        // Custom
+        if (customMode === 'fixed') {
             return Math.min(eligibleSubtotal, Math.max(0, Number(fixedAmount || 0)));
         }
         const rate = Math.min(100, Math.max(0, Number(ratePercent || 0)));
         return (eligibleSubtotal * rate) / 100;
-    }, [eligibleSubtotal, activePreset, fixedAmount, ratePercent]);
+    }, [eligibleSubtotal, selectedType, customMode, fixedAmount, ratePercent]);
 
     const netSubtotal = Math.max(0, eligibleSubtotal - calculatedDiscountAmount);
 
@@ -204,13 +207,18 @@ function ApplyDiscountForm({
             return;
         }
 
+        if (isFixedExceedingSubtotal) {
+            setError(`Fixed discount (₱${fixedAmount.toFixed(2)}) cannot exceed the eligible subtotal (₱${eligibleSubtotal.toFixed(2)}).`);
+            return;
+        }
+
         if (activePreset.requiresId) {
             if (!customerName.trim()) {
-                setError('Customer Name is required for statutory discounts.');
+                setError('Customer Name is required for 20% statutory discounts.');
                 return;
             }
             if (!idNumber.trim()) {
-                setError(`${activePreset.idLabel} is required for statutory discounts.`);
+                setError(`${activePreset.idLabel} is required for 20% statutory discounts.`);
                 return;
             }
         }
@@ -227,14 +235,17 @@ function ApplyDiscountForm({
 
         onApplyDiscount({
             type: selectedType,
-            typeName: activePreset.label,
-            percentage: activePreset.isFixed ? 0 : ratePercent,
-            fixedAmount: activePreset.isFixed ? fixedAmount : undefined,
+            typeName: selectedType === 'custom' 
+                ? (customMode === 'fixed' ? `Custom (₱${fixedAmount.toFixed(2)})` : `Custom (${ratePercent}%)`)
+                : activePreset.label,
+            percentage: isFixedMode ? 0 : (selectedType === 'twenty_percent' ? 20 : (selectedType === 'five_percent' ? 5 : ratePercent)),
+            fixedAmount: isFixedMode ? fixedAmount : undefined,
             discountAmount: calculatedDiscountAmount,
             customerName: customerName.trim(),
             idNumber: idNumber.trim(),
             eligibleItemIds: applyToAll ? [] : selectedItemIds,
             notes: notes.trim(),
+            mode: selectedType === 'custom' ? customMode : 'percentage',
         });
 
         onClose();
@@ -249,12 +260,19 @@ function ApplyDiscountForm({
                 </div>
             )}
 
-            {/* Discount Type Dropdown / Grid */}
+            {isFixedExceedingSubtotal && !error && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2.5 text-amber-700 dark:text-amber-300 text-xs font-bold animate-in fade-in duration-200">
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                    <span>Fixed discount amount (₱{Number(fixedAmount || 0).toFixed(2)}) cannot exceed the eligible subtotal (₱{Number(eligibleSubtotal).toFixed(2)}).</span>
+                </div>
+            )}
+
+            {/* Discount Type 3-Card Grid */}
             <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
                     Discount Type
                 </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {DISCOUNT_PRESETS.map((preset) => {
                         const isSelected = selectedType === preset.type;
                         return (
@@ -263,68 +281,115 @@ function ApplyDiscountForm({
                                 type="button"
                                 onClick={() => handleTypeChange(preset.type)}
                                 className={cn(
-                                    'p-3 rounded-2xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer text-xs font-bold',
+                                    'p-3.5 rounded-2xl border text-left flex flex-col justify-between gap-2 transition-all cursor-pointer text-xs font-bold',
                                     isSelected
-                                        ? 'bg-[#E75480]/10 dark:bg-[#FF4F81]/15 border-[#E75480] dark:border-[#FF4F81] text-[#E75480] dark:text-[#FF4F81] shadow-xs'
+                                        ? 'bg-[#E75480]/10 dark:bg-[#FF4F81]/15 border-[#E75480] dark:border-[#FF4F81] text-[#E75480] dark:text-[#FF4F81] shadow-xs ring-1 ring-[#E75480]/30'
                                         : 'bg-[#FFF5F7]/50 dark:bg-[#181820] border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:border-[#E75480]/40'
                                 )}
                             >
-                                <div className="flex items-center gap-2 truncate">
-                                    {preset.requiresId ? (
-                                        <UserCheck className="size-4 shrink-0" />
-                                    ) : preset.isFixed ? (
-                                        <DollarSign className="size-4 shrink-0" />
-                                    ) : (
-                                        <Percent className="size-4 shrink-0" />
-                                    )}
-                                    <span className="truncate">{preset.label}</span>
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-1.5">
+                                        {preset.type === 'twenty_percent' ? (
+                                            <UserCheck className="size-4 shrink-0 text-[#E75480] dark:text-[#FF4F81]" />
+                                        ) : preset.type === 'five_percent' ? (
+                                            <Percent className="size-4 shrink-0 text-emerald-500" />
+                                        ) : (
+                                            <Tag className="size-4 shrink-0 text-amber-500" />
+                                        )}
+                                        <span className="font-extrabold">{preset.label}</span>
+                                    </div>
+                                    {isSelected && <Check className="size-4 shrink-0 text-[#E75480] dark:text-[#FF4F81]" />}
                                 </div>
-                                {isSelected && <Check className="size-4 shrink-0 text-[#E75480] dark:text-[#FF4F81]" />}
+                                <span className="text-[10px] font-medium text-[#7D6B6E] dark:text-[#94A3B8] leading-tight">
+                                    {preset.sublabel}
+                                </span>
                             </button>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Rate / Amount Configuration (if customizable) */}
-            {activePreset.type === 'custom_percentage' && (
-                <div className="space-y-1.5">
-                    <Label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-[#94A3B8]">
-                        Discount Percentage (%)
-                    </Label>
-                    <div className="relative">
-                        <Input
-                            type="number"
-                            min="1"
-                            max="100"
-                            step="1"
-                            value={ratePercent}
-                            onChange={(e) => setRatePercent(Number(e.target.value))}
-                            className="pr-8 rounded-xl font-mono font-bold"
-                            placeholder="20"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7D6B6E]">%</span>
+            {/* Custom Discount Configuration Options */}
+            {selectedType === 'custom' && (
+                <div className="p-4 rounded-2xl bg-[#FFF5F7]/80 dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                            Custom Mode
+                        </Label>
+                        <div className="flex items-center gap-1 bg-white dark:bg-[#121218] p-1 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setCustomMode('percentage')}
+                                className={cn(
+                                    'px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer',
+                                    customMode === 'percentage'
+                                        ? 'bg-[#E75480] text-white shadow-xs'
+                                        : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E]'
+                                )}
+                            >
+                                <Percent className="size-3" /> Percentage (%)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCustomMode('fixed')}
+                                className={cn(
+                                    'px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer',
+                                    customMode === 'fixed'
+                                        ? 'bg-[#E75480] text-white shadow-xs'
+                                        : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E]'
+                                )}
+                            >
+                                <DollarSign className="size-3" /> Fixed Amount (₱)
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
 
-            {activePreset.type === 'custom_fixed' && (
-                <div className="space-y-1.5">
-                    <Label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-[#94A3B8]">
-                        Fixed Discount Amount (₱)
-                    </Label>
-                    <div className="relative">
-                        <Input
-                            type="number"
-                            min="1"
-                            step="any"
-                            value={fixedAmount || ''}
-                            onChange={(e) => setFixedAmount(Number(e.target.value))}
-                            className="pl-8 rounded-xl font-mono font-bold"
-                            placeholder="50.00"
-                        />
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7D6B6E]">₱</span>
-                    </div>
+                    {customMode === 'percentage' ? (
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-[#94A3B8]">
+                                Discount Percentage (%)
+                            </Label>
+                            <div className="relative">
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    step="1"
+                                    value={ratePercent || ''}
+                                    onChange={(e) => setRatePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                    className="pr-8 rounded-xl font-mono font-bold"
+                                    placeholder="10"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7D6B6E]">%</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <Label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    Fixed Amount (₱)
+                                </Label>
+                                <span className="text-[11px] text-[#7D6B6E] dark:text-[#94A3B8] font-mono">
+                                    Max: {formatCurrency(eligibleSubtotal)}
+                                </span>
+                            </div>
+                            <div className="relative">
+                                <Input
+                                    type="number"
+                                    min="0.01"
+                                    step="any"
+                                    value={fixedAmount || ''}
+                                    onChange={(e) => setFixedAmount(Number(e.target.value))}
+                                    className={cn(
+                                        "pl-8 rounded-xl font-mono font-bold",
+                                        isFixedExceedingSubtotal && "border-rose-500 focus-visible:ring-rose-500"
+                                    )}
+                                    placeholder="30.00"
+                                />
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7D6B6E]">₱</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -524,7 +589,8 @@ function ApplyDiscountForm({
                     )}
                     <Button
                         type="submit"
-                        className="h-11 px-6 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all cursor-pointer gap-2"
+                        disabled={isFixedExceedingSubtotal}
+                        className="h-11 px-6 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all cursor-pointer gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Check className="size-4" />
                         <span>APPLY DISCOUNT</span>
@@ -557,7 +623,7 @@ export function ApplyDiscountModal({
                                 Apply Discount
                             </DialogTitle>
                             <DialogDescription className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
-                                Select statutory, employee, or custom discount and enter customer ID details
+                                Select statutory 20%, 5% promo, or custom discount and enter customer details
                             </DialogDescription>
                         </div>
                     </div>

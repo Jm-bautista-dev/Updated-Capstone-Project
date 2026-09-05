@@ -5,7 +5,7 @@
     <title>{{ $payload['reportName'] ?? 'Report' }}</title>
     <style>
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'DejaVu Sans', sans-serif;
             color: #1e293b;
             font-size: 10px;
             line-height: 1.4;

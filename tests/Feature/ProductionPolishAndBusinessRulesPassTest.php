@@ -244,7 +244,7 @@ class ProductionPolishAndBusinessRulesPassTest extends TestCase
         ]);
 
         $response->assertStatus(201);
-        $this->assertEquals('Thank you for your rating! We appreciate your feedback.', $response->json('data.admin_response'));
+        $this->assertEquals('Thank you for your feedback!', $response->json('data.admin_response'));
 
         // Case 2: Rating WITH written comment -> customer comment preserved untouched
         $order2 = Order::create([

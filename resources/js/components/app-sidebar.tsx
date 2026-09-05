@@ -56,6 +56,11 @@ const mainNavItems: NavItem[] = [
         icon: Archive,
     },
     {
+        title: 'Add-ons & Modifiers',
+        href: '/admin/addons',
+        icon: Zap,
+    },
+    {
         title: 'Sales',
         href: '/sales',
         icon: ShoppingCart,
@@ -137,13 +142,13 @@ export function AppSidebar() {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions', 'Branches', 'Sales Data Management'];
+        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions', 'Branches', 'Sales Data Management', 'Add-ons & Modifiers'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user.role]);
 
     const sidebarSections = [
         { label: 'Core', titles: ['Dashboard', 'Pos'] },
-        { label: 'Operations', titles: ['Products', 'Categories', 'Inventory', 'Reviews & Ratings'] },
+        { label: 'Operations', titles: ['Products', 'Categories', 'Add-ons & Modifiers', 'Inventory', 'Reviews & Ratings'] },
         { label: 'Sales', titles: ['Sales', 'Reports'] },
         { label: 'Analytics', titles: ['Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'] },
         { label: 'Logistics', titles: ['Delivery', 'Pickup Orders', 'Riders'] },

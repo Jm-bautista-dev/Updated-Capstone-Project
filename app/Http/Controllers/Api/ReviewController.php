@@ -177,11 +177,12 @@ class ReviewController extends Controller
                 'status'     => ProductReview::STATUS_PUBLISHED,
             ];
 
-            // Auto-reply rule:
+            // Auto-reply rule (Item #3):
             // Only trigger when rating exists AND comment is empty/null.
             // If customer provided a written comment, preserve it without auto-reply overwrite.
             if (!$hasComment && (!$existingReview || empty($existingReview->admin_response))) {
-                $updateData['admin_response'] = 'Thank you for your rating! We appreciate your feedback.';
+                $updateData['admin_response'] = 'Thank you for your feedback!';
+                $updateData['admin_response_by'] = null;
                 $updateData['admin_responded_at'] = now();
             }
 

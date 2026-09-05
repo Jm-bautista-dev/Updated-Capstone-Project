@@ -443,6 +443,7 @@ interface AdminReportsProps {
     branches?: BranchItem[];
     trend_data?: Array<{ date: string; revenue: number; profit: number }>;
     category_data?: Array<{ name: string; value: number }>;
+    top_addons?: Array<{ name: string; total_qty: number; total_revenue: number }>;
     total_revenue: number;
     total_expenses: number;
     total_profit: number;
@@ -466,6 +467,7 @@ function AdminReports({
     branches = [], 
     trend_data, 
     category_data, 
+    top_addons = [],
     total_revenue, 
     total_expenses, 
     total_profit, 
@@ -590,11 +592,21 @@ function AdminReports({
         }
 
         try {
+            const selectedBranchObj = branches?.find(b => String(b.id) === String(selectedBranch));
+            const branchDisplayName = selectedBranch === 'all' ? 'All Branches' : (selectedBranchObj?.name || 'Selected Branch');
+
             const res = await axios.post('/reports/export/prepare', {
                 reportName: activeTab === 'sales' ? 'Sales Performance Report' : 'Cash Drawer Shifts Log',
-                branch: 'All Branches',
+                branch: branchDisplayName,
                 dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : 'All Time',
                 generatedBy: 'System Administrator',
+                scope: options.scope,
+                activeTab,
+                filters: {
+                    branch_id: selectedBranch,
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                },
                 kpis,
                 columns,
                 rows,
@@ -856,6 +868,53 @@ function AdminReports({
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── TOP ADD-ONS & MODIFIERS CARD ── */}
+                    {top_addons && top_addons.length > 0 && (
+                        <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 p-6 sm:p-7 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center shadow-2xs">
+                                        <Zap className="size-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            Top Add-on Modifiers & Customizations
+                                        </h3>
+                                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                            Highest performing modifier choices, add-on volume, and generated gross revenue
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                                {top_addons.map((addon, index) => (
+                                    <div
+                                        key={index}
+                                        className="p-4 rounded-2xl bg-[#FFF5F7]/40 dark:bg-[#181824]/60 border border-[#F8C8DC]/50 dark:border-white/5 flex flex-col justify-between"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                                                {addon.name}
+                                            </span>
+                                            <Badge className="bg-[#E75480]/10 text-[#E75480] dark:text-[#FF4F81] border-none text-[10px] font-bold">
+                                                #{index + 1}
+                                            </Badge>
+                                        </div>
+                                        <div className="mt-3 flex items-center justify-between text-xs">
+                                            <span className="text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                                                {addon.total_qty} ordered
+                                            </span>
+                                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                                {formatCurrency(addon.total_revenue)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

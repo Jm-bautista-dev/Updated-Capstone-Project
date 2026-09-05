@@ -300,5 +300,174 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Step 1: Send 6-digit verification code to user's email for account deletion.
+     * POST /api/v1/user/delete-otp
+     */
+    public function requestDeleteOtp(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json(['status' => 'error', 'success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            // Rule 1: Check active orders first before even sending OTP
+            $activeOrdersExist = \App\Models\Order::where('user_id', $user->id)
+                ->whereIn('status', [
+                    'pending', 
+                    'confirmed',
+                    'accepted', 
+                    'preparing', 
+                    'ready_for_pickup', 
+                    'out_for_delivery', 
+                    'in_transit',
+                    'picked_up',
+                    'customer_arrived',
+                    'cancellation_requested'
+                ])
+                ->exists();
+
+            if ($activeOrdersExist) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => 'You cannot delete your account while you have active orders. Please wait until your orders are completed or cancelled.'
+                ], 422);
+            }
+
+            // Generate a 6-digit OTP
+            $otp = sprintf("%06d", mt_rand(100000, 999999));
+
+            // Store OTP in cache for 10 minutes
+            $cacheKey = 'account_deletion_otp_' . $user->id;
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $otp, now()->addMinutes(10));
+
+            // Send Email
+            try {
+                if ($user->email) {
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(
+                        new \App\Mail\DeleteAccountOtpMail($otp, $user->name ?? 'Valued Customer')
+                    );
+                }
+            } catch (\Throwable $mailError) {
+                Log::warning('DeleteAccountOtpMail could not be delivered: ' . $mailError->getMessage());
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'success' => true,
+                'message' => 'A 6-digit verification code has been sent to your email.'
+            ], 200);
+        } catch (\Throwable $e) {
+            Log::error('UserController::requestDeleteOtp failed', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => 'error',
+                'success' => false,
+                'message' => 'Failed to send verification code. Please try again.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Step 2: Confirm OTP and Permanently Delete Account.
+     * DELETE /api/v1/user
+     */
+    public function destroy(Request $request)
+    {
+        try {
+            $request->validate([
+                'otp' => 'required|string|size:6',
+            ], [
+                'otp.required' => 'The verification code is required.',
+                'otp.size'     => 'The verification code must be exactly 6 digits.',
+            ]);
+
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json(['status' => 'error', 'success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            // Rule 1: Check Active Orders
+            $activeOrdersExist = \App\Models\Order::where('user_id', $user->id)
+                ->whereIn('status', [
+                    'pending', 
+                    'confirmed',
+                    'accepted', 
+                    'preparing', 
+                    'ready_for_pickup', 
+                    'out_for_delivery', 
+                    'in_transit',
+                    'picked_up',
+                    'customer_arrived',
+                    'cancellation_requested'
+                ])
+                ->exists();
+
+            if ($activeOrdersExist) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => 'You cannot delete your account while you have active orders. Please wait until your orders are completed or cancelled.'
+                ], 422);
+            }
+
+            // Rule 2: Verify Email OTP Code
+            $cacheKey = 'account_deletion_otp_' . $user->id;
+            $storedOtp = \Illuminate\Support\Facades\Cache::get($cacheKey);
+
+            if (!$storedOtp || (string) $storedOtp !== (string) $request->otp) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => 'Invalid or expired verification code. Please request a new code.'
+                ], 422);
+            }
+
+            // Clear OTP from Cache
+            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+
+            // Revoke all API Tokens
+            if (method_exists($user, 'tokens')) {
+                $user->tokens()->delete();
+            }
+
+            // If user is linked to a rider profile, clean up rider or mark offline
+            if ($user instanceof \App\Models\Rider) {
+                $user->update(['status' => 'offline', 'is_active' => false]);
+                $user->delete();
+            } else {
+                $linkedRider = \App\Models\Rider::where('user_id', $user->id)->first();
+                if ($linkedRider) {
+                    $linkedRider->update(['status' => 'offline', 'is_active' => false]);
+                    $linkedRider->delete();
+                }
+                $user->delete();
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'success' => true,
+                'message' => 'Your account has been permanently deleted.'
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'success' => false,
+                'message' => 'Validation error',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('UserController::destroy failed', ['error' => $e->getMessage()]);
+            return response()->json([
+                'status'  => 'error',
+                'success' => false,
+                'message' => 'Failed to delete account: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
 

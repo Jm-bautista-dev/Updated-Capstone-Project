@@ -160,11 +160,18 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
+            $rider = null;
             if ($user instanceof Rider) {
-                $activeDeliveries = method_exists($user, 'activeDeliveriesCount') ? $user->activeDeliveriesCount() : 0;
+                $rider = $user;
+            } elseif ($user) {
+                $rider = Rider::where('user_id', $user->id)->orWhere('email', $user->email)->first();
+            }
+
+            if ($rider) {
+                $activeDeliveries = method_exists($rider, 'activeDeliveriesCount') ? $rider->activeDeliveriesCount() : 0;
 
                 // Set operational presence to offline, but account_status remains ACTIVE
-                $user->update([
+                $rider->update([
                     'status'         => 'offline',
                     'is_active'      => false,
                     'last_active_at' => now(),
@@ -172,18 +179,18 @@ class AuthController extends Controller
 
                 if ($activeDeliveries > 0) {
                     Log::warning('[RIDER LOGOUT DURING ACTIVE DELIVERY]', [
-                        'rider_id'          => $user->id,
-                        'rider_name'        => $user->name,
+                        'rider_id'          => $rider->id,
+                        'rider_name'        => $rider->name,
                         'active_deliveries' => $activeDeliveries,
                     ]);
                     SecurityAuditLogger::logSecurityEvent(
                         event: 'RIDER_LOGOUT_ACTIVE_DELIVERY_WARNING',
-                        target: "rider:{$user->id}",
+                        target: "rider:{$rider->id}",
                         details: [
-                            'rider_id'          => $user->id,
-                            'rider_name'        => $user->name,
+                            'rider_id'          => $rider->id,
+                            'rider_name'        => $rider->name,
                             'active_deliveries' => $activeDeliveries,
-                            'account_status'    => $user->account_status ?? 'active',
+                            'account_status'    => $rider->account_status ?? 'active',
                             'note'              => 'Rider logged out while carrying active delivery. Account status remains active; delivery assignment preserved.',
                         ],
                         level: 'warning'
@@ -191,11 +198,11 @@ class AuthController extends Controller
                 } else {
                     SecurityAuditLogger::logSecurityEvent(
                         event: 'RIDER_LOGOUT',
-                        target: "rider:{$user->id}",
+                        target: "rider:{$rider->id}",
                         details: [
-                            'rider_id'       => $user->id,
-                            'rider_name'     => $user->name,
-                            'account_status' => $user->account_status ?? 'active',
+                            'rider_id'       => $rider->id,
+                            'rider_name'     => $rider->name,
+                            'account_status' => $rider->account_status ?? 'active',
                             'result'         => 'NO_ACCOUNT_RESTRICTION',
                         ],
                         level: 'info'

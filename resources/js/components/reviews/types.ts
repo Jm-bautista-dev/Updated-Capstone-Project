@@ -26,6 +26,7 @@ export interface ReviewItem {
     seen_at: string | null;
     is_verified_purchase: boolean;
     admin_response: string | null;
+    is_auto_reply?: boolean;
     admin_responded_at: string | null;
     created_at: string | null;
     user: { id: number; name: string; email: string } | null;

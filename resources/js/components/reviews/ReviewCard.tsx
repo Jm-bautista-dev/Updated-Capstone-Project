@@ -126,13 +126,22 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                     )}
                 </div>
 
-                {/* ── OFFICIAL ADMIN RESPONSE ── */}
+                {/* ── OFFICIAL ADMIN RESPONSE / AUTO-REPLY ── */}
                 {review.admin_response && (
                     <div className="bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-xs space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400">
-                            <span className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1.5 flex-wrap">
                                 <CheckCircle2 className="size-3 text-emerald-500" />
-                                Official Response by {review.responder?.name || 'Review Manager'}
+                                {review.is_auto_reply ? (
+                                    <>
+                                        <span>Automated System Response</span>
+                                        <span className="bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border border-emerald-500/30">
+                                            Auto-reply
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span>Official Response by {review.responder?.name || 'Review Manager'}</span>
+                                )}
                             </span>
                             {formattedResponseDate && (
                                 <span className="font-mono text-emerald-600/80 dark:text-emerald-400/80">

@@ -19,9 +19,6 @@ interface CategoryTableProps {
     categories: Category[];
     isAdmin: boolean;
     density: 'compact' | 'comfortable';
-    selectedIds: number[];
-    onToggleSelectAll: (checked: boolean) => void;
-    onToggleSelectRow: (id: number) => void;
     onSelectCategory: (category: Category) => void;
     onOpenEdit: (category: Category) => void;
     onOpenDelete: (category: Category) => void;
@@ -31,31 +28,16 @@ export function CategoryTable({
     categories,
     isAdmin,
     density,
-    selectedIds,
-    onToggleSelectAll,
-    onToggleSelectRow,
     onSelectCategory,
     onOpenEdit,
     onOpenDelete,
 }: CategoryTableProps) {
-    const isAllSelected = categories.length > 0 && categories.every((c) => selectedIds.includes(c.id));
-
     return (
         <div className="rounded-[2.5rem] bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.08)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 overflow-hidden flex flex-col min-h-0">
             <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left border-collapse text-xs">
                     <thead className="sticky top-0 z-10 bg-[#FFFDFE]/90 dark:bg-[#14141E]/90 border-b border-[#F8C8DC]/40 dark:border-white/10 backdrop-blur-md">
                         <tr className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
-                            <th className="py-4 px-6 w-10">
-                                {isAdmin && (
-                                    <input
-                                        type="checkbox"
-                                        checked={isAllSelected}
-                                        onChange={(e) => onToggleSelectAll(e.target.checked)}
-                                        className="size-4 rounded border-[#F8C8DC] dark:border-white/10 text-[#E75480] dark:text-[#E1062C] focus:ring-[#E75480]/20 cursor-pointer"
-                                    />
-                                )}
-                            </th>
                             <th className="py-4 px-6">Category Details</th>
                             <th className="py-4 px-6 text-center">Assigned Products</th>
                             <th className="py-4 px-6 hidden sm:table-cell">Created Date</th>
@@ -71,7 +53,7 @@ export function CategoryTable({
                                     exit={{ opacity: 0 }}
                                     className="h-48 text-center"
                                 >
-                                    <td colSpan={5} className="p-8 text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <td colSpan={4} className="p-8 text-[#7D6B6E] dark:text-[#94A3B8]">
                                         <div className="flex flex-col items-center justify-center gap-2">
                                             <PackageSearch className="size-8 text-[#E75480]/50 dark:text-[#FF4F81]/50 mb-1" />
                                             <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">No Categories Found</span>
@@ -90,18 +72,6 @@ export function CategoryTable({
                                         className="hover:bg-[#FADADD]/15 dark:hover:bg-white/5 transition-colors group cursor-pointer"
                                         onClick={() => onSelectCategory(category)}
                                     >
-                                        {/* Checkbox */}
-                                        <td className="p-4 px-6 align-middle" onClick={(e) => e.stopPropagation()}>
-                                            {isAdmin && (
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.includes(category.id)}
-                                                    onChange={() => onToggleSelectRow(category.id)}
-                                                    className="size-4 rounded border-[#F8C8DC] dark:border-white/10 text-[#E75480] dark:text-[#E1062C] focus:ring-[#E75480]/20 cursor-pointer"
-                                                />
-                                            )}
-                                        </td>
-
                                         {/* Category details with image thumbnail */}
                                         <td className={cn('px-6 align-middle', density === 'compact' ? 'py-2.5' : 'py-4')}>
                                             <div className="flex items-center gap-3.5">

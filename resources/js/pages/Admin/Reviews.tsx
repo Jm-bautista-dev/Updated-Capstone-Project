@@ -635,7 +635,7 @@ export default function Reviews({
                 {/* ── TWO-COLUMN MASTER-DETAIL LAYOUT ───────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     {/* ── LEFT COLUMN: PRODUCT LIST (5 COLS) ─────────────────── */}
-                    <div className="lg:col-span-5 space-y-3.5">
+                    <div className="lg:col-span-5 space-y-3.5 min-w-0">
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between px-1">
                                 <div>
@@ -716,7 +716,7 @@ export default function Reviews({
                     </div>
 
                     {/* ── RIGHT COLUMN: REVIEW MANAGEMENT (7 COLS) ──────────── */}
-                    <div ref={reviewsListRef} className="lg:col-span-7 space-y-4">
+                    <div ref={reviewsListRef} className="lg:col-span-7 space-y-4 min-w-0">
                         {/* Selected Product Summary Banner */}
                         {selectedProduct ? (
                             <Card className="rounded-2xl border border-slate-200/80 dark:border-white/8 shadow-sm bg-white dark:bg-[#12131A] p-5 space-y-4">

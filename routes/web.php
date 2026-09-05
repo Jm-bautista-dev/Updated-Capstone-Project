@@ -137,6 +137,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('admin/sales-data/import', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'import'])->name('admin.sales-data.import');
             Route::post('admin/sales-data/restore/{backup}', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'restore'])->name('admin.sales-data.restore');
             Route::delete('admin/sales-data/backup/{backup}', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'destroyBackup'])->name('admin.sales-data.backup.destroy');
+
+            // Add-ons & Modifiers Management (Admin only)
+            Route::get('admin/addons', [App\Http\Controllers\Admin\AddonController::class, 'index'])->name('admin.addons.index');
+            Route::post('admin/addons', [App\Http\Controllers\Admin\AddonController::class, 'store'])->name('admin.addons.store');
+            Route::put('admin/addons/{addon}', [App\Http\Controllers\Admin\AddonController::class, 'update'])->name('admin.addons.update');
+            Route::delete('admin/addons/{addon}', [App\Http\Controllers\Admin\AddonController::class, 'destroy'])->name('admin.addons.destroy');
+
+            Route::post('admin/addon-groups', [App\Http\Controllers\Admin\AddonController::class, 'storeGroup'])->name('admin.addon-groups.store');
+            Route::put('admin/addon-groups/{group}', [App\Http\Controllers\Admin\AddonController::class, 'updateGroup'])->name('admin.addon-groups.update');
+            Route::delete('admin/addon-groups/{group}', [App\Http\Controllers\Admin\AddonController::class, 'destroyGroup'])->name('admin.addon-groups.destroy');
         }); // end role:admin
 
         // POS Routes (Cashier ONLY)

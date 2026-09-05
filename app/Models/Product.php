@@ -97,6 +97,42 @@ class Product extends Model
     }
 
     /**
+     * Direct addon groups belonging to this product.
+     */
+    public function direct_addon_groups()
+    {
+        return $this->hasMany(AddonGroup::class, 'product_id');
+    }
+
+    /**
+     * Many-to-many linked addon groups.
+     */
+    public function addon_groups()
+    {
+        return $this->belongsToMany(AddonGroup::class, 'product_addon_groups')
+                    ->withPivot('sort_order')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Fetch all effective modifier groups (direct + linked) with their active add-ons.
+     */
+    public function getActiveAddonGroups()
+    {
+        $direct = $this->direct_addon_groups()
+            ->where('is_active', true)
+            ->with(['addOns' => fn($q) => $q->where('is_active', true)])
+            ->get();
+
+        $linked = $this->addon_groups()
+            ->where('addon_groups.is_active', true)
+            ->with(['addOns' => fn($q) => $q->where('is_active', true)])
+            ->get();
+
+        return $direct->merge($linked)->unique('id')->values();
+    }
+
+    /**
      * Reviews for this product.
      */
     public function reviews()

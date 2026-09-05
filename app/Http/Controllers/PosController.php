@@ -53,11 +53,46 @@ class PosController extends Controller
             $product->image_url = \App\Utils\ImageHelper::resolveUrl($product->image_path, 'products');
             $product->cost_price = null;
             $product->makeHidden(['cost_price']);
-            $product->available_addons = $product->available_addons->map(fn($ad) => [
-                'id'    => $ad->id,
-                'name'  => $ad->name,
-                'price' => (float) $ad->price,
-            ])->values();
+
+            $activeGroups = $product->getActiveAddonGroups();
+            $product->addon_groups = $activeGroups->map(function ($group) {
+                return [
+                    'id'             => $group->id,
+                    'name'           => $group->name,
+                    'selection_type' => $group->selection_type,
+                    'is_required'    => (bool) $group->is_required,
+                    'min_selections' => (int) $group->min_selections,
+                    'max_selections' => $group->max_selections !== null ? (int) $group->max_selections : null,
+                    'addons'         => $group->addOns->map(function ($ad) {
+                        return [
+                            'id'           => $ad->id,
+                            'name'         => $ad->name,
+                            'price'        => $ad->pivot?->price_override !== null ? (float) $ad->pivot->price_override : (float) $ad->price,
+                            'stock_linked' => (bool) $ad->stock_linked,
+                        ];
+                    })->values(),
+                ];
+            })->values();
+
+            // Also provide flat list of available add-ons
+            $flatAddons = collect();
+            foreach ($activeGroups as $group) {
+                foreach ($group->addOns as $ad) {
+                    $flatAddons->push([
+                        'id'    => $ad->id,
+                        'name'  => $ad->name,
+                        'price' => $ad->pivot?->price_override !== null ? (float) $ad->pivot->price_override : (float) $ad->price,
+                    ]);
+                }
+            }
+            if ($flatAddons->isEmpty()) {
+                $flatAddons = \App\Models\AddOn::where('is_active', true)->get()->map(fn($ad) => [
+                    'id'    => $ad->id,
+                    'name'  => $ad->name,
+                    'price' => (float) $ad->price,
+                ]);
+            }
+            $product->available_addons = $flatAddons->unique('id')->values();
             return $product;
         });
 
@@ -166,6 +201,16 @@ class PosController extends Controller
             'delivery_info.external_notes' => 'nullable|string|max:1000',
             'delivery_info.proof_of_delivery' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:4096',
         ]);
+
+        if (in_array($request->input('discount_type'), ['twenty_percent', 'senior_citizen', 'pwd', 'solo_parent', 'national_athlete'], true)) {
+            $request->validate([
+                'discount_details.customer_name' => 'required|string|min:2',
+                'discount_details.id_number'     => 'required|string|min:2',
+            ], [
+                'discount_details.customer_name.required' => 'Customer Name is required for 20% statutory discount.',
+                'discount_details.id_number.required'     => 'Customer / Statutory ID Number is required for 20% statutory discount.',
+            ]);
+        }
 
         if ($request->hasFile('delivery_info.proof_of_delivery')) {
             $validated['delivery_info']['proof_of_delivery'] = $request->file('delivery_info.proof_of_delivery');

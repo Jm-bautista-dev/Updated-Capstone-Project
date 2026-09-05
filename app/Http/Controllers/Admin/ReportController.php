@@ -103,8 +103,10 @@ class ReportController extends Controller
         $token = 'export_' . bin2hex(random_bytes(16));
         $payload = $request->all();
 
+        $scope = $payload['scope'] ?? ($payload['options']['scope'] ?? 'view');
+
         // If the user requests to export all records, dynamically query them on the server
-        if (isset($payload['scope']) && $payload['scope'] === 'all') {
+        if ($scope === 'all') {
             $payload['rows'] = $this->compileAllRows($payload, Auth::user());
         }
         
@@ -116,9 +118,9 @@ class ReportController extends Controller
 
     private function compileAllRows(array $payload, $user)
     {
-        $filters   = $payload['filters'] ?? [];
-        $activeTab = $payload['activeTab'] ?? 'sales';
-        $branchId  = isset($filters['branch_id']) && $filters['branch_id'] !== 'all'
+        $filters   = $payload['filters'] ?? ($payload['options']['filters'] ?? []);
+        $activeTab = $payload['activeTab'] ?? ($payload['options']['activeTab'] ?? 'sales');
+        $branchId  = isset($filters['branch_id']) && $filters['branch_id'] !== 'all' && $filters['branch_id'] !== ''
             ? (int) $filters['branch_id']
             : null;
 
@@ -135,7 +137,7 @@ class ReportController extends Controller
 
             return $sales->map(function ($sale) use ($user) {
                 $saleCogs = 0.0;
-                if ($sale->items->isNotEmpty()) {
+                if ($sale->items && $sale->items->isNotEmpty()) {
                     foreach ($sale->items as $item) {
                         $itemCost = (float) $item->cost_price;
                         if ($itemCost <= 0 && $item->product) {
@@ -150,7 +152,7 @@ class ReportController extends Controller
                 $deliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
                 if ($sale->subtotal !== null) {
                     $productSubtotal = (float) $sale->subtotal;
-                } elseif ($sale->items->isNotEmpty()) {
+                } elseif ($sale->items && $sale->items->isNotEmpty()) {
                     $productSubtotal = (float) $sale->items->sum('subtotal');
                 } else {
                     $productSubtotal = max(0.0, (float) $sale->total - $deliveryFee);
@@ -160,10 +162,10 @@ class ReportController extends Controller
 
                 $row = [
                     'order_number'     => $sale->order_number,
-                    'date'             => $sale->created_at->format('M d, Y H:i'),
+                    'date'             => $sale->created_at ? $sale->created_at->format('M d, Y H:i') : 'N/A',
                     'cashier'          => $sale->cashier?->name ?? 'N/A',
                     'branch'           => $sale->branch?->name ?? 'N/A',
-                    'status'           => ucfirst($sale->status),
+                    'status'           => ucfirst($sale->status ?? ''),
                     'product_subtotal' => '₱' . number_format($productSubtotal, 2),
                     'delivery_fee'     => '₱' . number_format($deliveryFee, 2),
                     'total'            => '₱' . number_format((float) $sale->total, 2),
@@ -192,14 +194,14 @@ class ReportController extends Controller
             return $shifts->map(function ($shift) {
                 return [
                     'cashier' => $shift->cashier?->name ?? 'N/A',
-                    'opened_at' => $shift->opened_at->format('M d, Y H:i'),
+                    'opened_at' => $shift->opened_at ? $shift->opened_at->format('M d, Y H:i') : 'N/A',
                     'closed_at' => $shift->closed_at ? $shift->closed_at->format('M d, Y H:i') : 'Active',
                     'starting_cash' => '₱' . number_format((float) $shift->starting_cash, 2),
                     'cash_sales' => '₱' . number_format((float) ($shift->total_cash_sales ?? 0), 2),
                     'expected_balance' => '₱' . number_format((float) ($shift->expected_balance ?? 0), 2),
                     'actual_cash' => $shift->actual_cash !== null ? '₱' . number_format((float) $shift->actual_cash, 2) : 'N/A',
                     'difference' => $shift->difference !== null ? '₱' . number_format((float) $shift->difference, 2) : 'N/A',
-                    'status' => ucfirst($shift->status),
+                    'status' => ucfirst($shift->status ?? ''),
                 ];
             })->toArray();
         }
@@ -221,7 +223,7 @@ class ReportController extends Controller
             $pdf->setOptions([
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled'      => true,
-                'defaultFont'          => 'sans-serif',
+                'defaultFont'          => 'DejaVu Sans',
                 'tempDir'              => sys_get_temp_dir(),
                 'chroot'               => base_path(),
             ]);
@@ -249,7 +251,7 @@ class ReportController extends Controller
                     $pdf->setOptions([
                         'isHtml5ParserEnabled' => true,
                         'isRemoteEnabled'      => false,
-                        'defaultFont'          => 'sans-serif',
+                        'defaultFont'          => 'DejaVu Sans',
                     ]);
                     if (isset($payload['orientation']) && $payload['orientation'] === 'landscape') {
                         $pdf->setPaper($payload['paperSize'] ?? 'A4', 'landscape');
@@ -314,6 +316,7 @@ class ReportController extends Controller
         $cancelledCount = $this->cancelledCount($dateFrom, $dateTo, $fallback, $branchId);
         $popMetrics = $metricsService->getPeriodOverPeriodMetrics($dateFrom, $dateTo, $branchId, Auth::user());
         $dodMetrics = $metricsService->getDayOverDayMetrics($branchId, Auth::user());
+        $topAddons  = $this->buildTopAddonsData($branchId, $dateFrom, $dateTo, $fallback);
 
         $isAdmin = Auth::user()?->isAdmin() ?? false;
 
@@ -321,6 +324,7 @@ class ReportController extends Controller
             'trend_data'          => $trendData->values(),
             'category_data'       => $categoryData->values(),
             'top_product'         => $topProduct,
+            'top_addons'          => $topAddons->values(),
             'peak_day'            => $peakDay ? ['date' => $peakDay['date'], 'revenue' => $peakDay['Revenue']] : null,
             'total_revenue'       => $metrics['revenue'],
             'cogs'                => $isAdmin ? $metrics['cogs'] : 0,
@@ -442,5 +446,47 @@ class ReportController extends Controller
             ->when($dateTo,    fn($q) => $q->whereDate('created_at', '<=', $dateTo))
             ->when(!$dateFrom, fn($q) => $q->where('created_at',     '>=', $fallback))
             ->count();
+    }
+
+    /**
+     * Build top selling add-ons / modifiers breakdown.
+     */
+    private function buildTopAddonsData(?int $branchId, ?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback): Collection
+    {
+        $sales = Sale::with('items')
+            ->where('status', 'completed')
+            ->when($branchId,  fn($q) => $q->where('branch_id', $branchId))
+            ->when($dateFrom,  fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo,    fn($q) => $q->whereDate('created_at', '<=', $dateTo))
+            ->when(!$dateFrom, fn($q) => $q->where('created_at',     '>=', $fallback))
+            ->get();
+
+        $addonsAgg = [];
+        foreach ($sales as $sale) {
+            foreach ($sale->items as $item) {
+                if (!empty($item->selected_addons)) {
+                    $rawAddons = is_string($item->selected_addons) ? json_decode($item->selected_addons, true) : $item->selected_addons;
+                    if (is_array($rawAddons)) {
+                        foreach ($rawAddons as $ad) {
+                            $name = $ad['name'] ?? 'Add-on';
+                            $qty = (float)($ad['quantity'] ?? 1) * (float)$item->quantity;
+                            $price = (float)($ad['price'] ?? 0);
+                            $rev = $price * $qty;
+
+                            if (!isset($addonsAgg[$name])) {
+                                $addonsAgg[$name] = ['name' => $name, 'units' => 0, 'revenue' => 0.0];
+                            }
+                            $addonsAgg[$name]['units'] += $qty;
+                            $addonsAgg[$name]['revenue'] += $rev;
+                        }
+                    }
+                }
+            }
+        }
+
+        return collect($addonsAgg)
+            ->sortByDesc('revenue')
+            ->take(8)
+            ->values();
     }
 }

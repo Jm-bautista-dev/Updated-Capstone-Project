@@ -3,7 +3,7 @@
 <head>
     <title>Sales Report</title>
     <style>
-        body { font-family: sans-serif; font-size: 12px; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 12px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }

@@ -315,9 +315,6 @@ export default function CategoriesIndex() {
                                     categories={paginatedData}
                                     isAdmin={isAdmin}
                                     density={density}
-                                    selectedIds={selectedIds}
-                                    onToggleSelectAll={toggleSelectAll}
-                                    onToggleSelectRow={toggleSelectRow}
                                     onSelectCategory={openDrawer}
                                     onOpenEdit={openEditModal}
                                     onOpenDelete={openDeleteModal}

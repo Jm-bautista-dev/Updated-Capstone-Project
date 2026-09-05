@@ -24,6 +24,7 @@ class PosDiscountCalculationTest extends TestCase
     protected Branch $testBranch;
     protected User $cashier;
     protected Product $ramen;
+    protected Product $sideDish;
     protected Ingredient $noodles;
 
     protected function setUp(): void
@@ -77,6 +78,19 @@ class PosDiscountCalculationTest extends TestCase
             'status'        => 'available',
         ]);
 
+        // Low value product: ₱30 base sale (Item #1)
+        $this->sideDish = Product::create([
+            'name'          => 'Extra Tamago Egg',
+            'sku'           => 'EGG-030',
+            'category_id'   => $category->id,
+            'selling_price' => 30.00,
+            'cost_price'    => 10.00,
+            'branch_id'     => $this->testBranch->id,
+            'unit'          => 'piece',
+            'stock'         => 100,
+            'status'        => 'available',
+        ]);
+
         MenuItemIngredient::create([
             'menu_item_id'      => $this->ramen->id,
             'ingredient_id'     => $this->noodles->id,
@@ -94,10 +108,10 @@ class PosDiscountCalculationTest extends TestCase
     }
 
     /**
-     * TEST 1: Senior Citizen 20% discount on POS Sale
+     * TEST 1: Generic 20% statutory discount on POS Sale
      * Subtotal: ₱200, Discount: ₱40 (20%), Total Paid: ₱160, COGS: ₱80, Gross Profit: ₱80
      */
-    public function test_senior_citizen_discount_calculation_and_persistence(): void
+    public function test_twenty_percent_discount_calculation_and_persistence(): void
     {
         Event::fake([SaleCreated::class]);
 
@@ -113,9 +127,9 @@ class PosDiscountCalculationTest extends TestCase
                 ],
             ],
             'discount'         => 40.00,
-            'discount_type'    => 'senior_citizen',
+            'discount_type'    => 'twenty_percent',
             'discount_details' => [
-                'type_name'     => 'Senior Citizen (20%)',
+                'type_name'     => '20% Discount',
                 'percentage'    => 20,
                 'customer_name' => 'Lola Maria Santos',
                 'id_number'     => 'OSCA-2024-8891',
@@ -129,7 +143,7 @@ class PosDiscountCalculationTest extends TestCase
 
         $this->assertEquals(200.00, (float) $sale->subtotal, 'Subtotal is gross ₱200.00');
         $this->assertEquals(40.00, (float) $sale->discount, 'Discount is ₱40.00');
-        $this->assertEquals('senior_citizen', $sale->discount_type);
+        $this->assertEquals('twenty_percent', $sale->discount_type);
         $this->assertEquals(160.00, (float) $sale->total, 'Total customer payable is ₱160.00');
         $this->assertEquals(80.00, (float) $sale->cost_total, 'COGS is ₱80.00');
         $this->assertEquals(80.00, (float) $sale->profit, 'Gross Profit is ₱80.00 (₱160 net sales - ₱80 COGS)');
@@ -149,10 +163,10 @@ class PosDiscountCalculationTest extends TestCase
     }
 
     /**
-     * TEST 2: Discount on POS Walk-in Delivery preserves delivery fee separation
-     * Subtotal: ₱400 (2 ramen), Discount: ₱80 (20%), Net Product Sales: ₱320, Delivery Fee: ₱50, Total Paid: ₱370
+     * TEST 2: Small-value sale (₱30 base) with custom fixed discount exceeding subtotal (Item #1)
+     * Subtotal: ₱30, Fixed Discount Input: ₱50. Clamped to ₱30. Net total: ₱0.00, never negative.
      */
-    public function test_discount_on_pos_delivery_order(): void
+    public function test_small_value_sale_fixed_discount_clamped_and_never_negative(): void
     {
         Event::fake([SaleCreated::class]);
 
@@ -160,46 +174,104 @@ class PosDiscountCalculationTest extends TestCase
 
         $saleService = app(SaleService::class);
         $sale = $saleService->processSale([
-            'type'             => 'delivery',
+            'type'             => 'dine-in',
             'items'            => [
                 [
-                    'id'       => $this->ramen->id,
-                    'quantity' => 2,
+                    'id'       => $this->sideDish->id,
+                    'quantity' => 1,
                 ],
             ],
-            'discount'         => 80.00,
-            'discount_type'    => 'pwd',
+            'discount'         => 50.00, // Exceeds ₱30 subtotal
+            'discount_type'    => 'custom',
             'discount_details' => [
-                'type_name'     => 'Person with Disability / PWD (20%)',
-                'percentage'    => 20,
-                'customer_name' => 'Pedro Penduko',
-                'id_number'     => 'PWD-9912-B',
+                'type_name'    => 'Custom Fixed Amount',
+                'mode'         => 'fixed',
+                'fixed_amount' => 50.00,
             ],
-            'delivery_info'    => [
-                'customer_name'    => 'Pedro Penduko',
-                'customer_phone'   => '09171234567',
-                'customer_address' => 'Victoria Laguna',
-                'delivery_fee'     => 50.00,
-                'delivery_type'    => 'internal',
-            ],
-            'paid_amount'      => 400.00,
-            'change_amount'    => 30.00,
+            'paid_amount'      => 0.00,
+            'change_amount'    => 0.00,
             'payment_method'   => 'cash',
             'status'           => 'completed',
         ]);
 
-        $this->assertEquals(400.00, (float) $sale->subtotal, 'Subtotal is ₱400.00');
-        $this->assertEquals(80.00, (float) $sale->discount, 'Discount is ₱80.00');
-        $this->assertEquals(50.00, (float) $sale->delivery_fee, 'Delivery Fee remains ₱50.00');
-        $this->assertEquals(370.00, (float) $sale->total, 'Customer Total = ₱320 net items + ₱50 delivery = ₱370.00');
-        $this->assertEquals(160.00, (float) $sale->cost_total, 'COGS for 2 bowls = ₱160.00');
-        $this->assertEquals(160.00, (float) $sale->profit, 'Profit = ₱320 net items - ₱160 COGS = ₱160.00');
+        $this->assertEquals(30.00, (float) $sale->subtotal, 'Subtotal is ₱30.00');
+        $this->assertEquals(30.00, (float) $sale->discount, 'Discount is clamped to ₱30.00 (not ₱50.00)');
+        $this->assertEquals(0.00, (float) $sale->total, 'Total customer payable is ₱0.00 (never negative)');
+        $this->assertGreaterThanOrEqual(0.0, (float) $sale->total, 'Net total is non-negative');
     }
 
     /**
-     * TEST 3: Controller endpoint /pos accepts discount and creates sale
+     * TEST 3: Small-value sale (₱30 base) with custom percentage discount (Item #1)
+     * Subtotal: ₱30, Custom Rate: 15%, Discount: ₱4.50, Net Total: ₱25.50
      */
-    public function test_pos_controller_store_with_discount(): void
+    public function test_small_value_sale_custom_percentage_discount(): void
+    {
+        Event::fake([SaleCreated::class]);
+
+        $this->actingAs($this->cashier);
+
+        $saleService = app(SaleService::class);
+        $sale = $saleService->processSale([
+            'type'             => 'take-out',
+            'items'            => [
+                [
+                    'id'       => $this->sideDish->id,
+                    'quantity' => 1,
+                ],
+            ],
+            'discount_type'    => 'custom',
+            'discount_details' => [
+                'type_name'  => 'Custom (15%)',
+                'mode'       => 'percentage',
+                'percentage' => 15,
+            ],
+            'paid_amount'      => 30.00,
+            'change_amount'    => 4.50,
+            'payment_method'   => 'cash',
+            'status'           => 'completed',
+        ]);
+
+        $this->assertEquals(30.00, (float) $sale->subtotal, 'Subtotal is ₱30.00');
+        $this->assertEquals(4.50, (float) $sale->discount, '15% of ₱30 is ₱4.50');
+        $this->assertEquals(25.50, (float) $sale->total, 'Net total is ₱25.50');
+    }
+
+    /**
+     * TEST 4: 5% promotional discount does not require customer ID
+     */
+    public function test_five_percent_discount_without_customer_id(): void
+    {
+        $response = $this->actingAs($this->cashier)->post('/pos', [
+            'type'             => 'take-out',
+            'items'            => [
+                ['id' => $this->ramen->id, 'quantity' => 1],
+            ],
+            'total'            => 190.00,
+            'discount'         => 10.00,
+            'discount_type'    => 'five_percent',
+            'discount_details' => [
+                'type_name'  => '5% Discount',
+                'percentage' => 5,
+            ],
+            'payment_method'   => 'cash',
+            'paid_amount'      => 200.00,
+            'change_amount'    => 10.00,
+        ]);
+
+        $response->assertSessionHas('success');
+
+        $sale = Sale::latest()->first();
+        $this->assertNotNull($sale);
+        $this->assertEquals(200.00, (float) $sale->subtotal);
+        $this->assertEquals(10.00, (float) $sale->discount);
+        $this->assertEquals(190.00, (float) $sale->total);
+        $this->assertEquals('five_percent', $sale->discount_type);
+    }
+
+    /**
+     * TEST 5: Controller endpoint /pos requires customer name and ID for 20% statutory discount
+     */
+    public function test_twenty_percent_discount_validation_fails_without_id(): void
     {
         $response = $this->actingAs($this->cashier)->post('/pos', [
             'type'             => 'take-out',
@@ -208,24 +280,14 @@ class PosDiscountCalculationTest extends TestCase
             ],
             'total'            => 160.00,
             'discount'         => 40.00,
-            'discount_type'    => 'solo_parent',
+            'discount_type'    => 'twenty_percent',
             'discount_details' => [
-                'type_name'     => 'Solo Parent (20%)',
-                'customer_name' => 'Ana Reyes',
-                'id_number'     => 'SP-2023-001',
+                'type_name' => '20% Discount',
             ],
             'payment_method'   => 'cash',
             'paid_amount'      => 200.00,
-            'change_amount'    => 40.00,
         ]);
 
-        $response->assertSessionHas('success');
-
-        $sale = Sale::latest()->first();
-        $this->assertNotNull($sale);
-        $this->assertEquals(200.00, (float) $sale->subtotal);
-        $this->assertEquals(40.00, (float) $sale->discount);
-        $this->assertEquals(160.00, (float) $sale->total);
-        $this->assertEquals('solo_parent', $sale->discount_type);
+        $response->assertSessionHasErrors(['discount_details.customer_name', 'discount_details.id_number']);
     }
 }

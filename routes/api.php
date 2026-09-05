@@ -64,6 +64,8 @@ Route::prefix('v1')->group(function () {
         Route::get('user', [UserController::class, 'me']);
         Route::match(['patch', 'put', 'post'], 'user', [UserController::class, 'update']);
         Route::match(['patch', 'put', 'post'], 'user/password', [UserController::class, 'updatePassword']);
+        Route::post('user/delete-otp', [UserController::class, 'requestDeleteOtp']);
+        Route::delete('user', [UserController::class, 'destroy']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);
 
@@ -316,6 +318,8 @@ Route::middleware(['auth:sanctum,web'])->
 // ── Non-v1 Order & User Aliases ──
 Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::get('user',             [UserController::class, 'me']);
+    Route::post('user/delete-otp', [UserController::class, 'requestDeleteOtp']);
+    Route::delete('user',          [UserController::class, 'destroy']);
     Route::get('orders/ready',     [RiderController::class, 'getOrders']);
     Route::get('orders/pickup',    [RiderController::class, 'getOrders']);
     Route::get('orders/pending',   [RiderController::class, 'getOrders']);
