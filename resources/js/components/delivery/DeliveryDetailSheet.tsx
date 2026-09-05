@@ -3,7 +3,7 @@ import {
     User, MapPin, Clock, Building2, Bike, Truck,
     Phone, ChevronRight, AlertCircle,
     Package, Navigation, CheckCircle2, FileText, Image,
-    Maximize2, RefreshCw, Store, ShoppingBag
+    Maximize2, RefreshCw, Store
 } from 'lucide-react';
 import React from 'react';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
