@@ -335,6 +335,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::match(['get', 'post'], '/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
 
 // ── Root-Level API Route Fallbacks (for mobile app requests with leading slash) ──
+Route::post('/api/v1/login', [App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/api/login',    [App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/v1/login',     [App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/api/v1/logout', [App\Http\Controllers\Api\AuthController::class, 'logout'])->middleware(['auth:sanctum,web']);
+Route::post('/api/logout',    [App\Http\Controllers\Api\AuthController::class, 'logout'])->middleware(['auth:sanctum,web']);
+
 Route::middleware(['auth:sanctum,web'])->group(function () {
     Route::get('/user', [App\Http\Controllers\Api\UserController::class, 'me']);
     Route::match(['patch', 'put', 'post'], '/user', [App\Http\Controllers\Api\UserController::class, 'update']);

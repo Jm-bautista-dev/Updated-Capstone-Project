@@ -24,6 +24,12 @@ Route::get('branches',        [BranchController::class, 'apiIndex']);
 Route::get('branches/stats',  [BranchController::class, 'stats']);
 Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeliveryDistanceController::class, 'calculate']);
 
+// Direct non-v1 Auth endpoints for client compatibility
+Route::post('login',          [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('register',       [AuthController::class, 'register']);
+Route::post('rider/login',    [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('logout',         [AuthController::class, 'logout'])->middleware(['auth:sanctum,web']);
+
 // External Operations API (Mobile App Entry)
 Route::prefix('v1')->group(function () {
 
