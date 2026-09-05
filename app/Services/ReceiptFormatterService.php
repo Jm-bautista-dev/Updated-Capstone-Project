@@ -109,31 +109,38 @@ class ReceiptFormatterService
         $customerAddress = $record->address ?? $record->delivery?->customer_address ?? null;
         $cashierName = $record->user?->name ?? $record->cashier?->name ?? 'Staff';
 
+        $scheduledPickupAt = $record->scheduled_pickup_at 
+            ? Carbon::parse($record->scheduled_pickup_at)->setTimezone(self::TIMEZONE)->format('M d, Y h:i A') 
+            : null;
+        $pickupVerificationCode = $record->pickup_verification_code ?? null;
+
         return [
-            'job_type'          => $jobType,
-            'is_reprint'        => ($jobType === 'reprint'),
-            'reprint_reason'    => $reprintReason,
-            'reprinted_at'      => ($jobType === 'reprint') ? now()->setTimezone(self::TIMEZONE)->format('M d, Y h:i A') : null,
-            'branch_id'         => $branch?->id,
-            'branch_name'       => $branchHeading,
-            'branch_address'    => $branch?->address,
-            'order_number'      => $orderNumber,
-            'date_time'         => $createdAt->format('M d, Y h:i A'),
-            'fulfillment_type'  => $fulfillmentType,
-            'customer_name'     => $customerName,
-            'customer_phone'    => $customerPhone,
-            'customer_address'  => $customerAddress,
-            'cashier_name'      => $cashierName,
-            'items'             => $items,
-            'subtotal'          => $subtotal,
-            'discount'          => $discount,
-            'discount_type'     => $discountType,
-            'delivery_fee'      => $deliveryFee,
-            'total'             => $total,
-            'payment_method'    => $paymentMethod,
-            'paid_amount'       => $paidAmount,
-            'change_amount'     => $changeAmount,
-            'paper_width'       => $paperWidth,
+            'job_type'                 => $jobType,
+            'is_reprint'               => ($jobType === 'reprint'),
+            'reprint_reason'           => $reprintReason,
+            'reprinted_at'             => ($jobType === 'reprint') ? now()->setTimezone(self::TIMEZONE)->format('M d, Y h:i A') : null,
+            'branch_id'                => $branch?->id,
+            'branch_name'              => $branchHeading,
+            'branch_address'           => $branch?->address,
+            'order_number'             => $orderNumber,
+            'date_time'                => $createdAt->format('M d, Y h:i A'),
+            'fulfillment_type'         => $fulfillmentType,
+            'scheduled_pickup_at'      => $scheduledPickupAt,
+            'pickup_verification_code' => $pickupVerificationCode,
+            'customer_name'            => $customerName,
+            'customer_phone'           => $customerPhone,
+            'customer_address'         => $customerAddress,
+            'cashier_name'             => $cashierName,
+            'items'                    => $items,
+            'subtotal'                 => $subtotal,
+            'discount'                 => $discount,
+            'discount_type'            => $discountType,
+            'delivery_fee'             => $deliveryFee,
+            'total'                    => $total,
+            'payment_method'           => $paymentMethod,
+            'paid_amount'              => $paidAmount,
+            'change_amount'            => $changeAmount,
+            'paper_width'              => $paperWidth,
         ];
     }
 
@@ -168,6 +175,12 @@ class ReceiptFormatterService
         // Order Metadata
         $lines[] = $this->twoColumn("Order #: {$data['order_number']}", $data['fulfillment_type'], $cols);
         $lines[] = "Date: {$data['date_time']}";
+        if (!empty($data['scheduled_pickup_at'])) {
+            $lines[] = "Pickup: {$data['scheduled_pickup_at']}";
+        }
+        if (!empty($data['pickup_verification_code'])) {
+            $lines[] = "Pickup Code: {$data['pickup_verification_code']}";
+        }
         if (!empty($data['cashier_name'])) {
             $lines[] = "Cashier: {$data['cashier_name']}";
         }

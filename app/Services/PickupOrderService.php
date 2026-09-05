@@ -81,17 +81,23 @@ class PickupOrderService
         $closingDateTime = Carbon::parse($targetDate->toDateString() . ' ' . $closingTimeStr, $tz);
         $lastSlotDateTime = $closingDateTime->copy()->subMinutes($cutoffBeforeClose);
 
-        // Fetch existing pickup order counts per scheduled_pickup_at for the date (database-agnostic)
+        $dayStartUtc = $targetDate->copy()->startOfDay()->utc();
+        $dayEndUtc   = $targetDate->copy()->endOfDay()->utc();
+
+        // Fetch existing pickup order counts per scheduled_pickup_at for the date (database-agnostic, supporting UTC and legacy local)
         $existingOrders = Order::where('branch_id', $branchId)
             ->where('fulfillment_type', Order::FULFILLMENT_PICKUP)
-            ->whereDate('scheduled_pickup_at', $targetDate->toDateString())
+            ->where(function ($q) use ($dayStartUtc, $dayEndUtc, $targetDate) {
+                $q->whereBetween('scheduled_pickup_at', [$dayStartUtc, $dayEndUtc])
+                  ->orWhereDate('scheduled_pickup_at', $targetDate->toDateString());
+            })
             ->whereNotIn('status', ['cancelled'])
             ->get(['scheduled_pickup_at']);
 
         $existingCounts = [];
         foreach ($existingOrders as $ord) {
             if ($ord->scheduled_pickup_at) {
-                $key = Carbon::parse($ord->scheduled_pickup_at, $tz)->format('Y-m-d H:i:00');
+                $key = Carbon::parse($ord->scheduled_pickup_at)->setTimezone($tz)->format('Y-m-d H:i:00');
                 $existingCounts[$key] = ($existingCounts[$key] ?? 0) + 1;
             }
         }
@@ -184,13 +190,17 @@ class PickupOrderService
                 throw new \Exception("Selected pickup time ({$scheduledPickupAt->format('g:i A')}) is outside branch pickup hours ({$openingDateTime->format('g:i A')} to {$lastSlotDateTime->format('g:i A')}).");
             }
 
-            // 3. Race condition & slot capacity protection with pessimistic lock
-            $slotKey = $scheduledPickupAt->format('Y-m-d H:i:00');
+            // 3. Race condition & slot capacity protection with pessimistic lock (checking UTC and legacy local)
+            $slotKeyLocal = $scheduledPickupAt->format('Y-m-d H:i:00');
+            $slotKeyUtc   = $scheduledPickupAt->copy()->utc()->format('Y-m-d H:i:00');
             $maxPerSlot = (int) ($branch->pickup_max_orders_per_slot ?? 10);
 
             $currentSlotOrdersCount = Order::where('branch_id', $branchId)
                 ->where('fulfillment_type', Order::FULFILLMENT_PICKUP)
-                ->where('scheduled_pickup_at', $slotKey)
+                ->where(function ($q) use ($slotKeyUtc, $slotKeyLocal) {
+                    $q->where('scheduled_pickup_at', $slotKeyUtc)
+                      ->orWhere('scheduled_pickup_at', $slotKeyLocal);
+                })
                 ->whereNotIn('status', ['cancelled'])
                 ->lockForUpdate()
                 ->count();
@@ -230,9 +240,9 @@ class PickupOrderService
                 'payment_method'              => $paymentMethod,
                 'payment_status'              => $paymentStatus,
                 'paid_at'                     => $paymentStatus === Order::PAYMENT_STATUS_PAID ? now() : null,
-                'scheduled_pickup_at'         => $scheduledPickupAt,
+                'scheduled_pickup_at'         => $scheduledPickupAt->copy()->utc(),
                 'estimated_prep_time_minutes' => $prepTimeMinutes,
-                'prep_start_at'               => $prepStartAt,
+                'prep_start_at'               => $prepStartAt->copy()->utc(),
                 'pickup_verification_code'    => $verificationCode,
                 'total_amount'                => $data['total_amount'],
                 'status'                      => 'pending',
@@ -289,6 +299,14 @@ class PickupOrderService
 
         $updatedOrder = DB::transaction(function () use ($order, $newStatus, $reason, $actor) {
             $order->transitionTo($newStatus, $reason, $actor?->id);
+
+            // If order cancelled, prevent future reminder triggers
+            if ($newStatus === 'cancelled') {
+                $order->update([
+                    'prep_notified_at'               => now(),
+                    'prep_due_notified_secondary_at' => now(),
+                ]);
+            }
 
             // If order reached terminal completed state, trigger inventory deduction & sale recording
             if ($newStatus === 'completed') {

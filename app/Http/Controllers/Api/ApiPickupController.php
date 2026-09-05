@@ -83,10 +83,20 @@ class ApiPickupController extends Controller
             ], 422);
         }
 
+        $tz = PickupOrderService::DEFAULT_TIMEZONE;
+        $pickupTimeStr = $order->scheduled_pickup_at 
+            ? \Carbon\Carbon::parse($order->scheduled_pickup_at)->setTimezone($tz)->format('g:i A')
+            : 'scheduled time';
+        $prepTimeStr = $order->prep_start_at 
+            ? \Carbon\Carbon::parse($order->prep_start_at)->setTimezone($tz)->format('g:i A')
+            : null;
+
         $statusInstructions = match ($order->status) {
-            'pending'          => 'Your pickup order has been placed and is awaiting branch confirmation.',
-            'confirmed'        => 'Your order is confirmed and scheduled for preparation.',
-            'preparing'        => 'The kitchen is currently preparing your order.',
+            'pending'          => "Your pickup order is placed for {$pickupTimeStr} and is awaiting branch confirmation.",
+            'confirmed'        => $order->isPrepWindowOpen()
+                                    ? "Your order is confirmed and queueing for preparation for your {$pickupTimeStr} pickup."
+                                    : "Scheduled for pickup at {$pickupTimeStr}. Kitchen will begin preparation around {$prepTimeStr}.",
+            'preparing'        => 'The kitchen is actively preparing your fresh order.',
             'ready_for_pickup' => 'Your order is ready! Please proceed to the counter and present your verification code.',
             'customer_arrived' => 'Staff has noted your arrival. Your order will be handed to you shortly.',
             'completed'        => 'Pickup completed. Thank you for ordering at MAKI DESU!',
@@ -103,10 +113,13 @@ class ApiPickupController extends Controller
                 'fulfillment_type'         => $order->fulfillment_type,
                 'status'                   => $order->status,
                 'status_instruction'       => $statusInstructions,
+                'is_prep_window_open'      => $order->isPrepWindowOpen(),
                 'scheduled_pickup_at'      => $order->scheduled_pickup_at?->toIso8601String(),
-                'scheduled_pickup_display' => $order->scheduled_pickup_at ? $order->scheduled_pickup_at->timezone(PickupOrderService::DEFAULT_TIMEZONE)->format('M d, Y • g:i A') : null,
+                'scheduled_pickup_display' => $order->scheduled_pickup_at ? \Carbon\Carbon::parse($order->scheduled_pickup_at)->setTimezone($tz)->format('M d, Y • g:i A') : null,
+                'scheduled_pickup_time'    => $pickupTimeStr,
                 'estimated_prep_minutes'   => $order->estimated_prep_time_minutes,
                 'prep_start_at'            => $order->prep_start_at?->toIso8601String(),
+                'prep_start_display'       => $prepTimeStr,
                 'pickup_verification_code' => $order->pickup_verification_code,
                 'payment_method'           => $order->payment_method,
                 'payment_status'           => $order->payment_status,

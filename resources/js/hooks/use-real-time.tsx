@@ -162,7 +162,10 @@ export function useRealTime(branchId?: number | null) {
                 const isPickup = e.fulfillment_type === 'pickup' || e.is_pickup;
                 globalNotificationManager.notify({
                     id: e.order_id || `order_${Date.now()}`,
+                    order_id: e.order_id,
                     type: isPickup ? 'pickup' : 'order',
+                    fulfillment_type: isPickup ? 'pickup' : 'delivery',
+                    is_pickup: isPickup,
                     title: isPickup ? 'New Pickup Order' : 'New Online Order',
                     order_number: displayOrderNum,
                     customer_name: e.customer_name || 'Mobile Customer',
@@ -173,7 +176,7 @@ export function useRealTime(branchId?: number | null) {
                         ? (isPickup
                             ? `/pickups?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`
                             : `/deliveries?order_id=${e.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`)
-                        : '/deliveries',
+                        : (isPickup ? '/pickups' : '/deliveries'),
                     link_text: 'VIEW ORDER',
                     duration_ms: 5000,
                     auto_dismiss: true,

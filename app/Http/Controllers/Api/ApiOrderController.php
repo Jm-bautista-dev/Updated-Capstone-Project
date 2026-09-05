@@ -310,6 +310,7 @@ class ApiOrderController extends Controller
                 'order_number'             => $order->order_number,
                 'fulfillment_type'         => $order->fulfillment_type,
                 'scheduled_pickup_at'      => $order->scheduled_pickup_at?->toIso8601String(),
+                'scheduled_pickup_display' => $order->scheduled_pickup_display,
                 'pickup_verification_code' => $order->pickup_verification_code,
                 'status'                   => $order->status,
                 'total_amount'             => (float) $order->total_amount,

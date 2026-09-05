@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 
 export interface Notification {
     id: string | number;
+    order_id?: number;
+    order_number?: string;
     employee_name: string;
     action: 'Added' | 'Deducted' | 'Alert' | 'Order';
     ingredient_name: string;
@@ -15,7 +17,9 @@ export interface Notification {
     created_at: string;
     time_ago: string;
     is_unread: boolean;
-    type: 'activity' | 'low_stock' | 'out_of_stock' | 'new_order';
+    type: 'activity' | 'low_stock' | 'out_of_stock' | 'new_order' | 'cancellation_request';
+    fulfillment_type?: 'pickup' | 'delivery' | string;
+    is_pickup?: boolean;
     url?: string;
 }
 
@@ -54,6 +58,27 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
         return source;
     };
 
+    const getOrderTargetUrl = (notif: Notification): string => {
+        if (notif.url) {
+            return notif.url;
+        }
+        const isPickup = notif.fulfillment_type === 'pickup' || notif.is_pickup;
+        const targetId = notif.order_id || (typeof notif.id === 'string' && notif.id.startsWith('order_') ? notif.id.replace('order_', '') : notif.id);
+        const displayOrderNum = notif.order_number || notif.ingredient_name || '';
+        const queryParams = new URLSearchParams();
+        if (targetId) queryParams.set('order_id', String(targetId));
+        if (displayOrderNum) queryParams.set('order_number', displayOrderNum);
+        const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+        if (isPickup) {
+            return `/pickups${queryString}`;
+        }
+        if (notif.fulfillment_type === 'delivery') {
+            return `/deliveries${queryString}`;
+        }
+        return `/sales${queryString}`;
+    };
+
     return (
         <div className="flex flex-col bg-popover rounded-lg shadow-lg border overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
@@ -84,104 +109,133 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                     </div>
                 ) : (
                     <div className="divide-y divide-border/50">
-                        {notifications.map((notif) => (
-                            <div 
-                                key={notif.id}
-                                className={cn(
-                                    "px-4 py-3 transition-colors hover:bg-muted/30 flex gap-3",
-                                    notif.is_unread && "bg-primary/5",
-                                    notif.type === 'new_order' && "bg-emerald-500/5 hover:bg-emerald-500/10",
-                                    notif.type === 'out_of_stock' && "bg-red-500/5 hover:bg-red-500/10",
-                                    notif.type === 'low_stock' && "bg-orange-500/5 hover:bg-orange-500/10"
-                                )}
-                            >
-                                <div className={cn(
-                                    "size-8 rounded-full flex items-center justify-center shrink-0",
-                                    notif.type === 'new_order' ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
-                                    notif.type === 'out_of_stock' ? "bg-red-500/20 text-red-600" :
-                                    notif.type === 'low_stock' ? "bg-orange-500/20 text-orange-600" :
-                                    notif.action === 'Added' ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
-                                )}>
-                                    {getIcon(notif.source, notif.type)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    {notif.type === 'new_order' ? (
-                                        <Link href={notif.url || '/deliveries'} className="block group">
+                        {notifications.map((notif) => {
+                            const isPickup = notif.fulfillment_type === 'pickup' || notif.is_pickup;
+                            return (
+                                <div 
+                                    key={notif.id}
+                                    className={cn(
+                                        "px-4 py-3 transition-colors hover:bg-muted/30 flex gap-3",
+                                        notif.is_unread && "bg-primary/5",
+                                        notif.type === 'new_order' && (isPickup ? "bg-cyan-500/5 hover:bg-cyan-500/10" : "bg-emerald-500/5 hover:bg-emerald-500/10"),
+                                        notif.type === 'cancellation_request' && "bg-rose-500/5 hover:bg-rose-500/10",
+                                        notif.type === 'out_of_stock' && "bg-red-500/5 hover:bg-red-500/10",
+                                        notif.type === 'low_stock' && "bg-orange-500/5 hover:bg-orange-500/10"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "size-8 rounded-full flex items-center justify-center shrink-0",
+                                        notif.type === 'new_order' ? (isPickup ? "bg-cyan-500/20 text-cyan-600 dark:text-cyan-400" : "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400") :
+                                        notif.type === 'cancellation_request' ? "bg-rose-500/20 text-rose-600 dark:text-rose-400" :
+                                        notif.type === 'out_of_stock' ? "bg-red-500/20 text-red-600" :
+                                        notif.type === 'low_stock' ? "bg-orange-500/20 text-orange-600" :
+                                        notif.action === 'Added' ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                                    )}>
+                                        {getIcon(notif.source, notif.type)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        {notif.type === 'new_order' ? (
+                                            <Link href={getOrderTargetUrl(notif)} className="block group">
+                                                <p className="text-xs leading-tight">
+                                                    <span className={cn(
+                                                        "font-bold group-hover:underline",
+                                                        isPickup ? "text-cyan-600 dark:text-cyan-400" : "text-emerald-600 dark:text-emerald-400"
+                                                    )}>
+                                                        {notif.ingredient_name}
+                                                        <span className="text-[10px] font-semibold ml-1.5 opacity-80">
+                                                            {isPickup ? '(Pickup)' : '(Delivery)'}
+                                                        </span>
+                                                    </span>
+                                                    <br />
+                                                    <span className="font-medium text-foreground">
+                                                        {notif.employee_name} ({notif.quantity_change})
+                                                    </span>
+                                                </p>
+                                            </Link>
+                                        ) : notif.type === 'cancellation_request' ? (
+                                            <Link href={getOrderTargetUrl(notif)} className="block group">
+                                                <p className="text-xs leading-tight">
+                                                    <span className="font-bold text-rose-600 dark:text-rose-400 group-hover:underline">
+                                                        {notif.ingredient_name}
+                                                    </span>
+                                                    <br />
+                                                    <span className="font-medium text-foreground">
+                                                        {notif.employee_name}: {notif.quantity_change}
+                                                    </span>
+                                                </p>
+                                            </Link>
+                                        ) : notif.type === 'activity' ? (
                                             <p className="text-xs leading-tight">
-                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline">
-                                                    {notif.ingredient_name}
+                                                <span className="font-bold">{notif.employee_name}</span>
+                                                {' '}
+                                                <span className={cn(
+                                                    "font-medium",
+                                                    notif.action === 'Added' ? "text-green-600" : "text-red-500"
+                                                )}>
+                                                    {notif.action.toLowerCase()}
+                                                </span>
+                                                {' '}
+                                                <span className="font-bold">{notif.quantity_change}</span>
+                                                {' '}
+                                                <span className="font-medium">{notif.ingredient_name}</span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs leading-tight">
+                                                <span className={cn(
+                                                    "font-bold",
+                                                    notif.type === 'out_of_stock' ? "text-red-600" : "text-orange-600"
+                                                )}>
+                                                    {notif.type === 'out_of_stock' ? 'Out of Stock Alert' : 'Low Stock Alert'}
                                                 </span>
                                                 <br />
-                                                <span className="font-medium text-foreground">
-                                                    {notif.employee_name} ({notif.quantity_change})
+                                                <span className="font-medium">
+                                                    {notif.ingredient_name} is {notif.type === 'out_of_stock' ? 'out of stock' : 'running low'}
                                                 </span>
+                                                {notif.type === 'low_stock' && (
+                                                    <span className="block text-muted-foreground mt-0.5">
+                                                        Remaining: {notif.remaining}
+                                                    </span>
+                                                )}
                                             </p>
-                                        </Link>
-                                    ) : notif.type === 'activity' ? (
-                                        <p className="text-xs leading-tight">
-                                            <span className="font-bold">{notif.employee_name}</span>
-                                            {' '}
-                                            <span className={cn(
-                                                "font-medium",
-                                                notif.action === 'Added' ? "text-green-600" : "text-red-500"
-                                            )}>
-                                                {notif.action.toLowerCase()}
+                                        )}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                                                {notif.type === 'new_order' ? (isPickup ? 'Pickup Order' : 'Delivery Order') : notif.type === 'activity' ? getSourceLabel(notif.source) : 'Alert'}
                                             </span>
-                                            {' '}
-                                            <span className="font-bold">{notif.quantity_change}</span>
-                                            {' '}
-                                            <span className="font-medium">{notif.ingredient_name}</span>
+                                            <span className="text-[10px] text-muted-foreground opacity-50">•</span>
+                                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                                                {notif.branch_name}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground/60 mt-0.5 font-medium">
+                                            {notif.time_ago}
                                         </p>
-                                    ) : (
-                                        <p className="text-xs leading-tight">
-                                            <span className={cn(
-                                                "font-bold",
-                                                notif.type === 'out_of_stock' ? "text-red-600" : "text-orange-600"
-                                            )}>
-                                                {notif.type === 'out_of_stock' ? 'Out of Stock Alert' : 'Low Stock Alert'}
-                                            </span>
-                                            <br />
-                                            <span className="font-medium">
-                                                {notif.ingredient_name} is {notif.type === 'out_of_stock' ? 'out of stock' : 'running low'}
-                                            </span>
-                                            {notif.type === 'low_stock' && (
-                                                <span className="block text-muted-foreground mt-0.5">
-                                                    Remaining: {notif.remaining}
-                                                </span>
-                                            )}
-                                        </p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                                            {notif.type === 'new_order' ? 'Mobile Order' : notif.type === 'activity' ? getSourceLabel(notif.source) : 'Alert'}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground opacity-50">•</span>
-                                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                                            {notif.branch_name}
-                                        </span>
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground/60 mt-0.5 font-medium">
-                                        {notif.time_ago}
-                                    </p>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
 
-            <div className="grid grid-cols-2 divide-x border-t bg-muted/20 text-center">
+            <div className="grid grid-cols-3 divide-x border-t bg-muted/20 text-center">
                 <Link 
                     href="/deliveries" 
                     className="py-2 text-[10px] font-bold hover:bg-muted/40 transition-colors uppercase tracking-widest text-primary"
                 >
-                    Delivery Nav
+                    Deliveries
+                </Link>
+                <Link 
+                    href="/pickups" 
+                    className="py-2 text-[10px] font-bold hover:bg-muted/40 transition-colors uppercase tracking-widest text-cyan-600 dark:text-cyan-400"
+                >
+                    Pickups
                 </Link>
                 <Link 
                     href="/inventory/activity" 
                     className="py-2 text-[10px] font-bold hover:bg-muted/40 transition-colors uppercase tracking-widest text-muted-foreground"
                 >
-                    All Activity
+                    Activity
                 </Link>
             </div>
         </div>

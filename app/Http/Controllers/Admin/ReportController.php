@@ -28,7 +28,7 @@ class ReportController extends Controller
             ? ($request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int) $request->input('branch_id') : null)
             : (int) $user->branch_id;
 
-        $sales = Sale::with(['cashier', 'items.product', 'branch'])
+        $sales = Sale::with(['cashier', 'items.product', 'branch', 'order.user', 'delivery'])
             ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
             ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
             ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
@@ -125,7 +125,7 @@ class ReportController extends Controller
             : null;
 
         if ($activeTab === 'sales') {
-            $sales = Sale::with(['cashier', 'items.product', 'branch', 'delivery'])
+            $sales = Sale::with(['cashier', 'items.product', 'branch', 'order.user', 'delivery'])
                 ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
                 ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
                 ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
@@ -158,18 +158,23 @@ class ReportController extends Controller
                     $productSubtotal = max(0.0, (float) $sale->total - $deliveryFee);
                 }
 
-                $saleProfit = $productSubtotal - $saleCogs;
+                $discount = (float) ($sale->discount ?? 0.0);
+                $netProductSales = max(0.0, $productSubtotal - $discount);
+                $saleProfit = $netProductSales - $saleCogs;
 
                 $row = [
-                    'order_number'     => $sale->order_number,
                     'date'             => $sale->created_at ? $sale->created_at->format('M d, Y H:i') : 'N/A',
-                    'cashier'          => $sale->cashier?->name ?? 'N/A',
+                    'order_number'     => $sale->order_number,
                     'branch'           => $sale->branch?->name ?? 'N/A',
-                    'status'           => ucfirst($sale->status ?? ''),
-                    'product_subtotal' => '₱' . number_format($productSubtotal, 2),
+                    'cashier'          => $sale->cashier_name,
+                    'customer'         => $sale->customer_name,
+                    'payment_method'   => ucfirst($sale->payment_method ?? 'Cash'),
+                    'order_type'       => ucwords(str_replace(['-', '_'], ' ', $sale->type ?? 'In-Store')),
+                    'subtotal'         => '₱' . number_format($productSubtotal, 2),
+                    'discount'         => '₱' . number_format($discount, 2),
                     'delivery_fee'     => '₱' . number_format($deliveryFee, 2),
                     'total'            => '₱' . number_format((float) $sale->total, 2),
-                    'profit'           => $user->isAdmin() ? ('₱' . number_format($saleProfit, 2)) : 'N/A',
+                    'status'           => ucfirst($sale->status ?? ''),
                 ];
 
                 if ($user->isAdmin()) {
@@ -300,7 +305,7 @@ class ReportController extends Controller
         $fallback  = now()->subDays(14)->startOfDay();
 
         $metricsService = new \App\Services\FinancialMetricsService();
-        $startDate = $dateFrom ?: $fallback;
+        $startDate = $dateFrom ?: null;
         $endDate   = $dateTo ? Carbon::parse($dateTo)->endOfDay() : null;
 
         $metrics = $metricsService->getSummaryMetrics($startDate, $endDate, $branchId);

@@ -55,6 +55,28 @@ class Delivery extends Model
         'cancelled_at' => 'datetime',
     ];
 
+    protected $appends = [
+        'proof_of_delivery_url',
+        'scheduled_pickup_at',
+        'scheduled_pickup_display',
+        'pickup_verification_code',
+    ];
+
+    public function getScheduledPickupAtAttribute(): ?string
+    {
+        return $this->order?->scheduled_pickup_at?->toIso8601String();
+    }
+
+    public function getScheduledPickupDisplayAttribute(): ?string
+    {
+        return $this->order?->scheduled_pickup_display;
+    }
+
+    public function getPickupVerificationCodeAttribute(): ?string
+    {
+        return $this->order?->pickup_verification_code;
+    }
+
     protected $attributes = [
         'delivery_type' => 'internal',
     ];
@@ -251,9 +273,6 @@ class Delivery extends Model
         };
     }
 
-    protected $appends = [
-        'proof_of_delivery_url',
-    ];
 
     public function getProofOfDeliveryUrlAttribute(): ?string
     {

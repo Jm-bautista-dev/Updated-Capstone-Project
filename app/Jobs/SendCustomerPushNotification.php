@@ -155,18 +155,34 @@ class SendCustomerPushNotification implements ShouldQueue
         int    $orderId,
         string $status,
         string $orderNumber = '',
-        array  $extra       = []
+        array  $extra       = [],
+        string $fulfillmentType = 'delivery'
     ): void {
-        $messages = [
-            'pending'            => ['🕐 Order Received',          'Your order has been received and is being prepared.'],
-            'confirmed'          => ['✅ Order Confirmed',          'Your order has been confirmed by the branch.'],
-            'ready_for_pickup'   => ['🛵 Rider on the Way',        'A rider has been assigned and is heading to you.'],
-            'picked_up'          => ['📦 Order Picked Up',         'Your order has been picked up by the rider.'],
-            'in_transit'         => ['🚀 Out for Delivery',        'Your order is on the way!'],
-            'delivered'          => ['🎉 Order Delivered',         'Your order has been delivered. Enjoy!'],
-            'cancelled'          => ['❌ Order Cancelled',         'Your order has been cancelled.'],
+        $messagesDelivery = [
+            'pending'                => ['🕐 Order Received',          'Your delivery order has been received and is being prepared.'],
+            'confirmed'              => ['✅ Order Confirmed',          'Your order has been confirmed by the branch.'],
+            'preparing'              => ['🍳 Preparing Order',         'Our kitchen is preparing your order.'],
+            'ready_for_pickup'       => ['🛵 Rider on the Way',        'A rider has been assigned and is heading to pick up your order.'],
+            'assigned_to_rider'      => ['🛵 Rider Assigned',          'A rider has been assigned and is heading to the store.'],
+            'picked_up'              => ['📦 Order Picked Up',         'Your order has been picked up by the rider.'],
+            'in_transit'             => ['🚀 Out for Delivery',        'Your order is on the way!'],
+            'delivered'              => ['🎉 Order Delivered',         'Your order has been delivered. Enjoy!'],
+            'cancelled'              => ['❌ Order Cancelled',         'Your order has been cancelled.'],
             'cancellation_requested' => ['⚠️ Cancellation Requested', 'The rider has requested a cancellation for your order.'],
         ];
+
+        $messagesPickup = [
+            'pending'                => ['🕐 Pickup Order Received',   'Your pickup order has been received and is queued for preparation.'],
+            'confirmed'              => ['✅ Order Confirmed',          'Your pickup order has been confirmed by the branch.'],
+            'preparing'              => ['🍳 Preparing Order',         'Our kitchen is preparing your pickup order.'],
+            'ready_for_pickup'       => ['🛍️ Ready for Pickup',        'Your order is freshly prepared and ready for pickup at the store!'],
+            'customer_arrived'       => ['👋 We See You!',             'Staff has been notified that you arrived at the store.'],
+            'completed'              => ['🎉 Order Completed',         'Thank you for picking up your order. Enjoy!'],
+            'cancelled'              => ['❌ Order Cancelled',         'Your pickup order has been cancelled.'],
+            'no_show'                => ['⚠️ Order Marked No-Show',    'Your pickup order was marked as no-show.'],
+        ];
+
+        $messages = ($fulfillmentType === 'pickup') ? $messagesPickup : $messagesDelivery;
 
         [$title, $body] = $messages[$status] ?? ['📦 Order Update', 'Your order status has been updated.'];
 
@@ -177,7 +193,12 @@ class SendCustomerPushNotification implements ShouldQueue
             type:     'order_status',
             title:    $title,
             body:     $body,
-            data:     array_merge(['order_id' => $orderId, 'status' => $status], $extra),
+            data:     array_merge([
+                'order_id'         => $orderId,
+                'status'           => $status,
+                'fulfillment_type' => $fulfillmentType,
+                'is_pickup'        => ($fulfillmentType === 'pickup'),
+            ], $extra),
             orderId:  $orderId,
             eventId:  "order_{$orderId}_{$status}",
         );

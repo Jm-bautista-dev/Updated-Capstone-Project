@@ -272,9 +272,11 @@ class SalesController extends Controller
                 'Date & Time',
                 'Branch',
                 'Cashier',
+                'Customer',
                 'Order Type',
                 'Payment Method',
                 'Product Subtotal (PHP)',
+                'Discount (PHP)',
                 'Delivery Fee (PHP)',
                 'Total Amount Paid (PHP)',
                 'Status',
@@ -304,15 +306,19 @@ class SalesController extends Controller
                         $productSubtotal = max(0.0, (float) $sale->total - $deliveryFee);
                     }
 
+                    $discount = (float) ($sale->discount ?? 0.0);
+
                     fputcsv($handle, [
                         $sale->order_number,
                         $sale->id,
                         $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : '',
                         $sale->branch?->name ?? 'Main Branch',
-                        $sale->cashier?->name ?? 'Staff',
-                        $sale->type ?? 'In-Store',
-                        $sale->payment_method ?? 'Cash',
+                        $sale->cashier_name,
+                        $sale->customer_name,
+                        ucwords(str_replace(['-', '_'], ' ', $sale->type ?? 'In-Store')),
+                        ucfirst($sale->payment_method ?? 'Cash'),
                         number_format($productSubtotal, 2, '.', ''),
+                        number_format($discount, 2, '.', ''),
                         number_format($deliveryFee, 2, '.', ''),
                         number_format((float) $sale->total, 2, '.', ''),
                         ucfirst($sale->status ?? ''),
@@ -401,7 +407,7 @@ class SalesController extends Controller
         $search   = $request->input('search', '');
         $branchId = $request->input('branch_id');
 
-        $query = Sale::with(['items.product', 'cashier', 'branch'])
+        $query = Sale::with(['items.product', 'cashier', 'branch', 'order.user', 'delivery'])
             ->whereBetween('created_at', [$dateRange['from'], $dateRange['to']])
             ->when($status && $status !== 'all', function ($q) use ($status) {
                 return $q->where('status', $status);

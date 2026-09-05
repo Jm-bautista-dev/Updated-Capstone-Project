@@ -226,7 +226,7 @@ class OrderFulfillmentService
     /**
      * Record pickup order as an authoritative Sale record.
      */
-    private function recordPickupAsSale(Order $order, ?User $actor = null): void
+    public function recordPickupAsSale(Order $order, ?User $actor = null): ?Sale
     {
         // Guard against duplicate sale
         $existingSale = Sale::where('order_id', $order->id)->first();
@@ -235,7 +235,7 @@ class OrderFulfillmentService
                 'order_id' => $order->id,
                 'sale_id'  => $existingSale->id,
             ]);
-            return;
+            return $existingSale;
         }
 
         $orderNum = $order->order_number ?: ('ORD-' . $order->id);
@@ -243,29 +243,36 @@ class OrderFulfillmentService
         // Load relationships needed for cost calculation
         $order->loadMissing(['items.product.ingredients.stocks', 'branch']);
 
-        $costTotal = 0;
+        $costTotal = 0.0;
         $itemsData = [];
-        $saleDate  = $order->pickup_completed_at ?? now();
+        $saleDate  = $order->pickup_completed_at ?? $order->updated_at ?? now();
 
         foreach ($order->items as $item) {
-            $product  = $item->product;
-            $itemCost = $product ? (float) ($product->computeProductCost($order->branch_id) ?? 0) : 0;
-            $costTotal += $itemCost * (float) $item->quantity;
+            $product   = $item->product;
+            $itemCost  = $product ? (float) ($product->computeProductCost($order->branch_id) ?? 0) : 0;
+            $qty       = (float) ($item->quantity ?? 1);
+            $unitPrice = (float) ($item->unit_price ?: ($item->price ?? 0));
+            $subtotal  = (float) ($item->line_total ?: ($unitPrice * $qty));
+            $itemProfit = max(0.0, ($unitPrice - $itemCost) * $qty);
+
+            $costTotal += ($itemCost * $qty);
 
             $itemsData[] = [
-                'product_id' => $item->product_id,
-                'quantity'   => $item->quantity,
-                'unit_price' => $item->price,
-                'cost_price' => $itemCost,
-                'subtotal'   => (float) $item->price * (float) $item->quantity,
-                'profit'     => ((float) $item->price - $itemCost) * (float) $item->quantity,
-                'created_at' => $saleDate,
-                'updated_at' => now(),
+                'product_id'      => $item->product_id,
+                'quantity'        => $qty,
+                'unit_price'      => $unitPrice,
+                'cost_price'      => $itemCost,
+                'subtotal'        => $subtotal,
+                'addon_total'     => (float) ($item->addon_total ?? 0),
+                'selected_addons' => $item->selected_addons,
+                'profit'          => $itemProfit,
+                'created_at'      => $saleDate,
+                'updated_at'      => now(),
             ];
         }
 
         $productSubtotal = array_sum(array_column($itemsData, 'subtotal'));
-        $profit          = $productSubtotal - $costTotal;
+        $profit          = max(0.0, $productSubtotal - $costTotal);
 
         // Create Sale record
         $sale = Sale::create([
@@ -276,10 +283,10 @@ class OrderFulfillmentService
             'type'           => 'pickup',
             'subtotal'       => $productSubtotal,
             'delivery_fee'   => 0.00,
-            'total'          => $order->total_amount,
+            'total'          => $order->total_amount ?: $productSubtotal,
             'cost_total'     => $costTotal,
             'profit'         => $profit,
-            'paid_amount'    => $order->total_amount,
+            'paid_amount'    => $order->total_amount ?: $productSubtotal,
             'change_amount'  => 0,
             'payment_method' => $order->payment_method ?? 'cash',
             'status'         => 'completed',
@@ -304,7 +311,31 @@ class OrderFulfillmentService
             'sale_id'      => $sale->id,
             'order_number' => $orderNum,
             'branch_id'    => $order->branch_id,
-            'total'        => $order->total_amount,
+            'total'        => $sale->total,
+            'cost_total'   => $costTotal,
+            'profit'       => $profit,
         ]);
+
+        return $sale;
+    }
+
+    /**
+     * Self-healing: sync any existing completed pickup orders that lack a Sale record.
+     */
+    public function syncMissingCompletedPickupSales(): int
+    {
+        $orphanCompletedPickups = Order::where('fulfillment_type', Order::FULFILLMENT_PICKUP)
+            ->where('status', 'completed')
+            ->whereDoesntHave('sale')
+            ->with(['items.product.ingredients.stocks', 'branch'])
+            ->get();
+
+        $syncedCount = 0;
+        foreach ($orphanCompletedPickups as $order) {
+            $this->recordPickupAsSale($order);
+            $syncedCount++;
+        }
+
+        return $syncedCount;
     }
 }

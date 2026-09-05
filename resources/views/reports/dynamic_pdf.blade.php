@@ -85,6 +85,7 @@
             border-collapse: collapse;
             margin-top: 15px;
             page-break-inside: auto;
+            table-layout: auto;
         }
         table.data-table tr {
             page-break-inside: avoid;
@@ -95,15 +96,18 @@
             color: #475569;
             font-weight: bold;
             text-transform: uppercase;
-            font-size: 8px;
-            padding: 8px 10px;
+            font-size: 7px;
+            padding: 6px 4px;
             border: 1px solid #e2e8f0;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.02em;
+            word-wrap: break-word;
         }
         table.data-table td {
-            padding: 8px 10px;
+            padding: 5px 4px;
             border: 1px solid #e2e8f0;
             color: #334155;
+            font-size: 7.5px;
+            word-wrap: break-word;
         }
         table.data-table tr:nth-child(even) {
             background-color: #f8fafc;

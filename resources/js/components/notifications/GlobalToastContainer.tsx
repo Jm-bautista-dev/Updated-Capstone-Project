@@ -34,11 +34,17 @@ export const GlobalToastContainer: React.FC = () => {
             return;
         }
 
-        const isPickup = item.type === 'pickup';
-        const displayOrderNum = item.order_number || (item.id ? `ORD-${item.id}` : 'ORD');
+        const isPickup = item.type === 'pickup' || item.fulfillment_type === 'pickup' || item.is_pickup;
+        const targetId = item.order_id || item.id;
+        const displayOrderNum = item.order_number || (targetId ? `ORD-${targetId}` : 'ORD');
+        const queryParams = new URLSearchParams();
+        if (targetId) queryParams.set('order_id', String(targetId));
+        if (displayOrderNum) queryParams.set('order_number', displayOrderNum);
+        const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
         const targetUrl = isPickup
-            ? `/pickups?order_id=${item.id}&order_number=${encodeURIComponent(displayOrderNum)}`
-            : `/deliveries?order_id=${item.id}&order_number=${encodeURIComponent(displayOrderNum)}`;
+            ? `/pickups${queryStr}`
+            : `/deliveries${queryStr}`;
         router.visit(targetUrl);
     };
 
@@ -85,6 +91,7 @@ export const GlobalToastContainer: React.FC = () => {
             <AnimatePresence mode="popLayout">
                 {visible.map((item) => {
                     const isPickup = item.type === 'pickup';
+                    const isPrepDue = item.type === 'pickup_prep_due';
                     const isCancellation = item.type === 'cancellation';
                     const displayOrderNum = item.order_number || (item.id ? `ORD-${item.id}` : 'ORD-NEW');
                     const formattedTotal = typeof item.total_amount === 'number'
@@ -95,12 +102,16 @@ export const GlobalToastContainer: React.FC = () => {
 
                     const badgeColor = isCancellation
                         ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900/60'
+                        : isPrepDue
+                        ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900/60 animate-pulse'
                         : isPickup
                         ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 border-cyan-200 dark:border-cyan-900/60'
                         : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-900/60';
 
                     const borderColor = isCancellation
                         ? 'border-rose-500/40 dark:border-rose-400/50'
+                        : isPrepDue
+                        ? 'border-amber-500/60 dark:border-amber-400/60'
                         : isPickup
                         ? 'border-cyan-500/40 dark:border-cyan-400/50'
                         : 'border-emerald-500/40 dark:border-emerald-400/50';
@@ -118,13 +129,13 @@ export const GlobalToastContainer: React.FC = () => {
                             className={`pointer-events-auto bg-white/95 dark:bg-[#121218]/95 backdrop-blur-2xl border-2 ${borderColor} rounded-3xl p-3.5 sm:p-4 shadow-[0_15px_35px_-10px_rgba(0,0,0,0.2)] text-gray-900 dark:text-white relative overflow-hidden ring-2 ring-black/5 dark:ring-white/5`}
                         >
                             {/* Ambient Glow */}
-                            <div className="absolute -top-10 -right-10 size-28 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 blur-2xl pointer-events-none" />
+                            <div className={`absolute -top-10 -right-10 size-28 rounded-full ${isPrepDue ? 'bg-amber-500/20' : 'bg-emerald-500/10'} blur-2xl pointer-events-none`} />
 
                             {/* Header Row */}
                             <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeColor} shrink-0`}>
-                                        {isCancellation ? '🚨 CANCELLATION' : isPickup ? '🛍️ NEW PICKUP' : '🛎️ NEW ONLINE ORDER'}
+                                        {isCancellation ? '🚨 CANCELLATION' : isPrepDue ? '🍳 PREPARE NOW' : isPickup ? '🛍️ NEW PICKUP' : '🛎️ NEW ONLINE ORDER'}
                                     </span>
                                     <span className="text-xs sm:text-sm font-black font-mono text-gray-900 dark:text-white truncate">
                                         {displayOrderNum}

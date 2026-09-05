@@ -155,6 +155,7 @@ class AccountGovernanceService
         }
 
         DB::transaction(function () use ($user, $reason, $order) {
+            /** @var User|null $freshUser */
             $freshUser = User::where('id', $user->id)->lockForUpdate()->first();
             if (!$freshUser) return;
 
@@ -208,6 +209,7 @@ class AccountGovernanceService
         }
 
         DB::transaction(function () use ($rider, $reason, $delivery) {
+            /** @var Rider|null $freshRider */
             $freshRider = Rider::where('id', $rider->id)->lockForUpdate()->first();
             if (!$freshRider) return;
 

@@ -15,7 +15,10 @@ import { playOrderNotificationSound } from './order-audio';
 
 export interface GlobalNotificationItem {
     id: string | number; // Unique identifier (e.g., order_id, "order_101", "cancel_req_42")
-    type: 'order' | 'pickup' | 'cancellation' | 'info' | 'warning';
+    type: 'order' | 'pickup' | 'pickup_prep_due' | 'cancellation' | 'info' | 'warning';
+    fulfillment_type?: 'pickup' | 'delivery' | string;
+    is_pickup?: boolean;
+    order_id?: number | string;
     title: string;
     order_number?: string;
     customer_name?: string;

@@ -224,6 +224,14 @@ class DeliveryController extends Controller
             $delQuery->where('delivery_type', $filterType);
         }
 
+        if ($request->filled('order_id')) {
+            $delQuery->where(function ($q) use ($request) {
+                $q->where('order_id', $request->order_id)
+                  ->orWhere('id', $request->order_id)
+                  ->orWhere('sale_id', $request->order_id);
+            });
+        }
+
         if ($search) {
             $delQuery->where(function ($q) use ($search) {
                 $q->where('customer_name', 'like', "%{$search}%")

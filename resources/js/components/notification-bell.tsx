@@ -31,6 +31,8 @@ export interface NotificationItem {
     branch_name?: string;
     is_unread?: boolean;
     type?: string;
+    fulfillment_type?: 'pickup' | 'delivery' | string;
+    is_pickup?: boolean;
     remaining?: string;
     source?: string;
     created_at?: string;
@@ -50,24 +52,30 @@ const triggerToastAlert = (notif: NotificationItem) => {
         if (first !== undefined) alertedNotificationIds.delete(first);
     }
 
+    const isPickup = notif.fulfillment_type === 'pickup' || notif.is_pickup || notif.type === 'new_pickup';
     const displayOrderNum = notif.order_number || notif.ingredient_name || (notif.order_id ? `ORD-${notif.order_id}` : 'ORD-NEW');
     const custName = notif.employee_name || 'Mobile Customer';
     const amountStr = notif.quantity_change || '';
     const branchStr = notif.branch_name || 'Branch';
 
+    const targetUrl = notif.url || (notif.order_id
+        ? (isPickup
+            ? `/pickups?order_id=${notif.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`
+            : `/deliveries?order_id=${notif.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`)
+        : (isPickup ? '/pickups' : '/deliveries'));
+
     globalNotificationManager.notify({
         id: notif.order_id || notif.id,
-        type: notif.type === 'new_pickup' ? 'pickup' : 'order',
-        title: notif.type === 'new_pickup' ? 'New Pickup Order' : 'New Online Order',
+        order_id: notif.order_id,
+        type: isPickup ? 'pickup' : 'order',
+        fulfillment_type: isPickup ? 'pickup' : 'delivery',
+        is_pickup: isPickup,
+        title: isPickup ? 'New Pickup Order' : 'New Online Order',
         order_number: displayOrderNum,
         customer_name: custName,
         branch_name: branchStr,
         total_amount: amountStr,
-        link_url: notif.order_id
-            ? (notif.type === 'new_pickup'
-                ? `/pickups?order_id=${notif.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`
-                : `/deliveries?order_id=${notif.order_id}&order_number=${encodeURIComponent(displayOrderNum)}`)
-            : '/deliveries',
+        link_url: targetUrl,
         link_text: 'VIEW ORDER',
         duration_ms: 5000,
         auto_dismiss: true,

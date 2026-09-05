@@ -115,8 +115,8 @@ class PickupManualOrderModalTest extends TestCase
         $this->assertEquals('FB: Maria Santos / Thread #102', $order->source_reference);
         $this->assertEquals(350.00, (float) $order->total_amount);
         $this->assertNotNull($order->prep_start_at);
-        // 5:00 PM minus 20 mins lead time = 4:40 PM
-        $this->assertEquals($scheduledDateTime->copy()->subMinutes(20)->format('Y-m-d H:i:s'), $order->prep_start_at->format('Y-m-d H:i:s'));
+        // 5:00 PM minus 20 mins lead time = 4:40 PM Asia/Manila
+        $this->assertEquals($scheduledDateTime->copy()->subMinutes(20)->format('Y-m-d H:i:s'), $order->prep_start_at->timezone('Asia/Manila')->format('Y-m-d H:i:s'));
         $this->assertNotNull($order->pickup_verification_code);
     }
 

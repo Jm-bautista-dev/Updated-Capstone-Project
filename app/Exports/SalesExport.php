@@ -23,7 +23,7 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping
             ? (int) $this->filters['branch_id']
             : null;
 
-        return Sale::with(['cashier', 'branch'])
+        return Sale::with(['cashier', 'branch', 'order.user', 'delivery', 'items.product'])
             ->when(!$user->isAdmin(), function ($q) use ($user) {
                 return $q->where('branch_id', $user->branch_id);
             })
@@ -41,62 +41,88 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping
         $user = auth()->user();
         if ($user && $user->isAdmin()) {
             return [
+                'Date',
                 'Order Number',
+                'Branch',
                 'Cashier',
-                'Type',
+                'Customer',
+                'Payment Method',
+                'Order Type',
                 'Subtotal',
                 'Discount',
+                'Delivery Fee',
                 'Total',
                 'Cost Total',
                 'Profit',
-                'Payment Method',
                 'Status',
-                'Date',
             ];
         }
 
         return [
+            'Date',
             'Order Number',
+            'Branch',
             'Cashier',
-            'Type',
+            'Customer',
+            'Payment Method',
+            'Order Type',
             'Subtotal',
             'Discount',
+            'Delivery Fee',
             'Total',
-            'Payment Method',
             'Status',
-            'Date',
         ];
     }
 
     public function map($sale): array
     {
         $user = auth()->user();
+        $deliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+        if ($sale->subtotal !== null) {
+            $subtotal = (float) $sale->subtotal;
+        } elseif ($sale->items && $sale->items->isNotEmpty()) {
+            $subtotal = (float) $sale->items->sum('subtotal');
+        } else {
+            $subtotal = max(0.0, (float) $sale->total - $deliveryFee);
+        }
+
+        $dateFormatted = $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : 'N/A';
+        $branchName = $sale->branch?->name ?? 'N/A';
+        $orderType = ucwords(str_replace(['-', '_'], ' ', $sale->type ?? 'In-Store'));
+        $paymentMethod = ucfirst($sale->payment_method ?? 'Cash');
+
         if ($user && $user->isAdmin()) {
             return [
+                $dateFormatted,
                 $sale->order_number,
-                $sale->cashier->name ?? 'N/A',
-                $sale->type,
-                $sale->subtotal,
-                $sale->discount ?? 0,
-                $sale->total,
-                $sale->cost_total,
-                $sale->profit,
-                $sale->payment_method,
-                $sale->status,
-                $sale->created_at->format('Y-m-d H:i:s'),
+                $branchName,
+                $sale->cashier_name,
+                $sale->customer_name,
+                $paymentMethod,
+                $orderType,
+                number_format($subtotal, 2, '.', ''),
+                number_format((float) ($sale->discount ?? 0), 2, '.', ''),
+                number_format($deliveryFee, 2, '.', ''),
+                number_format((float) $sale->total, 2, '.', ''),
+                number_format((float) ($sale->cost_total ?? 0), 2, '.', ''),
+                number_format((float) ($sale->profit ?? 0), 2, '.', ''),
+                ucfirst($sale->status ?? ''),
             ];
         }
 
         return [
+            $dateFormatted,
             $sale->order_number,
-            $sale->cashier->name ?? 'N/A',
-            $sale->type,
-            $sale->subtotal,
-            $sale->discount ?? 0,
-            $sale->total,
-            $sale->payment_method,
-            $sale->status,
-            $sale->created_at->format('Y-m-d H:i:s'),
+            $branchName,
+            $sale->cashier_name,
+            $sale->customer_name,
+            $paymentMethod,
+            $orderType,
+            number_format($subtotal, 2, '.', ''),
+            number_format((float) ($sale->discount ?? 0), 2, '.', ''),
+            number_format($deliveryFee, 2, '.', ''),
+            number_format((float) $sale->total, 2, '.', ''),
+            ucfirst($sale->status ?? ''),
         ];
     }
 }

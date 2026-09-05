@@ -461,16 +461,18 @@ class FinancialMetricsService
      */
     public function getBranchStats(Collection $branches, $startDate = null, $endDate = null): Collection
     {
-        $today = Carbon::today();
+        $manilaTz = 'Asia/Manila';
+        $startToday = Carbon::now($manilaTz)->startOfDay()->utc();
+        $endToday = Carbon::now($manilaTz)->endOfDay()->utc();
 
-        return $branches->map(function (Branch $branch) use ($startDate, $endDate, $today) {
+        return $branches->map(function (Branch $branch) use ($startDate, $endDate, $startToday, $endToday) {
             $metrics = $this->getSummaryMetrics($startDate, $endDate, $branch->id);
 
             // Orders and Product Revenue today
             $todaySales = Sale::with(['items', 'delivery'])
                 ->where('branch_id', $branch->id)
                 ->where('status', 'completed')
-                ->whereDate('created_at', $today)
+                ->whereBetween('created_at', [$startToday, $endToday])
                 ->get();
 
             $ordersToday = $todaySales->count();

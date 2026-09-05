@@ -13,6 +13,9 @@ import {
     UserCheck,
     QrCode,
     DollarSign,
+    AlertTriangle,
+    Flame,
+    Hourglass,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import CreatePickupOrderModal, { type PickupBranch, type PickupProduct } from '@/components/pickups/CreatePickupOrderModal';
@@ -31,6 +34,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import echo from '@/echo';
 import AppLayout from '@/layouts/app-layout';
+import { globalNotificationManager } from '@/lib/global-notification-manager';
+import { playOrderNotificationSound } from '@/lib/order-audio';
 
 type ProductItem = PickupProduct;
 
@@ -59,8 +64,16 @@ interface PickupOrder {
     payment_method: string;
     payment_status: string;
     scheduled_pickup_at?: string;
+    scheduled_pickup_display?: string;
+    scheduled_pickup_time?: string;
     prep_start_at?: string;
     estimated_prep_time_minutes?: number;
+    is_prep_window_open?: boolean;
+    is_prep_due?: boolean;
+    is_prep_overdue?: boolean;
+    prep_overdue_minutes?: number;
+    prep_status_category?: string;
+    is_early_prep_override?: boolean;
     pickup_verification_code?: string;
     pickup_notes?: string;
     internal_notes?: string;
@@ -79,6 +92,9 @@ interface PaginatedPickups {
 interface Stats {
     today_total: number;
     pending_prep: number;
+    due_prep?: number;
+    overdue_prep?: number;
+    scheduled_future?: number;
     preparing: number;
     ready: number;
     completed_today: number;
@@ -114,7 +130,9 @@ export default function PickupDashboard({
     const [isManualModalOpen, setIsManualModalOpen] = useState(false);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
     const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+    const [isEarlyPrepModalOpen, setIsEarlyPrepModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<PickupOrder | null>(null);
+    const [earlyPrepOrder, setEarlyPrepOrder] = useState<PickupOrder | null>(null);
 
     // Verification Modal Form
     const [verifyCode, setVerifyCode] = useState('');
@@ -127,7 +145,7 @@ export default function PickupDashboard({
     const [currentTime, setCurrentTime] = useState(() => Date.now());
 
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
+        const timer = setInterval(() => setCurrentTime(Date.now()), 15000);
         return () => clearInterval(timer);
     }, []);
     // Real-time Echo updates
@@ -155,6 +173,44 @@ export default function PickupDashboard({
             router.reload({ only: ['pickups', 'stats'] });
         };
 
+        const handlePrepDueEvent = (e: unknown) => {
+            const data = e as {
+                order_id?: number;
+                order_number?: string;
+                customer_name?: string;
+                branch_name?: string;
+                total_amount?: number;
+                title?: string;
+                scheduled_pickup_display?: string;
+            };
+
+            const orderId = data.order_id;
+            const orderNum = data.order_number || (orderId ? `ORD-${orderId}` : 'NEW');
+
+            globalNotificationManager.push({
+                id: 'prep_' + (orderId || Date.now()),
+                type: 'pickup_prep_due',
+                order_id: orderId,
+                order_number: orderNum,
+                customer_name: data.customer_name,
+                branch_name: data.branch_name,
+                total_amount: data.total_amount,
+                title: data.title || `🍳 Prepare Now: #${orderNum}`,
+                link_text: 'PREPARE NOW',
+                link_url: `/pickups?order_id=${orderId}&order_number=${encodeURIComponent(orderNum)}`,
+                duration_ms: 10000,
+                created_at: Date.now(),
+            });
+
+            try {
+                playOrderNotificationSound();
+            } catch {
+                // ignore
+            }
+
+            router.reload({ only: ['pickups', 'stats'] });
+        };
+
         const activeChannels = channelsToSubscribe.map(chName => {
             const ch = echoClient.private(chName);
             ch.listen('.OrderCreated', handlePickupEvent)
@@ -162,7 +218,10 @@ export default function PickupDashboard({
               .listen('App\\Events\\OrderCreated', handlePickupEvent)
               .listen('.order-status-updated', handlePickupEvent)
               .listen('OrderStatusUpdated', handlePickupEvent)
-              .listen('App\\Events\\OrderStatusUpdated', handlePickupEvent);
+              .listen('App\\Events\\OrderStatusUpdated', handlePickupEvent)
+              .listen('.PickupPrepDue', handlePrepDueEvent)
+              .listen('PickupPrepDue', handlePrepDueEvent)
+              .listen('App\\Events\\PickupPrepDue', handlePrepDueEvent);
             return chName;
         });
 
@@ -183,13 +242,33 @@ export default function PickupDashboard({
     };
 
     // Quick status transition
-    const handleStatusTransition = (order: PickupOrder, newStatus: string, reason?: string) => {
+    const handleStatusTransition = (order: PickupOrder, newStatus: string, reason?: string, isEarlyOverride = false) => {
         router.post(`/pickups/${order.id}/status`, {
             status: newStatus,
             reason: reason || `Updated via web queue to ${newStatus}`,
+            is_early_override: isEarlyOverride,
         }, {
             preserveScroll: true,
         });
+    };
+
+    // Handle Start Preparing with early override protection
+    const handleStartPrep = (order: PickupOrder) => {
+        const isPrepWindowOpen = !order.prep_start_at || new Date(order.prep_start_at).getTime() <= currentTime;
+        if (!isPrepWindowOpen && !order.is_early_prep_override) {
+            setEarlyPrepOrder(order);
+            setIsEarlyPrepModalOpen(true);
+            return;
+        }
+
+        handleStatusTransition(order, 'preparing');
+    };
+
+    const handleConfirmEarlyPrep = () => {
+        if (!earlyPrepOrder) return;
+        handleStatusTransition(earlyPrepOrder, 'preparing', 'Early preparation override authorized by staff', true);
+        setIsEarlyPrepModalOpen(false);
+        setEarlyPrepOrder(null);
     };
 
     // Verify & Complete Submit
@@ -248,20 +327,45 @@ export default function PickupDashboard({
     const getStatusBadge = (orderOrStatus: PickupOrder | string) => {
         const order = typeof orderOrStatus === 'object' ? orderOrStatus : null;
         const status = typeof orderOrStatus === 'object' ? orderOrStatus.status : orderOrStatus;
-        const isPrepWindowOpen = !order?.prep_start_at || new Date(order.prep_start_at).getTime() <= currentTime;
+
+        if (order && (status === 'confirmed' || status === 'pending')) {
+            if (order.prep_start_at) {
+                const prepTime = new Date(order.prep_start_at).getTime();
+                const diffMinutes = Math.floor((currentTime - prepTime) / 60000);
+
+                if (diffMinutes > 5) {
+                    return (
+                        <Badge className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 gap-1 font-bold animate-pulse">
+                            <AlertTriangle className="w-3 h-3 text-rose-500" />
+                            PREPARATION OVERDUE · {diffMinutes} MIN
+                        </Badge>
+                    );
+                } else if (diffMinutes >= 0) {
+                    return (
+                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1 font-bold">
+                            <Flame className="w-3 h-3 text-amber-500" />
+                            Prepare Now
+                        </Badge>
+                    );
+                } else {
+                    const startsInMin = Math.abs(diffMinutes);
+                    const hours = Math.floor(startsInMin / 60);
+                    const mins = startsInMin % 60;
+                    const startsInStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                    return (
+                        <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 gap-1 font-medium">
+                            <Hourglass className="w-3 h-3 text-blue-500" />
+                            Scheduled — Starts in {startsInStr}
+                        </Badge>
+                    );
+                }
+            }
+        }
 
         switch (status) {
             case 'pending':
                 return <Badge className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20">Pending (Awaiting Accept)</Badge>;
             case 'confirmed':
-                if (order && !isPrepWindowOpen) {
-                    return (
-                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 gap-1 font-medium">
-                            <Clock className="w-3 h-3 text-amber-500" />
-                            Scheduled — awaiting prep window
-                        </Badge>
-                    );
-                }
                 return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Ready to Prepare</Badge>;
             case 'preparing':
                 return <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse">Preparing</Badge>;
@@ -326,8 +430,21 @@ export default function PickupDashboard({
                     </Card>
                     <Card className="border-gray-200 dark:border-gray-800">
                         <CardContent className="p-4">
-                            <p className="text-xs font-medium text-yellow-600 dark:text-yellow-400">Pending Prep</p>
-                            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{stats.pending_prep}</p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Prepare Now</p>
+                                {(stats.overdue_prep ?? 0) > 0 && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 rounded-full">
+                                        {stats.overdue_prep} overdue
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.due_prep ?? stats.pending_prep}</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-gray-200 dark:border-gray-800">
+                        <CardContent className="p-4">
+                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Scheduled (Future)</p>
+                            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.scheduled_future ?? 0}</p>
                         </CardContent>
                     </Card>
                     <Card className="border-gray-200 dark:border-gray-800">
@@ -346,12 +463,6 @@ export default function PickupDashboard({
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-green-600 dark:text-green-400">Completed</p>
                             <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.completed_today}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-gray-200 dark:border-gray-800">
-                        <CardContent className="p-4">
-                            <p className="text-xs font-medium text-red-600 dark:text-red-400">No Shows</p>
-                            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{stats.no_shows}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -479,15 +590,16 @@ export default function PickupDashboard({
                                                     Pickup Time:
                                                 </span>
                                                 <span className="font-bold text-primary">
-                                                    {pickupDate ? pickupDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ASAP'}
-                                                    {pickupDate && ` (${pickupDate.toLocaleDateString([], { month: 'short', day: 'numeric' })})`}
+                                                    {order.scheduled_pickup_display || (order.scheduled_pickup_at ? (
+                                                        `${new Date(order.scheduled_pickup_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })} (${new Date(order.scheduled_pickup_at).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })})`
+                                                    ) : 'ASAP')}
                                                 </span>
                                             </div>
                                             {order.prep_start_at && (
                                                 <div className="flex items-center justify-between text-gray-500">
                                                     <span>Kitchen Prepare Around:</span>
                                                     <span className="font-mono">
-                                                        {new Date(order.prep_start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                        {new Date(order.prep_start_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}
                                                     </span>
                                                 </div>
                                             )}
@@ -532,8 +644,8 @@ export default function PickupDashboard({
                                             {order.status === 'confirmed' && (
                                                 <Button
                                                     size="sm"
-                                                    className="w-full text-xs h-8 bg-orange-600 hover:bg-orange-700 text-white gap-1"
-                                                    onClick={() => handleStatusTransition(order, 'preparing')}
+                                                    className="w-full text-xs h-8 bg-orange-600 hover:bg-orange-700 text-white gap-1 font-semibold"
+                                                    onClick={() => handleStartPrep(order)}
                                                 >
                                                     <ChefHat className="w-3.5 h-3.5" />
                                                     Start Preparing
@@ -768,7 +880,66 @@ export default function PickupDashboard({
                 </DialogContent>
             </Dialog>
 
-            {/* ── Modal 3: Manual Facebook / Phone Pickup Order ─────────────── */}
+            {/* ── Modal 3: Early Preparation Override Confirmation ─────────── */}
+            <Dialog open={isEarlyPrepModalOpen} onOpenChange={setIsEarlyPrepModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                            Early Preparation Warning
+                        </DialogTitle>
+                        <DialogDescription>
+                            This order is scheduled for a future pickup time and has not reached its kitchen preparation window yet.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {earlyPrepOrder && (
+                        <div className="space-y-4 pt-2">
+                            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3.5 text-xs space-y-2 text-gray-800 dark:text-gray-200">
+                                <div className="flex justify-between items-center font-bold text-sm text-gray-900 dark:text-white pb-1 border-b border-amber-200/60 dark:border-amber-800/40">
+                                    <span>Order #{earlyPrepOrder.order_number}</span>
+                                    <span>{earlyPrepOrder.customer_name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500 dark:text-gray-400">Scheduled Customer Pickup:</span>
+                                    <span className="font-bold text-primary">
+                                        {earlyPrepOrder.scheduled_pickup_display || earlyPrepOrder.scheduled_pickup_time || 'Later'}
+                                    </span>
+                                </div>
+                                {earlyPrepOrder.prep_start_at && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500 dark:text-gray-400">Scheduled Kitchen Prep Window:</span>
+                                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                                            {new Date(earlyPrepOrder.prep_start_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                                Preparing this order too early may result in the customer receiving cold or degraded food upon arrival. 
+                                Are you sure you want to authorize early kitchen preparation?
+                            </p>
+
+                            <DialogFooter className="pt-2 flex items-center gap-2">
+                                <Button type="button" variant="outline" onClick={() => setIsEarlyPrepModalOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    type="button" 
+                                    onClick={handleConfirmEarlyPrep} 
+                                    className="bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5"
+                                >
+                                    <Flame className="w-4 h-4" />
+                                    Confirm Early Preparation
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Modal 4: Manual Facebook / Phone Pickup Order ─────────────── */}
             <CreatePickupOrderModal
                 open={isManualModalOpen}
                 onClose={() => setIsManualModalOpen(false)}

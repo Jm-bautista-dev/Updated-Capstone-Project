@@ -37,23 +37,30 @@ class AppServiceProvider extends ServiceProvider
     protected function registerEventListeners(): void
     {
         Event::listen(OrderStatusUpdated::class, function (OrderStatusUpdated $event): void {
+            $order = $event->order ?? $event->delivery?->order;
             $delivery = $event->delivery;
 
             // Only dispatch for mobile (customer-app) orders with a known user
-            $userId = $delivery->order?->user_id;
+            $userId = $order?->user_id;
             if (!$userId) {
                 return;
             }
 
-            $orderId = $delivery->order_id;
-            $orderNumber = $delivery->order?->order_number ?? '';
-            $status = $delivery->status;
+            $orderId = $order->id;
+            $orderNumber = $order->order_number ?? '';
+            $status = $delivery ? $delivery->status : (string) $order->status;
+            $fulfillmentType = $order->fulfillment_type ?? ($delivery ? 'delivery' : 'pickup');
 
             SendCustomerPushNotification::forOrderStatus(
-                userId:      $userId,
-                orderId:     (int) $orderId,
-                status:      $status,
-                orderNumber: (string) $orderNumber,
+                userId:          $userId,
+                orderId:         (int) $orderId,
+                status:          $status,
+                orderNumber:     (string) $orderNumber,
+                extra:           [
+                    'fulfillment_type' => $fulfillmentType,
+                    'is_pickup'        => ($fulfillmentType === 'pickup'),
+                ],
+                fulfillmentType: $fulfillmentType,
             );
         });
     }

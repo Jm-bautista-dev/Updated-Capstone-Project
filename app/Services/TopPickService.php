@@ -86,13 +86,18 @@ class TopPickService
             'products.image_path', 'categories.name'
         )->get();
 
-        // 2. Query Online/Mobile Delivery Orders
+        // 2. Query Online/Mobile Delivery Orders (only those not already recorded in sales to prevent double-counting)
         $orderSalesQuery = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->join('products', 'products.id', '=', 'order_items.product_id')
             ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->whereNull('products.deleted_at')
-            ->whereIn('orders.status', ['completed', 'delivered']);
+            ->whereIn('orders.status', ['completed', 'delivered'])
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('sales')
+                    ->whereColumn('sales.order_id', 'orders.id');
+            });
 
         if ($startDate) {
             $orderSalesQuery->where('orders.created_at', '>=', $startDate);

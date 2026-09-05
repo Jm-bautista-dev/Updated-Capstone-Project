@@ -48,6 +48,10 @@ class Order extends Model
         'scheduled_pickup_at',
         'estimated_prep_time_minutes',
         'prep_start_at',
+        'prep_notified_at',
+        'prep_due_notified_secondary_at',
+        'is_early_prep_override',
+        'early_prep_actor_id',
         'actual_customer_arrival_at',
         'pickup_completed_at',
         'pickup_verification_code',
@@ -63,18 +67,318 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'inventory_deducted'         => 'boolean',
-        'is_cod'                     => 'boolean',
-        'is_cancellation_pending'    => 'boolean',
-        'cancelled_at'               => 'datetime',
-        'paid_at'                    => 'datetime',
-        'scheduled_pickup_at'        => 'datetime',
-        'prep_start_at'              => 'datetime',
-        'actual_customer_arrival_at' => 'datetime',
-        'pickup_completed_at'        => 'datetime',
-        'total_amount'               => 'decimal:2',
-        'estimated_prep_time_minutes'=> 'integer',
+        'inventory_deducted'             => 'boolean',
+        'is_cod'                         => 'boolean',
+        'is_cancellation_pending'        => 'boolean',
+        'is_early_prep_override'         => 'boolean',
+        'cancelled_at'                   => 'datetime',
+        'paid_at'                        => 'datetime',
+        'scheduled_pickup_at'            => 'datetime',
+        'prep_start_at'                  => 'datetime',
+        'prep_notified_at'               => 'datetime',
+        'prep_due_notified_secondary_at' => 'datetime',
+        'actual_customer_arrival_at'     => 'datetime',
+        'pickup_completed_at'            => 'datetime',
+        'total_amount'                   => 'decimal:2',
+        'estimated_prep_time_minutes'    => 'integer',
     ];
+
+    protected $appends = [
+        'scheduled_pickup_display',
+        'scheduled_pickup_time',
+        'is_prep_window_open',
+        'is_prep_due',
+        'is_prep_overdue',
+        'prep_overdue_minutes',
+        'prep_status_category',
+    ];
+
+    /**
+     * Store scheduled_pickup_at normalized in UTC.
+     */
+    public function setScheduledPickupAtAttribute($value): void
+    {
+        if (empty($value)) {
+            $this->attributes['scheduled_pickup_at'] = null;
+            return;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            $this->attributes['scheduled_pickup_at'] = \Carbon\Carbon::instance($value)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        } else {
+            $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+            $this->attributes['scheduled_pickup_at'] = \Carbon\Carbon::parse($value, $tz)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        }
+    }
+
+    public function getScheduledPickupAtAttribute($value): ?\Carbon\Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+        return $value instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($value)->setTimezone('UTC')
+            : \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $value, 'UTC');
+    }
+
+    /**
+     * Store prep_start_at normalized in UTC.
+     */
+    public function setPrepStartAtAttribute($value): void
+    {
+        if (empty($value)) {
+            $this->attributes['prep_start_at'] = null;
+            return;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            $this->attributes['prep_start_at'] = \Carbon\Carbon::instance($value)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        } else {
+            $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+            $this->attributes['prep_start_at'] = \Carbon\Carbon::parse($value, $tz)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        }
+    }
+
+    public function getPrepStartAtAttribute($value): ?\Carbon\Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+        return $value instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($value)->setTimezone('UTC')
+            : \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $value, 'UTC');
+    }
+
+    /**
+     * Store pickup_completed_at normalized in UTC.
+     */
+    public function setPickupCompletedAtAttribute($value): void
+    {
+        if (empty($value)) {
+            $this->attributes['pickup_completed_at'] = null;
+            return;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            $this->attributes['pickup_completed_at'] = \Carbon\Carbon::instance($value)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        } else {
+            $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+            $this->attributes['pickup_completed_at'] = \Carbon\Carbon::parse($value, $tz)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        }
+    }
+
+    public function getPickupCompletedAtAttribute($value): ?\Carbon\Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+        return $value instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($value)->setTimezone('UTC')
+            : \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $value, 'UTC');
+    }
+
+    /**
+     * Store actual_customer_arrival_at normalized in UTC.
+     */
+    public function setActualCustomerArrivalAtAttribute($value): void
+    {
+        if (empty($value)) {
+            $this->attributes['actual_customer_arrival_at'] = null;
+            return;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            $this->attributes['actual_customer_arrival_at'] = \Carbon\Carbon::instance($value)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        } else {
+            $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+            $this->attributes['actual_customer_arrival_at'] = \Carbon\Carbon::parse($value, $tz)->setTimezone('UTC')->format('Y-m-d H:i:s');
+        }
+    }
+
+    public function getActualCustomerArrivalAtAttribute($value): ?\Carbon\Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+        return $value instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($value)->setTimezone('UTC')
+            : \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $value, 'UTC');
+    }
+
+    /**
+     * Human-friendly pickup schedule formatted in Asia/Manila (e.g. "Sep 06, 2026 • 9:00 AM").
+     */
+    public function getScheduledPickupDisplayAttribute(): ?string
+    {
+        if (!$this->scheduled_pickup_at) {
+            return null;
+        }
+
+        $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+        $dt = $this->scheduled_pickup_at instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($this->scheduled_pickup_at)->setTimezone($tz)
+            : \Carbon\Carbon::parse($this->scheduled_pickup_at, 'UTC')->setTimezone($tz);
+
+        return $dt->format('M d, Y • g:i A');
+    }
+
+    /**
+     * Human-friendly pickup time formatted in Asia/Manila (e.g. "9:00 AM").
+     */
+    public function getScheduledPickupTimeAttribute(): ?string
+    {
+        if (!$this->scheduled_pickup_at) {
+            return null;
+        }
+
+        $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+        $dt = $this->scheduled_pickup_at instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($this->scheduled_pickup_at)->setTimezone($tz)
+            : \Carbon\Carbon::parse($this->scheduled_pickup_at, 'UTC')->setTimezone($tz);
+
+        return $dt->format('g:i A');
+    }
+
+    /**
+     * Check if the preparation window has opened (now >= prep_start_at).
+     */
+    public function isPrepWindowOpen(): bool
+    {
+        if (!$this->isPickup()) {
+            return true;
+        }
+
+        if (!$this->prep_start_at) {
+            return true;
+        }
+
+        $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+        $now = \Carbon\Carbon::now($tz);
+        $prepStart = $this->prep_start_at instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($this->prep_start_at)->setTimezone($tz)
+            : \Carbon\Carbon::parse($this->prep_start_at, 'UTC')->setTimezone($tz);
+
+        return $now->gte($prepStart);
+    }
+
+    public function getIsPrepWindowOpenAttribute(): bool
+    {
+        return $this->isPrepWindowOpen();
+    }
+
+    /**
+     * Check if the order is due to be prepared now (in confirmed/pending status and prep window is open).
+     */
+    public function isPrepDue(): bool
+    {
+        if (!$this->isPickup()) {
+            return false;
+        }
+
+        return in_array($this->status, ['pending', 'confirmed']) && $this->isPrepWindowOpen();
+    }
+
+    public function getIsPrepDueAttribute(): bool
+    {
+        return $this->isPrepDue();
+    }
+
+    /**
+     * Check if preparation is overdue (past prep_start_at + grace period while still unstarted).
+     */
+    public function isPrepOverdue(int $graceMinutes = 5): bool
+    {
+        if (!$this->isPickup() || !in_array($this->status, ['pending', 'confirmed'])) {
+            return false;
+        }
+
+        if (!$this->prep_start_at) {
+            return false;
+        }
+
+        $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+        $now = \Carbon\Carbon::now($tz);
+        $prepStart = $this->prep_start_at instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($this->prep_start_at)->setTimezone($tz)
+            : \Carbon\Carbon::parse($this->prep_start_at, 'UTC')->setTimezone($tz);
+
+        $prepThreshold = $prepStart->copy()->addMinutes($graceMinutes);
+
+        return $now->gt($prepThreshold);
+    }
+
+    public function getIsPrepOverdueAttribute(): bool
+    {
+        return $this->isPrepOverdue();
+    }
+
+    /**
+     * Get number of minutes overdue for preparation (0 if not overdue).
+     */
+    public function getPrepOverdueMinutesAttribute(): int
+    {
+        if (!$this->isPickup() || !in_array($this->status, ['pending', 'confirmed']) || !$this->prep_start_at) {
+            return 0;
+        }
+
+        $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+        $now = \Carbon\Carbon::now($tz);
+        $prepStart = $this->prep_start_at instanceof \DateTimeInterface
+            ? \Carbon\Carbon::instance($this->prep_start_at)->setTimezone($tz)
+            : \Carbon\Carbon::parse($this->prep_start_at, 'UTC')->setTimezone($tz);
+
+        if ($now->lte($prepStart)) {
+            return 0;
+        }
+
+        return (int) $prepStart->diffInMinutes($now);
+    }
+
+    /**
+     * Granular operational category for the pickup kitchen dashboard.
+     * Values: 'scheduled' | 'due_for_prep' | 'overdue' | 'preparing' | 'ready' | 'arrived' | 'completed' | 'cancelled' | 'no_show'
+     */
+    public function getPrepStatusCategoryAttribute(): string
+    {
+        if (!$this->isPickup()) {
+            return $this->status;
+        }
+
+        if (in_array($this->status, ['completed', 'cancelled', 'no_show'])) {
+            return $this->status;
+        }
+
+        if ($this->status === 'customer_arrived') {
+            return 'arrived';
+        }
+
+        if ($this->status === 'ready_for_pickup') {
+            return 'ready';
+        }
+
+        if ($this->status === 'preparing') {
+            return 'preparing';
+        }
+
+        // Status is pending or confirmed
+        if ($this->isPrepOverdue()) {
+            return 'overdue';
+        }
+
+        if ($this->isPrepWindowOpen()) {
+            return 'due_for_prep';
+        }
+
+        return 'scheduled';
+    }
+
+    /**
+     * Relationship to the staff user who authorized early preparation override.
+     */
+    public function earlyPrepActor()
+    {
+        return $this->belongsTo(User::class, 'early_prep_actor_id');
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -194,6 +498,16 @@ class Order extends Model
             'user_agent' => Request::userAgent(),
             'reason'     => $reason,
         ]);
+
+        // If a pickup order reached completed state, trigger fulfillment hook (inventory deduction + authoritative sale recording)
+        if ($newStatus === 'completed' && $this->isPickup()) {
+            $actorUser = $actorUserId ? \App\Models\User::find($actorUserId) : null;
+            try {
+                app(\App\Services\OrderFulfillmentService::class)->onOrderPickedUp($this, $actorUser);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Order::transitionTo onOrderPickedUp failed: ' . $e->getMessage());
+            }
+        }
     }
 
     /**

@@ -28,13 +28,21 @@ class NotificationController extends Controller
 
         $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
 
+        // Trigger background evaluation of pickup preparation reminders as fallback
+        try {
+            app(\App\Services\PickupPreparationService::class)->evaluateAndDispatchReminders($isAdmin ? null : ($user->branch_id ?? null));
+        } catch (\Throwable $e) {
+            // non-blocking
+        }
+
         // 1. Fetch individual notification streams
         $orderNotifications        = $this->fetchOrderNotifications($user, $isAdmin);
+        $prepDueNotifications      = $this->fetchPrepReminderNotifications($user, $isAdmin);
         $cancellationNotifications = $this->fetchCancellationNotifications($user, $isAdmin);
         $ingredientNotifications   = $this->fetchIngredientNotifications($user, $isAdmin);
 
         // 2. Combine and sort notifications by created_at descending
-        $allNotifications = $orderNotifications->concat($cancellationNotifications)->concat($ingredientNotifications)
+        $allNotifications = $orderNotifications->concat($prepDueNotifications)->concat($cancellationNotifications)->concat($ingredientNotifications)
             ->sortByDesc('created_at')
             ->values()
             ->take(15);
@@ -60,26 +68,90 @@ class NotificationController extends Controller
 
             return $orderQuery->limit(10)->get()->map(function ($order) use ($user) {
                 $orderNum = $order->order_number ?? ("ORD-" . $order->id);
+                $isPickup = ($order->fulfillment_type === Order::FULFILLMENT_PICKUP);
+                $targetUrl = $isPickup
+                    ? "/pickups?order_id={$order->id}&order_number=" . urlencode($orderNum)
+                    : "/deliveries?order_id={$order->id}&order_number=" . urlencode($orderNum);
+
                 return [
-                    'id'              => 'order_' . $order->id,
-                    'order_id'        => $order->id,
-                    'order_number'    => $orderNum,
-                    'employee_name'   => $order->customer_name,
-                    'action'          => 'Order',
-                    'ingredient_name' => $orderNum,
-                    'quantity_change' => '₱' . number_format((float)$order->total_amount, 2),
-                    'remaining'       => ucwords(str_replace('_', ' ', $order->status ?? '')),
-                    'source'          => 'Customer Mobile Order',
-                    'branch_name'     => $order->branch ? $order->branch->name : 'N/A',
-                    'created_at'      => $order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String(),
-                    'time_ago'        => $order->created_at ? $order->created_at->diffForHumans() : 'Just now',
-                    'is_unread'       => $user->last_notifications_read_at && $order->created_at ? $order->created_at->gt($user->last_notifications_read_at) : true,
-                    'type'            => 'new_order',
-                    'url'             => '/deliveries',
+                    'id'               => 'order_' . $order->id,
+                    'order_id'         => $order->id,
+                    'order_number'     => $orderNum,
+                    'employee_name'    => $order->customer_name,
+                    'action'           => 'Order',
+                    'ingredient_name'  => $orderNum,
+                    'quantity_change'  => '₱' . number_format((float)$order->total_amount, 2),
+                    'remaining'        => ucwords(str_replace('_', ' ', $order->status ?? '')),
+                    'source'           => $isPickup ? 'Customer Pickup Order' : 'Customer Delivery Order',
+                    'branch_name'      => $order->branch ? $order->branch->name : 'N/A',
+                    'created_at'       => $order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String(),
+                    'time_ago'         => $order->created_at ? $order->created_at->diffForHumans() : 'Just now',
+                    'is_unread'        => $user->last_notifications_read_at && $order->created_at ? $order->created_at->gt($user->last_notifications_read_at) : true,
+                    'type'             => 'new_order',
+                    'fulfillment_type' => $order->fulfillment_type ?? Order::FULFILLMENT_DELIVERY,
+                    'is_pickup'        => $isPickup,
+                    'url'              => $targetUrl,
                 ];
             });
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Failed fetching order notifications: ' . $e->getMessage());
+            return collect();
+        }
+    }
+
+    /**
+     * Fetch active pickup preparation reminders for orders currently due/overdue for preparation.
+     */
+    private function fetchPrepReminderNotifications($user, bool $isAdmin)
+    {
+        try {
+            $tz = \App\Services\PickupOrderService::DEFAULT_TIMEZONE;
+            $nowUtc = \Carbon\Carbon::now('UTC');
+            $nowLocal = \Carbon\Carbon::now($tz);
+
+            $query = Order::with('branch')
+                ->where('fulfillment_type', Order::FULFILLMENT_PICKUP)
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->where(function ($q) use ($nowUtc, $nowLocal) {
+                    $q->where('prep_start_at', '<=', $nowUtc)
+                      ->orWhere('prep_start_at', '<=', $nowLocal);
+                })
+                ->latest('prep_start_at');
+
+            if (!$isAdmin && isset($user->branch_id)) {
+                $query->where('branch_id', $user->branch_id);
+            }
+
+            return $query->limit(5)->get()->map(function ($order) use ($user, $tz) {
+                $orderNum = $order->order_number ?? ("ORD-" . $order->id);
+                $pickupDisplay = $order->scheduled_pickup_at 
+                    ? \Carbon\Carbon::parse($order->scheduled_pickup_at)->setTimezone($tz)->format('g:i A')
+                    : 'ASAP';
+                $prepStart = $order->prep_start_at ? \Carbon\Carbon::parse($order->prep_start_at)->setTimezone($tz) : null;
+                $isOverdue = $prepStart ? \Carbon\Carbon::now($tz)->diffInMinutes($prepStart, false) < -5 : false;
+
+                return [
+                    'id'               => 'prep_' . $order->id,
+                    'order_id'         => $order->id,
+                    'order_number'     => $orderNum,
+                    'employee_name'    => $order->customer_name,
+                    'action'           => 'Prep Due',
+                    'ingredient_name'  => $orderNum,
+                    'quantity_change'  => 'Pickup at ' . $pickupDisplay,
+                    'remaining'        => $isOverdue ? 'PREPARATION OVERDUE' : 'PREPARE NOW',
+                    'source'           => $isOverdue ? '⚠️ Preparation Overdue' : '🍳 Kitchen Preparation Due',
+                    'branch_name'      => $order->branch ? $order->branch->name : 'N/A',
+                    'created_at'       => $order->prep_start_at ? $order->prep_start_at->toIso8601String() : now()->toIso8601String(),
+                    'time_ago'         => $order->prep_start_at ? $order->prep_start_at->diffForHumans() : 'Due now',
+                    'is_unread'        => true,
+                    'type'             => 'pickup_prep_due',
+                    'fulfillment_type' => Order::FULFILLMENT_PICKUP,
+                    'is_pickup'        => true,
+                    'url'              => "/pickups?order_id={$order->id}&order_number=" . urlencode($orderNum),
+                ];
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed fetching prep reminder notifications: ' . $e->getMessage());
             return collect();
         }
     }
@@ -104,6 +176,11 @@ class NotificationController extends Controller
 
             return $cancellationReqQuery->limit(10)->get()->map(function ($req) use ($user) {
                 $orderNum = $req->order?->order_number ?? ("ORD-" . $req->order_id);
+                $isPickup = ($req->order?->fulfillment_type === Order::FULFILLMENT_PICKUP);
+                $targetUrl = $isPickup
+                    ? "/pickups?order_id={$req->order_id}&order_number=" . urlencode($orderNum)
+                    : "/deliveries?order_id={$req->order_id}&order_number=" . urlencode($orderNum);
+
                 return [
                     'id'                      => 'cancel_req_' . $req->id,
                     'cancellation_request_id' => $req->id,
@@ -120,7 +197,9 @@ class NotificationController extends Controller
                     'time_ago'                => $req->requested_at ? $req->requested_at->diffForHumans() : 'Just now',
                     'is_unread'               => $user->last_notifications_read_at && $req->requested_at ? $req->requested_at->gt($user->last_notifications_read_at) : true,
                     'type'                    => 'cancellation_request',
-                    'url'                     => "/deliveries?order_id={$req->order_id}",
+                    'fulfillment_type'        => $req->order?->fulfillment_type ?? Order::FULFILLMENT_DELIVERY,
+                    'is_pickup'               => $isPickup,
+                    'url'                     => $targetUrl,
                 ];
             });
         } catch (\Throwable $e) {

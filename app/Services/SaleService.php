@@ -297,6 +297,7 @@ class SaleService
             if ($orderType === 'delivery') {
                 $rawFee = $data['delivery_info']['delivery_fee'] ?? null;
                 $distanceKm = isset($data['delivery_info']['distance_km']) ? (float) $data['delivery_info']['distance_km'] : null;
+                /** @var Branch|null $branch */
                 $branch = Branch::find($branchId);
 
                 if ($distanceKm !== null && $distanceKm < 0) {

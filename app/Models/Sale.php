@@ -52,6 +52,8 @@ class Sale extends Model
         'product_revenue',
         'delivery_fee_amount',
         'delivery_fee_breakdown',
+        'cashier_name',
+        'customer_name',
     ];
 
     public function toArray(): array
@@ -132,6 +134,75 @@ class Sale extends Model
                 ? "Delivery fee (₱" . number_format($fee, 2) . ") is {$ratio}% of food subtotal (₱" . number_format($subtotal, 2) . ")."
                 : null,
         ];
+    }
+
+    /**
+     * Authoritative Cashier Name.
+     * Returns the staff cashier/admin's name who processed the transaction.
+     * For transactions from online channels or customer self-checkout without staff cashier, returns 'Online Order'.
+     */
+    public function getCashierNameAttribute(): string
+    {
+        // 1. If user relation is loaded or exists and is a customer, it is NOT a cashier
+        if ($this->cashier && $this->cashier->isCustomer()) {
+            return 'Online Order';
+        }
+
+        // 2. If the order explicitly came from an online source
+        if ($this->order && in_array($this->order->order_source, [Order::SOURCE_MOBILE_APP, Order::SOURCE_FACEBOOK_MESSENGER, 'online'], true)) {
+            if (!$this->cashier || $this->cashier->isCustomer()) {
+                return 'Online Order';
+            }
+        }
+
+        // 3. If the user attached is a staff employee (cashier, admin, super_admin)
+        if ($this->cashier && ($this->cashier->isCashier() || $this->cashier->isAdmin() || $this->cashier->isSuperAdmin())) {
+            return $this->cashier->name;
+        }
+
+        // 4. If transaction was created via online order delivery or without staff assignment
+        if ($this->order_id && (!$this->cashier || $this->cashier->isCustomer())) {
+            return 'Online Order';
+        }
+
+        return $this->cashier?->name ?? ($this->order_id ? 'Online Order' : 'N/A');
+    }
+
+    /**
+     * Authoritative Customer Name.
+     * Resolves the actual customer name from Order, Delivery, discount details, or Customer User account.
+     * Defaults to 'Walk-in Customer' for in-store counter transactions without customer registration.
+     */
+    public function getCustomerNameAttribute(): string
+    {
+        // 1. Check associated Order customer info
+        if ($this->order) {
+            if (!empty(trim((string) $this->order->customer_name))) {
+                return trim($this->order->customer_name);
+            }
+            if ($this->order->user && !empty(trim((string) $this->order->user->name))) {
+                return trim($this->order->user->name);
+            }
+        }
+
+        // 2. Check associated Delivery record
+        if ($this->delivery && !empty(trim((string) $this->delivery->customer_name))) {
+            return trim($this->delivery->customer_name);
+        }
+
+        // 3. Check discount_details (e.g. Senior Citizen / PWD / Student customer name)
+        if (!empty($this->discount_details) && is_array($this->discount_details)) {
+            if (!empty($this->discount_details['customer_name'])) {
+                return trim($this->discount_details['customer_name']);
+            }
+        }
+
+        // 4. Check user if user is a customer
+        if ($this->user && $this->user->isCustomer()) {
+            return trim($this->user->name);
+        }
+
+        return 'Walk-in Customer';
     }
 
     public function order()

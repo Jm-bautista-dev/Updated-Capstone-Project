@@ -58,6 +58,13 @@ interface PresetOption {
 // ── DATE RANGE PICKER COMPONENT ──
 const DateRangePicker = ({ from, to, onUpdate }: { from: string; to: string; onUpdate: (from: string, to: string) => void }) => {
     const [open, setOpen] = useState(false);
+    const [draftFrom, setDraftFrom] = useState(from);
+    const [draftTo, setDraftTo] = useState(to);
+
+    React.useEffect(() => {
+        setDraftFrom(from);
+        setDraftTo(to);
+    }, [from, to, open]);
 
     const presets: PresetOption[] = [
         { label: 'Today', getValue: () => ({ from: format(new Date(), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }) },
@@ -76,13 +83,22 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string; to: string; onU
     }, [from, to]);
 
     const handlePreset = (preset: PresetOption) => {
-        const { from, to } = preset.getValue();
-        onUpdate(from, to);
+        const { from: pFrom, to: pTo } = preset.getValue();
+        setDraftFrom(pFrom);
+        setDraftTo(pTo);
+        onUpdate(pFrom, pTo);
         setOpen(false);
     };
 
     const handleReset = () => {
+        setDraftFrom('');
+        setDraftTo('');
         onUpdate('', '');
+        setOpen(false);
+    };
+
+    const handleApplyCustom = () => {
+        onUpdate(draftFrom, draftTo);
         setOpen(false);
     };
 
@@ -120,8 +136,8 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string; to: string; onU
                                 <label className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] px-1">Start Date</label>
                                 <Input 
                                     type="date" 
-                                    value={from} 
-                                    onChange={(e) => onUpdate(e.target.value, to)} 
+                                    value={draftFrom} 
+                                    onChange={(e) => setDraftFrom(e.target.value)} 
                                     className="h-10 rounded-xl bg-white dark:bg-[#181820] border-[#F8C8DC]/60 dark:border-white/10 font-bold text-xs text-[#3D2C2E] dark:text-[#F8FAFC]" 
                                 />
                             </div>
@@ -129,9 +145,9 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string; to: string; onU
                                 <label className="text-[10px] font-bold text-[#7D6B6E] dark:text-[#94A3B8] px-1">End Date</label>
                                 <Input 
                                     type="date" 
-                                    value={to} 
-                                    min={from}
-                                    onChange={(e) => onUpdate(from, e.target.value)} 
+                                    value={draftTo} 
+                                    min={draftFrom}
+                                    onChange={(e) => setDraftTo(e.target.value)} 
                                     className="h-10 rounded-xl bg-white dark:bg-[#181820] border-[#F8C8DC]/60 dark:border-white/10 font-bold text-xs text-[#3D2C2E] dark:text-[#F8FAFC]" 
                                 />
                             </div>
@@ -141,7 +157,7 @@ const DateRangePicker = ({ from, to, onUpdate }: { from: string; to: string; onU
                             <Button variant="ghost" onClick={handleReset} className="flex-1 h-9 rounded-xl text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] cursor-pointer">
                                 Reset
                             </Button>
-                            <Button onClick={() => setOpen(false)} className="flex-1 h-9 rounded-xl text-xs font-bold bg-[#E75480] dark:bg-[#E1062C] text-white hover:bg-[#D43F6B] cursor-pointer shadow-xs">
+                            <Button onClick={handleApplyCustom} className="flex-1 h-9 rounded-xl text-xs font-bold bg-[#E75480] dark:bg-[#E1062C] text-white hover:bg-[#D43F6B] cursor-pointer shadow-xs">
                                 Apply Range
                             </Button>
                         </div>
@@ -199,7 +215,7 @@ function getPeriodLabel(filters: { date_from?: string; date_to?: string }, type:
 // ── DYNAMIC EXPORT MODAL ──
 function ExportModal({ isOpen, onClose, onExport, activeTab }: { isOpen: boolean; onClose: () => void; onExport: (options: ExportOptions) => void; activeTab: 'sales' | 'shifts' }) {
     const [formatOption, setFormatOption] = useState<'pdf' | 'excel'>('pdf');
-    const [scope, setScope] = useState<'view' | 'all'>('view');
+    const [scope, setScope] = useState<'view' | 'all'>('all');
     const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
     const [paperSize, setPaperSize] = useState<'A4' | 'Letter' | 'Legal'>('A4');
     const [includedData, setIncludedData] = useState({
@@ -385,10 +401,17 @@ interface SaleItem {
     order_number: string;
     created_at: string;
     cashier?: { name: string };
+    cashier_name?: string;
+    customer_name?: string;
     branch?: { name: string };
     status: string;
     total: number;
-    profit: number;
+    subtotal?: number;
+    discount?: number;
+    delivery_fee?: number;
+    profit?: number;
+    payment_method?: string;
+    type?: string;
 }
 
 interface ShiftItem {
@@ -479,8 +502,7 @@ function AdminReports({
     orders_delta,
     expenses_delta,
     profit_delta,
-    today_revenue_delta,
-    today_orders_delta
+    today_revenue_delta
 }: AdminReportsProps) {
     const pageAuth = (usePage().props as unknown as { auth?: { user?: { role?: string } } })?.auth?.user;
     const isAdminUser = isAdmin || pageAuth?.role === 'admin' || pageAuth?.role === 'super_admin';
@@ -491,28 +513,49 @@ function AdminReports({
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
     const [isExportOpen, setIsExportOpen] = useState(false);
 
+    React.useEffect(() => {
+        setDateFrom(filters.date_from || '');
+        setDateTo(filters.date_to || '');
+        setSelectedBranch(filters.branch_id || 'all');
+    }, [filters.date_from, filters.date_to, filters.branch_id]);
+
     const updateRange = (from: string, to: string) => {
         setDateFrom(from);
         setDateTo(to);
-        if (from !== dateFrom || to !== dateTo) {
-             router.get('/reports', { date_from: from, date_to: to, branch_id: selectedBranch }, { preserveState: true });
-        }
+        const params: Record<string, string> = {};
+        if (from) params.date_from = from;
+        if (to) params.date_to = to;
+        if (selectedBranch && selectedBranch !== 'all') params.branch_id = selectedBranch;
+        else params.branch_id = 'all';
+
+        router.get('/reports', params, { preserveState: false, replace: true });
     };
 
     const handleBranchChange = (value: string) => {
         setSelectedBranch(value);
-        router.get('/reports', { date_from: dateFrom, date_to: dateTo, branch_id: value }, { preserveState: true });
+        const params: Record<string, string> = {};
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        if (value && value !== 'all') params.branch_id = value;
+        else params.branch_id = 'all';
+
+        router.get('/reports', params, { preserveState: false, replace: true });
     };
 
     const triggerExport = async (options: ExportOptions) => {
         const kpis = [];
         if (options.includedData.kpis) {
             if (activeTab === 'sales') {
+                const isFiltered = Boolean(dateFrom || dateTo);
+                const periodRevenueTitle = isFiltered ? "Period Net Revenue" : "Total Revenue";
+                const periodOrdersTitle = isFiltered ? "Period Completed Orders" : "Total Orders";
+                const periodProfitTitle = isFiltered ? "Period Net Profit" : "Net Profit";
+
                 kpis.push({ title: "Today's Sales", value: formatCurrency(today_sales ?? 0) });
-                kpis.push({ title: "Total Revenue", value: formatCurrency(total_revenue ?? 0) });
-                kpis.push({ title: "Total Orders", value: (total_orders ?? 0).toLocaleString() });
+                kpis.push({ title: periodRevenueTitle, value: formatCurrency(total_revenue ?? 0) });
+                kpis.push({ title: periodOrdersTitle, value: (total_orders ?? 0).toLocaleString() });
                 if (isAdminUser) {
-                    kpis.push({ title: "Net Profit", value: formatCurrency(total_profit ?? 0) });
+                    kpis.push({ title: periodProfitTitle, value: formatCurrency(total_profit ?? 0) });
                 }
                 kpis.push({ title: "Cancelled Orders", value: (cancelled_count ?? 0).toLocaleString() });
             } else {
@@ -522,15 +565,21 @@ function AdminReports({
 
         const columns = [];
         if (activeTab === 'sales') {
-            columns.push({ title: 'Order #', key: 'order_number', align: 'text-left' });
             columns.push({ title: 'Date', key: 'date', align: 'text-left' });
-            columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Order #', key: 'order_number', align: 'text-left' });
             columns.push({ title: 'Branch', key: 'branch', align: 'text-left' });
-            columns.push({ title: 'Status', key: 'status', align: 'text-left' });
-            columns.push({ title: 'Total Sales', key: 'total', align: 'text-right' });
+            columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
+            columns.push({ title: 'Customer', key: 'customer', align: 'text-left' });
+            columns.push({ title: 'Payment Method', key: 'payment_method', align: 'text-left' });
+            columns.push({ title: 'Order Type', key: 'order_type', align: 'text-left' });
+            columns.push({ title: 'Subtotal', key: 'subtotal', align: 'text-right' });
+            columns.push({ title: 'Discount', key: 'discount', align: 'text-right' });
+            columns.push({ title: 'Delivery Fee', key: 'delivery_fee', align: 'text-right' });
+            columns.push({ title: 'Total', key: 'total', align: 'text-right' });
             if (isAdminUser) {
                 columns.push({ title: 'Net Profit', key: 'profit', align: 'text-right' });
             }
+            columns.push({ title: 'Status', key: 'status', align: 'text-left' });
         } else {
             columns.push({ title: 'Cashier', key: 'cashier', align: 'text-left' });
             columns.push({ title: 'Opened At', key: 'opened_at', align: 'text-left' });
@@ -545,16 +594,28 @@ function AdminReports({
         if (options.scope === 'view') {
             if (activeTab === 'sales') {
                 rows = (sales.data || []).map((sale: SaleItem) => {
+                    const fee = Number(sale.delivery_fee ?? 0);
+                    const subtotal = sale.subtotal !== undefined && sale.subtotal !== null
+                        ? Number(sale.subtotal)
+                        : Math.max(0, Number(sale.total || 0) - fee);
+                    const discount = Number(sale.discount ?? 0);
+
                     const row: Record<string, string> = {
-                        order_number: sale.order_number,
                         date: format(new Date(sale.created_at), 'MMM dd, yyyy HH:mm'),
-                        cashier: sale.cashier?.name ?? 'N/A',
+                        order_number: sale.order_number,
                         branch: sale.branch?.name ?? 'N/A',
-                        status: sale.status,
+                        cashier: sale.cashier_name ?? sale.cashier?.name ?? 'Online Order',
+                        customer: sale.customer_name ?? 'Walk-in Customer',
+                        payment_method: sale.payment_method ? sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1) : 'Cash',
+                        order_type: (sale.type || 'In-Store').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        subtotal: formatCurrency(subtotal),
+                        discount: formatCurrency(discount),
+                        delivery_fee: formatCurrency(fee),
                         total: formatCurrency(sale.total),
+                        status: sale.status ? sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : '',
                     };
                     if (isAdminUser) {
-                        row.profit = formatCurrency(sale.profit);
+                        row.profit = formatCurrency(sale.profit ?? 0);
                     }
                     return row;
                 });
@@ -976,7 +1037,7 @@ function AdminReports({
                                             </td>
                                             {isAdminUser && (
                                                 <td className="py-3.5 px-5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
-                                                    {formatCurrency(sale.profit)}
+                                                    {formatCurrency(sale.profit ?? 0)}
                                                 </td>
                                             )}
                                         </tr>
@@ -1135,8 +1196,7 @@ function CashierReports({
     total_orders,
     revenue_delta,
     orders_delta,
-    today_revenue_delta,
-    today_orders_delta
+    today_revenue_delta
 }: CashierReportsProps) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');
