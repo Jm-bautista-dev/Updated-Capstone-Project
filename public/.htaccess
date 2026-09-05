@@ -35,8 +35,8 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
-<IfModule mod_headers.c>
-    Header unset Alt-Svc
-    Header always unset Alt-Svc
-    Header always set Alt-Svc "clear"
+<IfModule mod_mime.c>
+    AddType application/javascript .js .mjs
+    AddType text/css .css
 </IfModule>
+
