@@ -185,19 +185,7 @@ jobs:
             # Ensure root .htaccess routes traffic to public/ folder on Hostinger
             if [ ! -f .htaccess ]; then
                 echo "--- Creating root .htaccess for Hostinger ---"
-                cat << 'EOF' > .htaccess
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteRule ^(\.env|\.git|composer\.(json|lock)|package\.(json|lock)|artisan|storage/logs) - [F,L,NC]
-    RewriteCond %{REQUEST_URI} !^/public/
-    RewriteRule ^(.*)$ public/$1 [L]
-</IfModule>
-<IfModule mod_headers.c>
-    Header unset Alt-Svc
-    Header always unset Alt-Svc
-    Header always set Alt-Svc "clear"
-</IfModule>
-EOF
+                printf '<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteRule ^(\\..*|composer\\.(json|lock)|package\\.(json|lock)|artisan|storage/logs) - [F,L,NC]\n    RewriteCond %%{REQUEST_URI} !^/public/\n    RewriteRule ^(.*)$ public/$1 [L]\n</IfModule>\n<IfModule mod_headers.c>\n    Header unset Alt-Svc\n    Header always unset Alt-Svc\n    Header always set Alt-Svc "clear"\n</IfModule>\n' > .htaccess
             fi
 
             # Ensure static asset symlinks exist at public_html root for Hostinger web server
