@@ -33,7 +33,7 @@ class AddonController extends Controller
             ->select('id', 'name', 'selling_price', 'category_id')
             ->get();
 
-        $branches = Branch::where('is_active', true)->get(['id', 'name']);
+        $branches = Branch::orderBy('name')->get(['id', 'name']);
         $inventoryItems = Ingredient::orderBy('name')->get(['id', 'name', 'unit']);
 
         return Inertia::render('Admin/Addons/Index', [
