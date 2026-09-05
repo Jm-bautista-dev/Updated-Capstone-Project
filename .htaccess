@@ -1,0 +1,10 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block access to hidden files and sensitive project files
+    RewriteRule ^(\.env|\.git|composer\.(json|lock)|package\.(json|lock)|artisan|storage/logs) - [F,L,NC]
+
+    # Rewrite all traffic to the public directory
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
