@@ -332,7 +332,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 }); // end auth,verified
 
-Route::match(['get', 'post'], '/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('logout');
+Route::match(['get', 'post'], '/logout', \App\Http\Controllers\Auth\LogoutController::class)->name('app.logout');
 
 // ── Root-Level API Route Fallbacks (for mobile app requests with leading slash) ──
 Route::post('/api/v1/login', [App\Http\Controllers\Api\AuthController::class, 'login'])->middleware('throttle:10,1');
