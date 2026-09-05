@@ -296,7 +296,7 @@ class AddonArchitectureRefactorTest extends TestCase
             ],
         ];
 
-        $sale = $saleService->processSale($saleData, $this->cashier);
+        $sale = $saleService->processSale($saleData);
 
         // Product B (220.00) + Cheese (35.00) = 255.00
         $this->assertEquals(255.00, (float) $sale->total);
