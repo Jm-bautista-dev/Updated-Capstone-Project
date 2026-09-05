@@ -89,6 +89,25 @@ class ProductController extends Controller
                 'average_rating' => $product->average_rating,
                 'review_count'   => $product->review_count,
                 'quantity_sold'  => $product->quantity_sold,
+                'addons'         => $product->available_addons->map(fn($ad) => [
+                    'id'        => $ad->id,
+                    'name'      => $ad->name,
+                    'price'     => (float) $ad->price,
+                    'is_active' => (bool) $ad->is_active,
+                ])->values(),
+                'addon_groups'   => $product->getActiveAddonGroups()->map(fn($g) => [
+                    'id'             => $g->id,
+                    'name'           => $g->name,
+                    'selection_type' => $g->selection_type,
+                    'is_required'    => (bool) $g->is_required,
+                    'min_selections' => (int) ($g->min_selections ?? 0),
+                    'max_selections' => (int) ($g->max_selections ?? 1),
+                    'items'          => $g->addOns->map(fn($ad) => [
+                        'id'    => $ad->id,
+                        'name'  => $ad->name,
+                        'price' => (float) $ad->price,
+                    ])->values(),
+                ])->values(),
             ];
         });
 
