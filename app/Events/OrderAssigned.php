@@ -59,7 +59,7 @@ class OrderAssigned implements ShouldBroadcastNow
             ?? $this->delivery->order?->order_number 
             ?? ($this->delivery->tracking_number ?? 'DEL-' . $this->delivery->id);
 
-        $orderSource = $this->delivery->sale_id ? 'pos' : 'mobile';
+        $orderSource = $this->delivery->order_source;
         $totalAmount = (float) ($this->delivery->sale?->total ?? $this->delivery->order?->total_amount ?? 0);
 
         $branch = $this->delivery->sale?->branch ?? $this->delivery->order?->branch;

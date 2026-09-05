@@ -5,7 +5,7 @@ export interface Delivery {
     fulfillment_type?: 'delivery' | 'pickup';
     is_pickup?: boolean;
     delivery_type: 'internal' | 'external' | 'pickup';
-    order_source?: 'pos' | 'mobile';
+    order_source?: 'pos' | 'mobile' | string;
     external_service: 'grab' | 'lalamove' | null;
     tracking_number: string | null;
     status: string;

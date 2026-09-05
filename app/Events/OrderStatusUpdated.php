@@ -139,7 +139,7 @@ class OrderStatusUpdated implements ShouldBroadcastNow
             ];
 
             $orderNumber = $this->delivery->sale?->order_number ?? $this->delivery->order?->order_number ?? ($this->delivery->tracking_number ?? 'ORD-' . $this->delivery->id);
-            $orderSource = $this->delivery->sale_id ? 'pos' : 'mobile';
+            $orderSource = $this->delivery->order_source;
             $statusLabel = match ($this->delivery->status) {
                 'waiting_for_kitchen' => 'Waiting for Kitchen',
                 'pending'             => 'Pending',

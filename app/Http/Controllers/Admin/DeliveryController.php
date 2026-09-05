@@ -158,16 +158,20 @@ class DeliveryController extends Controller
             });
         }
 
+        $manilaNow = Carbon::now('Asia/Manila');
+        $manilaTodayStart = $manilaNow->copy()->startOfDay()->setTimezone('UTC');
+        $manilaTodayEnd   = $manilaNow->copy()->endOfDay()->setTimezone('UTC');
+
         if ($view === 'today') {
-            $delQuery->where(function ($q) use ($activeDeliveryStatuses) {
+            $delQuery->where(function ($q) use ($activeDeliveryStatuses, $manilaTodayStart, $manilaTodayEnd) {
                 $q->whereIn('status', $activeDeliveryStatuses)
-                  ->orWhere(function ($subQ) {
+                  ->orWhere(function ($subQ) use ($manilaTodayStart, $manilaTodayEnd) {
                       $subQ->whereIn('status', [Delivery::STATUS_DELIVERED, Delivery::STATUS_CANCELLED])
-                           ->where(function ($dateQ) {
-                               $dateQ->whereDate('delivered_at', today())
-                                     ->orWhere(function ($fallbackQ) {
+                           ->where(function ($dateQ) use ($manilaTodayStart, $manilaTodayEnd) {
+                               $dateQ->whereBetween('delivered_at', [$manilaTodayStart, $manilaTodayEnd])
+                                     ->orWhere(function ($fallbackQ) use ($manilaTodayStart, $manilaTodayEnd) {
                                          $fallbackQ->whereNull('delivered_at')
-                                                   ->whereDate('created_at', today());
+                                                   ->whereBetween('created_at', [$manilaTodayStart, $manilaTodayEnd]);
                                      });
                            });
                   });
@@ -184,34 +188,45 @@ class DeliveryController extends Controller
             }
 
             if ($datePreset === 'today') {
-                $delQuery->where(function ($dq) {
-                    $dq->whereDate('delivered_at', today())
-                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
+                $delQuery->where(function ($dq) use ($manilaTodayStart, $manilaTodayEnd) {
+                    $dq->whereBetween('delivered_at', [$manilaTodayStart, $manilaTodayEnd])
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$manilaTodayStart, $manilaTodayEnd]));
                 });
             } elseif ($datePreset === 'yesterday') {
-                $yesterday = today()->subDay();
-                $delQuery->where(function ($dq) use ($yesterday) {
-                    $dq->whereDate('delivered_at', $yesterday)
-                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', $yesterday));
+                $yesterdayStart = $manilaNow->copy()->subDay()->startOfDay()->setTimezone('UTC');
+                $yesterdayEnd   = $manilaNow->copy()->subDay()->endOfDay()->setTimezone('UTC');
+                $delQuery->where(function ($dq) use ($yesterdayStart, $yesterdayEnd) {
+                    $dq->whereBetween('delivered_at', [$yesterdayStart, $yesterdayEnd])
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$yesterdayStart, $yesterdayEnd]));
                 });
             } elseif ($datePreset === 'last_7_days') {
-                $sevenDaysAgo = today()->subDays(7);
-                $delQuery->where(function ($dq) use ($sevenDaysAgo) {
-                    $dq->where('delivered_at', '>=', $sevenDaysAgo)
-                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->where('created_at', '>=', $sevenDaysAgo));
+                $sevenDaysStart = $manilaNow->copy()->subDays(6)->startOfDay()->setTimezone('UTC');
+                $sevenDaysEnd   = $manilaNow->copy()->endOfDay()->setTimezone('UTC');
+                $delQuery->where(function ($dq) use ($sevenDaysStart, $sevenDaysEnd) {
+                    $dq->whereBetween('delivered_at', [$sevenDaysStart, $sevenDaysEnd])
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$sevenDaysStart, $sevenDaysEnd]));
                 });
             } elseif ($datePreset === 'this_month') {
-                $delQuery->where(function ($dq) {
-                    $dq->whereMonth('delivered_at', today()->month)
-                       ->whereYear('delivered_at', today()->year)
-                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereMonth('created_at', today()->month)->whereYear('created_at', today()->year));
+                $monthStart = $manilaNow->copy()->startOfMonth()->startOfDay()->setTimezone('UTC');
+                $monthEnd   = $manilaNow->copy()->endOfMonth()->endOfDay()->setTimezone('UTC');
+                $delQuery->where(function ($dq) use ($monthStart, $monthEnd) {
+                    $dq->whereBetween('delivered_at', [$monthStart, $monthEnd])
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$monthStart, $monthEnd]));
                 });
             } elseif ($datePreset === 'custom' && $request->filled('start_date')) {
                 $startDate = $request->start_date;
                 $endDate = $request->input('end_date', $startDate);
-                $delQuery->where(function ($dq) use ($startDate, $endDate) {
-                    $dq->whereBetween('delivered_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']));
+                $customStart = Carbon::createFromFormat('Y-m-d', $startDate, 'Asia/Manila')->startOfDay()->setTimezone('UTC');
+                $customEnd   = Carbon::createFromFormat('Y-m-d', $endDate, 'Asia/Manila')->endOfDay()->setTimezone('UTC');
+                $delQuery->where(function ($dq) use ($customStart, $customEnd) {
+                    $dq->whereBetween('delivered_at', [$customStart, $customEnd])
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$customStart, $customEnd]));
+                });
+            } else {
+                // Default 'all' in Archive view: exclude today's completed operations to prevent duplicate records between sections
+                $delQuery->where(function ($dq) use ($manilaTodayStart) {
+                    $dq->where('delivered_at', '<', $manilaTodayStart)
+                       ->orWhere(fn($f) => $f->whereNull('delivered_at')->where('created_at', '<', $manilaTodayStart));
                 });
             }
         }
@@ -327,6 +342,10 @@ class DeliveryController extends Controller
             });
         }
 
+        $manilaNow = Carbon::now('Asia/Manila');
+        $manilaTodayStart = $manilaNow->copy()->startOfDay()->setTimezone('UTC');
+        $manilaTodayEnd   = $manilaNow->copy()->endOfDay()->setTimezone('UTC');
+
         $activeDelivCount = (clone $baseDeliveryQuery)->whereIn('status', $activeDeliveryStatuses)->count();
 
         return [
@@ -338,10 +357,10 @@ class DeliveryController extends Controller
             'assigned'         => (clone $baseDeliveryQuery)->where('status', 'assigned_to_rider')->count(),
             'picked_up'        => (clone $baseDeliveryQuery)->where('status', 'picked_up')->count(),
             'in_transit'       => (clone $baseDeliveryQuery)->whereIn('status', ['in_transit', 'out_for_delivery'])->count(),
-            'delivered'        => (clone $baseDeliveryQuery)->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
-            'delivered_today'  => (clone $baseDeliveryQuery)->where('status', 'delivered')->where(function ($dq) {
-                                      $dq->whereDate('delivered_at', today())
-                                         ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereDate('created_at', today()));
+            'delivered'        => (clone $baseDeliveryQuery)->where('status', 'delivered')->whereBetween('delivered_at', [$manilaTodayStart, $manilaTodayEnd])->count(),
+            'delivered_today'  => (clone $baseDeliveryQuery)->where('status', 'delivered')->where(function ($dq) use ($manilaTodayStart, $manilaTodayEnd) {
+                                      $dq->whereBetween('delivered_at', [$manilaTodayStart, $manilaTodayEnd])
+                                         ->orWhere(fn($f) => $f->whereNull('delivered_at')->whereBetween('created_at', [$manilaTodayStart, $manilaTodayEnd]));
                                   })->count(),
             'total_historical' => (clone $baseDeliveryQuery)->whereIn('status', ['delivered', 'cancelled', 'failed_delivery'])->count(),
             'failed'           => (clone $baseDeliveryQuery)->where('status', 'failed_delivery')->count(),

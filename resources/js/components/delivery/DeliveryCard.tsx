@@ -76,11 +76,11 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                             ) : (
                                 <Badge className={cn(
                                     "rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0",
-                                    (delivery.order_source === 'pos' || Boolean(delivery.sale_id))
+                                    delivery.order_source === 'pos'
                                         ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900/40"
                                         : "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40"
                                 )}>
-                                    {(delivery.order_source === 'pos' || Boolean(delivery.sale_id)) ? '🖥️ POS' : '📱 Mobile'}
+                                    {delivery.order_source === 'pos' ? '🖥️ POS' : '📱 Mobile'}
                                 </Badge>
                             )}
                             <Badge className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${delivery.status_color}`}>

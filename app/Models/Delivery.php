@@ -60,7 +60,29 @@ class Delivery extends Model
         'scheduled_pickup_at',
         'scheduled_pickup_display',
         'pickup_verification_code',
+        'order_source',
     ];
+
+    public function getOrderSourceAttribute(): string
+    {
+        $order = $this->order;
+        if (! $order && $this->order_id) {
+            $order = Order::find($this->order_id);
+        }
+
+        if ($order) {
+            $source = $order->order_source;
+            if (in_array($source, [Order::SOURCE_MOBILE_APP, 'mobile', 'mobile_app'], true)) {
+                return 'mobile';
+            }
+            if (in_array($source, [Order::SOURCE_WEB_POS, Order::SOURCE_WALK_IN, 'pos', 'web_pos', 'walk_in'], true)) {
+                return 'pos';
+            }
+            return $source ?: 'mobile';
+        }
+
+        return 'pos';
+    }
 
     public function getScheduledPickupAtAttribute(): ?string
     {

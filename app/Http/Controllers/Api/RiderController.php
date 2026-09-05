@@ -1452,7 +1452,7 @@ class RiderController extends Controller
         $fee = (float) ($delivery->delivery_fee ?: ($order?->delivery_fee ?: 50.00));
         $totalAmount = (float) ($sale?->total ?? $order?->total_amount ?? 0);
         $orderNumber = $sale?->order_number ?? $order?->order_number ?? ($delivery->tracking_number ?? 'DEL-' . $delivery->id);
-        $orderSource = $sale ? 'pos' : 'mobile';
+        $orderSource = $delivery->order_source;
 
         $branch = $sale?->branch ?? $order?->branch;
         $branchName = $branch?->name ?? 'Store Branch';

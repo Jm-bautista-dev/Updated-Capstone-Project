@@ -325,7 +325,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
         <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
             <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
                 <SheetHeader className="p-6 pb-2">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Badge className={`rounded-full px-3 py-0.5 text-[10px] font-black uppercase tracking-wider ${delivery.status_color}`}>
                             {delivery.status_label}
                         </Badge>
@@ -333,6 +333,16 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             <TypeIcon className="size-3" />
                             {isPickup ? 'Store Pickup' : (delivery.delivery_type === 'internal' ? 'Internal Delivery' : 'External Courier')}
                         </Badge>
+                        {!isPickup && (
+                            <Badge className={cn(
+                                "rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider",
+                                delivery.order_source === 'pos'
+                                    ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-900/40"
+                                    : "bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-900/40"
+                            )}>
+                                {delivery.order_source === 'pos' ? '🖥️ POS' : '📱 Mobile'}
+                            </Badge>
+                        )}
                     </div>
                     <SheetTitle className="text-xl font-black tracking-tight">
                         {delivery.sale?.order_number || delivery.order?.order_number || (delivery.order ? `Order #${delivery.order.id}` : 'Order Detail')}
