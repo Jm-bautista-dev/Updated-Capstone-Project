@@ -78,6 +78,9 @@ class SetSecurityHeaders
             $response->headers->set('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
         }
 
+        // 8. Mitigate browser QUIC/HTTP3 handshake resets and stale UDP session errors
+        $response->headers->set('Alt-Svc', 'clear');
+
         return $response;
     }
 }

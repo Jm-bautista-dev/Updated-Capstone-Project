@@ -8,3 +8,7 @@
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
+
+<IfModule mod_headers.c>
+    Header always set Alt-Svc "clear"
+</IfModule>
