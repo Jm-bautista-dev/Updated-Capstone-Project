@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/core';
 import { Head, useForm } from '@inertiajs/react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus,
     Edit2,
@@ -9,13 +8,9 @@ import {
     Layers,
     Package,
     CheckCircle2,
-    XCircle,
     Search,
-    Filter,
-    ArrowUpDown,
     Check,
     AlertCircle,
-    Info,
 } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 
@@ -768,6 +763,26 @@ export default function AddonsIndex({
                                     </div>
                                 </div>
                             )}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold">Branch Scope (Optional)</Label>
+                            <Select
+                                value={addonForm.data.branch_id || 'all'}
+                                onValueChange={(val) => addonForm.setData('branch_id', val === 'all' ? '' : val)}
+                            >
+                                <SelectTrigger className="mt-1 bg-white dark:bg-slate-900 text-xs">
+                                    <SelectValue placeholder="All Branches (Global)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Branches (Global)</SelectItem>
+                                    {branches.map((b) => (
+                                        <SelectItem key={b.id} value={String(b.id)}>
+                                            {b.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="flex items-center justify-between pt-2">

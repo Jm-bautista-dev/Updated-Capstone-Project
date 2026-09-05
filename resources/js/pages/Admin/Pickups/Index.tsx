@@ -124,6 +124,12 @@ export default function PickupDashboard({
     const [newPickupDate, setNewPickupDate] = useState('');
     const [newPickupTime, setNewPickupTime] = useState('');
     const [rescheduleReason, setRescheduleReason] = useState('');
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
+        return () => clearInterval(timer);
+    }, []);
     // Real-time Echo updates
     useEffect(() => {
         if (!echo) return;
@@ -242,7 +248,7 @@ export default function PickupDashboard({
     const getStatusBadge = (orderOrStatus: PickupOrder | string) => {
         const order = typeof orderOrStatus === 'object' ? orderOrStatus : null;
         const status = typeof orderOrStatus === 'object' ? orderOrStatus.status : orderOrStatus;
-        const isPrepWindowOpen = !order?.prep_start_at || new Date(order.prep_start_at).getTime() <= Date.now();
+        const isPrepWindowOpen = !order?.prep_start_at || new Date(order.prep_start_at).getTime() <= currentTime;
 
         switch (status) {
             case 'pending':
