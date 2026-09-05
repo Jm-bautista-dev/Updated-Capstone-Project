@@ -544,7 +544,6 @@ export default function PickupDashboard({
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {pickups.data.map((order) => {
-                            const pickupDate = order.scheduled_pickup_at ? new Date(order.scheduled_pickup_at) : null;
                             const isUnpaid = order.payment_status === 'unpaid';
 
                             return (

@@ -35,7 +35,7 @@ class AccountFlagController extends Controller
 
         $reporter = $request->user();
 
-        /** @var \App\Models\Rider|\App\Models\User|null $target */
+        /** @var Rider|User|null $target */
         $target = $validated['target_type'] === 'rider'
             ? Rider::find($validated['target_id'])
             : User::find($validated['target_id']);
