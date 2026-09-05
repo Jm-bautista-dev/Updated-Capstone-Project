@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notification-bell';
 import { ApplyDiscountModal, type PosDiscount } from '@/components/pos/ApplyDiscountModal';
 import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
+import { ProductModifierModal, type ModifierGroup, type ProductForModifier, type SelectedModifier } from '@/components/pos/ProductModifierModal';
 import { ResultModal } from '@/components/result-modal';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,6 @@ import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
 import { usePrinterStatus, sendToLocalPrintBridge, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
 import { cn, formatCurrency } from '@/lib/utils';
-import { ProductModifierModal, type ModifierGroup, type ProductForModifier, type SelectedModifier } from '@/components/pos/ProductModifierModal';
 
 type Category = {
   id: number;
@@ -53,7 +53,7 @@ export interface SelectedAddon {
   name: string;
   price: number;
   quantity?: number;
-  group_id?: number;
+  group_id?: number | string;
   group_name?: string;
 }
 
@@ -239,8 +239,6 @@ export default function PosIndex() {
     return Math.round(computed * 100) / 100;
   }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch?.base_delivery_fee, branch?.per_km_fee]);
 
-  const [addonModalItem, setAddonModalItem] = useState<CartItem | null>(null);
-
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const cartBaseSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
   const cartAddonsTotal = useMemo(() => cart.reduce((sum, item) => {
@@ -299,7 +297,10 @@ export default function PosIndex() {
       return;
     }
 
-    if (product.addon_groups && product.addon_groups.length > 0) {
+    const hasAddons = (product.addon_groups && product.addon_groups.length > 0) ||
+                      (product.available_addons && product.available_addons.length > 0);
+
+    if (hasAddons) {
       setModifierProduct(product);
       return;
     }
@@ -817,9 +818,16 @@ export default function PosIndex() {
                                 <h3 className="text-[#3D2C2E] dark:text-zinc-100 font-bold text-xs sm:text-sm line-clamp-1 leading-tight group-hover:text-[#E75480] transition-colors">
                                   {p.name}
                                 </h3>
-                                <span className="text-[10px] font-semibold text-[#7D6B6E] dark:text-zinc-500 block mt-0.5">
-                                  SKU: {p.sku || `PROD-${p.id}`}
-                                </span>
+                                <div className="flex items-center justify-between gap-1 mt-1">
+                                  <span className="text-[10px] font-semibold text-[#7D6B6E] dark:text-zinc-500 block">
+                                    SKU: {p.sku || `PROD-${p.id}`}
+                                  </span>
+                                  {((p.addon_groups && p.addon_groups.length > 0) || (p.available_addons && p.available_addons.length > 0)) && (
+                                    <span className="text-[9px] font-bold text-[#E75480] bg-[#FFF5F7] dark:bg-[#E75480]/15 px-1.5 py-0.5 rounded border border-[#F8C8DC]/60 dark:border-[#E75480]/30 shrink-0">
+                                      + Customizations
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Price & Add Button Row */}

@@ -13,7 +13,7 @@ export interface ModifierAddon {
 }
 
 export interface ModifierGroup {
-  id: number;
+  id: number | string;
   name: string;
   selection_type: 'single' | 'multi';
   is_required: boolean;
@@ -29,6 +29,7 @@ export interface ProductForModifier {
   image_url?: string | null;
   stock: number;
   addon_groups?: ModifierGroup[];
+  available_addons?: { id: number; name: string; price: number }[];
 }
 
 export interface SelectedModifier {
@@ -36,7 +37,7 @@ export interface SelectedModifier {
   name: string;
   price: number;
   quantity: number;
-  group_id?: number;
+  group_id?: number | string;
   group_name?: string;
 }
 
@@ -55,31 +56,54 @@ export function ProductModifierModal({
 }: ProductModifierModalProps) {
   const [quantity, setQuantity] = useState(1);
   // Keyed by group_id -> Record<addon_id, quantity>
-  const [selections, setSelections] = useState<Record<number, Record<number, number>>>({});
+  const [selections, setSelections] = useState<Record<string | number, Record<number, number>>>({});
   const [prevProductKey, setPrevProductKey] = useState<string | null>(null);
 
   const currentProductKey = isOpen && product ? `${product.id}` : null;
   if (currentProductKey !== prevProductKey) {
     setPrevProductKey(currentProductKey);
     setQuantity(1);
-    const initial: Record<number, Record<number, number>> = {};
+    const initial: Record<string | number, Record<number, number>> = {};
     (product?.addon_groups || []).forEach((group) => {
       initial[group.id] = {};
     });
     setSelections(initial);
   }
 
-  const groups = useMemo(() => product?.addon_groups || [], [product]);
+  const groups = useMemo(() => {
+    if (!product) return [];
+    if (product.addon_groups && product.addon_groups.length > 0) {
+      return product.addon_groups;
+    }
+    if (product.available_addons && product.available_addons.length > 0) {
+      return [
+        {
+          id: `direct_${product.id}`,
+          name: 'Available Customizations',
+          selection_type: 'multi' as const,
+          is_required: false,
+          min_selections: 0,
+          max_selections: null,
+          addons: product.available_addons.map((a) => ({
+            id: a.id,
+            name: a.name,
+            price: a.price,
+          })),
+        },
+      ];
+    }
+    return [];
+  }, [product]);
 
   // Toggle or adjust selection for single vs multi groups
-  const handleSingleSelect = (groupId: number, addonId: number) => {
+  const handleSingleSelect = (groupId: string | number, addonId: number) => {
     setSelections((prev) => ({
       ...prev,
       [groupId]: { [addonId]: 1 },
     }));
   };
 
-  const handleMultiToggle = (groupId: number, addon: ModifierAddon, group: ModifierGroup) => {
+  const handleMultiToggle = (groupId: string | number, addon: ModifierAddon, group: ModifierGroup) => {
     setSelections((prev) => {
       const groupSelections = { ...(prev[groupId] || {}) };
       const currentQty = groupSelections[addon.id] || 0;
@@ -89,14 +113,13 @@ export function ProductModifierModal({
       } else {
         const totalSelectedInGroup = Object.values(groupSelections).reduce((a, b) => a + b, 0);
         if (group.max_selections !== null && totalSelectedInGroup >= group.max_selections) {
-          // If max reached in multi-select, replace if max is 1 or block
           if (group.max_selections === 1) {
             return {
               ...prev,
               [groupId]: { [addon.id]: 1 },
             };
           }
-          return prev; // Block selecting more than max
+          return prev;
         }
         groupSelections[addon.id] = 1;
       }
@@ -108,9 +131,35 @@ export function ProductModifierModal({
     });
   };
 
+  const handleMultiQuantityChange = (groupId: string | number, addonId: number, delta: number, group: ModifierGroup) => {
+    setSelections((prev) => {
+      const groupSelections = { ...(prev[groupId] || {}) };
+      const currentQty = groupSelections[addonId] || 0;
+      const nextQty = currentQty + delta;
+
+      if (nextQty <= 0) {
+        delete groupSelections[addonId];
+      } else {
+        const totalOtherSelections = Object.entries(groupSelections).reduce(
+          (acc, [id, qty]) => (Number(id) === addonId ? acc : acc + qty),
+          0
+        );
+        if (group.max_selections !== null && totalOtherSelections + nextQty > group.max_selections) {
+          return prev;
+        }
+        groupSelections[addonId] = nextQty;
+      }
+
+      return {
+        ...prev,
+        [groupId]: groupSelections,
+      };
+    });
+  };
+
   // Validation checks per group
   const groupValidationErrors = useMemo(() => {
-    const errors: Record<number, string> = {};
+    const errors: Record<string | number, string> = {};
 
     groups.forEach((group) => {
       const groupSelections = selections[group.id] || {};
@@ -155,7 +204,7 @@ export function ProductModifierModal({
   }, [groups, selections]);
 
   const addonsSubtotalPerUnit = useMemo(() => {
-    return flattenedSelectedAddons.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return flattenedSelectedAddons.reduce((sum, item) => sum + item.price * item.quantity, 0);
   }, [flattenedSelectedAddons]);
 
   if (!product) return null;
@@ -171,11 +220,11 @@ export function ProductModifierModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-card border-border shadow-2xl">
-        <DialogHeader className="p-5 border-b border-border bg-muted/40">
+      <DialogContent className="max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] shadow-2xl rounded-3xl font-['Outfit',sans-serif]">
+        <DialogHeader className="p-5 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7]/80 dark:bg-[#1E1E21]/60 backdrop-blur-md">
           <div className="flex items-center gap-4">
             {product.image_url ? (
-              <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-border bg-background">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#121214]">
                 <ImageWithFallback
                   src={product.image_url}
                   alt={product.name}
@@ -184,24 +233,24 @@ export function ProductModifierModal({
               </div>
             ) : null}
             <div className="flex-1 min-w-0">
-              <DialogTitle className="text-xl font-bold tracking-tight text-foreground truncate">
+              <DialogTitle className="text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white truncate">
                 Customize {product.name}
               </DialogTitle>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
+                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
                   Base: {formatCurrency(product.selling_price)}
                 </span>
-                <span className="text-xs text-muted-foreground">• In Stock: {product.stock}</span>
+                <span className="text-xs font-semibold text-[#7D6B6E] dark:text-zinc-400">• In Stock: {product.stock}</span>
               </div>
             </div>
           </div>
         </DialogHeader>
 
         {/* Scrollable Modifier Groups */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide">
           {groups.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              No options available for this product.
+            <div className="text-center py-8 text-[#7D6B6E] dark:text-zinc-500 text-xs font-bold uppercase">
+              No add-ons available for this product.
             </div>
           ) : (
             groups.map((group) => {
@@ -209,20 +258,20 @@ export function ProductModifierModal({
               const groupSelections = selections[group.id] || {};
 
               return (
-                <div key={group.id} className="space-y-3 pb-4 border-b border-border/60 last:border-b-0">
+                <div key={group.id} className="space-y-3 pb-4 border-b border-[#F8C8DC]/40 dark:border-[#26262A] last:border-b-0">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-foreground">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-white">
                           {group.name}
                         </h4>
                         {group.is_required && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                          <span className="px-2 py-0.5 text-[9px] font-black rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 uppercase tracking-widest">
                             Required
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-[11px] font-semibold text-[#7D6B6E] dark:text-zinc-400 mt-0.5">
                         {group.selection_type === 'single'
                           ? 'Select 1 option'
                           : group.max_selections
@@ -232,7 +281,7 @@ export function ProductModifierModal({
                     </div>
 
                     {error && (
-                      <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
                         <FiAlertCircle className="w-3.5 h-3.5 shrink-0" />
                         {error}
                       </span>
@@ -242,43 +291,76 @@ export function ProductModifierModal({
                   {/* Addon choices */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {group.addons.map((addon) => {
-                      const isSelected = (groupSelections[addon.id] || 0) > 0;
+                      const currentQty = groupSelections[addon.id] || 0;
+                      const isSelected = currentQty > 0;
 
                       return (
-                        <button
+                        <div
                           key={addon.id}
-                          type="button"
-                          onClick={() => {
-                            if (group.selection_type === 'single') {
-                              handleSingleSelect(group.id, addon.id);
-                            } else {
-                              handleMultiToggle(group.id, addon, group);
-                            }
-                          }}
-                          className={`p-3 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer select-none ${
+                          className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between select-none ${
                             isSelected
-                              ? 'border-rose-500 bg-rose-500/5 dark:bg-rose-500/10 text-foreground ring-1 ring-rose-500/40'
-                              : 'border-border bg-card hover:bg-muted/50 text-foreground/80'
+                              ? 'border-[#E75480] bg-[#FFF5F7] dark:bg-[#E75480]/15 text-[#3D2C2E] dark:text-white shadow-xs'
+                              : 'border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#1E1E21] hover:border-[#E75480]/50 text-[#3D2C2E] dark:text-zinc-300'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (group.selection_type === 'single') {
+                                handleSingleSelect(group.id, addon.id);
+                              } else {
+                                handleMultiToggle(group.id, addon, group);
+                              }
+                            }}
+                            className="flex items-center gap-2.5 min-w-0 pr-2 flex-1 cursor-pointer"
+                          >
                             <div
-                              className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 transition-colors ${
-                                group.selection_type === 'single' ? 'rounded-full' : 'rounded-md'
+                              className={`size-5 rounded flex items-center justify-center border shrink-0 transition-colors ${
+                                group.selection_type === 'single' ? 'rounded-full' : 'rounded-lg'
                               } ${
                                 isSelected
-                                  ? 'bg-rose-600 border-rose-600 text-white'
-                                  : 'border-muted-foreground/30 bg-background'
+                                  ? 'bg-[#E75480] border-[#E75480] text-white shadow-xs'
+                                  : 'border-[#7D6B6E]/30 bg-transparent'
                               }`}
                             >
-                              {isSelected && <FiCheck className="w-3.5 h-3.5 stroke-3" />}
+                              {isSelected && <FiCheck className="size-3.5 stroke-3" />}
                             </div>
-                            <span className="text-sm font-medium truncate">{addon.name}</span>
+                            <span className="text-xs font-bold truncate">{addon.name}</span>
+                          </button>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                              {addon.price > 0 ? `+${formatCurrency(addon.price)}` : 'Free'}
+                            </span>
+
+                            {/* Quantity Stepper for Multi-Select Options */}
+                            {isSelected && group.selection_type === 'multi' && (group.max_selections === null || group.max_selections > 1) && (
+                              <div className="flex items-center bg-white dark:bg-[#121214] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-lg p-0.5 ml-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMultiQuantityChange(group.id, addon.id, -1, group);
+                                  }}
+                                  className="size-5 rounded flex items-center justify-center text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
+                                >
+                                  <FiMinus className="size-3" />
+                                </button>
+                                <span className="w-5 text-center text-[10px] font-black">{currentQty}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMultiQuantityChange(group.id, addon.id, 1, group);
+                                  }}
+                                  className="size-5 rounded flex items-center justify-center text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
+                                >
+                                  <FiPlus className="size-3" />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                          <span className="text-xs font-semibold text-muted-foreground shrink-0">
-                            {addon.price > 0 ? `+${formatCurrency(addon.price)}` : 'Free'}
-                          </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -289,45 +371,50 @@ export function ProductModifierModal({
         </div>
 
         {/* Footer with Quantity Stepper & Add to Cart */}
-        <DialogFooter className="p-4 border-t border-border bg-muted/30 flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <DialogFooter className="p-4 border-t border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7]/80 dark:bg-[#1E1E21]/80 flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center justify-between sm:justify-start gap-4">
-            <span className="text-xs font-semibold text-muted-foreground">Quantity:</span>
-            <div className="flex items-center gap-2 border border-border rounded-lg bg-background p-1">
+            <span className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Quantity:</span>
+            <div className="flex items-center gap-2 border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl bg-white dark:bg-[#121214] p-1 shadow-2xs">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 rounded"
+                className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
                 onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                 disabled={quantity <= 1}
               >
-                <FiMinus className="w-3.5 h-3.5" />
+                <FiMinus className="size-3.5" />
               </Button>
-              <span className="w-8 text-center font-bold text-sm text-foreground">{quantity}</span>
+              <span className="w-8 text-center font-black text-sm text-[#3D2C2E] dark:text-white">{quantity}</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 rounded"
+                className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
                 onClick={() => setQuantity((prev) => Math.min(product.stock || 99, prev + 1))}
                 disabled={quantity >= (product.stock || 99)}
               >
-                <FiPlus className="w-3.5 h-3.5" />
+                <FiPlus className="size-3.5" />
               </Button>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <Button type="button" variant="outline" onClick={onClose} className="text-sm">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] text-xs font-bold uppercase text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#1E1E21]"
+            >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={handleAddToCart}
               disabled={!isValid}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm shadow-md px-5"
+              className="h-11 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white font-extrabold text-xs uppercase shadow-md px-6 active:scale-95 transition-all"
             >
-              Add to Cart • {formatCurrency(lineGrandTotal)}
+              Add to Order • {formatCurrency(lineGrandTotal)}
             </Button>
           </div>
         </DialogFooter>
@@ -335,3 +422,4 @@ export function ProductModifierModal({
     </Dialog>
   );
 }
+
