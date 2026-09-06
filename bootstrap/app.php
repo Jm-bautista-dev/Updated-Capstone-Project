@@ -36,6 +36,8 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         );
 
+        $middleware->trustProxies(at: '*');
+
         $middleware->statefulApi();
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);

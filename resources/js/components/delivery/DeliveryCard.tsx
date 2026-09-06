@@ -169,7 +169,20 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                         <div className="space-y-1 pt-0.5">
                             <div className="flex flex-wrap gap-1.5 items-start">
                                 {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item) => {
-                                    const hasAddons = Boolean(item.selected_addons && item.selected_addons.length > 0);
+                                    const parsedAddons = (() => {
+                                        if (!item.selected_addons) return [];
+                                        if (Array.isArray(item.selected_addons)) return item.selected_addons;
+                                        if (typeof item.selected_addons === 'string') {
+                                            try {
+                                                const p = JSON.parse(item.selected_addons);
+                                                return Array.isArray(p) ? p : [];
+                                            } catch {
+                                                return [];
+                                            }
+                                        }
+                                        return [];
+                                    })();
+                                    const hasAddons = parsedAddons.length > 0;
                                     return (
                                         <div key={item.id} className="flex flex-col gap-0.5">
                                             <Badge variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8] border border-[#F8C8DC]/40 dark:border-white/10 w-fit">
@@ -177,7 +190,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                                             </Badge>
                                             {hasAddons && (
                                                 <div className="pl-1.5 space-y-0.5">
-                                                    {item.selected_addons!.map((addon, adIdx) => {
+                                                    {parsedAddons.map((addon, adIdx) => {
                                                         const qtyPrefix = addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : '';
                                                         return (
                                                             <span key={adIdx} className="block text-[8.5px] font-medium text-[#7D6B6E]/90 dark:text-[#94A3B8]/90 leading-tight">

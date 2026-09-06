@@ -536,7 +536,20 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
 
                         <div className="space-y-2">
                             {((delivery.sale?.items || delivery.order?.items) || []).map((item) => {
-                                const hasAddons = Boolean(item.selected_addons && item.selected_addons.length > 0);
+                                const parsedAddons = (() => {
+                                    if (!item.selected_addons) return [];
+                                    if (Array.isArray(item.selected_addons)) return item.selected_addons;
+                                    if (typeof item.selected_addons === 'string') {
+                                        try {
+                                            const p = JSON.parse(item.selected_addons);
+                                            return Array.isArray(p) ? p : [];
+                                        } catch {
+                                            return [];
+                                        }
+                                    }
+                                    return [];
+                                })();
+                                const hasAddons = parsedAddons.length > 0;
                                 const unitPrice = ('unit_price' in item ? item.unit_price : item.price) || 0;
                                 const itemBaseTotal = item.quantity * unitPrice;
 
@@ -571,7 +584,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                         {hasAddons && (
                                             <div className="ml-13 pl-3 border-l-2 border-primary/20 space-y-1 pt-0.5">
                                                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Add-ons</p>
-                                                {item.selected_addons!.map((addon, adIdx) => {
+                                                {parsedAddons.map((addon, adIdx) => {
                                                     const adQty = addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : '';
                                                     const adPrice = addon.price ?? addon.unit_price;
                                                     const adSubtotal = addon.subtotal ?? (adPrice !== undefined ? Number(adPrice) * (addon.quantity || 1) : undefined);
@@ -782,20 +795,36 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                                 Ordered Items & Add-ons
                             </p>
                             <div className="space-y-1.5 pt-1">
-                                {((delivery.sale?.items || delivery.order?.items) || []).map((item) => (
-                                    <div key={item.id} className="text-xs">
-                                        <div className="flex justify-between font-black">
-                                            <span>{item.quantity}× {item.product?.name || 'Item'}</span>
-                                        </div>
-                                        {item.selected_addons && item.selected_addons.length > 0 && (
-                                            <div className="pl-3 space-y-0.5 text-[10px] text-gray-800 italic">
-                                                {item.selected_addons.map((ad, idx) => (
-                                                    <p key={idx}>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</p>
-                                                ))}
+                                {((delivery.sale?.items || delivery.order?.items) || []).map((item) => {
+                                    const parsedAddons = (() => {
+                                        if (!item.selected_addons) return [];
+                                        if (Array.isArray(item.selected_addons)) return item.selected_addons;
+                                        if (typeof item.selected_addons === 'string') {
+                                            try {
+                                                const p = JSON.parse(item.selected_addons);
+                                                return Array.isArray(p) ? p : [];
+                                            } catch {
+                                                return [];
+                                            }
+                                        }
+                                        return [];
+                                    })();
+
+                                    return (
+                                        <div key={item.id} className="text-xs">
+                                            <div className="flex justify-between font-black">
+                                                <span>{item.quantity}× {item.product?.name || 'Item'}</span>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
+                                            {parsedAddons.length > 0 && (
+                                                <div className="pl-3 space-y-0.5 text-[10px] text-gray-800 italic">
+                                                    {parsedAddons.map((ad, idx) => (
+                                                        <p key={idx}>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</p>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

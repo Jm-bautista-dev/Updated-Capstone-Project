@@ -135,15 +135,33 @@ const TableRow = React.memo(function TableRow({
                                             </div>
                                             <span className="font-black text-[#E75480] dark:text-[#FF4F81] shrink-0">×{item.quantity}</span>
                                         </div>
-                                        {item.selected_addons && item.selected_addons.length > 0 && (
-                                            <div className="pl-8 space-y-0.5 text-[9px] text-[#7D6B6E] dark:text-[#94A3B8]">
-                                                {item.selected_addons.map((addon, adIdx) => (
-                                                    <p key={adIdx} className="leading-tight truncate">
-                                                        + {addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            const parsedAddons = (() => {
+                                                if (!item.selected_addons) return [];
+                                                if (Array.isArray(item.selected_addons)) return item.selected_addons;
+                                                if (typeof item.selected_addons === 'string') {
+                                                    try {
+                                                        const p = JSON.parse(item.selected_addons);
+                                                        return Array.isArray(p) ? p : [];
+                                                    } catch {
+                                                        return [];
+                                                    }
+                                                }
+                                                return [];
+                                            })();
+
+                                            if (parsedAddons.length === 0) return null;
+
+                                            return (
+                                                <div className="pl-8 space-y-0.5 text-[9px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                    {parsedAddons.map((addon, adIdx) => (
+                                                        <p key={adIdx} className="leading-tight truncate">
+                                                            + {addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 ))}
                             </div>

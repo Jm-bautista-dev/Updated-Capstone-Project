@@ -43,34 +43,36 @@ Route::get('/menu', function () {
 
 // Public asset & proof of delivery storage fallback handler
 Route::get('/storage/{path}', function ($path) {
-    // 1. Direct path in storage/app/public
-    $fullPath = storage_path('app/public/' . $path);
-    if (file_exists($fullPath) && is_file($fullPath)) {
-        return response()->file($fullPath);
-    }
+    $searchPaths = [
+        storage_path('app/public/' . $path),
+        storage_path('app/public/products/' . basename($path)),
+        storage_path('app/public/categories/' . basename($path)),
+        storage_path('app/public/proof_of_delivery/' . basename($path)),
+        storage_path('app/public/delivery-proofs/' . basename($path)),
+        storage_path('app/public/receipts/' . basename($path)),
+        public_path('storage/' . $path),
+        base_path('storage/app/public/' . $path),
+        base_path('public_html/storage/' . $path),
+    ];
 
-    // 2. Subfolder fallback: proof_of_delivery
-    $proofPath = storage_path('app/public/proof_of_delivery/' . $path);
-    if (file_exists($proofPath) && is_file($proofPath)) {
-        return response()->file($proofPath);
-    }
+    foreach ($searchPaths as $file) {
+        if (file_exists($file) && is_file($file)) {
+            // Self-heal: ensure file is present in public/storage for direct web server serving
+            $publicDest = public_path('storage/' . $path);
+            if (!file_exists($publicDest) && $file !== $publicDest) {
+                $dir = dirname($publicDest);
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0755, true);
+                }
+                @copy($file, $publicDest);
+            }
 
-    // 3. Subfolder fallback: delivery-proofs
-    $deliveryProofPath = storage_path('app/public/delivery-proofs/' . $path);
-    if (file_exists($deliveryProofPath) && is_file($deliveryProofPath)) {
-        return response()->file($deliveryProofPath);
-    }
-
-    // 4. Subfolder fallback: products
-    $productPath = storage_path('app/public/products/' . $path);
-    if (file_exists($productPath) && is_file($productPath)) {
-        return response()->file($productPath);
-    }
-
-    // 5. Direct path in public/storage
-    $publicPath = public_path('storage/' . $path);
-    if (file_exists($publicPath) && is_file($publicPath)) {
-        return response()->file($publicPath);
+            $mime = mime_content_type($file) ?: 'application/octet-stream';
+            return response()->file($file, [
+                'Content-Type'  => $mime,
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
+        }
     }
 
     abort(404);

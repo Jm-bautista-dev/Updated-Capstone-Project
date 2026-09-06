@@ -133,6 +133,7 @@ class ImageHelper
             public_path('storage/' . $normalized),
             base_path('storage/' . $normalized),
             base_path('public/storage/' . $normalized),
+            base_path('public_html/storage/' . $normalized),
         ]);
 
         foreach ($targets as $dest) {
@@ -149,9 +150,17 @@ class ImageHelper
             return;
         }
 
+        // Clean up broken symlinks if present
         $destDir = dirname($dest);
+        if (is_link($destDir) && !file_exists($destDir)) {
+            @unlink($destDir);
+        }
         if (!is_dir($destDir)) {
             @mkdir($destDir, 0755, true);
+        }
+
+        if (is_link($dest) && !file_exists($dest)) {
+            @unlink($dest);
         }
 
         if (!file_exists($dest)) {
@@ -166,14 +175,21 @@ class ImageHelper
     {
         $relativePath = ltrim($relativePath, '/');
 
-        if (app()->runningInConsole() && !request()->hasHeader('host')) {
+        // For console or web dashboard requests, return root-relative path (e.g. /storage/products/123.png).
+        // Root-relative paths are 100% immune to Hostinger reverse proxy SSL / Mixed Content issues and port mismatches.
+        if (app()->runningInConsole() || !request()->is('api/*')) {
             return '/' . $relativePath;
         }
 
         $request = request();
         $schemeAndHttpHost = $request->getSchemeAndHttpHost();
-        
-        // Return protocol + current host + relative path
+
+        // If in production or requested via HTTPS/X-Forwarded-Proto, ensure HTTPS for mobile API consumers
+        if (app()->environment('production') || $request->isSecure() || $request->header('x-forwarded-proto') === 'https') {
+            $schemeAndHttpHost = preg_replace('/^http:/i', 'https:', $schemeAndHttpHost);
+        }
+
+        // Return protocol + current host + relative path for API
         return rtrim($schemeAndHttpHost, '/') . '/' . $relativePath;
     }
 }
