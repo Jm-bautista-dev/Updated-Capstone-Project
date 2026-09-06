@@ -20,5 +20,5 @@ test('authenticated cashier is redirected from dashboard', function () {
     $this->actingAs($user);
 
     $response = $this->get(route('dashboard'));
-    $response->assertStatus(403);
+    $response->assertRedirect('/pos');
 });

@@ -535,30 +535,62 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </div>
 
                         <div className="space-y-2">
-                            {((delivery.sale?.items || delivery.order?.items) || []).map((item) => (
-                                <div key={item.id} className="flex items-center gap-3 bg-(--ops-surface-sunken)/20 p-2.5 rounded-xl border border-transparent hover:border-(--ops-border) transition-colors">
-                                    <div className="size-10 rounded-lg bg-(--ops-page-bg) flex items-center justify-center shrink-0 border overflow-hidden">
-                                        <ImageWithFallback 
-                                            src={item.product?.image_url} 
-                                            alt={item.product?.name || 'Product'} 
-                                            className="w-full h-full object-cover" 
-                                            fallbackIcon={<Package className="size-5 text-(--ops-text-muted)/40" />}
-                                        />
+                            {((delivery.sale?.items || delivery.order?.items) || []).map((item) => {
+                                const hasAddons = Boolean(item.selected_addons && item.selected_addons.length > 0);
+                                const unitPrice = ('unit_price' in item ? item.unit_price : item.price) || 0;
+                                const itemBaseTotal = item.quantity * unitPrice;
+
+                                return (
+                                    <div key={item.id} className="bg-(--ops-surface-sunken)/20 p-2.5 rounded-xl border border-transparent hover:border-(--ops-border) transition-colors space-y-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-10 rounded-lg bg-(--ops-page-bg) flex items-center justify-center shrink-0 border overflow-hidden">
+                                                <ImageWithFallback 
+                                                    src={item.product?.image_url} 
+                                                    alt={item.product?.name || 'Product'} 
+                                                    className="w-full h-full object-cover" 
+                                                    fallbackIcon={<Package className="size-5 text-(--ops-text-muted)/40" />}
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold truncate">{item.product?.name || 'Product'}</p>
+                                                <p className="text-xs text-(--ops-text-muted) font-medium">
+                                                    <span className="font-mono text-muted-foreground font-semibold">
+                                                        {formatCurrency(unitPrice)}
+                                                    </span>
+                                                    <span className="mx-1">×</span>
+                                                    <span>{item.quantity}</span>
+                                                    <span className="mx-1">=</span>
+                                                    <span className="font-mono font-bold text-foreground">
+                                                        {formatCurrency(itemBaseTotal)}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Selected Add-ons */}
+                                        {hasAddons && (
+                                            <div className="ml-13 pl-3 border-l-2 border-primary/20 space-y-1 pt-0.5">
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Add-ons</p>
+                                                {item.selected_addons!.map((addon, adIdx) => {
+                                                    const adQty = addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : '';
+                                                    const adPrice = addon.price ?? addon.unit_price;
+                                                    const adSubtotal = addon.subtotal ?? (adPrice !== undefined ? Number(adPrice) * (addon.quantity || 1) : undefined);
+                                                    return (
+                                                        <div key={adIdx} className="flex justify-between items-center text-xs text-muted-foreground">
+                                                            <span>+ {adQty}{addon.name}</span>
+                                                            {adSubtotal !== undefined && (
+                                                                <span className="font-mono font-medium text-[11px]">
+                                                                    {formatCurrency(adSubtotal)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold truncate">{item.product?.name || 'Product'}</p>
-                                        <p className="text-xs text-(--ops-text-muted) font-medium">
-                                            <span className="font-mono text-muted-foreground font-semibold">
-                                                {formatCurrency(('unit_price' in item ? item.unit_price : item.price) || 0)}
-                                            </span>
-                                            <span className="mx-1">×</span>
-                                            <span className="font-mono font-bold text-foreground">
-                                                {formatCurrency(item.quantity * (('unit_price' in item ? item.unit_price : item.price) || 0))}
-                                            </span>
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             {(!delivery.sale?.items && !delivery.order?.items) && (
                                 <p className="text-xs text-(--ops-text-muted) italic text-center py-4">No items listed for this order.</p>
                             )}
@@ -742,6 +774,31 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             </p>
                         </div>
                     </div>
+
+                    {/* Order Items Breakdown with Add-ons */}
+                    {((delivery.sale?.items || delivery.order?.items) || []).length > 0 && (
+                        <div className="border-2 border-black p-3 space-y-2">
+                            <p className="text-[9px] font-black uppercase tracking-wider text-gray-600 border-b border-black pb-1">
+                                Ordered Items & Add-ons
+                            </p>
+                            <div className="space-y-1.5 pt-1">
+                                {((delivery.sale?.items || delivery.order?.items) || []).map((item) => (
+                                    <div key={item.id} className="text-xs">
+                                        <div className="flex justify-between font-black">
+                                            <span>{item.quantity}× {item.product?.name || 'Item'}</span>
+                                        </div>
+                                        {item.selected_addons && item.selected_addons.length > 0 && (
+                                            <div className="pl-3 space-y-0.5 text-[10px] text-gray-800 italic">
+                                                {item.selected_addons.map((ad, idx) => (
+                                                    <p key={idx}>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</p>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Footer / Barcode Placeholder */}
                     <div className="text-center pt-4 space-y-2">

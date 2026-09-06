@@ -16,6 +16,26 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectTo(
+            guests: '/login',
+            users: function (\Illuminate\Http\Request $request) {
+                $user = $request->user();
+                if (!$user) {
+                    return '/login';
+                }
+                if ($user->isSuperAdmin()) {
+                    return '/super-admin';
+                }
+                if ($user->isAdmin()) {
+                    return '/dashboard';
+                }
+                if ($user->isCashier()) {
+                    return '/pos';
+                }
+                return '/menu';
+            }
+        );
+
         $middleware->statefulApi();
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
@@ -30,7 +50,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
-            \App\Http\Middleware\SetSecurityHeaders::class,
             AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\CheckAccountStatusMiddleware::class,
         ]);
@@ -43,10 +62,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'account_status'       => \App\Http\Middleware\CheckAccountStatusMiddleware::class,
         ]);
 
+        $middleware->append(\App\Http\Middleware\SetSecurityHeaders::class);
         $middleware->append(\App\Http\Middleware\SystemMaintenanceMiddleware::class);
         $middleware->append(\App\Http\Middleware\NetworkTraceMiddleware::class);
-        $middleware->append(\App\Http\Middleware\CheckAccountStatusMiddleware::class);
-        $middleware->append(\App\Http\Middleware\SetSecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function ($request, $e) {

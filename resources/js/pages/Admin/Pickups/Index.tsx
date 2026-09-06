@@ -49,6 +49,15 @@ interface OrderItem {
     product?: {
         name: string;
     };
+    selected_addons?: Array<{
+        addon_id?: number;
+        id?: number;
+        name: string;
+        price?: number;
+        unit_price?: number;
+        quantity?: number;
+        subtotal?: number;
+    }>;
 }
 
 interface PickupOrder {
@@ -605,11 +614,27 @@ export default function PickupDashboard({
                                         </div>
 
                                         {/* Order Items */}
-                                        <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                                        <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                                             {order.items.map((item) => (
-                                                <div key={item.id} className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                                                    <span>{item.quantity}x {item.product?.name || 'Item'}</span>
-                                                    <span className="font-mono">₱{(Number(item.price) * item.quantity).toFixed(2)}</span>
+                                                <div key={item.id} className="space-y-0.5">
+                                                    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                                        <span>{item.quantity}x {item.product?.name || 'Item'}</span>
+                                                        <span className="font-mono">₱{(Number(item.price) * item.quantity).toFixed(2)}</span>
+                                                    </div>
+                                                    {item.selected_addons && item.selected_addons.length > 0 && (
+                                                        <div className="pl-3 space-y-0.5 text-[10px] text-gray-500 dark:text-gray-400">
+                                                            {item.selected_addons.map((ad, idx) => (
+                                                                <div key={idx} className="flex justify-between items-center italic">
+                                                                    <span>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</span>
+                                                                    {(ad.price !== undefined || ad.subtotal !== undefined) && (
+                                                                        <span className="font-mono text-[9px]">
+                                                                            +₱{Number(ad.subtotal ?? (Number(ad.price || 0) * (ad.quantity || 1))).toFixed(2)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { LogOut, Moon, Sun, User } from 'lucide-react';
 import React, { useState } from 'react';
+import { broadcastLogoutEvent } from '@/lib/auth-sync';
 import { SystemStatusBadge } from './SystemStatusBadge';
 
 interface SuperAdminTopBarProps {
@@ -83,7 +84,8 @@ export const SuperAdminTopBar: React.FC<SuperAdminTopBarProps> = ({
                         href="/logout"
                         method="post"
                         as="button"
-                        className="size-9 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition-colors shadow-2xs ml-1"
+                        onClick={broadcastLogoutEvent}
+                        className="size-9 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition-colors shadow-2xs ml-1 cursor-pointer"
                         title="Log Out"
                     >
                         <LogOut className="size-4" />

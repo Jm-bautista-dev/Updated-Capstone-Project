@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 
+import { broadcastLogoutEvent } from '@/lib/auth-sync';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -163,6 +164,7 @@ export function MobileBottomNav() {
     };
 
     const handleLogout = () => {
+        broadcastLogoutEvent();
         setMoreOpen(false);
         router.post('/logout');
     };

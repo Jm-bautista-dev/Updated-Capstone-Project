@@ -1,3 +1,14 @@
+export interface OrderItemAddon {
+    addon_id?: number;
+    id?: number;
+    name: string;
+    price?: number;
+    unit_price?: number;
+    quantity?: number;
+    subtotal?: number;
+    cost_price?: number;
+}
+
 export interface Delivery {
     id: number;
     order_id?: number | null;
@@ -49,6 +60,8 @@ export interface Delivery {
             quantity: number;
             unit_price: number;
             subtotal: number;
+            addon_total?: number;
+            selected_addons?: OrderItemAddon[];
         }>;
     } | null;
     cancellation_request?: {
@@ -78,6 +91,9 @@ export interface Delivery {
             product: { name: string; image_url?: string };
             quantity: number;
             price: number;
+            unit_price?: number;
+            addon_total?: number;
+            selected_addons?: OrderItemAddon[];
         }>;
     } | null;
     rider_id: number | null;

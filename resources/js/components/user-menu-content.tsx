@@ -7,7 +7,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
-import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
+import { broadcastLogoutEvent } from '@/lib/auth-sync';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
@@ -20,6 +20,7 @@ export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
 
     const handleLogout = () => {
+        broadcastLogoutEvent();
         cleanup();
         // Standard Inertia cleanup is handled by the redirect from the server
     };

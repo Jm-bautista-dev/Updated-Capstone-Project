@@ -211,18 +211,34 @@ export function SalesDrawer({
                                 <div className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 overflow-hidden divide-y divide-[#F8C8DC]/30 dark:divide-white/5">
                                     {sale.items && sale.items.length > 0 ? (
                                         sale.items.map((item) => (
-                                            <div key={item.id} className="p-3.5 bg-white dark:bg-[#181820] flex items-center justify-between gap-3 text-xs">
-                                                <div>
-                                                    <p className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                                        {item.product?.name || 'Product'}
-                                                    </p>
-                                                    <p className="text-[11px] font-mono text-[#7D6B6E] dark:text-[#94A3B8]">
-                                                        {item.quantity} x {formatCurrency(Number(item.unit_price))}
-                                                    </p>
+                                            <div key={item.id} className="p-3.5 bg-white dark:bg-[#181820] space-y-1.5 text-xs">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <p className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                            {item.product?.name || 'Product'}
+                                                        </p>
+                                                        <p className="text-[11px] font-mono text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                            {item.quantity} x {formatCurrency(Number(item.unit_price))}
+                                                        </p>
+                                                    </div>
+                                                    <span className="font-mono font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                        {formatCurrency(Number(item.subtotal))}
+                                                    </span>
                                                 </div>
-                                                <span className="font-mono font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                                    {formatCurrency(Number(item.subtotal))}
-                                                </span>
+                                                {item.selected_addons && item.selected_addons.length > 0 && (
+                                                    <div className="pl-3 border-l-2 border-primary/20 space-y-0.5 text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                        {item.selected_addons.map((ad, idx) => (
+                                                            <div key={idx} className="flex justify-between items-center italic">
+                                                                <span>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</span>
+                                                                {(ad.price !== undefined || ad.subtotal !== undefined) && (
+                                                                    <span className="font-mono text-[9px]">
+                                                                        +{formatCurrency(Number(ad.subtotal ?? (Number(ad.price || 0) * (ad.quantity || 1))))}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))
                                     ) : (
@@ -362,9 +378,18 @@ export function SalesDrawer({
 
                             <div className="space-y-2">
                                 {sale.items?.map((i) => (
-                                    <div key={i.id} className="flex justify-between text-[11px]">
-                                        <span>{i.product?.name} x{i.quantity}</span>
-                                        <span>₱{Number(i.subtotal).toFixed(2)}</span>
+                                    <div key={i.id} className="space-y-0.5 text-[11px]">
+                                        <div className="flex justify-between font-bold">
+                                            <span>{i.product?.name} x{i.quantity}</span>
+                                            <span>₱{Number(i.subtotal).toFixed(2)}</span>
+                                        </div>
+                                        {i.selected_addons && i.selected_addons.length > 0 && (
+                                            <div className="pl-3 space-y-0.5 text-[9.5px] text-slate-500 italic">
+                                                {i.selected_addons.map((ad, idx) => (
+                                                    <p key={idx}>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</p>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                                 {(() => {

@@ -166,17 +166,36 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
 
                     {/* Items Summary */}
                     {((delivery.sale?.items || delivery.order?.items) || []).length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item) => (
-                                <Badge key={item.id} variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8] border border-[#F8C8DC]/40 dark:border-white/10">
-                                    {item.quantity}× {item.product?.name || 'Product'}
-                                </Badge>
-                            ))}
-                            {((delivery.sale?.items || delivery.order?.items) || []).length > 3 && (
-                                <span className="text-[9px] text-[#7D6B6E] dark:text-[#94A3B8] font-bold pl-0.5 self-center">
-                                    +{((delivery.sale?.items || delivery.order?.items) || []).length - 3} more
-                                </span>
-                            )}
+                        <div className="space-y-1 pt-0.5">
+                            <div className="flex flex-wrap gap-1.5 items-start">
+                                {((delivery.sale?.items || delivery.order?.items) || []).slice(0, 3).map((item) => {
+                                    const hasAddons = Boolean(item.selected_addons && item.selected_addons.length > 0);
+                                    return (
+                                        <div key={item.id} className="flex flex-col gap-0.5">
+                                            <Badge variant="secondary" className="rounded-md px-1.5 py-0 text-[9px] font-bold bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#7D6B6E] dark:text-[#94A3B8] border border-[#F8C8DC]/40 dark:border-white/10 w-fit">
+                                                {item.quantity}× {item.product?.name || 'Product'}
+                                            </Badge>
+                                            {hasAddons && (
+                                                <div className="pl-1.5 space-y-0.5">
+                                                    {item.selected_addons!.map((addon, adIdx) => {
+                                                        const qtyPrefix = addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : '';
+                                                        return (
+                                                            <span key={adIdx} className="block text-[8.5px] font-medium text-[#7D6B6E]/90 dark:text-[#94A3B8]/90 leading-tight">
+                                                                + {qtyPrefix}{addon.name}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {((delivery.sale?.items || delivery.order?.items) || []).length > 3 && (
+                                    <span className="text-[9px] text-[#7D6B6E] dark:text-[#94A3B8] font-bold pl-0.5 self-center">
+                                        +{((delivery.sale?.items || delivery.order?.items) || []).length - 3} more
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     )}
 

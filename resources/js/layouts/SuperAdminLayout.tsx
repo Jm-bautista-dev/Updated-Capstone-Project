@@ -23,6 +23,16 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
     const environment = (props.environment as string) || 'PRODUCTION';
     const isMaintenance = Boolean(props.isMaintenance);
 
+    React.useEffect(() => {
+        if (!user && typeof window !== 'undefined') {
+            window.location.href = '/login';
+        }
+    }, [user]);
+
+    if (!user) {
+        return null;
+    }
+
     return (
         <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans flex flex-col md:flex-row">
             {/* Grouped Nav Sidebar */}

@@ -19,13 +19,20 @@ class LogoutController extends Controller
 
         $request->session()->regenerateToken();
 
-        // Standard standard security practice: redirect to home/login 
-        // with headers to prevent back-button navigation
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Successfully logged out.',
+            ]);
+        }
+
+        // Standard security practice: redirect to home/login 
+        // with strict headers to prevent back-button navigation
         return redirect('/')
             ->withHeaders([
-                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0',
                 'Pragma' => 'no-cache',
-                'Expires' => '0',
+                'Expires' => 'Sat, 01 Jan 2000 00:00:00 GMT',
             ]);
     }
 }

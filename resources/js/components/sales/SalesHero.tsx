@@ -9,6 +9,16 @@ export type SaleItem = {
     quantity: number;
     unit_price: number;
     subtotal: number;
+    addon_total?: number;
+    selected_addons?: Array<{
+        addon_id?: number;
+        id?: number;
+        name: string;
+        price?: number;
+        unit_price?: number;
+        quantity?: number;
+        subtotal?: number;
+    }>;
     product: {
         name: string;
     };

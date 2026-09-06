@@ -111,23 +111,39 @@ const TableRow = React.memo(function TableRow({
                             </span>
                         </TooltipTrigger>
                         <TooltipContent className="p-0 overflow-hidden rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xl bg-white dark:bg-[#121218]" side="right">
-                            <div className="p-3 min-w-45 space-y-2">
+                            <div className="p-3 min-w-45 max-w-72 space-y-2">
                                 <p className="text-[9px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8] border-b border-[#F8C8DC]/30 dark:border-white/5 pb-2">Order Contents</p>
-                                <div className="space-y-1.5">
-                                    {((delivery.sale?.items || delivery.order?.items) || []).map((item: { id: number; product?: { name: string; image_url?: string }; quantity: number }) => (
-                                    <div key={item.id} className="flex justify-between items-center gap-3 text-[11px]">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className="size-6 rounded bg-[#FFF5F7] dark:bg-[#1C1C28] flex items-center justify-center shrink-0 border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
-                                                <ImageWithFallback
-                                                    src={item.product?.image_url}
-                                                    alt=""
-                                                    className="w-full h-full object-cover"
-                                                    fallbackIcon={<Package className="size-2.5 text-[#7D6B6E]/40 dark:text-[#94A3B8]/40" />}
-                                                />
+                                <div className="space-y-2">
+                                    {((delivery.sale?.items || delivery.order?.items) || []).map((item: { 
+                                        id: number; 
+                                        product?: { name: string; image_url?: string }; 
+                                        quantity: number;
+                                        selected_addons?: Array<{ name: string; quantity?: number }>;
+                                    }) => (
+                                    <div key={item.id} className="space-y-0.5">
+                                        <div className="flex justify-between items-center gap-3 text-[11px]">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <div className="size-6 rounded bg-[#FFF5F7] dark:bg-[#1C1C28] flex items-center justify-center shrink-0 border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
+                                                    <ImageWithFallback
+                                                        src={item.product?.image_url}
+                                                        alt=""
+                                                        className="w-full h-full object-cover"
+                                                        fallbackIcon={<Package className="size-2.5 text-[#7D6B6E]/40 dark:text-[#94A3B8]/40" />}
+                                                    />
+                                                </div>
+                                                <span className="font-semibold truncate max-w-35 text-[#3D2C2E] dark:text-[#F8FAFC]">{item.product?.name || 'Product'}</span>
                                             </div>
-                                            <span className="font-semibold truncate max-w-27.5 text-[#3D2C2E] dark:text-[#F8FAFC]">{item.product?.name || 'Product'}</span>
+                                            <span className="font-black text-[#E75480] dark:text-[#FF4F81] shrink-0">×{item.quantity}</span>
                                         </div>
-                                        <span className="font-black text-[#E75480] dark:text-[#FF4F81] shrink-0">×{item.quantity}</span>
+                                        {item.selected_addons && item.selected_addons.length > 0 && (
+                                            <div className="pl-8 space-y-0.5 text-[9px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                {item.selected_addons.map((addon, adIdx) => (
+                                                    <p key={adIdx} className="leading-tight truncate">
+                                                        + {addon.quantity && addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

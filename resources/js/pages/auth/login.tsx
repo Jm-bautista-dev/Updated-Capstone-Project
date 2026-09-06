@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { 
     Mail, 
@@ -12,7 +12,7 @@ import {
     Globe,
     ArrowLeft
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 import AppLogo from '@/components/app-logo';
 import InputError from '@/components/input-error';
@@ -45,9 +45,31 @@ const generatePetals = () => {
 };
 
 export default function Login({ status, canResetPassword }: Props) {
+    const { props } = usePage<{ auth?: { user?: { role?: string; is_super_admin?: boolean } } }>();
+    const user = props.auth?.user;
+
+    useEffect(() => {
+        if (user) {
+            const role = user.role;
+            if (role === 'super_admin' || user.is_super_admin) {
+                router.replace('/super-admin');
+            } else if (role === 'admin') {
+                router.replace('/dashboard');
+            } else if (role === 'cashier') {
+                router.replace('/pos');
+            } else {
+                router.replace('/menu');
+            }
+        }
+    }, [user]);
+
     const [showPassword, setShowPassword] = useState(false);
     const prefersReducedMotion = useReducedMotion();
     const petals = useMemo(() => generatePetals(), []);
+
+    if (user) {
+        return null;
+    }
 
     return (
         <div className="min-h-screen w-full bg-[#FFFDFE] flex flex-col lg:flex-row relative overflow-hidden font-['Outfit'] antialiased selection:bg-[#E75480]/15 selection:text-[#E75480]">
