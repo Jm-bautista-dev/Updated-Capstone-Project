@@ -163,8 +163,8 @@ class AuthController extends Controller
             $rider = null;
             if ($user instanceof Rider) {
                 $rider = $user;
-            } elseif ($user) {
-                $rider = Rider::where('user_id', $user->id)->orWhere('email', $user->email)->first();
+            } elseif ($user && !empty($user->email)) {
+                $rider = Rider::where('email', $user->email)->first();
             }
 
             if ($rider) {

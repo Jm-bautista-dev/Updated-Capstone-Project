@@ -436,12 +436,13 @@ class UserController extends Controller
             }
 
             // If user is linked to a rider profile, clean up rider or mark offline
-            if ($user instanceof \App\Models\Rider) {
+            if ($user instanceof Rider) {
                 $user->update(['status' => 'offline', 'is_active' => false]);
                 $user->delete();
             } else {
-                $linkedRider = \App\Models\Rider::where('user_id', $user->id)->first();
-                if ($linkedRider) {
+                /** @var Rider|null $linkedRider */
+                $linkedRider = !empty($user->email) ? Rider::where('email', $user->email)->first() : null;
+                if ($linkedRider instanceof Rider) {
                     $linkedRider->update(['status' => 'offline', 'is_active' => false]);
                     $linkedRider->delete();
                 }
