@@ -157,8 +157,23 @@ export default function PosIndex() {
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
 
+  const getCsrfToken = () => {
+    const props = (typeof window !== 'undefined' ? (window as unknown as { __inertia_props?: Record<string, unknown> })?.__inertia_props : null) || {};
+    if (props?.csrf_token && typeof props.csrf_token === 'string') {
+      return props.csrf_token;
+    }
+    if (typeof document !== 'undefined') {
+      return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content || '';
+    }
+    return '';
+  };
+
   const handleOpenShift = () => {
-    router.post('/shifts/open', { opening_balance: openingCash }, {
+    const token = getCsrfToken();
+    router.post('/shifts/open', { 
+      opening_balance: openingCash,
+      ...(token ? { _token: token } : {})
+    }, {
       onSuccess: () => setIsShiftModalOpen(false),
       onError: (err: Record<string, string>) => {
         setAlertModal({ type: 'error', title: 'Shift Error', message: err.shift || 'Could not open shift.' });
@@ -168,9 +183,11 @@ export default function PosIndex() {
   };
 
   const handleCloseShift = () => {
+    const token = getCsrfToken();
     router.post('/shifts/close', { 
       closing_balance: closingCash, 
-      notes: varianceReason 
+      notes: varianceReason,
+      ...(token ? { _token: token } : {})
     }, {
       onSuccess: () => {
         setIsCloseShiftModalOpen(false);
@@ -185,10 +202,12 @@ export default function PosIndex() {
   };
 
   const handleAdjustment = () => {
+    const token = getCsrfToken();
     router.post('/shifts/adjust', {
       type: adjustmentType,
       amount: adjustmentAmount,
-      notes: adjustmentNotes
+      notes: adjustmentNotes,
+      ...(token ? { _token: token } : {})
     }, {
       onSuccess: () => {
         setIsAdjustmentModalOpen(false);
@@ -471,6 +490,13 @@ export default function PosIndex() {
     setIsSubmitting(true);
 
     const formData = new FormData();
+    const token = getCsrfToken();
+    if (token) {
+      formData.append('_token', token);
+    }
+    const idempotencyKey = 'pos_sale_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    formData.append('idempotency_key', idempotencyKey);
+
     formData.append('type', orderType);
     formData.append('items', JSON.stringify(cart.map(item => ({ 
       id: item.id, 

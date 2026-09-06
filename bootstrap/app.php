@@ -122,6 +122,29 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Safe JSON response for API 419s (CSRF / Session Expired)
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            \Illuminate\Support\Facades\Log::warning('[CSRF/SESSION DIAGNOSTIC] 419 Page Expired', [
+                'path'                   => $request->path(),
+                'method'                 => $request->method(),
+                'ip'                     => $request->ip(),
+                'user_agent'             => $request->userAgent(),
+                'csrf_header_present'    => $request->hasHeader('X-CSRF-TOKEN') ? 'YES' : 'NO',
+                'xsrf_header_present'    => $request->hasHeader('X-XSRF-TOKEN') ? 'YES' : 'NO',
+                'token_input_present'    => $request->filled('_token') ? 'YES' : 'NO',
+                'session_cookie_present' => $request->hasCookie(config('session.cookie')) ? 'YES' : 'NO',
+                'is_authenticated'       => $request->user() ? 'YES' : 'NO',
+            ]);
+
+            if ($request->is('api/*') || $request->is('v1/*') || $request->is('sanctum/*') || $request->expectsJson()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'success' => false,
+                    'message' => 'CSRF token mismatch or session expired.',
+                ], 419);
+            }
+        });
+
         // Automatically capture application errors into SystemErrorLog table
         $exceptions->reportable(function (\Throwable $e) {
             try {

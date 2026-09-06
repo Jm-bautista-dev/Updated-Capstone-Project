@@ -52,13 +52,13 @@ export default function Login({ status, canResetPassword }: Props) {
         if (user) {
             const role = user.role;
             if (role === 'super_admin' || user.is_super_admin) {
-                router.replace('/super-admin');
+                router.visit('/super-admin', { replace: true });
             } else if (role === 'admin') {
-                router.replace('/dashboard');
+                router.visit('/dashboard', { replace: true });
             } else if (role === 'cashier') {
-                router.replace('/pos');
+                router.visit('/pos', { replace: true });
             } else {
-                router.replace('/menu');
+                router.visit('/menu', { replace: true });
             }
         }
     }, [user]);

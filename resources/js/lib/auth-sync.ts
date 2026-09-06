@@ -1,10 +1,24 @@
-import axios from 'axios';
 import { router } from '@inertiajs/react';
+import axios from 'axios';
 
 const AUTH_CHANNEL_NAME = 'maki_auth_sync_channel';
 const AUTH_STORAGE_KEY = 'maki_auth_event';
 
 let isInitialized = false;
+
+/**
+ * Sync CSRF token into Axios defaults and meta tag.
+ */
+export function updateCsrfToken(token: string | null | undefined) {
+    if (!token || typeof document === 'undefined') return;
+    
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
+    
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null;
+    if (tokenMeta) {
+        tokenMeta.content = token;
+    }
+}
 
 /**
  * Configure global Axios defaults and response interceptors.
@@ -21,7 +35,7 @@ export function setupAxiosDefaults() {
         }
     }
 
-    // Install response interceptor to handle authenticated 401 expiration safely
+    // Install response interceptor to handle authenticated 401/419 expiration safely
     axios.interceptors.response.use(
         (response) => response,
         (error) => {
@@ -34,10 +48,8 @@ export function setupAxiosDefaults() {
             const status = error.response.status;
             const url = error.config?.url || '';
 
-            // 401 Unauthorized handling:
-            // Only trigger logout redirect if it's a genuine 401 on an authenticated session endpoint
-            // and NOT a login/password attempt or when already on login/welcome
-            if (status === 401) {
+            // 401 Unauthorized or 419 Page Expired handling:
+            if (status === 401 || status === 419) {
                 const isAuthCheckEndpoint = url.includes('/login') || url.includes('/change-password') || url.includes('/forgot-password');
                 const isGuestPage = typeof window !== 'undefined' && (
                     window.location.pathname === '/login' ||
@@ -47,7 +59,7 @@ export function setupAxiosDefaults() {
 
                 if (!isAuthCheckEndpoint && !isGuestPage && typeof window !== 'undefined') {
                     broadcastLogoutEvent();
-                    window.location.href = '/login';
+                    window.location.href = status === 419 ? '/login?expired=1' : '/login';
                 }
             }
 
@@ -80,7 +92,7 @@ export function broadcastLogoutEvent() {
 }
 
 /**
- * Initialize cross-tab authentication synchronization and BFCache protection.
+ * Initialize cross-tab authentication synchronization, dynamic CSRF token sync, and BFCache protection.
  */
 export function initializeAuthSync() {
     if (isInitialized || typeof window === 'undefined') {
@@ -117,7 +129,35 @@ export function initializeAuthSync() {
         }
     });
 
-    // 3. Enterprise BFCache (Back/Forward Cache) Protection
+    // 3. Dynamic CSRF Token Refresh on Inertia navigation
+    router.on('navigate', (event) => {
+        const pageProps = event.detail.page?.props as Record<string, unknown> | undefined;
+        if (pageProps?.csrf_token && typeof pageProps.csrf_token === 'string') {
+            updateCsrfToken(pageProps.csrf_token);
+        }
+    });
+
+    router.on('success', (event) => {
+        const pageProps = event.detail.page?.props as Record<string, unknown> | undefined;
+        if (pageProps?.csrf_token && typeof pageProps.csrf_token === 'string') {
+            updateCsrfToken(pageProps.csrf_token);
+        }
+    });
+
+    // 4. Intercept Inertia 419 invalid responses (prevent raw iframe modal & handle expired session gracefully)
+    router.on('invalid', (event) => {
+        const response = event.detail.response;
+        if (response && response.status === 419) {
+            event.preventDefault(); // Prevent raw 419 HTML modal
+            const pathname = window.location.pathname;
+            if (pathname !== '/login' && pathname !== '/' && pathname !== '/menu') {
+                broadcastLogoutEvent();
+                window.location.href = '/login?expired=1';
+            }
+        }
+    });
+
+    // 5. Enterprise BFCache (Back/Forward Cache) Protection
     window.addEventListener('pageshow', (event) => {
         // If persisted is true, the page was restored from browser memory/BFCache
         if (event.persisted) {
@@ -125,10 +165,8 @@ export function initializeAuthSync() {
         }
     });
 
-    // 4. Inertia navigation / popstate guard
+    // 6. Inertia navigation / popstate guard
     window.addEventListener('popstate', () => {
-        // When navigating back/forward via browser history in SPA mode,
-        // if user is on a protected route without valid session, reload to re-verify
         const pathname = window.location.pathname;
         if (pathname === '/login' || pathname === '/' || pathname === '/menu') {
             return;

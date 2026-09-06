@@ -166,10 +166,7 @@ class PickupSalesAndCostInclusionTest extends TestCase
     public function test_completed_pickup_order_records_authoritative_sale_and_cogs(): void
     {
         $pickupService = app(PickupOrderService::class);
-        $pickupDate = Carbon::now(PickupOrderService::DEFAULT_TIMEZONE)->addHours(2);
-        if ($pickupDate->hour >= 21) {
-            $pickupDate = Carbon::tomorrow(PickupOrderService::DEFAULT_TIMEZONE)->setTime(10, 0, 0);
-        }
+        $pickupDate = Carbon::tomorrow(PickupOrderService::DEFAULT_TIMEZONE)->setTime(14, 0, 0);
 
         $order = $pickupService->createManualPickupOrder([
             'customer_name'               => 'Juan Dela Cruz',

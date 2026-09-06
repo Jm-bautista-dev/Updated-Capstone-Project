@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { LogOut, Settings } from 'lucide-react';
 import {
     DropdownMenuGroup,
@@ -7,8 +7,8 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { broadcastLogoutEvent } from '@/lib/auth-sync';
-import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
 
