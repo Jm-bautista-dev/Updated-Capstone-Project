@@ -141,6 +141,7 @@ export default function CategoriesIndex() {
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [removeImage, setRemoveImage] = useState<boolean>(false);
 
     const { data, setData, processing, reset } = useForm({ name: '', description: '' });
     const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
@@ -185,6 +186,7 @@ export default function CategoriesIndex() {
         const err = validateField('image', file);
         if (err) return;
         setImageFile(file);
+        setRemoveImage(false);
         const reader = new FileReader();
         reader.onloadend = () => setImagePreview(reader.result as string);
         reader.readAsDataURL(file);
@@ -194,6 +196,7 @@ export default function CategoriesIndex() {
         reset();
         setImageFile(null);
         setImagePreview(null);
+        setRemoveImage(false);
         setLocalErrors({});
         setIsAddModalOpen(true);
     };
@@ -203,6 +206,7 @@ export default function CategoriesIndex() {
         setData({ name: category.name, description: category.description || '' });
         setImageFile(null);
         setImagePreview(category.image_url);
+        setRemoveImage(false);
         setLocalErrors({});
         setIsEditModalOpen(true);
     };
@@ -248,7 +252,7 @@ export default function CategoriesIndex() {
         const nameErr = validateField('name', data.name);
         if (nameErr) return;
 
-        router.post(`/categories/${selectedCategory.id}`, { _method: 'PUT', name: data.name, description: data.description, image: imageFile }, {
+        router.post(`/categories/${selectedCategory.id}`, { _method: 'PUT', name: data.name, description: data.description, image: imageFile, remove_image: removeImage ? '1' : '0' }, {
             forceFormData: true,
             onSuccess: () => {
                 setIsEditModalOpen(false);
@@ -256,6 +260,7 @@ export default function CategoriesIndex() {
                 setLocalErrors({});
                 setImageFile(null);
                 setImagePreview(null);
+                setRemoveImage(false);
                 stateChannel.postMessage({ type: 'categories-updated' });
                 setResultModal({ type: 'success', title: 'Category Updated!', message: 'Changes have been saved successfully.' });
                 setIsResultModalOpen(true);
@@ -553,7 +558,7 @@ export default function CategoriesIndex() {
                                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                     <button
                                         type="button"
-                                        onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                        onClick={() => { setImageFile(null); setImagePreview(null); setRemoveImage(true); }}
                                         className="absolute top-2 right-2 bg-rose-600 text-white rounded-full size-6 flex items-center justify-center text-xs shadow-xs"
                                     >
                                         <X className="size-3.5" />

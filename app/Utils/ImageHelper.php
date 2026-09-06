@@ -103,8 +103,52 @@ class ImageHelper
     }
 
     /**
-     * Copy uploaded image to public/storage if symlink is unavailable/broken (e.g. shared hosting).
+     * Delete an image file across all storage locations (Laravel public disk, public/storage, storage, public_html/storage).
+     * Prevents orphaned physical files from remaining on disk after database records are updated or deleted.
      */
+    public static function deleteImageFile(?string $imagePath): void
+    {
+        if (!$imagePath || !is_string($imagePath)) {
+            return;
+        }
+
+        $normalized = str_replace('\\', '/', trim($imagePath));
+        $normalized = ltrim($normalized, '/');
+
+        if (str_starts_with($normalized, 'public/storage/')) {
+            $normalized = substr($normalized, 15);
+        } elseif (str_starts_with($normalized, 'storage/')) {
+            $normalized = substr($normalized, 8);
+        } elseif (str_starts_with($normalized, 'public/')) {
+            $normalized = substr($normalized, 7);
+        }
+
+        $normalized = ltrim($normalized, '/');
+        if ($normalized === '') {
+            return;
+        }
+
+        // 1. Delete from Laravel's public disk
+        if (Storage::disk('public')->exists($normalized)) {
+            Storage::disk('public')->delete($normalized);
+        }
+
+        // 2. Delete from all physical mirror destinations
+        $targets = array_unique([
+            storage_path('app/public/' . $normalized),
+            public_path('storage/' . $normalized),
+            base_path('storage/' . $normalized),
+            base_path('public/storage/' . $normalized),
+            base_path('public_html/storage/' . $normalized),
+        ]);
+
+        foreach ($targets as $dest) {
+            if (file_exists($dest) && is_file($dest)) {
+                @unlink($dest);
+            }
+        }
+    }
+
     /**
      * Copy uploaded image to public/storage if symlink is unavailable/broken (e.g. shared hosting).
      */

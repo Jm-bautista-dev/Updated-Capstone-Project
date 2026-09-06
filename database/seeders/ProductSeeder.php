@@ -50,27 +50,33 @@ class ProductSeeder extends Seeder
 
         foreach ($products as $key => $prod) {
             $catId = $categoryMap[$prod['category']] ?? null;
-            
+            $existing = DB::table('products')->where('name', $prod['name'])->first();
+
             $data = [
                 'name' => $prod['name'],
-                'created_at' => now(),
                 'updated_at' => now(),
             ];
-            
+            if (!$existing) {
+                $data['created_at'] = now();
+            }
+
             if ($hasDescription) $data['description'] = $prod['description'];
             if ($hasCategoryId && $catId) $data['category_id'] = $catId;
-            
+
             if ($hasPrice) $data['price'] = $prod['price'];
             if ($hasSellingPrice) $data['selling_price'] = $prod['price'];
-            
-            if ($hasImageUrl) $data['image_url'] = $prod['image'];
-            if ($hasImagePath) $data['image_path'] = $prod['image'];
-            
+
+            // Only set initial seeder image if the product is brand new or has no image
+            if (!$existing || empty($existing->image_path)) {
+                if ($hasImageUrl) $data['image_url'] = $prod['image'];
+                if ($hasImagePath) $data['image_path'] = $prod['image'];
+            }
+
             if ($hasSku) {
-                $data['sku'] = strtoupper(substr($prod['category'], 0, 3)) . str_pad($key + 1, 3, '0', STR_PAD_LEFT);
+                $data['sku'] = $existing->sku ?? (strtoupper(substr($prod['category'], 0, 3)) . str_pad($key + 1, 3, '0', STR_PAD_LEFT));
             }
             if ($hasBarcode) {
-                $data['barcode'] = '888' . str_pad(mt_rand(0, 999999999), 9, '0', STR_PAD_LEFT);
+                $data['barcode'] = $existing->barcode ?? ('888' . str_pad(mt_rand(0, 999999999), 9, '0', STR_PAD_LEFT));
             }
 
             DB::table('products')->updateOrInsert(['name' => $prod['name']], $data);

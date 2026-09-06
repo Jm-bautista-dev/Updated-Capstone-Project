@@ -63,9 +63,10 @@ class CategoriesController extends Controller
         $category = Category::findOrFail($id);
 
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'image'       => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'name'         => 'required|string|max:255',
+            'description'  => 'nullable|string',
+            'image'        => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+            'remove_image' => 'nullable|boolean',
         ]);
 
         $this->categoryService->update($category, $validated, $request->file('image'));
@@ -78,7 +79,7 @@ class CategoriesController extends Controller
         $category = Category::findOrFail($id);
 
         if ($category->image_path) {
-            Storage::disk('public')->delete($category->image_path);
+            \App\Utils\ImageHelper::deleteImageFile($category->image_path);
         }
 
         $category->delete();

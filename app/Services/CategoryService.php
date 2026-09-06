@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Category;
 use App\Models\Branch;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use App\Utils\ImageHelper;
 use App\Events\CategoryUpdated;
 
 class CategoryService
@@ -16,7 +16,7 @@ class CategoryService
             $imagePath = null;
             if ($image) {
                 $imagePath = $image->store('categories', 'public');
-                $this->syncToPublicStorage($imagePath);
+                ImageHelper::syncToPublicStorage($imagePath);
             }
 
             Category::create([
@@ -38,13 +38,19 @@ class CategoryService
     {
         return DB::transaction(function () use ($category, $validated, $image) {
             $imagePath = $category->image_path;
+            $removeImage = !empty($validated['remove_image']) || (array_key_exists('remove_image', $validated) && filter_var($validated['remove_image'], FILTER_VALIDATE_BOOLEAN));
 
-            if ($image) {
+            if ($removeImage) {
                 if ($category->image_path) {
-                    Storage::disk('public')->delete($category->image_path);
+                    ImageHelper::deleteImageFile($category->image_path);
+                }
+                $imagePath = null;
+            } elseif ($image) {
+                if ($category->image_path) {
+                    ImageHelper::deleteImageFile($category->image_path);
                 }
                 $imagePath = $image->store('categories', 'public');
-                $this->syncToPublicStorage($imagePath);
+                ImageHelper::syncToPublicStorage($imagePath);
             }
 
             $category->update([
@@ -58,23 +64,5 @@ class CategoryService
 
             return $category;
         });
-    }
-
-    /**
-     * Copy uploaded image to public/storage if storage link is a physical folder.
-     */
-    private function syncToPublicStorage(?string $imagePath): void
-    {
-        if (!$imagePath) return;
-        $source = storage_path('app/public/' . $imagePath);
-        $dest = public_path('storage/' . $imagePath);
-        if (file_exists($source)) {
-            if (!is_dir(dirname($dest))) {
-                @mkdir(dirname($dest), 0755, true);
-            }
-            if ($source !== $dest && !file_exists($dest)) {
-                @copy($source, $dest);
-            }
-        }
     }
 }

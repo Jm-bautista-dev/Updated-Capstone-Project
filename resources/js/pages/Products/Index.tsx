@@ -213,6 +213,7 @@ export default function ProductsIndex() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [removeImage, setRemoveImage] = useState<boolean>(false);
 
     const initialBranchId = currentBranchId && currentBranchId !== 'all' ? String(currentBranchId) : '';
     const initialBranchIds = initialBranchId ? [initialBranchId] : (branches && branches.length === 1 ? [String(branches[0].id)] : []);
@@ -355,6 +356,7 @@ export default function ProductsIndex() {
         reset();
         setImageFile(null);
         setImagePreview(null);
+        setRemoveImage(false);
         setIsAddModalOpen(true);
     };
 
@@ -380,6 +382,7 @@ export default function ProductsIndex() {
         });
         setImageFile(null);
         setImagePreview(product.image_url || null);
+        setRemoveImage(false);
         setEditErrors({});
         setIsEditModalOpen(true);
     };
@@ -467,6 +470,7 @@ export default function ProductsIndex() {
             branch_id: payloadBranchId,
             branch_ids: currentBranchIds,
             image: imageFile,
+            remove_image: removeImage ? '1' : '0',
         } as RequestPayload, {
             forceFormData: true,
             onSuccess: () => {
@@ -474,6 +478,7 @@ export default function ProductsIndex() {
                 reset();
                 setImageFile(null);
                 setImagePreview(null);
+                setRemoveImage(false);
                 setSuccessMessage({ title: 'Product Updated!', message: 'Changes have been saved successfully.' });
                 setIsSuccessModalOpen(true);
             },
@@ -1223,7 +1228,7 @@ export default function ProductsIndex() {
                                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
-                                            onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                            onClick={() => { setImageFile(null); setImagePreview(null); setRemoveImage(true); }}
                                             className="absolute top-2 right-2 bg-rose-600 text-white rounded-full size-6 flex items-center justify-center text-xs shadow-xs"
                                         >
                                             <X className="size-3.5" />
@@ -1236,6 +1241,7 @@ export default function ProductsIndex() {
                                     onChange={(e) => {
                                         const file = e.target.files?.[0] || null;
                                         setImageFile(file);
+                                        setRemoveImage(false);
                                         if (file) setImagePreview(URL.createObjectURL(file));
                                     }}
                                     className="w-full text-xs font-medium border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#FADADD]/40 dark:file:bg-white/10 file:text-[#E75480] dark:file:text-[#FF4F81] cursor-pointer"

@@ -352,6 +352,7 @@ class ProductsController extends Controller
                 'category_id'                => 'required|exists:categories,id',
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
+                'remove_image'               => 'nullable|boolean',
                 'recipe'                     => 'nullable|array',
                 'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
@@ -455,7 +456,7 @@ class ProductsController extends Controller
         $this->authorize('delete', $product);
 
         if ($product->image_path) {
-            Storage::disk('public')->delete($product->image_path);
+            \App\Utils\ImageHelper::deleteImageFile($product->image_path);
         }
 
         MenuItemIngredient::where('menu_item_id', $id)->delete();
