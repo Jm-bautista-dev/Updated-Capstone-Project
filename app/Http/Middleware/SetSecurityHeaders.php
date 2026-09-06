@@ -50,18 +50,18 @@ class SetSecurityHeaders
         );
 
         // 6. Content Security Policy (CSP)
-        // Explicitly allows same-origin assets, OpenStreetMap tile servers, Google Fonts, and Pusher/Reverb WebSockets
+        // Explicitly allows same-origin assets, OpenStreetMap tile servers, Google Fonts, Pusher/Reverb WebSockets, and production domains
         $cspDirectives = [
             "default-src 'self'",
             "base-uri 'self'",
             "form-action 'self'",
             "frame-ancestors 'self'",
             "object-src 'none'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://makidesuoperation.site https://www.makidesuoperation.site",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://makidesuoperation.site https://www.makidesuoperation.site",
             "font-src 'self' https://fonts.gstatic.com data:",
-            "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.openstreetmap.org",
-            "connect-src 'self' https://nominatim.openstreetmap.org wss://*.pusher.com https://*.pusher.com https://*.pusherapp.com https://sockjs-*.pusher.com wss: ws:",
+            "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.openstreetmap.org https://makidesuoperation.site https://www.makidesuoperation.site",
+            "connect-src 'self' https://nominatim.openstreetmap.org wss://*.pusher.com https://*.pusher.com https://*.pusherapp.com https://sockjs-*.pusher.com wss: ws: https://makidesuoperation.site https://www.makidesuoperation.site",
             "frame-src 'self' https://www.openstreetmap.org",
         ];
 

@@ -5,6 +5,15 @@
 
     RewriteEngine On
 
+    # 1. Canonical Redirect: Force HTTPS
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,NE,R=301]
+
+    # 2. Canonical Redirect: Strip WWW to non-WWW
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^ https://%1%{REQUEST_URI} [L,NE,R=301]
+
     # --- SANCTUM FIX FOR HOSTINGER ---
     RewriteCond %{HTTP:Authorization} ^(.*)
     RewriteRule .* - [e:HTTP_AUTHORIZATION=%1]
@@ -19,8 +28,6 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-
-
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -31,4 +38,12 @@
     AddType application/javascript .js .mjs
     AddType text/css .css
 </IfModule>
+
+<IfModule mod_headers.c>
+    # Static asset CORS headers for scripts, styles, fonts, and images
+    <FilesMatch "\.(ttf|ttc|otf|eot|woff|woff2|font.css|css|js|mjs|json|svg|png|jpe?g|gif|webp|ico)$">
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+</IfModule>
+
 
