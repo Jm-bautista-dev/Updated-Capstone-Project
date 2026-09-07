@@ -57,6 +57,7 @@ export interface Product {
         id: number;
         name: string;
     };
+    description?: string | null;
     stock: number;
     cost_price: number;
     selling_price: number;
@@ -134,6 +135,19 @@ export function ProductDrawer({
                             SKU: {product.sku || 'N/A'} • Created {format(new Date(product.created_at), 'MMM d, yyyy')}
                         </SheetDescription>
                     </SheetHeader>
+
+                    {/* Product Description */}
+                    {product.description && (
+                        <div className="p-4 rounded-2xl bg-[#FFF5F7]/70 dark:bg-[#181824] border border-[#F8C8DC]/50 dark:border-white/10 shadow-2xs space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#E75480] dark:text-[#FF4F81] flex items-center gap-1.5">
+                                <Info className="size-3.5" />
+                                <span>Description</span>
+                            </span>
+                            <p className="text-xs text-[#5D4A4D] dark:text-[#CBD5E1] leading-relaxed whitespace-pre-line font-medium">
+                                {product.description}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Financial Metrics Cards */}
                     {isAdmin ? (

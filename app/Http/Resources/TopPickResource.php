@@ -41,7 +41,7 @@ class TopPickResource extends JsonResource
             'name'           => (string) ($data['name'] ?? 'Product'),
             'sku'            => (string) ($data['sku'] ?? ''),
             'barcode'        => (string) ($data['barcode'] ?? ''),
-            'description'    => (string) ($data['description'] ?? $productModel?->description ?? ''),
+            'description'    => $data['description'] ?? $productModel?->description ?? null,
             'category'       => (string) ($data['category'] ?? 'General'),
             'brand'          => (string) ($data['brand'] ?? config('app.name', 'MakiDesu')),
             'price'          => (float) round((float) ($data['price'] ?? 0), 2),

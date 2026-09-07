@@ -72,6 +72,7 @@ type Product = {
     sku: string;
     category_id: number;
     category: Category;
+    description?: string | null;
     stock: number;
     cost_price: number;
     selling_price: number;
@@ -366,7 +367,7 @@ export default function ProductsIndex() {
             name: product.name,
             sku: product.sku || '',
             category_id: product.category_id != null ? String(product.category_id) : '',
-            description: (product as unknown as { description?: string }).description || '',
+            description: product.description || '',
             cost_price: product.cost_price != null ? String(product.cost_price) : '0',
             selling_price: product.selling_price != null ? String(product.selling_price) : '0',
             branch_id: product.branch_id != null ? String(product.branch_id) : '',
@@ -794,6 +795,19 @@ export default function ProductsIndex() {
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} placeholder="0.00" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                             </div>
 
+                            <div className="col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Description</label>
+                                <textarea
+                                    rows={3}
+                                    value={data.description}
+                                    onChange={(e) => setData('description', e.target.value)}
+                                    placeholder="Enter detailed product description, ingredients, flavor profile, or serving suggestions for mobile and online customers..."
+                                    className="w-full px-3.5 py-2.5 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm placeholder:text-[#9E8B8E]/60 dark:placeholder:text-[#64748B] focus:ring-4 focus:ring-[#E75480]/15 dark:focus:ring-[#E1062C]/20 focus:border-[#E75480] dark:focus:border-[#E1062C] transition-all resize-none font-medium leading-relaxed"
+                                />
+                                {errors.description && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{errors.description}</p>}
+                                {addErrors.description && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{addErrors.description}</p>}
+                            </div>
+
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Base Unit</label>
                                 <select
@@ -1080,6 +1094,19 @@ export default function ProductsIndex() {
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Selling Price</label>
                                 <Input type="number" step="0.01" required value={data.selling_price} onChange={(e) => setData('selling_price', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-emerald-600 dark:text-emerald-400 font-mono font-bold" />
                                 {editErrors.selling_price && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.selling_price}</p>}
+                            </div>
+
+                            <div className="col-span-2 space-y-1.5">
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Product Description</label>
+                                <textarea
+                                    rows={3}
+                                    value={data.description}
+                                    onChange={(e) => setData('description', e.target.value)}
+                                    placeholder="Enter detailed product description, ingredients, flavor profile, or serving suggestions for mobile and online customers..."
+                                    className="w-full px-3.5 py-2.5 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC] text-sm placeholder:text-[#9E8B8E]/60 dark:placeholder:text-[#64748B] focus:ring-4 focus:ring-[#E75480]/15 dark:focus:ring-[#E1062C]/20 focus:border-[#E75480] dark:focus:border-[#E1062C] transition-all resize-none font-medium leading-relaxed"
+                                />
+                                {errors.description && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{errors.description}</p>}
+                                {editErrors.description && <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">{editErrors.description}</p>}
                             </div>
 
                             <div className="space-y-1.5">

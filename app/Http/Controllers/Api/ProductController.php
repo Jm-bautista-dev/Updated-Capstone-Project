@@ -91,6 +91,7 @@ class ProductController extends Controller
                         'name'        => $name,
                         'category'    => $first->category?->name ?? 'Uncategorized',
                         'image'       => $this->resolveImageUrl($first->image_path),
+                        'description' => $first->description,
                         'branches'    => $group->map(fn(Product $p) => [
                             'branch_id'   => $p->branch_id,
                             'price'       => (float) ($p->selling_price ?? 0),
