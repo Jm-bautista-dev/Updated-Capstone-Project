@@ -1,22 +1,15 @@
 import { useForm, router } from '@inertiajs/react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock,
     Calendar,
     Zap,
     AlertTriangle,
-    CheckCircle2,
-    X,
     CalendarDays,
-    Building2,
     ShieldAlert,
     Trash2,
     Plus,
     Save,
     Sparkles,
-    Sun,
-    Moon,
-    AlertCircle,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -95,8 +88,6 @@ interface BranchOperatingHoursModalProps {
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOperatingHoursModalProps) {
-    if (!branch) return null;
-
     const [activeTab, setActiveTab] = useState<'mode' | 'weekly' | 'special'>('mode');
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
@@ -112,15 +103,15 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
 
     // ── Mode Form ───────────────────────────────────────────────────────────
     const modeForm = useForm({
-        operating_mode: branch.operating_mode ?? 'automatic',
-        reason: branch.mode_override_reason ?? '',
+        operating_mode: branch?.operating_mode ?? 'automatic',
+        reason: branch?.mode_override_reason ?? '',
         duration_hours: '',
     });
 
     // ── Weekly Schedule Form ────────────────────────────────────────────────
     const defaultSchedules: BranchScheduleItem[] = Array.from({ length: 7 }, (_, i) => {
-        const existing = branch.schedules?.find((s) => s.day_of_week === i);
-        const isStaCruz = branch.name.toLowerCase().includes('sta') && branch.name.toLowerCase().includes('cruz');
+        const existing = branch?.schedules?.find((s) => s.day_of_week === i);
+        const isStaCruz = branch?.name?.toLowerCase().includes('sta') && branch?.name?.toLowerCase().includes('cruz');
         return {
             day_of_week: i,
             day_name: DAY_NAMES[i],
@@ -142,6 +133,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
         close_time: '23:59',
         reason: '',
     });
+
+    if (!branch) return null;
 
     const currentStatus = branch.operating_status;
     const isBranchOpen = currentStatus?.is_open ?? false;
@@ -189,9 +182,9 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
 
     const handleCreateSpecialSchedule = (e: React.FormEvent) => {
         e.preventDefault();
-        specialForm.post(`/branches/${branch.id}/special-hours`, {
-            preserveScroll: true,
-            data: {
+        router.post(
+            `/branches/${branch.id}/special-hours`,
+            {
                 date: specialForm.data.date,
                 is_closed_all_day: specialForm.data.type === 'closed_all_day',
                 is_open_24_hours: specialForm.data.type === 'open_24_hours',
@@ -199,10 +192,13 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                 close_time: specialForm.data.type === 'custom_hours' ? specialForm.data.close_time : null,
                 reason: specialForm.data.reason,
             },
-            onSuccess: () => {
-                specialForm.reset();
-            },
-        });
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    specialForm.reset();
+                },
+            }
+        );
     };
 
     const handleDeleteSpecialSchedule = (specialId: number, dateStr: string) => {
@@ -575,7 +571,7 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                                         <label className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8]">Schedule Type</label>
                                         <select
                                             value={specialForm.data.type}
-                                            onChange={(e) => specialForm.setData('type', e.target.value as any)}
+                                            onChange={(e) => specialForm.setData('type', e.target.value as 'closed_all_day' | 'open_24_hours' | 'custom_hours')}
                                             className="mt-1 w-full h-10 px-3 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 text-xs font-medium bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] outline-none cursor-pointer"
                                         >
                                             <option value="closed_all_day">Closed All Day (Holiday / Maintenance)</option>
