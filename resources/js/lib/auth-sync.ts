@@ -153,6 +153,9 @@ export function initializeAuthSync() {
             if (pathname !== '/login' && pathname !== '/' && pathname !== '/menu') {
                 broadcastLogoutEvent();
                 window.location.href = '/login?expired=1';
+            } else {
+                // On /login or guest pages, auto-reload to fetch fresh CSRF token and session
+                window.location.reload();
             }
         }
     });
