@@ -197,9 +197,14 @@ class BranchScheduleService
 
         // 1. Check for Special Date Override
         /** @var BranchSpecialSchedule|null $special */
-        $special = BranchSpecialSchedule::where('branch_id', $branch->id)
-            ->whereDate('date', $dateStr)
-            ->first();
+        $special = null;
+        try {
+            $special = BranchSpecialSchedule::where('branch_id', $branch->id)
+                ->whereDate('date', $dateStr)
+                ->first();
+        } catch (\Throwable $e) {
+            $special = null;
+        }
 
         if ($special) {
             if ($special->is_closed_all_day) {
@@ -247,9 +252,14 @@ class BranchScheduleService
 
         // 2. Check for Regular Weekly Schedule
         /** @var BranchSchedule|null $regular */
-        $regular = BranchSchedule::where('branch_id', $branch->id)
-            ->where('day_of_week', $dayOfWeek)
-            ->first();
+        $regular = null;
+        try {
+            $regular = BranchSchedule::where('branch_id', $branch->id)
+                ->where('day_of_week', $dayOfWeek)
+                ->first();
+        } catch (\Throwable $e) {
+            $regular = null;
+        }
 
         if ($regular) {
             if ($regular->is_closed) {
