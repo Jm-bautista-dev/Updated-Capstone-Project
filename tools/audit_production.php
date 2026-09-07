@@ -36,21 +36,27 @@ foreach ($tables as $tbl) {
 }
 
 echo "\n--- BUSINESS & STRUCTURAL TABLES ---\n";
-$prodCnt = DB::table('products')->count();
-$catCnt  = DB::table('categories')->count();
-$ingCnt  = DB::table('ingredients')->count();
-$stkCnt  = DB::table('ingredient_stocks')->count();
+$prodCnt   = DB::table('products')->count();
+$catCnt    = DB::table('categories')->count();
+$ingCnt    = DB::table('ingredients')->count();
+$stkCnt    = DB::table('ingredient_stocks')->count();
+$bpCnt     = DB::table('branch_product')->count();
+$bcCnt     = DB::table('branch_category')->count();
+$recipeCnt = DB::table('menu_item_ingredients')->count();
 
 echo sprintf(" %-30s: %s\n", 'products', ($prodCnt === 0) ? '✅ 0 records (CLEAN - No demo products)' : "⚠️ {$prodCnt} records");
 echo sprintf(" %-30s: %s\n", 'categories', ($catCnt === 0) ? '✅ 0 records (CLEAN - No demo categories)' : "⚠️ {$catCnt} records");
 echo sprintf(" %-30s: %s\n", 'ingredients', ($ingCnt === 0) ? '✅ 0 records (CLEAN - No demo ingredients)' : "⚠️ {$ingCnt} records");
 echo sprintf(" %-30s: %s\n", 'ingredient_stocks', ($stkCnt === 0) ? '✅ 0 records (CLEAN - No demo stocks)' : "⚠️ {$stkCnt} records");
+echo sprintf(" %-30s: %s\n", 'branch_product', ($bpCnt === 0) ? '✅ 0 records (CLEAN - No demo inventory mappings)' : "⚠️ {$bpCnt} records");
+echo sprintf(" %-30s: %s\n", 'branch_category', ($bcCnt === 0) ? '✅ 0 records (CLEAN - No demo category mappings)' : "⚠️ {$bcCnt} records");
+echo sprintf(" %-30s: %s\n", 'menu_item_ingredients', ($recipeCnt === 0) ? '✅ 0 records (CLEAN - No demo recipes)' : "⚠️ {$recipeCnt} records");
 echo sprintf(" %-30s: %d records (Victoria, Sta Cruz)\n", 'branches', DB::table('branches')->count());
 echo sprintf(" %-30s: %d records\n", 'system_settings', DB::table('system_settings')->count());
 echo sprintf(" %-30s: %d records\n", 'feature_flags', DB::table('feature_flags')->count());
 
 echo "\n=======================================================\n";
-$isBusinessClean = ($prodCnt === 0 && $catCnt === 0 && $ingCnt === 0 && $stkCnt === 0);
+$isBusinessClean = ($prodCnt === 0 && $catCnt === 0 && $ingCnt === 0 && $stkCnt === 0 && $bpCnt === 0 && $bcCnt === 0 && $recipeCnt === 0);
 if ($allZero && $isBusinessClean && $users->count() === 2) {
     echo "  ✅ VERIFICATION PASSED: PRODUCTION IS 100% CLEAN!     \n";
     echo "     Admin Account Ready: jmbautista0228@gmail.com     \n";
