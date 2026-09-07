@@ -63,13 +63,17 @@ class SaleCreated implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         $branchName = $this->sale->branch?->name ?? 'Main Branch';
+        $orderNumber = $this->sale->order_number ?? $this->sale->invoice_number ?? ('POS-' . $this->sale->id);
 
         return [
             'event'          => 'SaleCreated',
             'id'             => $this->sale->id,
             'sale_id'        => $this->sale->id,
             'order_id'       => $this->sale->order_id,
-            'order_number'   => $this->sale->order_number ?? ('ORD-' . $this->sale->id),
+            'delivery_id'    => $this->sale->delivery?->id,
+            'order_number'   => $orderNumber,
+            'order_source'   => 'pos',
+            'is_pos'         => true,
             'branch_id'      => $this->sale->branch_id,
             'branch_name'    => $branchName,
             'type'           => $this->sale->type ?? 'delivery',

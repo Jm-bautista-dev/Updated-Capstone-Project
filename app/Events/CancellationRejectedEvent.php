@@ -45,11 +45,18 @@ class CancellationRejectedEvent implements ShouldBroadcastNow
 
     public function broadcastWith()
     {
+        $deliveryId = $this->cancellation->delivery_id ?? $this->order->delivery?->id;
+        $orderNumber = $this->order->order_number 
+            ?? $this->order->delivery?->order_number 
+            ?? ('ORD-' . $this->order->id);
+
         return [
             'cancellation_request_id' => $this->cancellation->id,
             'order_id'                => $this->order->id,
-            'delivery_id'             => $this->order->id,
-            'order_number'            => $this->order->order_number ?? ('ORD-' . $this->order->id),
+            'delivery_id'             => $deliveryId,
+            'order_number'            => $orderNumber,
+            'order_source'            => $this->order->order_source ?? 'online',
+            'is_pos'                  => false,
             'status'                  => 'rejected',
             'decision'                => 'rejected',
             'reviewed_by_name'        => auth()->user()?->name ?? 'Branch Manager',

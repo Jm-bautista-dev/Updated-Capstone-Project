@@ -138,8 +138,12 @@ class OrderStatusUpdated implements ShouldBroadcastNow
                 'landmark'         => $this->delivery->landmark ?? $this->delivery->order?->landmark,
             ];
 
-            $orderNumber = $this->delivery->sale?->order_number ?? $this->delivery->order?->order_number ?? ($this->delivery->tracking_number ?? 'ORD-' . $this->delivery->id);
-            $orderSource = $this->delivery->order_source;
+            $orderNumber = $this->delivery->order?->order_number 
+                ?? $this->delivery->sale?->order_number 
+                ?? $this->delivery->sale?->invoice_number 
+                ?? $this->delivery->order_number 
+                ?? ($this->delivery->tracking_number ?? 'ORD-' . $this->delivery->id);
+            $orderSource = !empty($this->delivery->sale_id) ? 'pos' : ($this->delivery->order_source ?? 'online');
             $statusLabel = match ($this->delivery->status) {
                 'waiting_for_kitchen' => 'Waiting for Kitchen',
                 'pending'             => 'Pending',
@@ -172,6 +176,7 @@ class OrderStatusUpdated implements ShouldBroadcastNow
                 'sale_id'               => $this->delivery->sale_id,
                 'order_number'          => $orderNumber,
                 'order_source'          => $orderSource,
+                'is_pos'                => !empty($this->delivery->sale_id),
                 'fulfillment_type'      => 'delivery',
                 'is_pickup'             => false,
                 'tracking_number'       => $this->delivery->tracking_number,

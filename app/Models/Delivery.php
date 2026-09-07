@@ -61,13 +61,51 @@ class Delivery extends Model
         'scheduled_pickup_display',
         'pickup_verification_code',
         'order_source',
+        'order_number',
+        'is_pos',
     ];
+
+    public function getOrderNumberAttribute(): ?string
+    {
+        if ($this->order && $this->order->order_number) {
+            return $this->order->order_number;
+        }
+
+        if ($this->sale) {
+            return $this->sale->order_number ?? $this->sale->invoice_number;
+        }
+
+        if ($this->order_id) {
+            $order = $this->relationLoaded('order') ? $this->order : Order::find($this->order_id);
+            if ($order && $order->order_number) {
+                return $order->order_number;
+            }
+        }
+
+        if ($this->sale_id) {
+            $sale = $this->relationLoaded('sale') ? $this->sale : Sale::find($this->sale_id);
+            if ($sale) {
+                return $sale->order_number ?? $sale->invoice_number;
+            }
+        }
+
+        return $this->attributes['order_number'] ?? $this->tracking_number ?? ('DEL-' . $this->id);
+    }
+
+    public function getIsPosAttribute(): bool
+    {
+        return !empty($this->sale_id) || $this->order_source === 'pos';
+    }
 
     public function getOrderSourceAttribute(): string
     {
+        if (!empty($this->sale_id)) {
+            return 'pos';
+        }
+
         $order = $this->order;
         if (! $order && $this->order_id) {
-            $order = Order::find($this->order_id);
+            $order = $this->relationLoaded('order') ? $this->order : Order::find($this->order_id);
         }
 
         if ($order) {

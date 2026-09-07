@@ -41,12 +41,20 @@ class CancellationRequestController extends Controller
         }
 
         $requests = $query->latest('requested_at')->get()->map(function ($req) {
-            $orderNum = $req->order?->order_number ?? ("ORD-" . $req->order_id);
+            $orderNum = $req->order?->order_number 
+                ?? $req->delivery?->order?->order_number 
+                ?? $req->delivery?->sale?->order_number 
+                ?? $req->delivery?->sale?->invoice_number 
+                ?? $req->delivery?->order_number 
+                ?? ("ORD-" . ($req->order_id ?? $req->delivery_id));
             return [
                 'id'                      => $req->id,
                 'order_id'                => $req->order_id,
+                'sale_id'                 => $req->delivery?->sale_id,
                 'order_number'            => $orderNum,
                 'delivery_id'             => $req->delivery_id,
+                'order_source'            => !empty($req->delivery?->sale_id) ? 'pos' : 'online',
+                'is_pos'                  => !empty($req->delivery?->sale_id),
                 'rider_id'                => $req->requested_by_rider_id,
                 'rider_name'              => $req->requestedByRider?->name ?? 'Rider',
                 'customer_name'           => $req->order?->customer_name ?? 'Customer',
@@ -329,16 +337,26 @@ class CancellationRequestController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $requests = OrderCancellationRequest::with(['order', 'delivery'])
+        $requests = OrderCancellationRequest::with(['order', 'delivery.sale', 'delivery.order'])
             ->where('requested_by_rider_id', $user->id)
             ->latest('requested_at')
             ->get()
             ->map(function ($req) {
+                $orderNum = $req->order?->order_number 
+                    ?? $req->delivery?->order?->order_number 
+                    ?? $req->delivery?->sale?->order_number 
+                    ?? $req->delivery?->sale?->invoice_number 
+                    ?? $req->delivery?->order_number 
+                    ?? ("ORD-" . ($req->order_id ?? $req->delivery_id));
+
                 return [
                     'id'                      => $req->id,
                     'order_id'                => $req->order_id,
-                    'order_number'            => $req->order?->order_number ?? ("ORD-" . $req->order_id),
+                    'sale_id'                 => $req->delivery?->sale_id,
+                    'order_number'            => $orderNum,
                     'delivery_id'             => $req->delivery_id,
+                    'order_source'            => !empty($req->delivery?->sale_id) ? 'pos' : 'online',
+                    'is_pos'                  => !empty($req->delivery?->sale_id),
                     'reason'                  => $req->reason,
                     'notes'                   => $req->notes,
                     'status'                  => $req->status,

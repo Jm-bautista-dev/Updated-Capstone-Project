@@ -66,19 +66,30 @@ class CancellationRequested implements ShouldBroadcastNow
     {
         $req = $this->cancellationRequest;
         $order = $req->order ?? ($req->order_id ? \App\Models\Order::find($req->order_id) : null);
-        $orderNum = $order?->order_number ?? ("ORD-" . $req->order_id);
-        $riderId = $req->rider_id ?? $req->requested_by_rider_id ?? $order?->rider_id;
-        $deliveryId = $req->delivery_id ?? $order?->delivery?->id;
+        $delivery = $req->delivery ?? $order?->delivery;
+        $orderNum = $order?->order_number 
+            ?? $delivery?->order?->order_number 
+            ?? $delivery?->sale?->order_number 
+            ?? $delivery?->sale?->invoice_number 
+            ?? $delivery?->order_number 
+            ?? ("ORD-" . ($req->order_id ?? $delivery?->id));
+
+        $riderId = $req->rider_id ?? $req->requested_by_rider_id ?? $order?->rider_id ?? $delivery?->rider_id;
+        $deliveryId = $req->delivery_id ?? $delivery?->id;
+        $saleId = $delivery?->sale_id;
 
         return [
             'cancellation_request_id' => $req->id,
             'order_id'                => $req->order_id,
+            'sale_id'                 => $saleId,
             'order_number'            => $orderNum,
             'delivery_id'             => $deliveryId,
+            'order_source'            => !empty($saleId) ? 'pos' : 'online',
+            'is_pos'                  => !empty($saleId),
             'rider_id'                => $riderId,
             'rider_name'              => $req->rider?->name ?? $req->requestedByRider?->name ?? 'Rider',
-            'customer_name'           => $order?->customer_name ?? 'Customer',
-            'branch_id'               => $req->branch_id ?? $order?->branch_id,
+            'customer_name'           => $order?->customer_name ?? $delivery?->customer_name ?? 'Customer',
+            'branch_id'               => $req->branch_id ?? $order?->branch_id ?? $delivery?->branch_id,
             'branch_name'             => $req->branch?->name ?? $order?->branch?->name ?? 'Branch',
             'reason'                  => $req->reason,
             'notes'                   => $req->notes,

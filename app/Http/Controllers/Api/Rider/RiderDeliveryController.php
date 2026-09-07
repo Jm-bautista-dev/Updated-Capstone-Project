@@ -11,28 +11,17 @@ use Illuminate\Support\Facades\Auth;
 
 class RiderDeliveryController extends Controller
 {
+    public function __construct(protected \App\Http\Controllers\Api\RiderController $riderController)
+    {
+    }
+
     /**
      * GET /api/v1/rider/my-orders
-     * Returns the rider's currently active orders.
+     * Returns the rider's currently active orders with standardized canonical delivery schema.
      */
     public function myOrders(Request $request)
     {
-        $riderId = Auth::id();
-
-        // Must include in_transit orders even if cancellation_status is 'rejected'
-        $orders = Order::with(['branch', 'items.product', 'user', 'delivery'])
-            ->where(function ($q) use ($riderId) {
-                $q->where('rider_id', $riderId)
-                  ->orWhereHas('delivery', fn($dq) => $dq->where('rider_id', $riderId));
-            })
-            ->whereIn('status', ['assigned_to_rider', 'picked_up', 'in_transit', 'cancellation_requested'])
-            ->orderBy('updated_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data'    => $orders,
-        ]);
+        return $this->riderController->getMyOrders($request);
     }
 
     /**

@@ -1450,8 +1450,13 @@ class RiderController extends Controller
 
         $fee = (float) ($delivery->delivery_fee ?: ($order?->delivery_fee ?: 50.00));
         $totalAmount = (float) ($sale?->total ?? $order?->total_amount ?? 0);
-        $orderNumber = $sale?->order_number ?? $order?->order_number ?? ($delivery->tracking_number ?? 'DEL-' . $delivery->id);
-        $orderSource = $delivery->order_source;
+        $orderNumber = $delivery->order?->order_number
+            ?? $delivery->sale?->order_number
+            ?? $delivery->sale?->invoice_number
+            ?? $delivery->order_number
+            ?? ($delivery->tracking_number ?? 'DEL-' . $delivery->id);
+        $orderSource = !empty($delivery->sale_id) ? 'pos' : ($delivery->order_source ?? 'online');
+        $isPos = !empty($delivery->sale_id);
 
         $branch = $sale?->branch ?? $order?->branch;
         $branchName = $branch?->name ?? 'Store Branch';
@@ -1606,9 +1611,13 @@ class RiderController extends Controller
             'order_id'                => $delivery->order_id,
             'orderId'                 => $delivery->order_id,
             'sale_id'                 => $delivery->sale_id,
+            'saleId'                  => $delivery->sale_id,
             'order_number'            => $orderNumber,
             'orderNumber'             => $orderNumber,
             'order_source'            => $orderSource,
+            'orderSource'             => $orderSource,
+            'is_pos'                  => $isPos,
+            'isPos'                   => $isPos,
             'status'                  => $delivery->status,
             'fulfillment_type'        => 'delivery',
             'current_state'           => $delivery->status,

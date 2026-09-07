@@ -55,11 +55,13 @@ class OrderAssigned implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
-        $orderNumber = $this->delivery->sale?->order_number 
-            ?? $this->delivery->order?->order_number 
+        $orderNumber = $this->delivery->order?->order_number 
+            ?? $this->delivery->sale?->order_number 
+            ?? $this->delivery->sale?->invoice_number 
+            ?? $this->delivery->order_number
             ?? ($this->delivery->tracking_number ?? 'DEL-' . $this->delivery->id);
 
-        $orderSource = $this->delivery->order_source;
+        $orderSource = !empty($this->delivery->sale_id) ? 'pos' : ($this->delivery->order_source ?? 'online');
         $totalAmount = (float) ($this->delivery->sale?->total ?? $this->delivery->order?->total_amount ?? 0);
 
         $branch = $this->delivery->sale?->branch ?? $this->delivery->order?->branch;
@@ -92,9 +94,11 @@ class OrderAssigned implements ShouldBroadcastNow
         return [
             'event'                => 'OrderAssigned',
             'delivery_id'          => $this->delivery->id,
-            'order_id'             => $this->delivery->order_id ?? $this->delivery->sale_id,
+            'order_id'             => $this->delivery->order_id,
+            'sale_id'              => $this->delivery->sale_id,
             'order_number'         => $orderNumber,
             'order_source'         => $orderSource,
+            'is_pos'               => !empty($this->delivery->sale_id),
             'tracking_number'      => $this->delivery->tracking_number,
             'status'               => $this->delivery->status,
             'status_label'         => $this->delivery->getStatusLabel(),
