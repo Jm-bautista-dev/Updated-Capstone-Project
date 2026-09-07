@@ -69,7 +69,7 @@ class CustomerNotificationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user    = $request->user();
-        $perPage = min((int) $request->get('per_page', 20), 50);
+        $perPage = min((int) $request->input('per_page', 20), 50);
 
         $notifications = CustomerNotification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')

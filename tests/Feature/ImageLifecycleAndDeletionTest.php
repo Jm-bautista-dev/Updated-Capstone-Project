@@ -69,6 +69,16 @@ class ImageLifecycleAndDeletionTest extends TestCase
         );
     }
 
+    /**
+     * @return \Illuminate\Filesystem\FilesystemAdapter
+     */
+    protected function storage(): \Illuminate\Filesystem\FilesystemAdapter
+    {
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+        return $disk;
+    }
+
     public function test_product_store_with_image_creates_file_and_sets_path(): void
     {
         $file = UploadedFile::fake()->create('california-roll.jpg', 100, 'image/jpeg');
@@ -88,10 +98,11 @@ class ImageLifecycleAndDeletionTest extends TestCase
 
         $response->assertRedirect();
 
+        /** @var Product $product */
         $product = Product::where('name', 'California Roll')->first();
         $this->assertNotNull($product);
         $this->assertNotNull($product->image_path);
-        Storage::disk('public')->assertExists($product->image_path);
+        $this->storage()->assertExists($product->image_path);
         $this->assertNotNull($product->image_url);
     }
 
@@ -112,10 +123,11 @@ class ImageLifecycleAndDeletionTest extends TestCase
             'image'         => $oldFile,
         ]);
 
+        /** @var Product $product */
         $product = Product::where('name', 'Tuna Maki')->first();
         $oldPath = $product->image_path;
         $this->assertNotNull($oldPath);
-        Storage::disk('public')->assertExists($oldPath);
+        $this->storage()->assertExists($oldPath);
 
         // Upload replacement image
         $newFile = UploadedFile::fake()->create('new-image.webp', 100, 'image/webp');
@@ -135,8 +147,8 @@ class ImageLifecycleAndDeletionTest extends TestCase
 
         $product->refresh();
         $this->assertNotEquals($oldPath, $product->image_path);
-        Storage::disk('public')->assertMissing($oldPath);
-        Storage::disk('public')->assertExists($product->image_path);
+        $this->storage()->assertMissing($oldPath);
+        $this->storage()->assertExists($product->image_path);
     }
 
     public function test_product_update_with_remove_image_flag_clears_db_and_deletes_physical_file(): void
@@ -156,10 +168,11 @@ class ImageLifecycleAndDeletionTest extends TestCase
             'image'         => $file,
         ]);
 
+        /** @var Product $product */
         $product = Product::where('name', 'Dragon Roll')->first();
         $oldPath = $product->image_path;
         $this->assertNotNull($oldPath);
-        Storage::disk('public')->assertExists($oldPath);
+        $this->storage()->assertExists($oldPath);
 
         // User removes the image in UI and submits with remove_image = true
         $updateResponse = $this->actingAs($this->admin)->put("/products/{$product->id}", [
@@ -178,7 +191,7 @@ class ImageLifecycleAndDeletionTest extends TestCase
         $product->refresh();
         $this->assertNull($product->image_path);
         $this->assertNull($product->image_url);
-        Storage::disk('public')->assertMissing($oldPath);
+        $this->storage()->assertMissing($oldPath);
     }
 
     public function test_product_deletion_deletes_physical_image(): void
@@ -198,15 +211,16 @@ class ImageLifecycleAndDeletionTest extends TestCase
             'image'         => $file,
         ]);
 
+        /** @var Product $product */
         $product = Product::where('name', 'Temp Product')->first();
         $imagePath = $product->image_path;
         $this->assertNotNull($imagePath);
-        Storage::disk('public')->assertExists($imagePath);
+        $this->storage()->assertExists($imagePath);
 
         $deleteResponse = $this->actingAs($this->admin)->delete("/products/{$product->id}");
         $deleteResponse->assertRedirect();
 
-        Storage::disk('public')->assertMissing($imagePath);
+        $this->storage()->assertMissing($imagePath);
     }
 
     public function test_category_image_lifecycle_create_update_remove_and_destroy(): void
@@ -219,11 +233,12 @@ class ImageLifecycleAndDeletionTest extends TestCase
             'image'       => $file,
         ]);
 
+        /** @var Category $category */
         $category = Category::where('name', 'Bento Boxes')->first();
         $this->assertNotNull($category);
         $this->assertNotNull($category->image_path);
         $initialPath = $category->image_path;
-        Storage::disk('public')->assertExists($initialPath);
+        $this->storage()->assertExists($initialPath);
 
         // Update with remove_image = true
         $this->actingAs($this->admin)->put("/categories/{$category->id}", [
@@ -235,19 +250,19 @@ class ImageLifecycleAndDeletionTest extends TestCase
         $category->refresh();
         $this->assertNull($category->image_path);
         $this->assertNull($category->image_url);
-        Storage::disk('public')->assertMissing($initialPath);
+        $this->storage()->assertMissing($initialPath);
     }
 
     public function test_clean_orphaned_images_artisan_command(): void
     {
         // Place an orphaned file directly on fake public disk
-        Storage::disk('public')->put('products/orphaned-unreferenced-image.jpg', 'fake-image-bytes');
-        Storage::disk('public')->assertExists('products/orphaned-unreferenced-image.jpg');
+        $this->storage()->put('products/orphaned-unreferenced-image.jpg', 'fake-image-bytes');
+        $this->storage()->assertExists('products/orphaned-unreferenced-image.jpg');
 
         // Run the clean command
         $this->artisan('storage:clean-orphaned-images', ['--force' => true])
             ->assertSuccessful();
 
-        Storage::disk('public')->assertMissing('products/orphaned-unreferenced-image.jpg');
+        $this->storage()->assertMissing('products/orphaned-unreferenced-image.jpg');
     }
 }

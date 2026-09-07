@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Command\Command as SymfonyCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Utils\ImageHelper;
@@ -46,7 +47,7 @@ class CleanOrphanedImagesCommand extends Command
 
         if (empty($orphanedFiles)) {
             $this->info('✅ No orphaned images found. Storage is clean!');
-            return Command::SUCCESS;
+            return SymfonyCommand::SUCCESS;
         }
 
         $this->warn('Found ' . count($orphanedFiles) . ' orphaned image file(s):');
@@ -56,12 +57,12 @@ class CleanOrphanedImagesCommand extends Command
 
         if ($this->option('dry-run')) {
             $this->info('Dry run completed. No files were deleted.');
-            return Command::SUCCESS;
+            return SymfonyCommand::SUCCESS;
         }
 
         if (!$this->option('force') && !$this->confirm('Do you want to delete these orphaned files from all storage disks and public mirrors?')) {
             $this->info('Operation cancelled.');
-            return Command::SUCCESS;
+            return SymfonyCommand::SUCCESS;
         }
 
         $deletedCount = 0;
@@ -71,7 +72,7 @@ class CleanOrphanedImagesCommand extends Command
         }
 
         $this->info("✅ Successfully deleted {$deletedCount} orphaned image file(s) across all storage and mirror destinations.");
-        return Command::SUCCESS;
+        return SymfonyCommand::SUCCESS;
     }
 
     /**
@@ -148,29 +149,31 @@ class CleanOrphanedImagesCommand extends Command
             // Non-fatal if disk is unconfigured
         }
 
-        // 2. Scan physical paths
-        $scanPaths = [
-            storage_path('app/public/' . $subDir),
-            public_path('storage/' . $subDir),
-            base_path('storage/' . $subDir),
-            base_path('public_html/storage/' . $subDir),
-        ];
+        // 2. Scan physical paths (skip in test environment to avoid touching local developer files)
+        if (!app()->environment('testing')) {
+            $scanPaths = [
+                storage_path('app/public/' . $subDir),
+                public_path('storage/' . $subDir),
+                base_path('storage/' . $subDir),
+                base_path('public_html/storage/' . $subDir),
+            ];
 
-        foreach ($scanPaths as $folder) {
-            if (!is_dir($folder)) continue;
+            foreach ($scanPaths as $folder) {
+                if (!is_dir($folder)) continue;
 
-            $files = scandir($folder);
-            foreach ($files as $file) {
-                if ($file === '.' || $file === '..' || $file === '.gitignore') continue;
+                $files = scandir($folder);
+                foreach ($files as $file) {
+                    if ($file === '.' || $file === '..' || $file === '.gitignore') continue;
 
-                $fullPath = $folder . '/' . $file;
-                if (!is_file($fullPath)) continue;
+                    $fullPath = $folder . '/' . $file;
+                    if (!is_file($fullPath)) continue;
 
-                $relativePath = $subDir . '/' . $file;
+                    $relativePath = $subDir . '/' . $file;
 
-                // Check if referenced
-                if (!isset($referencedImages[$relativePath]) && !isset($referencedImages[$file])) {
-                    $orphaned[] = $relativePath;
+                    // Check if referenced
+                    if (!isset($referencedImages[$relativePath]) && !isset($referencedImages[$file])) {
+                        $orphaned[] = $relativePath;
+                    }
                 }
             }
         }

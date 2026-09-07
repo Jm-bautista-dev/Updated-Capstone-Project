@@ -133,6 +133,11 @@ class ImageHelper
             Storage::disk('public')->delete($normalized);
         }
 
+        // In test environment with faked storage, do not delete real physical files
+        if (app()->environment('testing')) {
+            return;
+        }
+
         // 2. Delete from all physical mirror destinations
         $targets = array_unique([
             storage_path('app/public/' . $normalized),

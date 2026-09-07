@@ -43,7 +43,7 @@ class ProductController extends Controller
             ->select(['id', 'name', 'selling_price', 'image_path', 'description', 'category_id'])
             ->get()
             ->map(function ($product) use ($branchId) {
-                /** @var \App\Models\Product $product */
+                /** @var Product $product */
                 $availability = $product->dynamicAvailability($branchId);
                 
                 return [

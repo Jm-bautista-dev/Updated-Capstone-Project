@@ -917,6 +917,7 @@ class ApiOrderController extends Controller
         $itemsTotal = 0.0;
         $resolvedItems = [];
         foreach ($rawItems as $itemData) {
+            /** @var \App\Models\Product|null $product */
             $product = $products->get($itemData['product_id']);
             if (!$product) {
                 return ['success' => false, 'message' => 'Product not found.'];
