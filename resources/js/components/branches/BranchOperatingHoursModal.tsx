@@ -740,7 +740,7 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
 
         {/* Confirmation Dialog for Force Mode Changes */}
         <Dialog open={confirmModal.isOpen} onOpenChange={(isOpen) => !isOpen && setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
-            <DialogContent className="z-[60] max-w-md rounded-3xl bg-white dark:bg-[#181820] border border-white/90 dark:border-white/10 font-['Outfit'] shadow-2xl">
+            <DialogContent className="z-60 max-w-md rounded-3xl bg-white dark:bg-[#181820] border border-white/90 dark:border-white/10 font-['Outfit'] shadow-2xl">
                 <DialogHeader>
                     <div className="size-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2">
                         <AlertTriangle className="size-6" />
