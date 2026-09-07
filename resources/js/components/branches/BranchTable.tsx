@@ -13,6 +13,10 @@ interface BranchTableProps {
 export function BranchTable({ branches, onSelectBranch }: BranchTableProps) {
     const [selectedHoursBranch, setSelectedHoursBranch] = useState<Branch | null>(null);
 
+    const activeHoursBranch = selectedHoursBranch
+        ? branches.find((b) => b.id === selectedHoursBranch.id) ?? selectedHoursBranch
+        : null;
+
     return (
         <div className="w-full overflow-hidden rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.05)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 font-['Outfit']">
             <div className="overflow-x-auto">
@@ -157,8 +161,8 @@ export function BranchTable({ branches, onSelectBranch }: BranchTableProps) {
 
             {/* Operating Hours Modal */}
             <BranchOperatingHoursModal
-                branch={selectedHoursBranch as any}
-                open={Boolean(selectedHoursBranch)}
+                branch={activeHoursBranch as any}
+                open={Boolean(activeHoursBranch)}
                 onClose={() => setSelectedHoursBranch(null)}
             />
         </div>

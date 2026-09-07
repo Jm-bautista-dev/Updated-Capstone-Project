@@ -11,7 +11,7 @@ import {
     Save,
     Sparkles,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -108,6 +108,18 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
         duration_hours: '',
     });
 
+    const [isUpdatingMode, setIsUpdatingMode] = useState(false);
+
+    useEffect(() => {
+        if (branch) {
+            modeForm.setData({
+                operating_mode: branch.operating_mode ?? 'automatic',
+                reason: branch.mode_override_reason ?? '',
+                duration_hours: '',
+            });
+        }
+    }, [branch?.id, branch?.operating_mode, branch?.mode_override_reason]);
+
     // ── Weekly Schedule Form ────────────────────────────────────────────────
     const defaultSchedules: BranchScheduleItem[] = Array.from({ length: 7 }, (_, i) => {
         const existing = branch?.schedules?.find((s) => s.day_of_week === i);
@@ -158,19 +170,42 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                 description: 'This will allow customers to place orders outside the regular schedule.',
             });
         } else {
-            // Return to Automatic
+            // Return to Automatic directly
             applyModeUpdate('automatic');
         }
     };
 
-    const applyModeUpdate = (mode: 'automatic' | 'force_open' | 'force_closed') => {
-        modeForm.setData('operating_mode', mode);
-        modeForm.post(`/branches/${branch.id}/operating-mode`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setConfirmModal({ isOpen: false, targetMode: 'automatic', title: '', description: '' });
+    const applyModeUpdate = (
+        targetMode: 'automatic' | 'force_open' | 'force_closed',
+        customReason?: string,
+        customDuration?: string
+    ) => {
+        setIsUpdatingMode(true);
+        const reason = customReason !== undefined ? customReason : modeForm.data.reason;
+        const durationHours = customDuration !== undefined ? customDuration : modeForm.data.duration_hours;
+
+        router.post(
+            `/branches/${branch.id}/operating-mode`,
+            {
+                operating_mode: targetMode,
+                reason: targetMode === 'automatic' ? null : (reason?.trim() || null),
+                duration_hours: targetMode === 'automatic' ? null : (durationHours ? Number(durationHours) : null),
             },
-        });
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmModal({ isOpen: false, targetMode: 'automatic', title: '', description: '' });
+                    modeForm.setData({
+                        operating_mode: targetMode,
+                        reason: '',
+                        duration_hours: '',
+                    });
+                },
+                onFinish: () => {
+                    setIsUpdatingMode(false);
+                },
+            }
+        );
     };
 
     const handleSaveWeeklySchedule = (e: React.FormEvent) => {
@@ -210,7 +245,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
     };
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
+        <>
+            <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[92vh] flex flex-col p-0 rounded-3xl bg-white dark:bg-[#121218] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xl overflow-hidden font-['Outfit']">
                 {/* Header Section */}
                 <div className="p-6 sm:p-7 bg-linear-to-br from-[#FFF5F7] via-white to-[#FADADD]/30 dark:from-[#1A1A26] dark:via-[#14141E] dark:to-[#181824] border-b border-[#F8C8DC]/50 dark:border-white/10 shrink-0">
@@ -340,8 +376,11 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                                     {/* Automatic Card */}
                                     <button
                                         type="button"
+                                        disabled={isUpdatingMode}
                                         onClick={() => handleModeSelect('automatic')}
-                                        className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-4 ${
+                                        className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-4 ${
+                                            isUpdatingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+                                        } ${
                                             currentMode === 'automatic'
                                                 ? 'bg-[#FFF5F7] dark:bg-[#E75480]/10 border-[#E75480] ring-2 ring-[#E75480]/30 shadow-md'
                                                 : 'bg-white dark:bg-[#181820] border-[#F8C8DC]/50 dark:border-white/10 hover:border-[#E75480]/60 hover:shadow-xs'
@@ -366,8 +405,11 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                                     {/* Force Open Card */}
                                     <button
                                         type="button"
+                                        disabled={isUpdatingMode}
                                         onClick={() => handleModeSelect('force_open')}
-                                        className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-4 ${
+                                        className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-4 ${
+                                            isUpdatingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+                                        } ${
                                             currentMode === 'force_open'
                                                 ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                                                 : 'bg-white dark:bg-[#181820] border-[#F8C8DC]/50 dark:border-white/10 hover:border-emerald-500/60 hover:shadow-xs'
@@ -392,8 +434,11 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                                     {/* Force Closed Card */}
                                     <button
                                         type="button"
+                                        disabled={isUpdatingMode}
                                         onClick={() => handleModeSelect('force_closed')}
-                                        className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-4 ${
+                                        className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-4 ${
+                                            isUpdatingMode ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+                                        } ${
                                             currentMode === 'force_closed'
                                                 ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-500 ring-2 ring-rose-500/30 shadow-md'
                                                 : 'bg-white dark:bg-[#181820] border-[#F8C8DC]/50 dark:border-white/10 hover:border-rose-500/60 hover:shadow-xs'
@@ -435,10 +480,11 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                                         type="button"
                                         variant="outline"
                                         size="sm"
+                                        disabled={isUpdatingMode}
                                         onClick={() => applyModeUpdate('automatic')}
                                         className="h-10 px-4 rounded-xl text-xs font-bold border-[#F8C8DC] hover:bg-white dark:border-white/10 cursor-pointer shadow-2xs shrink-0"
                                     >
-                                        Return to Automatic Schedule
+                                        {isUpdatingMode ? 'Updating...' : 'Return to Automatic Schedule'}
                                     </Button>
                                 </div>
                             )}
@@ -690,75 +736,76 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                     )}
                 </div>
             </DialogContent>
-
-            {/* Confirmation Dialog for Force Mode Changes */}
-            <Dialog open={confirmModal.isOpen} onOpenChange={(open) => !open && setConfirmModal({ ...confirmModal, isOpen: false })}>
-                <DialogContent className="max-w-md rounded-3xl bg-white dark:bg-[#181820] border border-white/90 dark:border-white/10 font-['Outfit']">
-                    <DialogHeader>
-                        <div className="size-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2">
-                            <AlertTriangle className="size-6" />
-                        </div>
-                        <DialogTitle className="text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
-                            {confirmModal.title}
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] pt-1">
-                            {confirmModal.description}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {/* Reason input for override */}
-                    <div className="space-y-2 py-2">
-                        <label className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8]">
-                            Reason for Override (Recorded in Audit Log)
-                        </label>
-                        <Input
-                            placeholder="e.g. Emergency electrical repair, Holiday extension"
-                            value={modeForm.data.reason}
-                            onChange={(e) => modeForm.setData('reason', e.target.value)}
-                            className="h-10 rounded-xl text-xs bg-white dark:bg-[#121218]"
-                        />
-
-                        <label className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] pt-2 block">
-                            Auto-Expire Override After (Optional)
-                        </label>
-                        <select
-                            value={modeForm.data.duration_hours}
-                            onChange={(e) => modeForm.setData('duration_hours', e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 text-xs font-medium bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] outline-none"
-                        >
-                            <option value="">Indefinite (Until manually changed)</option>
-                            <option value="1">1 Hour</option>
-                            <option value="2">2 Hours</option>
-                            <option value="4">4 Hours</option>
-                            <option value="8">8 Hours</option>
-                            <option value="24">24 Hours</option>
-                        </select>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-3">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                            className="h-10 px-4 rounded-xl text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={() => applyModeUpdate(confirmModal.targetMode)}
-                            disabled={modeForm.processing}
-                            className={`h-10 px-5 rounded-xl font-black text-xs uppercase tracking-wider text-white cursor-pointer ${
-                                confirmModal.targetMode === 'force_closed'
-                                    ? 'bg-rose-600 hover:bg-rose-700'
-                                    : 'bg-emerald-600 hover:bg-emerald-700'
-                            }`}
-                        >
-                            {modeForm.processing ? 'Applying...' : 'Confirm Override'}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </Dialog>
+
+        {/* Confirmation Dialog for Force Mode Changes */}
+        <Dialog open={confirmModal.isOpen} onOpenChange={(isOpen) => !isOpen && setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
+            <DialogContent className="z-[60] max-w-md rounded-3xl bg-white dark:bg-[#181820] border border-white/90 dark:border-white/10 font-['Outfit'] shadow-2xl">
+                <DialogHeader>
+                    <div className="size-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2">
+                        <AlertTriangle className="size-6" />
+                    </div>
+                    <DialogTitle className="text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                        {confirmModal.title}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] pt-1">
+                        {confirmModal.description}
+                    </DialogDescription>
+                </DialogHeader>
+
+                {/* Reason input for override */}
+                <div className="space-y-2 py-2">
+                    <label className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8]">
+                        Reason for Override (Recorded in Audit Log)
+                    </label>
+                    <Input
+                        placeholder="e.g. Emergency electrical repair, Holiday extension"
+                        value={modeForm.data.reason}
+                        onChange={(e) => modeForm.setData('reason', e.target.value)}
+                        className="h-10 rounded-xl text-xs bg-white dark:bg-[#121218]"
+                    />
+
+                    <label className="text-[10px] font-black uppercase text-[#7D6B6E] dark:text-[#94A3B8] pt-2 block">
+                        Auto-Expire Override After (Optional)
+                    </label>
+                    <select
+                        value={modeForm.data.duration_hours}
+                        onChange={(e) => modeForm.setData('duration_hours', e.target.value)}
+                        className="w-full h-10 px-3 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 text-xs font-medium bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] outline-none"
+                    >
+                        <option value="">Indefinite (Until manually changed)</option>
+                        <option value="1">1 Hour</option>
+                        <option value="2">2 Hours</option>
+                        <option value="4">4 Hours</option>
+                        <option value="8">8 Hours</option>
+                        <option value="24">24 Hours</option>
+                    </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                        className="h-10 px-4 rounded-xl text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 cursor-pointer"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={() => applyModeUpdate(confirmModal.targetMode)}
+                        disabled={isUpdatingMode}
+                        className={`h-10 px-5 rounded-xl font-black text-xs uppercase tracking-wider text-white cursor-pointer ${
+                            confirmModal.targetMode === 'force_closed'
+                                ? 'bg-rose-600 hover:bg-rose-700'
+                                : 'bg-emerald-600 hover:bg-emerald-700'
+                        }`}
+                    >
+                        {isUpdatingMode ? 'Applying...' : 'Confirm Override'}
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    </>
     );
 }
