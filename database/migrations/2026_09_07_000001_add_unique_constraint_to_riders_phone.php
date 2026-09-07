@@ -23,10 +23,23 @@ return new class extends Migration
                 }
             }
 
-            // 2. Resolve any legacy duplicate active phone numbers before adding index
+            // 2. Handle soft-deleted riders: append suffix so they never conflict with active phone numbers
+            $softDeleted = DB::table('riders')
+                ->whereNotNull('phone')
+                ->whereNotNull('deleted_at')
+                ->get();
+
+            foreach ($softDeleted as $delRider) {
+                if (!str_contains($delRider->phone, '_del_') && !str_contains($delRider->phone, '_dup_')) {
+                    DB::table('riders')
+                        ->where('id', $delRider->id)
+                        ->update(['phone' => $delRider->phone . '_del_' . $delRider->id]);
+                }
+            }
+
+            // 3. Resolve any remaining duplicate phone numbers across the entire table
             $duplicates = DB::table('riders')
                 ->whereNotNull('phone')
-                ->whereNull('deleted_at')
                 ->select('phone')
                 ->groupBy('phone')
                 ->havingRaw('COUNT(id) > 1')
@@ -35,7 +48,6 @@ return new class extends Migration
             foreach ($duplicates as $dupPhone) {
                 $duplicateRiders = DB::table('riders')
                     ->where('phone', $dupPhone)
-                    ->whereNull('deleted_at')
                     ->orderBy('id', 'asc')
                     ->get();
 
@@ -47,11 +59,16 @@ return new class extends Migration
                 });
             }
 
-            // 3. Widen phone column and add unique constraint
+            // 4. Widen phone column and add unique constraint
             Schema::table('riders', function (Blueprint $table) {
                 $table->string('phone', 50)->nullable()->change();
-                $table->unique('phone', 'riders_phone_unique');
             });
+
+            if (!Schema::hasIndex('riders', 'riders_phone_unique')) {
+                Schema::table('riders', function (Blueprint $table) {
+                    $table->unique('phone', 'riders_phone_unique');
+                });
+            }
         }
     }
 
@@ -61,8 +78,12 @@ return new class extends Migration
     public function down(): void
     {
         if (Schema::hasTable('riders') && Schema::hasColumn('riders', 'phone')) {
+            if (Schema::hasIndex('riders', 'riders_phone_unique')) {
+                Schema::table('riders', function (Blueprint $table) {
+                    $table->dropUnique('riders_phone_unique');
+                });
+            }
             Schema::table('riders', function (Blueprint $table) {
-                $table->dropUnique('riders_phone_unique');
                 $table->string('phone', 20)->nullable()->change();
             });
         }
