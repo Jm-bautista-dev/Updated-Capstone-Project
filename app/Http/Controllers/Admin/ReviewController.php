@@ -66,7 +66,8 @@ class ReviewController extends Controller
             $dateTo,
             $search,
             $perPage,
-            $page
+            $page,
+            $isAdmin
         );
 
         // 3. System-wide Overall Statistics
@@ -106,17 +107,19 @@ class ReviewController extends Controller
      */
     private function buildProductList(?int $userBranchId, ?string $search = '', ?string $branchFilter = 'all', bool $isAdmin = true)
     {
+        $effectiveBranchId = !$isAdmin ? $userBranchId : ($branchFilter && $branchFilter !== 'all' ? (int) $branchFilter : null);
+
         $productsQuery = Product::query()
             ->select(['id', 'name', 'sku', 'selling_price', 'category_id', 'branch_id', 'image_path'])
             ->with([
                 'category:id,name',
                 'branch:id,name',
             ])
-            ->when($userBranchId, function ($q) use ($userBranchId) {
-                $q->where(function ($sub) use ($userBranchId) {
-                    $sub->where('branch_id', $userBranchId)
+            ->when($effectiveBranchId, function ($q) use ($effectiveBranchId) {
+                $q->where(function ($sub) use ($effectiveBranchId) {
+                    $sub->where('branch_id', $effectiveBranchId)
                         ->orWhereNull('branch_id')
-                        ->orWhereHas('branches', fn($bq) => $bq->where('branches.id', $userBranchId));
+                        ->orWhereHas('branches', fn($bq) => $bq->where('branches.id', $effectiveBranchId));
                 });
             })
             ->when($search, function ($q) use ($search) {
@@ -131,8 +134,7 @@ class ReviewController extends Controller
 
         // Single aggregation query for all review metrics using SQL standard single-quotes for string literals
         $reviewAggQuery = ProductReview::query()
-            ->when($userBranchId, fn($q) => $q->where('branch_id', $userBranchId))
-            ->when($branchFilter && $branchFilter !== 'all' && $isAdmin, fn($q) => $q->where('branch_id', (int) $branchFilter))
+            ->forBranch($effectiveBranchId)
             ->selectRaw("
                 product_id,
                 COUNT(*) as total_reviews,
@@ -191,22 +193,19 @@ class ReviewController extends Controller
         ?string $dateTo = null,
         ?string $search = '',
         int $perPage = 10,
-        int $page = 1
+        int $page = 1,
+        bool $isAdmin = true
     ) {
+        $effectiveBranchId = !$isAdmin ? $userBranchId : ($branchFilter && $branchFilter !== 'all' ? (int) $branchFilter : null);
+
         $reviewsQuery = ProductReview::with([
             'user:id,name,email',
             'product:id,name,selling_price,image_path',
-            'order:id,order_number,total_amount,status,created_at',
+            'order:id,order_number,total_amount,status,created_at,branch_id',
             'branch:id,name',
             'responder:id,name',
             'seenBy:id,name',
-        ]);
-
-        if ($userBranchId) {
-            $reviewsQuery->where('branch_id', $userBranchId);
-        } elseif ($branchFilter && $branchFilter !== 'all') {
-            $reviewsQuery->where('branch_id', (int) $branchFilter);
-        }
+        ])->forBranch($effectiveBranchId);
 
         if ($selectedProductId) {
             $reviewsQuery->where('product_id', $selectedProductId);
@@ -324,9 +323,9 @@ class ReviewController extends Controller
      */
     private function buildOverallStats(?int $userBranchId = null, ?string $branchFilter = 'all', bool $isAdmin = true, int $totalProducts = 0): array
     {
-        $baseStatsQuery = ProductReview::query()
-            ->when($userBranchId, fn($q) => $q->where('branch_id', $userBranchId))
-            ->when($branchFilter && $branchFilter !== 'all' && $isAdmin, fn($q) => $q->where('branch_id', (int) $branchFilter));
+        $effectiveBranchId = !$isAdmin ? $userBranchId : ($branchFilter && $branchFilter !== 'all' ? (int) $branchFilter : null);
+
+        $baseStatsQuery = ProductReview::query()->forBranch($effectiveBranchId);
 
         $totalReviewCount = (clone $baseStatsQuery)->count();
         $unseenReviewCount = (clone $baseStatsQuery)->where('is_seen', false)->count();
@@ -358,14 +357,19 @@ class ReviewController extends Controller
         $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
         $userBranchId = !$isAdmin ? (int) $user->branch_id : null;
 
-        $updatedCount = ProductReview::where('product_id', $product->id)
+        $reviewIds = ProductReview::where('product_id', $product->id)
             ->where('is_seen', false)
-            ->when($userBranchId, fn($q) => $q->where('branch_id', $userBranchId))
-            ->update([
+            ->forBranch($userBranchId)
+            ->pluck('id');
+
+        $updatedCount = 0;
+        if ($reviewIds->isNotEmpty()) {
+            $updatedCount = ProductReview::whereIn('id', $reviewIds)->update([
                 'is_seen' => true,
                 'seen_at' => now(),
                 'seen_by' => $user->id,
             ]);
+        }
 
         return response()->json([
             'success'       => true,
@@ -373,6 +377,26 @@ class ReviewController extends Controller
             'updated_count' => $updatedCount,
             'message'       => "Reviews for {$product->name} marked as viewed.",
         ]);
+    }
+
+    /**
+     * Check whether a user is authorized to access/modify a specific review.
+     */
+    private function canUserAccessReview($user, ProductReview $review): bool
+    {
+        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
+        if ($isAdmin) {
+            return true;
+        }
+
+        $userBranchId = (int) $user->branch_id;
+        if (!$userBranchId) {
+            return false;
+        }
+
+        return ProductReview::where('id', $review->id)
+            ->forBranch($userBranchId)
+            ->exists();
     }
 
     /**
@@ -385,8 +409,7 @@ class ReviewController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
-        if (!$isAdmin && $user->branch_id && $review->branch_id && (int) $review->branch_id !== (int) $user->branch_id) {
+        if (!$this->canUserAccessReview($user, $review)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized for this branch.'], 403);
         }
 
@@ -418,8 +441,7 @@ class ReviewController extends Controller
             return back()->with('error', 'Unauthenticated.');
         }
 
-        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
-        if (!$isAdmin && $user->branch_id && $review->branch_id && (int) $review->branch_id !== (int) $user->branch_id) {
+        if (!$this->canUserAccessReview($user, $review)) {
             return back()->with('error', 'Unauthorized for this branch.');
         }
 
@@ -442,8 +464,7 @@ class ReviewController extends Controller
             return back()->with('error', 'Unauthenticated.');
         }
 
-        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
-        if (!$isAdmin && $user->branch_id && $review->branch_id && (int) $review->branch_id !== (int) $user->branch_id) {
+        if (!$this->canUserAccessReview($user, $review)) {
             return back()->with('error', 'Unauthorized for this branch.');
         }
 
@@ -470,8 +491,7 @@ class ReviewController extends Controller
             return back()->with('error', 'Unauthenticated.');
         }
 
-        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : (($user->role ?? '') === 'admin');
-        if (!$isAdmin && $user->branch_id && $review->branch_id && (int) $review->branch_id !== (int) $user->branch_id) {
+        if (!$this->canUserAccessReview($user, $review)) {
             return back()->with('error', 'Unauthorized for this branch.');
         }
 

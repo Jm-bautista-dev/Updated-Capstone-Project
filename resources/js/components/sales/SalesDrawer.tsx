@@ -121,6 +121,7 @@ export function SalesDrawer({
                             {sale.type === 'dine-in' && <Utensils className="size-4 text-amber-500" />}
                             {sale.type === 'take-out' && <ShoppingBag className="size-4 text-blue-500" />}
                             {sale.type === 'delivery' && <Truck className="size-4 text-purple-500" />}
+                            {sale.type === 'pickup' && <ShoppingBag className="size-4 text-emerald-500" />}
                             <span className="text-xs font-bold capitalize text-[#3D2C2E] dark:text-[#F8FAFC]">
                                 {sale.type || 'In-Store'} Order
                             </span>

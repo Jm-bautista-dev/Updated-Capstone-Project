@@ -27,7 +27,7 @@ export type SaleItem = {
 export type Sale = {
     id: number;
     order_number: string;
-    type: 'dine-in' | 'take-out' | 'delivery';
+    type: 'dine-in' | 'take-out' | 'delivery' | 'pickup' | string;
     subtotal?: number;
     discount?: number;
     discount_type?: string;
@@ -116,12 +116,12 @@ interface SalesStats {
 }
 
 interface SalesHeroProps {
-    sales: Sale[];
+    sales?: Sale[];
     stats?: SalesStats;
     activeBranchName: string;
 }
 
-export function SalesHero({ sales, stats, activeBranchName }: SalesHeroProps) {
+export function SalesHero({ stats, activeBranchName }: SalesHeroProps) {
     const formatCurrency = (amt: number) =>
         new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amt);
 

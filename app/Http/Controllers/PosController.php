@@ -112,11 +112,13 @@ class PosController extends Controller
             return $category;
         });
 
-        $recentOrders = Sale::with('items.product')
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->limit(10)
-            ->get();
+        $recentOrdersQuery = Sale::with(['items.product', 'cashier', 'branch', 'order']);
+        if ($branchId) {
+            $recentOrdersQuery->where('branch_id', $branchId);
+        } elseif (!$user->isAdmin()) {
+            $recentOrdersQuery->where('user_id', $user->id);
+        }
+        $recentOrders = $recentOrdersQuery->latest()->limit(10)->get();
 
         $allRiders = [];
         $availableRiders = [];

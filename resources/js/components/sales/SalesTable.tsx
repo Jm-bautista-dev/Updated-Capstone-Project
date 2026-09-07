@@ -97,6 +97,7 @@ export function SalesTable({
                                                 {sale.type === 'dine-in' && <Utensils className="size-3.5 text-amber-500" />}
                                                 {sale.type === 'take-out' && <ShoppingBag className="size-3.5 text-blue-500" />}
                                                 {sale.type === 'delivery' && <Truck className="size-3.5 text-purple-500" />}
+                                                {sale.type === 'pickup' && <ShoppingBag className="size-3.5 text-emerald-500" />}
                                                 <span className="font-bold capitalize text-[#3D2C2E] dark:text-[#F8FAFC]">
                                                     {sale.type || 'In-Store'}
                                                 </span>

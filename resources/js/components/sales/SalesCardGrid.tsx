@@ -77,6 +77,7 @@ export function SalesCardGrid({
                                         {sale.type === 'dine-in' && <Utensils className="size-3 text-amber-500" />}
                                         {sale.type === 'take-out' && <ShoppingBag className="size-3 text-blue-500" />}
                                         {sale.type === 'delivery' && <Truck className="size-3 text-purple-500" />}
+                                        {sale.type === 'pickup' && <ShoppingBag className="size-3 text-emerald-500" />}
                                         <span className="capitalize">{sale.type || 'In-Store'}</span>
                                     </div>
                                 </div>

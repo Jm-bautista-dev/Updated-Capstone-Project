@@ -102,4 +102,33 @@ class ProductReview extends Model
     {
         return $query->where('is_seen', true);
     }
+
+    /**
+     * Scope reviews accessible to a specific branch.
+     * Includes reviews explicitly tied to the branch, or global reviews (branch_id IS NULL)
+     * where the order/product belongs or is available to that branch.
+     */
+    public function scopeForBranch(Builder $query, ?int $branchId): Builder
+    {
+        if (!$branchId) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($branchId) {
+            $q->where('product_reviews.branch_id', $branchId)
+              ->orWhere(function (Builder $nullBranchQuery) use ($branchId) {
+                  $nullBranchQuery->whereNull('product_reviews.branch_id')
+                      ->where(function (Builder $orderCheck) use ($branchId) {
+                          $orderCheck->whereHas('order', function (Builder $oq) use ($branchId) {
+                              $oq->where('branch_id', $branchId)->orWhereNull('branch_id');
+                          })->orWhereNull('order_id');
+                      })
+                      ->whereHas('product', function (Builder $pq) use ($branchId) {
+                          $pq->where('branch_id', $branchId)
+                             ->orWhereNull('branch_id')
+                             ->orWhereHas('branches', fn(Builder $bq) => $bq->where('branches.id', $branchId));
+                      });
+              });
+        });
+    }
 }
