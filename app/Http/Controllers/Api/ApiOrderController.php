@@ -142,6 +142,53 @@ class ApiOrderController extends Controller
             /** @var \App\Models\Branch|null $branch */
             $branch = \App\Models\Branch::find($branchId);
 
+            if (!$branch) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected branch not found.',
+                ], 404);
+            }
+
+            // --- 0.5 AUTHORITATIVE BRANCH OPERATING HOURS & AVAILABILITY CHECK ---
+            $scheduledPickupCarbon = ($isPickup && !empty($validated['scheduled_pickup_at']))
+                ? \Carbon\Carbon::parse($validated['scheduled_pickup_at'], \App\Services\BranchScheduleService::TIMEZONE)
+                : null;
+
+            $branchScheduleService = app(\App\Services\BranchScheduleService::class);
+            $orderAvailability = $branchScheduleService->canAcceptOrder($branch, $fulfillmentType, $scheduledPickupCarbon);
+
+            if (!$orderAvailability['allowed']) {
+                \App\Services\SecurityAuditLogger::logSecurityEvent(
+                    event: 'ORDER_REJECTED_BRANCH_CLOSED',
+                    target: "branch:{$branchId}",
+                    details: [
+                        'branch_id'        => $branchId,
+                        'branch_name'      => $branch->name,
+                        'fulfillment_type' => $fulfillmentType,
+                        'reason'           => $orderAvailability['reason'],
+                        'user_id'          => $userId,
+                    ],
+                    level: 'warning'
+                );
+
+                $statusInfo = $branchScheduleService->getBranchOperatingStatus($branch);
+
+                return response()->json([
+                    'success'    => false,
+                    'error_code' => 'BRANCH_CLOSED',
+                    'message'    => $orderAvailability['reason'] ?? "{$branch->name} is currently closed and not accepting new orders.",
+                    'branch'     => [
+                        'id'                  => $branch->id,
+                        'name'                => $branch->name,
+                        'is_open'             => $statusInfo['is_open'],
+                        'is_accepting_orders' => $statusInfo['is_accepting_orders'],
+                        'operating_mode'      => $statusInfo['operating_mode'],
+                        'today_hours'         => $statusInfo['today_hours_display'],
+                        'status_message'      => $statusInfo['status_message'],
+                    ],
+                ], 422);
+            }
+
             // --- 1. DYNAMIC DISTANCE & FEE CALCULATION ---
             $deliveryEval = $this->evaluateDeliveryParameters($isPickup, $branch, $validated);
             if (!$deliveryEval['success']) {

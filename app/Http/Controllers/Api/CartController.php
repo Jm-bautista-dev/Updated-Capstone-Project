@@ -252,9 +252,17 @@ class CartController extends Controller
                 ], 422);
             }
 
+            $branch = $cart->branch ?? \App\Models\Branch::find($branchId);
+            $branchStatus = $branch ? app(\App\Services\BranchScheduleService::class)->getBranchOperatingStatus($branch) : null;
+
             return response()->json([
-                'success' => true,
-                'message' => 'Cart is valid'
+                'success'        => true,
+                'message'        => 'Cart is valid',
+                'branch_id'      => $branchId,
+                'branch_name'    => $branch?->name,
+                'is_branch_open' => (bool) ($branchStatus['is_open'] ?? true),
+                'is_accepting_orders' => (bool) ($branchStatus['is_accepting_orders'] ?? true),
+                'branch_status'  => $branchStatus,
             ]);
 
         } catch (\Throwable $e) {

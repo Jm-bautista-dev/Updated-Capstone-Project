@@ -111,12 +111,21 @@ class ProductController extends Controller
             ];
         });
 
+        $branchStatus = app(\App\Services\BranchScheduleService::class)->getBranchOperatingStatus($nearestBranch);
+
         return response()->json([
             'status' => 'success',
             'branch' => [
-                'id' => $nearestBranch->id,
-                'name' => $nearestBranch->name,
-                'address' => $nearestBranch->address,
+                'id'                  => $nearestBranch->id,
+                'name'                => $nearestBranch->name,
+                'address'             => $nearestBranch->address,
+                'is_open'             => (bool) $branchStatus['is_open'],
+                'status'              => $branchStatus['status'],
+                'is_accepting_orders' => (bool) $branchStatus['is_accepting_orders'],
+                'operating_mode'      => $branchStatus['operating_mode'],
+                'today_hours'         => $branchStatus['today_hours_display'],
+                'status_message'      => $branchStatus['status_message'],
+                'is_special_schedule' => (bool) $branchStatus['is_special_schedule'],
             ],
             'distance_km' => round($minDistance, 2),
             'products' => $formattedProducts

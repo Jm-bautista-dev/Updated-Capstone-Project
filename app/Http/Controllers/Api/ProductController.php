@@ -187,9 +187,26 @@ class ProductController extends Controller
 
         $products = $productsQuery->get();
 
+        $branchStatus = app(\App\Services\BranchScheduleService::class)->getBranchOperatingStatus($nearestBranch);
+
         return response()->json([
             'success'    => true,
-            'branch'     => $nearestBranch,
+            'branch'     => [
+                'id'                  => $nearestBranch->id,
+                'name'                => $nearestBranch->name,
+                'address'             => $nearestBranch->address,
+                'latitude'            => $nearestBranch->latitude ? (float) $nearestBranch->latitude : null,
+                'longitude'           => $nearestBranch->longitude ? (float) $nearestBranch->longitude : null,
+                'delivery_radius_km'  => $nearestBranch->delivery_radius_km !== null ? (float) $nearestBranch->delivery_radius_km : null,
+                'base_delivery_fee'   => $nearestBranch->base_delivery_fee !== null ? (float) $nearestBranch->base_delivery_fee : null,
+                'is_open'             => (bool) $branchStatus['is_open'],
+                'status'              => $branchStatus['status'],
+                'is_accepting_orders' => (bool) $branchStatus['is_accepting_orders'],
+                'operating_mode'      => $branchStatus['operating_mode'],
+                'today_hours'         => $branchStatus['today_hours_display'],
+                'status_message'      => $branchStatus['status_message'],
+                'is_special_schedule' => (bool) $branchStatus['is_special_schedule'],
+            ],
             'distance'   => round($nearestBranch->distance, 2),
             'categories' => $categories->map(fn($c) => [
                 'id' => $c->id,

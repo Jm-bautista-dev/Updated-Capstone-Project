@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BranchOperatingHoursModal, type BranchOperatingStatus, type BranchScheduleItem, type BranchSpecialScheduleItem } from './BranchOperatingHoursModal';
 
 export interface Branch {
     id: number;
@@ -16,6 +17,12 @@ export interface Branch {
     has_internal_riders: boolean;
     base_delivery_fee: number | string | null;
     per_km_fee: number | string | null;
+    operating_mode?: 'automatic' | 'force_open' | 'force_closed';
+    mode_override_reason?: string | null;
+    mode_override_until?: string | null;
+    operating_status?: BranchOperatingStatus;
+    schedules?: BranchScheduleItem[];
+    special_schedules?: BranchSpecialScheduleItem[];
 }
 
 interface BranchCardProps {
@@ -38,6 +45,7 @@ export function BranchCard({ branch }: BranchCardProps) {
     const [geoError, setGeoError] = useState<string | null>(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [isHoursModalOpen, setIsHoursModalOpen] = useState(false);
 
     // Auto-close success modal and manage "Recently Saved" feedback
     useEffect(() => {
@@ -135,6 +143,33 @@ export function BranchCard({ branch }: BranchCardProps) {
                             <h2 className="font-bold text-base text-[#3D2C2E] dark:text-[#F8FAFC]">
                                 {data.name}
                             </h2>
+
+                            {/* Live Operating Status Badge */}
+                            {branch.operating_status && (
+                                <Badge
+                                    className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full border ${
+                                        branch.operating_status.is_open
+                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                    }`}
+                                >
+                                    <span className={`size-1.5 rounded-full mr-1.5 inline-block ${branch.operating_status.is_open ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                                    {branch.operating_status.status}
+                                </Badge>
+                            )}
+
+                            {branch.operating_mode && branch.operating_mode !== 'automatic' && (
+                                <Badge
+                                    className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full border ${
+                                        branch.operating_mode === 'force_open'
+                                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                                            : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                                    }`}
+                                >
+                                    ⚡ {branch.operating_mode.replace('_', ' ')}
+                                </Badge>
+                            )}
+
                             {recentlySuccessful && (
                                 <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider animate-pulse">
                                     ✓ Synced
@@ -146,14 +181,27 @@ export function BranchCard({ branch }: BranchCardProps) {
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium mt-0.5">
-                            Hub ID: <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">#{branch.id}</span>
+                        <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium mt-0.5 flex items-center gap-2 flex-wrap">
+                            <span>Hub ID: <strong className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">#{branch.id}</strong></span>
+                            <span>•</span>
+                            <span>Today's Hours: <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{branch.operating_status?.today_hours_display ?? '10:00 AM — 8:00 PM'}</strong></span>
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="px-3 py-1 rounded-xl text-xs font-bold bg-white/70 dark:bg-[#252532] text-[#3D2C2E] dark:text-[#F8FAFC] border border-[#F8C8DC]/40 dark:border-white/10">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsHoursModalOpen(true)}
+                        className="h-9 px-3.5 rounded-xl text-xs font-bold border-[#F8C8DC]/60 dark:border-white/10 hover:bg-[#FFF5F7] dark:hover:bg-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] cursor-pointer shadow-2xs gap-1.5"
+                    >
+                        <span>🕒</span>
+                        <span>Manage Store Hours</span>
+                    </Button>
+
+                    <Badge variant="secondary" className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/70 dark:bg-[#252532] text-[#3D2C2E] dark:text-[#F8FAFC] border border-[#F8C8DC]/40 dark:border-white/10">
                         {data.has_internal_riders ? 'Internal Fleet' : '3P Delivery'}
                     </Badge>
                 </div>
@@ -383,6 +431,13 @@ export function BranchCard({ branch }: BranchCardProps) {
                     )}
                 </div>
             </div>
+
+            {/* Operating Hours & Overrides Management Modal */}
+            <BranchOperatingHoursModal
+                branch={branch as any}
+                open={isHoursModalOpen}
+                onClose={() => setIsHoursModalOpen(false)}
+            />
         </motion.div>
     );
 }

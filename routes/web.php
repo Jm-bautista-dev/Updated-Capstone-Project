@@ -239,8 +239,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('admin/reviews/products/{product}/mark-seen', [App\Http\Controllers\Admin\ReviewController::class, 'markProductReviewsSeen'])->name('admin.reviews.products.mark-seen');
             Route::delete('admin/reviews/{review}', [App\Http\Controllers\Admin\ReviewController::class, 'destroy'])->name('admin.reviews.destroy');
 
-            // Branches
+            // Branches & Operating Hours Management
             Route::get('branches', [BranchController::class, 'adminIndex'])->name('branches.index');
+            Route::put('branches/{id}', [BranchController::class, 'update'])->name('branches.update');
+            Route::match(['post', 'patch', 'put'], 'branches/{id}/operating-mode', [BranchController::class, 'updateOperatingMode'])->name('branches.operating-mode');
+            Route::match(['post', 'put'], 'branches/{id}/regular-hours', [BranchController::class, 'updateRegularHours'])->name('branches.regular-hours');
+            Route::match(['post', 'put'], 'branches/{id}/special-hours', [BranchController::class, 'storeSpecialSchedule'])->name('branches.special-hours');
+            Route::match(['post', 'put'], 'branches/{id}/special-schedules', [BranchController::class, 'storeSpecialSchedule'])->name('branches.special-schedules');
+            Route::delete('branches/{id}/special-hours/{specialId}', [BranchController::class, 'destroySpecialSchedule'])->name('branches.special-hours.destroy');
+            Route::delete('branches/{id}/special-schedules/{specialId}', [BranchController::class, 'destroySpecialSchedule'])->name('branches.special-schedules.destroy');
+
             Route::get('riders-available', [RiderController::class, 'available'])->name('riders.available');
             Route::get('deliveries/recommend', [App\Http\Controllers\Admin\DeliveryController::class, 'recommend'])->name('deliveries.recommend');
 

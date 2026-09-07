@@ -48,6 +48,7 @@ Route::prefix('v1')->group(function () {
     // Public Data & Top Picks
     Route::get('top-picks',      [TopPickController::class, 'index']);
     Route::get('branches',       [BranchController::class, 'apiIndex']);
+    Route::get('branches/{id}/operating-status', [BranchController::class, 'getOperatingStatus'])->whereNumber('id');
     Route::get('products',       [ProductController::class, 'index']);
     Route::get('products/{id}',  [ProductController::class, 'show'])->whereNumber('id');
     Route::get('categories',     [CategoryController::class, 'index']);
@@ -171,6 +172,14 @@ Route::prefix('v1')->group(function () {
             Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'reject']);
             Route::post('cancellation-requests/{id}/approve', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'approve']);
         });
+
+        // Branch Operating Hours & Mode Management
+        Route::match(['post', 'patch', 'put'], 'branches/{id}/operating-mode', [BranchController::class, 'updateOperatingMode'])->whereNumber('id');
+        Route::match(['post', 'put'], 'branches/{id}/regular-hours',           [BranchController::class, 'updateRegularHours'])->whereNumber('id');
+        Route::match(['post', 'put'], 'branches/{id}/special-hours',          [BranchController::class, 'storeSpecialSchedule'])->whereNumber('id');
+        Route::match(['post', 'put'], 'branches/{id}/special-schedules',      [BranchController::class, 'storeSpecialSchedule'])->whereNumber('id');
+        Route::delete('branches/{id}/special-hours/{specialId}',               [BranchController::class, 'destroySpecialSchedule'])->whereNumber('id')->whereNumber('specialId');
+        Route::delete('branches/{id}/special-schedules/{specialId}',           [BranchController::class, 'destroySpecialSchedule'])->whereNumber('id')->whereNumber('specialId');
 
         // Rider Cancellation Requests Ledger
         Route::get('rider/cancellation-requests', [App\Http\Controllers\Api\Rider\RiderDeliveryController::class, 'cancellationRequests']);

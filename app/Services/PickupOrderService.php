@@ -70,8 +70,22 @@ class PickupOrderService
             ];
         }
 
-        $openingTimeStr = $branch->pickup_opening_time ?? '09:00:00';
-        $closingTimeStr = $branch->pickup_closing_time ?? '21:00:00';
+        $scheduleService = app(\App\Services\BranchScheduleService::class);
+        $daySchedule = $scheduleService->getOperatingScheduleForDate($branch, $targetDate);
+
+        if ($daySchedule['is_closed_all_day']) {
+            return [
+                'branch_id'   => $branchId,
+                'branch_name' => $branch->name,
+                'date'        => $targetDate->toDateString(),
+                'is_open'     => false,
+                'message'     => $daySchedule['is_special'] ? "Branch is closed on this date ({$daySchedule['reason']})." : "Branch is closed on this day.",
+                'slots'       => [],
+            ];
+        }
+
+        $openingTimeStr = $daySchedule['open_time'] ?? ($branch->pickup_opening_time ?? '10:00:00');
+        $closingTimeStr = $daySchedule['close_time'] ?? ($branch->pickup_closing_time ?? '20:00:00');
         $intervalMin    = (int) ($branch->pickup_slot_interval_minutes ?? 15);
         $leadTimeMin    = (int) ($branch->pickup_lead_time_minutes ?? 20);
         $maxPerSlot     = (int) ($branch->pickup_max_orders_per_slot ?? 10);
@@ -178,16 +192,10 @@ class PickupOrderService
             }
 
             // 2. Validate operating hours
-            $openStr = $branch->pickup_opening_time ?? '09:00:00';
-            $closeStr = $branch->pickup_closing_time ?? '21:00:00';
-            $cutoffMin = (int) ($branch->pickup_cutoff_before_close_minutes ?? 30);
-
-            $openingDateTime = Carbon::parse($scheduledPickupAt->toDateString() . ' ' . $openStr, $tz);
-            $closingDateTime = Carbon::parse($scheduledPickupAt->toDateString() . ' ' . $closeStr, $tz);
-            $lastSlotDateTime = $closingDateTime->copy()->subMinutes($cutoffMin);
-
-            if ($scheduledPickupAt->lt($openingDateTime) || $scheduledPickupAt->gt($lastSlotDateTime)) {
-                throw new \Exception("Selected pickup time ({$scheduledPickupAt->format('g:i A')}) is outside branch pickup hours ({$openingDateTime->format('g:i A')} to {$lastSlotDateTime->format('g:i A')}).");
+            $scheduleService = app(\App\Services\BranchScheduleService::class);
+            $availability = $scheduleService->canAcceptOrder($branch, Order::FULFILLMENT_PICKUP, $scheduledPickupAt);
+            if (!$availability['allowed']) {
+                throw new \Exception($availability['reason'] ?? "Selected pickup time ({$scheduledPickupAt->format('g:i A')}) is outside branch pickup hours.");
             }
 
             // 3. Race condition & slot capacity protection with pessimistic lock (checking UTC and legacy local)

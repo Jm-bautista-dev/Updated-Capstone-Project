@@ -18,6 +18,11 @@ class Branch extends Model
         'latitude',
         'longitude',
         'delivery_radius_km',
+        'operating_mode',
+        'mode_override_reason',
+        'mode_override_until',
+        'mode_override_at',
+        'mode_override_by',
         'has_internal_riders',
         'base_delivery_fee',
         'per_km_fee',
@@ -42,6 +47,8 @@ class Branch extends Model
         'pickup_slot_interval_minutes'       => 'integer',
         'pickup_max_orders_per_slot'         => 'integer',
         'pickup_cutoff_before_close_minutes' => 'integer',
+        'mode_override_until'                => 'datetime',
+        'mode_override_at'                   => 'datetime',
         'latitude'                           => 'decimal:7',
         'longitude'                          => 'decimal:7',
         'delivery_radius_km'                 => 'decimal:2',
@@ -53,10 +60,7 @@ class Branch extends Model
 
     /**
      * When a new branch is created, seed a zero-stock IngredientStock row
-     * for every existing global ingredient.
-     *
-     * This prevents the "UNASSIGNED (ORPHANED)" UI group from ever appearing
-     * for ingredients that were added before this branch existed.
+     * for every existing global ingredient, and initialize default 7-day schedules.
      */
     protected static function boot(): void
     {
@@ -81,10 +85,44 @@ class Branch extends Model
                     ]
                 );
             }
+
+            // Seed default 7-day schedules (10am-8pm or 10am-7:45pm for Sta Cruz, or branch pickup times if explicitly provided)
+            $isStaCruz = (str_contains(strtolower($branch->name), 'sta') && str_contains(strtolower($branch->name), 'cruz')) || $branch->id == 2;
+            $openTime = $branch->pickup_opening_time ?: '10:00:00';
+            $closeTime = $branch->pickup_closing_time ?: ($isStaCruz ? '19:45:00' : '20:00:00');
+
+            for ($day = 0; $day <= 6; $day++) {
+                BranchSchedule::firstOrCreate(
+                    [
+                        'branch_id'   => $branch->id,
+                        'day_of_week' => $day,
+                    ],
+                    [
+                        'open_time'   => $openTime,
+                        'close_time'  => $closeTime,
+                        'is_closed'   => false,
+                    ]
+                );
+            }
         });
     }
 
     /* ── Relationships ─────────────────────────────── */
+
+    public function schedules()
+    {
+        return $this->hasMany(BranchSchedule::class)->orderBy('day_of_week');
+    }
+
+    public function specialSchedules()
+    {
+        return $this->hasMany(BranchSpecialSchedule::class)->orderBy('date');
+    }
+
+    public function modeOverrideBy()
+    {
+        return $this->belongsTo(User::class, 'mode_override_by');
+    }
 
     public function employees()
     {
@@ -123,6 +161,25 @@ class Branch extends Model
     public function suppliers()
     {
         return $this->hasMany(Supplier::class);
+    }
+
+    /* ── Operating Hours & Availability Helpers ──────── */
+
+    /**
+     * Get authoritative real-time operating status.
+     */
+    public function getOperatingStatus(?\Carbon\Carbon $now = null): array
+    {
+        return app(\App\Services\BranchScheduleService::class)->getBranchOperatingStatus($this, $now);
+    }
+
+    /**
+     * Check whether branch is currently accepting new customer orders.
+     */
+    public function isAcceptingOrders(?\Carbon\Carbon $now = null): bool
+    {
+        $status = $this->getOperatingStatus($now);
+        return (bool) ($status['is_accepting_orders'] ?? false);
     }
 
     /* ── Delivery Helpers ──────────────────────────── */

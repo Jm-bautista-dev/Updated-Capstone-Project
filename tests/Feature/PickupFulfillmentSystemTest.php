@@ -143,6 +143,7 @@ class PickupFulfillmentSystemTest extends TestCase
      */
     public function test_customer_api_can_place_pickup_order_without_delivery_fields(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-09-08 12:00:00', 'Asia/Manila'));
         $scheduledPickupAt = Carbon::now('Asia/Manila')->addHours(2)->format('Y-m-d H:i:s');
 
         $payload = [
@@ -347,11 +348,12 @@ class PickupFulfillmentSystemTest extends TestCase
      */
     public function test_existing_delivery_orders_continue_working_without_regression(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-09-08 14:00:00', 'Asia/Manila'));
         $payload = [
             'fulfillment_type' => 'delivery',
             'branch_id'        => $this->branch->id,
-            'customer_name'    => 'Delivery Customer',
-            'mobile_number'    => '09173334444',
+            'customer_name'    => 'Juan Dela Cruz',
+            'mobile_number'    => '09171112222',
             'address'          => '456 Delivery Rd, Manila',
             'latitude'         => 14.6000,
             'longitude'        => 120.9850,
