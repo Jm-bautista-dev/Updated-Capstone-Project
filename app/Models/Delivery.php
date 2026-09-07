@@ -80,25 +80,25 @@ class Delivery extends Model
 
     public function getOrderNumberAttribute(): ?string
     {
-        if ($this->order && $this->order->order_number) {
+        if ($this->relationLoaded('order') && $this->order && $this->order->order_number) {
             return $this->order->order_number;
         }
 
-        if ($this->sale) {
+        if ($this->relationLoaded('sale') && $this->sale) {
             return $this->sale->order_number ?? $this->sale->invoice_number;
         }
 
         if ($this->order_id) {
-            $order = $this->relationLoaded('order') ? $this->order : Order::find($this->order_id);
-            if ($order && $order->order_number) {
-                return $order->order_number;
+            $orderNumber = \Illuminate\Support\Facades\DB::table('orders')->where('id', $this->order_id)->value('order_number');
+            if ($orderNumber) {
+                return $orderNumber;
             }
         }
 
         if ($this->sale_id) {
-            $sale = $this->relationLoaded('sale') ? $this->sale : Sale::find($this->sale_id);
-            if ($sale) {
-                return $sale->order_number ?? $sale->invoice_number;
+            $saleRow = \Illuminate\Support\Facades\DB::table('sales')->where('id', $this->sale_id)->first(['order_number', 'invoice_number']);
+            if ($saleRow) {
+                return $saleRow->order_number ?? $saleRow->invoice_number;
             }
         }
 
@@ -116,13 +116,8 @@ class Delivery extends Model
             return 'pos';
         }
 
-        $order = $this->order;
-        if (! $order && $this->order_id) {
-            $order = $this->relationLoaded('order') ? $this->order : Order::find($this->order_id);
-        }
-
-        if ($order) {
-            $source = $order->order_source;
+        if ($this->relationLoaded('order') && $this->order) {
+            $source = $this->order->order_source;
             if (in_array($source, [Order::SOURCE_MOBILE_APP, 'mobile', 'mobile_app'], true)) {
                 return 'mobile';
             }
@@ -130,6 +125,19 @@ class Delivery extends Model
                 return 'pos';
             }
             return $source ?: 'mobile';
+        }
+
+        if ($this->order_id) {
+            $source = \Illuminate\Support\Facades\DB::table('orders')->where('id', $this->order_id)->value('order_source');
+            if ($source) {
+                if (in_array($source, [Order::SOURCE_MOBILE_APP, 'mobile', 'mobile_app'], true)) {
+                    return 'mobile';
+                }
+                if (in_array($source, [Order::SOURCE_WEB_POS, Order::SOURCE_WALK_IN, 'pos', 'web_pos', 'walk_in'], true)) {
+                    return 'pos';
+                }
+                return $source;
+            }
         }
 
         return 'pos';

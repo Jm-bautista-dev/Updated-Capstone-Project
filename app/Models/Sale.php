@@ -84,7 +84,7 @@ class Sale extends Model
             return max(0.0, (float) $this->items->sum('subtotal') - $discount);
         }
 
-        $deliveryFee = (float) ($this->delivery_fee ?? $this->delivery?->delivery_fee ?? 0);
+        $deliveryFee = (float) ($this->delivery_fee ?? ($this->relationLoaded('delivery') ? $this->delivery?->delivery_fee : 0));
         return max(0.0, (float) $this->total - $deliveryFee);
     }
 
@@ -97,7 +97,7 @@ class Sale extends Model
             return (float) $this->delivery_fee;
         }
 
-        return (float) ($this->delivery?->delivery_fee ?? 0);
+        return (float) ($this->relationLoaded('delivery') ? ($this->delivery?->delivery_fee ?? 0) : 0);
     }
 
     /**
@@ -105,13 +105,14 @@ class Sale extends Model
      */
     public function getDeliveryFeeBreakdownAttribute(): ?array
     {
-        $fee = (float) ($this->delivery_fee ?? $this->delivery?->delivery_fee ?? 0);
+        $delivery = $this->relationLoaded('delivery') ? $this->delivery : null;
+        $fee = (float) ($this->delivery_fee ?? $delivery?->delivery_fee ?? 0);
         if ($fee <= 0 && $this->type !== 'delivery') {
             return null;
         }
 
-        $distance = $this->delivery?->distance_km !== null ? (float) $this->delivery->distance_km : null;
-        $branch = $this->branch ?: $this->order?->branch;
+        $distance = $delivery?->distance_km !== null ? (float) $delivery->distance_km : null;
+        $branch = $this->relationLoaded('branch') ? $this->branch : ($this->relationLoaded('order') ? $this->order?->branch : null);
         $subtotal = $this->subtotal !== null ? (float) $this->subtotal : max(0.0, (float) $this->total - $fee);
 
         if ($branch && $distance !== null) {
@@ -143,29 +144,32 @@ class Sale extends Model
      */
     public function getCashierNameAttribute(): string
     {
+        $cashier = $this->relationLoaded('cashier') ? $this->cashier : ($this->relationLoaded('user') ? $this->user : null);
+        $order = $this->relationLoaded('order') ? $this->order : null;
+
         // 1. If user relation is loaded or exists and is a customer, it is NOT a cashier
-        if ($this->cashier && $this->cashier->isCustomer()) {
+        if ($cashier && $cashier->isCustomer()) {
             return 'Online Order';
         }
 
         // 2. If the order explicitly came from an online source
-        if ($this->order && in_array($this->order->order_source, [Order::SOURCE_MOBILE_APP, Order::SOURCE_FACEBOOK_MESSENGER, 'online'], true)) {
-            if (!$this->cashier || $this->cashier->isCustomer()) {
+        if ($order && in_array($order->order_source, [Order::SOURCE_MOBILE_APP, Order::SOURCE_FACEBOOK_MESSENGER, 'online'], true)) {
+            if (!$cashier || $cashier->isCustomer()) {
                 return 'Online Order';
             }
         }
 
         // 3. If the user attached is a staff employee (cashier, admin, super_admin)
-        if ($this->cashier && ($this->cashier->isCashier() || $this->cashier->isAdmin() || $this->cashier->isSuperAdmin())) {
-            return $this->cashier->name;
+        if ($cashier && ($cashier->isCashier() || $cashier->isAdmin() || $cashier->isSuperAdmin())) {
+            return $cashier->name;
         }
 
         // 4. If transaction was created via online order delivery or without staff assignment
-        if ($this->order_id && (!$this->cashier || $this->cashier->isCustomer())) {
+        if ($this->order_id && (!$cashier || $cashier->isCustomer())) {
             return 'Online Order';
         }
 
-        return $this->cashier?->name ?? ($this->order_id ? 'Online Order' : 'N/A');
+        return $cashier?->name ?? ($this->order_id ? 'Online Order' : 'N/A');
     }
 
     /**
@@ -175,18 +179,18 @@ class Sale extends Model
      */
     public function getCustomerNameAttribute(): string
     {
-        // 1. Check associated Order customer info
-        if ($this->order) {
+        // 1. Check associated Order customer info if loaded
+        if ($this->relationLoaded('order') && $this->order) {
             if (!empty(trim((string) $this->order->customer_name))) {
                 return trim($this->order->customer_name);
             }
-            if ($this->order->user && !empty(trim((string) $this->order->user->name))) {
+            if ($this->order->relationLoaded('user') && $this->order->user && !empty(trim((string) $this->order->user->name))) {
                 return trim($this->order->user->name);
             }
         }
 
-        // 2. Check associated Delivery record
-        if ($this->delivery && !empty(trim((string) $this->delivery->customer_name))) {
+        // 2. Check associated Delivery record if loaded
+        if ($this->relationLoaded('delivery') && $this->delivery && !empty(trim((string) $this->delivery->customer_name))) {
             return trim($this->delivery->customer_name);
         }
 
@@ -197,8 +201,8 @@ class Sale extends Model
             }
         }
 
-        // 4. Check user if user is a customer
-        if ($this->user && $this->user->isCustomer()) {
+        // 4. Check user if user is loaded and is a customer
+        if ($this->relationLoaded('user') && $this->user && $this->user->isCustomer()) {
             return trim($this->user->name);
         }
 
