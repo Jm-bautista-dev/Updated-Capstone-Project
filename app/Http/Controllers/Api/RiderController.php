@@ -1462,22 +1462,62 @@ class RiderController extends Controller
         $createdAt = $delivery->created_at?->toIso8601String() ?? $order?->created_at?->toIso8601String() ?? $sale?->created_at?->toIso8601String();
         $updatedAt = $delivery->updated_at?->toIso8601String() ?? $order?->updated_at?->toIso8601String() ?? $sale?->updated_at?->toIso8601String();
 
-        // Format items from either Order or Sale
+        // Format items from either Order or Sale with full add-on snapshot and accurate line totals
         $items = [];
         if ($order && $order->items) {
-            $items = $order->items->map(fn($item) => [
-                'product_name' => $item->product?->name ?? 'Item',
-                'quantity'     => $item->quantity,
-                'price'        => (float) $item->price,
-                'subtotal'     => (float) ($item->quantity * $item->price),
-            ])->values()->all();
+            $items = $order->items->map(function ($item) {
+                $productName  = $item->product_name ?? $item->product?->name ?? 'Item';
+                $unitPrice    = (float) ($item->unit_price ?? $item->price ?? 0);
+                $qty          = (int) $item->quantity;
+                $addonTotal   = (float) ($item->addon_total ?? 0);
+                $lineTotal    = (float) ($item->line_total ?? (($unitPrice * $qty) + $addonTotal));
+                $parsedAddons = $this->formatItemAddons($item->selected_addons);
+
+                return [
+                    'id'              => $item->id,
+                    'order_item_id'   => $item->id,
+                    'product_id'      => (int) ($item->product_id ?? 0),
+                    'product_name'    => $productName,
+                    'title'           => $productName,
+                    'quantity'        => $qty,
+                    'price'           => $unitPrice,
+                    'unit_price'      => $unitPrice,
+                    'addon_total'     => $addonTotal,
+                    'subtotal'        => $lineTotal,
+                    'line_total'      => $lineTotal,
+                    'selected_addons' => $parsedAddons,
+                    'addons'          => $parsedAddons,
+                    'notes'           => $item->notes,
+                    'image_path'      => $item->image_path ?? $item->product?->image_path,
+                ];
+            })->values()->all();
         } elseif ($sale && $sale->items) {
-            $items = $sale->items->map(fn($item) => [
-                'product_name' => $item->product?->name ?? 'Item',
-                'quantity'     => $item->quantity,
-                'price'        => (float) $item->unit_price,
-                'subtotal'     => (float) ($item->quantity * $item->unit_price),
-            ])->values()->all();
+            $items = $sale->items->map(function ($item) {
+                $productName  = $item->product?->name ?? 'Item';
+                $unitPrice    = (float) ($item->unit_price ?? 0);
+                $qty          = (int) $item->quantity;
+                $addonTotal   = (float) ($item->addon_total ?? 0);
+                $lineTotal    = (float) ($item->subtotal ?? (($unitPrice * $qty) + $addonTotal));
+                $parsedAddons = $this->formatItemAddons($item->selected_addons);
+
+                return [
+                    'id'              => $item->id,
+                    'sale_item_id'    => $item->id,
+                    'product_id'      => (int) ($item->product_id ?? 0),
+                    'product_name'    => $productName,
+                    'title'           => $productName,
+                    'quantity'        => $qty,
+                    'price'           => $unitPrice,
+                    'unit_price'      => $unitPrice,
+                    'addon_total'     => $addonTotal,
+                    'subtotal'        => $lineTotal,
+                    'line_total'      => $lineTotal,
+                    'selected_addons' => $parsedAddons,
+                    'addons'          => $parsedAddons,
+                    'notes'           => null,
+                    'image_path'      => $item->product?->image_path,
+                ];
+            })->values()->all();
         }
 
         $isUnassigned = ($delivery->rider_id === null);
@@ -1650,6 +1690,59 @@ class RiderController extends Controller
             'completed_at'            => $updatedAt,
             'completedAt'             => $updatedAt,
         ];
+    }
+
+    /**
+     * Helper to safely format and normalize addons for an order or sale item.
+     *
+     * @param mixed $rawAddons
+     * @return array
+     */
+    private function formatItemAddons(mixed $rawAddons): array
+    {
+        if (empty($rawAddons)) {
+            return [];
+        }
+
+        if (is_string($rawAddons)) {
+            try {
+                $decoded = json_decode($rawAddons, true);
+                $rawAddons = is_array($decoded) ? $decoded : [];
+            } catch (\Throwable) {
+                return [];
+            }
+        }
+
+        if (!is_array($rawAddons)) {
+            return [];
+        }
+
+        $formatted = [];
+        foreach ($rawAddons as $addon) {
+            if (!is_array($addon)) {
+                continue;
+            }
+
+            $id = $addon['addon_id'] ?? $addon['id'] ?? null;
+            $name = $addon['name'] ?? $addon['addon_name'] ?? 'Add-on';
+            $unitPrice = (float) ($addon['unit_price'] ?? $addon['price'] ?? 0.0);
+            $qty = max(1, (float) ($addon['quantity'] ?? $addon['qty'] ?? 1));
+            $subtotal = (float) ($addon['subtotal'] ?? round($unitPrice * $qty, 2));
+
+            $formatted[] = [
+                'id'         => $id ? (int) $id : null,
+                'addon_id'   => $id ? (int) $id : null,
+                'name'       => $name,
+                'price'      => $unitPrice,
+                'unit_price' => $unitPrice,
+                'quantity'   => (int) $qty,
+                'subtotal'   => $subtotal,
+                'group_id'   => isset($addon['group_id']) ? (int) $addon['group_id'] : null,
+                'group_name' => $addon['group_name'] ?? null,
+            ];
+        }
+
+        return $formatted;
     }
 
     /**

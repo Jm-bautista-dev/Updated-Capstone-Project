@@ -60,17 +60,17 @@ class ReviewController extends Controller
 
     /**
      * GET /api/v1/customer/eligible-reviews
-     * Protected endpoint: List products from customer's DELIVERED orders that can be rated.
+     * Protected endpoint: List products from customer's completed (delivered / picked_up) orders that can be rated.
      */
     public function getEligibleReviews(Request $request): JsonResponse
     {
         try {
             $user = $request->user();
 
-            // Fetch delivered order items for this customer
-            $deliveredOrderItems = OrderItem::with(['order:id,status,created_at', 'product:id,name,selling_price,image_path'])
+            // Fetch eligible order items for this customer
+            $eligibleOrderItems = OrderItem::with(['order:id,fulfillment_type,status,created_at,scheduled_pickup_at,pickup_completed_at', 'product:id,name,selling_price,image_path'])
                 ->whereHas('order', function ($q) use ($user) {
-                    $q->where('user_id', $user->id)->where('status', 'delivered');
+                    $q->where('user_id', $user->id)->eligibleForReview();
                 })
                 ->latest()
                 ->get();
@@ -80,21 +80,27 @@ class ReviewController extends Controller
                 ->pluck('order_item_id')
                 ->toArray();
 
-            $data = $deliveredOrderItems->map(function ($item) use ($reviewedItemIds) {
+            $data = $eligibleOrderItems->map(function ($item) use ($reviewedItemIds) {
                 $isReviewed = in_array($item->id, $reviewedItemIds);
                 $review = $isReviewed ? ProductReview::where('order_item_id', $item->id)->first() : null;
 
+                $completedAt = $item->order?->fulfillment_type === 'pickup'
+                    ? ($item->order?->pickup_completed_at ?? $item->order?->created_at)
+                    : $item->order?->created_at;
+
                 return [
-                    'order_item_id' => $item->id,
-                    'order_id'      => $item->order_id,
-                    'product_id'    => $item->product_id,
-                    'product_name'  => $item->product?->name ?? 'Product',
-                    'image_url'     => $item->product?->image_url,
-                    'quantity'      => $item->quantity,
-                    'price'         => (float) $item->price,
-                    'delivered_at'  => $item->order?->created_at?->toIso8601String(),
-                    'is_reviewed'   => $isReviewed,
-                    'review'        => $review ? [
+                    'order_item_id'    => $item->id,
+                    'order_id'         => $item->order_id,
+                    'fulfillment_type' => $item->order?->fulfillment_type ?? 'delivery',
+                    'product_id'       => $item->product_id,
+                    'product_name'     => $item->product?->name ?? 'Product',
+                    'image_url'        => $item->product?->image_url,
+                    'quantity'         => $item->quantity,
+                    'price'            => (float) $item->price,
+                    'delivered_at'     => $completedAt?->toIso8601String(),
+                    'completed_at'     => $completedAt?->toIso8601String(),
+                    'is_reviewed'      => $isReviewed,
+                    'review'           => $review ? [
                         'id'         => $review->id,
                         'rating'     => $review->rating,
                         'comment'    => $review->comment,
@@ -142,11 +148,12 @@ class ReviewController extends Controller
                 ], 403);
             }
 
-            // ── VERIFIED PURCHASE GUARD 2: Terminal Delivered Status ─────────
-            if ($order->status !== 'delivered') {
+            // ── VERIFIED PURCHASE GUARD 2: Terminal Delivered / Picked Up Status ─────────
+            if (!$order->isEligibleForReview()) {
+                $expectedStatus = ($order->fulfillment_type === Order::FULFILLMENT_PICKUP) ? "'completed' or 'picked_up'" : "'delivered'";
                 return response()->json([
                     'success' => false,
-                    'message' => "Only completed (delivered) orders can be reviewed. Current status is '{$order->status}'.",
+                    'message' => "Only completed orders ({$expectedStatus}) can be reviewed. Current status is '{$order->status}'.",
                 ], 422);
             }
 

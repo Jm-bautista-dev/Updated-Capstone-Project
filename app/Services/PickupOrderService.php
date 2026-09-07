@@ -251,10 +251,17 @@ class PickupOrderService
             // Save order items
             foreach ($data['items'] as $item) {
                 OrderItem::create([
-                    'order_id'   => $order->id,
-                    'product_id' => $item['product_id'],
-                    'quantity'   => $item['quantity'],
-                    'price'      => $item['price'],
+                    'order_id'        => $order->id,
+                    'product_id'      => $item['product_id'],
+                    'quantity'        => $item['quantity'],
+                    'price'           => $item['price'] ?? 0,
+                    'unit_price'      => $item['unit_price'] ?? $item['price'] ?? 0,
+                    'line_total'      => $item['line_total'] ?? (($item['unit_price'] ?? $item['price'] ?? 0) * ($item['quantity'] ?? 1)),
+                    'product_name'    => $item['product_name'] ?? null,
+                    'image_path'      => $item['image_path'] ?? null,
+                    'notes'           => $item['notes'] ?? null,
+                    'selected_addons' => $item['selected_addons'] ?? null,
+                    'addon_total'     => $item['addon_total'] ?? 0.00,
                 ]);
             }
 

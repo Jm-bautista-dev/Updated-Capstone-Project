@@ -220,7 +220,7 @@ export function ProductModifierModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] shadow-2xl rounded-3xl font-['Outfit',sans-serif]">
+      <DialogContent className="w-full sm:max-w-xl md:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] shadow-2xl rounded-3xl font-['Outfit',sans-serif]">
         <DialogHeader className="p-5 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7]/80 dark:bg-[#1E1E21]/60 backdrop-blur-md">
           <div className="flex items-center gap-4">
             {product.image_url ? (
@@ -371,26 +371,26 @@ export function ProductModifierModal({
         </div>
 
         {/* Footer with Quantity Stepper & Add to Cart */}
-        <DialogFooter className="p-4 border-t border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7]/80 dark:bg-[#1E1E21]/80 flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center justify-between sm:justify-start gap-4">
-            <span className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400">Quantity:</span>
+        <DialogFooter className="p-4 sm:p-5 border-t border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7]/80 dark:bg-[#1E1E21]/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center justify-between sm:justify-start gap-3 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-zinc-400">Quantity:</span>
             <div className="flex items-center gap-2 border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-xl bg-white dark:bg-[#121214] p-1 shadow-2xs">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
+                className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800 cursor-pointer"
                 onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                 disabled={quantity <= 1}
               >
                 <FiMinus className="size-3.5" />
               </Button>
-              <span className="w-8 text-center font-black text-sm text-[#3D2C2E] dark:text-white">{quantity}</span>
+              <span className="w-8 text-center font-black text-sm text-[#3D2C2E] dark:text-white tabular-nums">{quantity}</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800"
+                className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800 cursor-pointer"
                 onClick={() => setQuantity((prev) => Math.min(product.stock || 99, prev + 1))}
                 disabled={quantity >= (product.stock || 99)}
               >
@@ -399,12 +399,12 @@ export function ProductModifierModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 shrink-0 justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] text-xs font-bold uppercase text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#1E1E21]"
+              className="px-4 h-11 rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] text-xs font-bold uppercase tracking-wider text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#1E1E21] cursor-pointer"
             >
               Cancel
             </Button>
@@ -412,9 +412,11 @@ export function ProductModifierModal({
               type="button"
               onClick={handleAddToCart}
               disabled={!isValid}
-              className="h-11 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white font-extrabold text-xs uppercase shadow-md px-6 active:scale-95 transition-all"
+              className="h-11 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white font-extrabold text-xs uppercase tracking-wider shadow-md px-5 sm:px-6 active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center justify-center gap-2"
             >
-              Add to Order • {formatCurrency(lineGrandTotal)}
+              <span>Add to Order</span>
+              <span className="opacity-70">•</span>
+              <span className="tabular-nums">{formatCurrency(lineGrandTotal)}</span>
             </Button>
           </div>
         </DialogFooter>

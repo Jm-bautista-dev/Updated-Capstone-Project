@@ -26,7 +26,7 @@ class CustomerOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
         }
 
-        $order = Order::with(['items.product', 'branch', 'delivery.rider'])
+        $order = Order::with(['items.product', 'items.review', 'branch', 'delivery.rider'])
             ->where('id', $id)
             ->where('user_id', $user->id)
             ->first();
@@ -49,13 +49,17 @@ class CustomerOrderController extends Controller
             default                  => ucfirst(str_replace('_', ' ', $order->status)),
         };
 
+        $orderCanRate = $order->isEligibleForReview();
+
         return response()->json([
             'success' => true,
             'data' => [
                 'id'             => $order->id,
                 'order_number'   => $order->order_number ?? "ORD-{$order->id}",
+                'fulfillment_type' => $order->fulfillment_type ?? 'delivery',
                 'status'         => $order->status,
                 'status_label'   => $statusLabel,
+                'can_rate'       => $orderCanRate,
                 'branch_id'      => $order->branch_id,
                 'branch_name'    => $order->branch?->name ?? 'Maki Store',
                 'subtotal'       => (float) $order->items->sum('line_total'),
@@ -72,26 +76,53 @@ class CustomerOrderController extends Controller
                     'rider_name'   => $order->delivery->rider?->name,
                     'updated_at'   => $order->delivery->updated_at,
                 ] : null,
-                'items' => $order->items->map(function ($item) {
+                'items' => $order->items->map(function ($item) use ($orderCanRate) {
                     $product   = $item->product;
-                    $unitPrice = $item->unit_price;
-                    $lineTotal = $item->line_total;
+                    $unitPrice = (float) $item->unit_price;
+                    $lineTotal = (float) $item->line_total;
+                    $addonTotal = (float) ($item->addon_total ?? 0);
                     $inStock   = $product && $product->is_available && $product->stock > 0;
+                    $review    = $item->review;
+                    $rawAddons = $item->selected_addons;
+                    if (is_string($rawAddons)) {
+                        try {
+                            $decoded = json_decode($rawAddons, true);
+                            $rawAddons = is_array($decoded) ? $decoded : [];
+                        } catch (\Throwable) {
+                            $rawAddons = [];
+                        }
+                    }
+                    $parsedAddons = is_array($rawAddons) ? $rawAddons : [];
 
                     return [
-                        'order_item_id' => $item->id,
-                        'product_id'    => (int) ($item->product_id ?? 0),
-                        'product_name'  => $item->product_name ?? $product?->name ?? 'Item',
-                        'title'         => $item->product_name ?? $product?->name ?? 'Item',
-                        'quantity'      => (int) $item->quantity,
-                        'unit_price'    => $unitPrice,
-                        'line_total'    => $lineTotal,
-                        'image_path'    => $item->image_path ?? $product?->image_path ?? null,
-                        'notes'         => $item->notes,
+                        'order_item_id'   => $item->id,
+                        'id'              => $item->id,
+                        'product_id'      => (int) ($item->product_id ?? 0),
+                        'product_name'    => $item->product_name ?? $product?->name ?? 'Item',
+                        'title'           => $item->product_name ?? $product?->name ?? 'Item',
+                        'quantity'        => (int) $item->quantity,
+                        'unit_price'      => $unitPrice,
+                        'price'           => $unitPrice,
+                        'addon_total'     => $addonTotal,
+                        'line_total'      => $lineTotal,
+                        'subtotal'        => $lineTotal,
+                        'selected_addons' => $parsedAddons,
+                        'addons'          => $parsedAddons,
+                        'image_path'      => $item->image_path ?? $product?->image_path ?? null,
+                        'notes'           => $item->notes,
+                        'can_rate'        => $orderCanRate && !$review,
+                        'is_reviewed'     => (bool) $review,
+                        'review'          => $review ? [
+                            'id'             => $review->id,
+                            'rating'         => $review->rating,
+                            'comment'        => $review->comment,
+                            'admin_response' => $review->admin_response,
+                            'created_at'     => $review->created_at?->toIso8601String(),
+                        ] : null,
                         // Live product availability — used by the "Buy Again" button
-                        'is_available'  => $inStock,
-                        'current_price' => $product ? (float) $product->selling_price : $unitPrice,
-                        'current_stock' => $product ? (int) $product->stock : 0,
+                        'is_available'    => $inStock,
+                        'current_price'   => $product ? (float) $product->selling_price : $unitPrice,
+                        'current_stock'   => $product ? (int) $product->stock : 0,
                     ];
                 }),
             ],

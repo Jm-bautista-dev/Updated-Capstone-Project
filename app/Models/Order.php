@@ -552,6 +552,41 @@ class Order extends Model
         return in_array($this->status, ['completed', 'delivered']);
     }
 
+    /**
+     * Check if an order is eligible for customer product rating/review.
+     * Delivery orders: delivered
+     * Pickup orders: completed or picked_up
+     */
+    public function isEligibleForReview(): bool
+    {
+        if ($this->fulfillment_type === self::FULFILLMENT_DELIVERY) {
+            return $this->status === 'delivered';
+        }
+        if ($this->fulfillment_type === self::FULFILLMENT_PICKUP) {
+            return in_array($this->status, ['completed', 'picked_up']);
+        }
+        return in_array($this->status, ['delivered', 'completed', 'picked_up']);
+    }
+
+    /**
+     * Scope query to orders eligible for product reviews.
+     */
+    public function scopeEligibleForReview($query)
+    {
+        return $query->where(function ($q) {
+            $q->where(function ($dq) {
+                $dq->where('fulfillment_type', self::FULFILLMENT_DELIVERY)
+                   ->where('status', 'delivered');
+            })->orWhere(function ($pq) {
+                $pq->where('fulfillment_type', self::FULFILLMENT_PICKUP)
+                   ->whereIn('status', ['completed', 'picked_up']);
+            })->orWhere(function ($oq) {
+                $oq->whereNotIn('fulfillment_type', [self::FULFILLMENT_DELIVERY, self::FULFILLMENT_PICKUP])
+                   ->whereIn('status', ['delivered', 'completed', 'picked_up']);
+            });
+        });
+    }
+
     /*
     |--------------------------------------------------------------------------
     | RELATIONSHIPS
