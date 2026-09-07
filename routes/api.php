@@ -87,6 +87,8 @@ Route::prefix('v1')->group(function () {
         Route::post('deliveries/{id}/deliver',                                 [RiderController::class, 'deliverOrder']);
         Route::post('deliveries/{id}/delivered',                               [RiderController::class, 'deliverOrder']);
         Route::post('deliveries/{id}/cancel',                                  [RiderController::class, 'cancelOrder']);
+        Route::post('deliveries/{id}/return-reported',                         [RiderController::class, 'reportReturn']);
+        Route::post('deliveries/{id}/returned',                                [RiderController::class, 'reportReturn']);
         Route::post('deliveries/{id}/attempt',                                 [RiderController::class, 'recordAttempt']);
         Route::post('deliveries/{id}/fail-attempt',                            [RiderController::class, 'recordAttempt']);
 
@@ -98,6 +100,9 @@ Route::prefix('v1')->group(function () {
         Route::post('orders/{id}/start-transit',                               [RiderController::class, 'startTransit']);
         Route::post('orders/{id}/deliver',                                     [RiderController::class, 'deliverOrder']);
         Route::post('orders/{id}/delivered',                                   [RiderController::class, 'deliverOrder']);
+        Route::post('orders/{id}/cancel',                                      [RiderController::class, 'cancelOrder']);
+        Route::post('orders/{id}/return-reported',                             [RiderController::class, 'reportReturn']);
+        Route::post('orders/{id}/returned',                                    [RiderController::class, 'reportReturn']);
         Route::post('orders/{id}/attempt',                                     [RiderController::class, 'recordAttempt']);
 
         // Direct Rider Orders Aliases
@@ -130,27 +135,34 @@ Route::prefix('v1')->group(function () {
             Route::get('cancellation-requests', [App\Http\Controllers\Api\CancellationRequestController::class, 'riderRequests']);
 
             // WORKFLOW ENDPOINTS (Both strict actions and generic status transitions)
-            Route::post('deliveries/{id}/accept',     [RiderController::class, 'acceptOrder']);
-            Route::post('orders/{id}/accept',         [RiderController::class, 'acceptOrder']);
-            Route::post('accept/{id}',                [RiderController::class, 'acceptOrder']);
-            Route::post('orders/{id}/pickup',         [RiderController::class, 'pickupOrder']);
-            Route::post('pickup/{id}',                [RiderController::class, 'pickupOrder']);
-            Route::post('deliveries/{id}/pickup',     [RiderController::class, 'pickupOrder']);
-            Route::post('orders/{id}/transit',        [RiderController::class, 'startTransit']);
-            Route::post('orders/{id}/start-transit',  [RiderController::class, 'startTransit']);
-            Route::post('transit/{id}',               [RiderController::class, 'startTransit']);
-            Route::post('deliveries/{id}/transit',    [RiderController::class, 'startTransit']);
-            Route::post('orders/{id}/deliver',        [RiderController::class, 'deliverOrder']);
-            Route::post('orders/{id}/delivered',      [RiderController::class, 'deliverOrder']);
-            Route::post('deliver/{id}',               [RiderController::class, 'deliverOrder']);
-            Route::post('deliveries/{id}/deliver',    [RiderController::class, 'deliverOrder']);
-            Route::post('orders/{id}/reject',         [RiderController::class, 'rejectOrder']);
-            Route::post('reject/{id}',                [RiderController::class, 'rejectOrder']);
-            Route::post('orders/{id}/cancel',         [RiderController::class, 'cancelOrder']);
-            Route::post('orders/{id}/cancel-request', [RiderController::class, 'cancelOrder']);
-            Route::post('deliveries/{id}/attempt',    [RiderController::class, 'recordAttempt']);
-            Route::post('deliveries/{id}/fail-attempt', [RiderController::class, 'recordAttempt']);
-            Route::post('orders/{id}/attempt',        [RiderController::class, 'recordAttempt']);
+            Route::post('deliveries/{id}/accept',          [RiderController::class, 'acceptOrder']);
+            Route::post('orders/{id}/accept',              [RiderController::class, 'acceptOrder']);
+            Route::post('accept/{id}',                     [RiderController::class, 'acceptOrder']);
+            Route::post('orders/{id}/pickup',              [RiderController::class, 'pickupOrder']);
+            Route::post('pickup/{id}',                     [RiderController::class, 'pickupOrder']);
+            Route::post('deliveries/{id}/pickup',          [RiderController::class, 'pickupOrder']);
+            Route::post('orders/{id}/transit',             [RiderController::class, 'startTransit']);
+            Route::post('orders/{id}/start-transit',       [RiderController::class, 'startTransit']);
+            Route::post('transit/{id}',                    [RiderController::class, 'startTransit']);
+            Route::post('deliveries/{id}/transit',         [RiderController::class, 'startTransit']);
+            Route::post('orders/{id}/deliver',             [RiderController::class, 'deliverOrder']);
+            Route::post('orders/{id}/delivered',           [RiderController::class, 'deliverOrder']);
+            Route::post('deliver/{id}',                    [RiderController::class, 'deliverOrder']);
+            Route::post('deliveries/{id}/deliver',         [RiderController::class, 'deliverOrder']);
+            Route::post('orders/{id}/reject',              [RiderController::class, 'rejectOrder']);
+            Route::post('reject/{id}',                     [RiderController::class, 'rejectOrder']);
+            Route::post('orders/{id}/cancel',              [RiderController::class, 'cancelOrder']);
+            Route::post('orders/{id}/cancel-request',      [RiderController::class, 'cancelOrder']);
+            Route::post('deliveries/{id}/cancel',          [RiderController::class, 'cancelOrder']);
+            Route::post('deliveries/{id}/return-reported', [RiderController::class, 'reportReturn']);
+            Route::post('deliveries/{id}/returned',        [RiderController::class, 'reportReturn']);
+            Route::post('orders/{id}/return-reported',     [RiderController::class, 'reportReturn']);
+            Route::post('orders/{id}/returned',            [RiderController::class, 'reportReturn']);
+            Route::post('return-reported/{id}',            [RiderController::class, 'reportReturn']);
+            Route::post('returned/{id}',                   [RiderController::class, 'reportReturn']);
+            Route::post('deliveries/{id}/attempt',         [RiderController::class, 'recordAttempt']);
+            Route::post('deliveries/{id}/fail-attempt',    [RiderController::class, 'recordAttempt']);
+            Route::post('orders/{id}/attempt',             [RiderController::class, 'recordAttempt']);
 
             // Generic status updates for older APK versions
             Route::match(['post', 'patch', 'put'], 'orders/{id}/status', [RiderController::class, 'updateOrderStatus']);
@@ -171,6 +183,11 @@ Route::prefix('v1')->group(function () {
         Route::prefix('branch')->group(function () {
             Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'reject']);
             Route::post('cancellation-requests/{id}/approve', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'approve']);
+            Route::post('deliveries/{id}/confirm-return', [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'confirmReturn']);
+            Route::post('deliveries/{id}/verify-return',  [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'confirmReturn']);
+            Route::post('deliveries/{id}/reassign',       [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'reassign']);
+            Route::post('deliveries/{id}/cancel-order',   [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'cancelOrderAfterReturn']);
+            Route::post('deliveries/{id}/reject-return',  [App\Http\Controllers\Api\Branch\CancellationRequestController::class, 'rejectReturn']);
         });
 
         // Branch Operating Hours & Mode Management

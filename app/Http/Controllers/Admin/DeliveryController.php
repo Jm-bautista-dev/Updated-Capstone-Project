@@ -50,6 +50,8 @@ class DeliveryController extends Controller
             'assigned_to_rider',
             'picked_up',
             'in_transit',
+            'return_required',
+            'return_pending_verification',
             'cancellation_requested',
             'failed_delivery',
         ];
@@ -268,11 +270,11 @@ class DeliveryController extends Controller
             $delivery->next_statuses      = $delivery->getNextStatuses();
             $delivery->is_cancelled       = $delivery->isCancelled();
             $delivery->is_delivered       = $delivery->isDelivered();
-            $delivery->is_failed          = $delivery->status === Delivery::STATUS_FAILED;
-            $delivery->can_mark_failed    = $delivery->canMarkFailed();
-            $delivery->cancelled_by_name  = $delivery->cancelledBy?->name;
-            $delivery->waiting_minutes    = $delivery->created_at ? max(0, (int) $delivery->created_at->diffInMinutes(now(), false)) : 0;
-            $delivery->is_active_op       = in_array($delivery->status, $activeDeliveryStatuses);
+            $delivery->is_return_required             = $delivery->isReturnRequired();
+            $delivery->is_return_pending_verification = $delivery->isReturnPendingVerification();
+            $delivery->is_return_verified             = $delivery->isReturnVerified();
+            $delivery->waiting_minutes                = $delivery->created_at ? max(0, (int) $delivery->created_at->diffInMinutes(now(), false)) : 0;
+            $delivery->is_active_op                   = in_array($delivery->status, $activeDeliveryStatuses);
 
             return $delivery;
         });
@@ -507,6 +509,71 @@ class DeliveryController extends Controller
             }
 
             return back()->with('success', 'Delivery marked as failed. Please reassign a rider.');
+        } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Cashier/Admin verifies returned items and chooses to reassign to rider pool or permanently cancel.
+     * POST /deliveries/{delivery}/verify-return
+     * POST /deliveries/{delivery}/confirm-return
+     */
+    public function verifyReturn(Request $request, Delivery $delivery)
+    {
+        $request->validate([
+            'decision' => 'nullable|in:reassign,cancel,reject',
+            'action'   => 'nullable|in:reassign,cancel,reject,confirm_and_reassign,confirm_and_cancel',
+            'notes'    => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+
+        // Branch authorization check
+        if ($user->role === 'Cashier') {
+            $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+            if ($branchId && (int) $user->branch_id !== (int) $branchId) {
+                if ($request->expectsJson()) {
+                    return response()->json(['success' => false, 'message' => 'Unauthorized: You can only verify returns for your own branch.'], 403);
+                }
+                return back()->with('error', 'Unauthorized: You can only verify returns for your own branch.');
+            }
+        }
+
+        $decision = $request->input('decision') ?? ($request->input('action') === 'confirm_and_cancel' ? 'cancel' : 'reassign');
+        $notes = $request->input('notes');
+
+        try {
+            if ($decision === 'reject') {
+                $result = $this->deliveryService->rejectReturn($delivery, $user, $notes ?? 'Return rejected by admin.');
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success'  => true,
+                        'message'  => 'Return rejected. Order restored to active delivery state.',
+                        'delivery' => $result['delivery'],
+                    ]);
+                }
+                return back()->with('success', 'Return rejected. Order restored to active delivery state.');
+            }
+
+            $result = $this->deliveryService->verifyReturn($delivery, $user, $decision, $notes);
+
+            $msg = ($decision === 'cancel')
+                ? 'Returned items verified. Order and delivery permanently cancelled.'
+                : 'Returned items verified. Delivery returned to pool for rider reassignment.';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success'  => true,
+                    'message'  => $msg,
+                    'delivery' => $result['delivery'],
+                ]);
+            }
+
+            return back()->with('success', $msg);
         } catch (\Exception $e) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);

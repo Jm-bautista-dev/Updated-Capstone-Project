@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Log;
 
 class CancellationRequestController extends Controller
 {
+    public function __construct(
+        protected \App\Services\DeliveryService $deliveryService
+    ) {
+    }
+
     /**
      * GET /api/v1/cancellation-requests/pending
      * Get active pending cancellation requests for the user's branch.
@@ -307,22 +312,73 @@ class CancellationRequestController extends Controller
     /**
      * Unified resolve endpoint for POS / Cashier review.
      * POST /api/v1/pos/cancellation-requests/{id}/resolve
-     * Payload: { "decision": "approved" | "rejected", "resolution_notes": "..." }
+     * POST /api/v1/cancellation-requests/{id}/resolve
+     * Payload: { "decision": "approved" | "rejected" | "reassign" | "cancel" | "reject", "resolution_notes": "..." }
      */
     public function resolve(Request $request, $id): JsonResponse
     {
         $request->validate([
-            'decision'         => 'required|in:approved,rejected,accept,reject',
+            'decision'         => 'required|in:approved,rejected,accept,reject,reassign,cancel',
             'resolution_notes' => 'nullable|string|max:1000',
         ]);
 
-        $decision = in_array($request->input('decision'), ['approved', 'accept']) ? 'approved' : 'rejected';
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $rawDecision = $request->input('decision');
+        $notes = $request->input('resolution_notes') ?? $request->input('rejection_reason');
+
+        // Look up cancellation request
+        /** @var OrderCancellationRequest|null $req */
+        $req = OrderCancellationRequest::with(['delivery', 'order'])->find($id);
+
+        if ($req && $req->delivery && ($req->delivery->isReturnRequired() || $req->delivery->isReturnPendingVerification())) {
+            if (in_array($rawDecision, ['reassign', 'accept', 'approved']) && $rawDecision === 'reassign') {
+                $result = $this->deliveryService->verifyReturn($req->delivery, $user, 'reassign', $notes);
+                return response()->json([
+                    'success'  => true,
+                    'message'  => 'Returned items verified. Delivery returned to pool for rider reassignment.',
+                    'delivery' => $result['delivery'],
+                ]);
+            }
+
+            if (in_array($rawDecision, ['cancel', 'approved', 'accept'])) {
+                $result = $this->deliveryService->verifyReturn($req->delivery, $user, 'cancel', $notes);
+                return response()->json([
+                    'success'  => true,
+                    'message'  => 'Returned items verified. Order and delivery permanently cancelled.',
+                    'delivery' => $result['delivery'],
+                ]);
+            }
+
+            if (in_array($rawDecision, ['rejected', 'reject'])) {
+                $result = $this->deliveryService->rejectReturn($req->delivery, $user, $notes ?? 'Return verification rejected.');
+                return response()->json([
+                    'success'  => true,
+                    'message'  => 'Return rejected. Order restored to previous active state.',
+                    'delivery' => $result['delivery'],
+                ]);
+            }
+        }
+
+        if ($rawDecision === 'reassign' && $req && $req->delivery) {
+            $result = $this->deliveryService->verifyReturn($req->delivery, $user, 'reassign', $notes);
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Delivery returned to available pool for other riders.',
+                'delivery' => $result['delivery'],
+            ]);
+        }
+
+        $decision = in_array($rawDecision, ['approved', 'accept', 'cancel']) ? 'approved' : 'rejected';
 
         if ($decision === 'approved') {
             return $this->accept($request, $id);
         }
 
-        $request->merge(['rejection_reason' => $request->input('resolution_notes') ?? $request->input('rejection_reason')]);
+        $request->merge(['rejection_reason' => $notes]);
         return $this->reject($request, $id);
     }
 

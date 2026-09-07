@@ -20,6 +20,12 @@ class OrderCancellationRequest extends Model
         'previous_order_status',
         'previous_delivery_status',
         'status',
+        'return_status',
+        'return_reported_at',
+        'return_verified_at',
+        'return_verified_by',
+        'action_type',
+        'resolution_action',
         'requested_at',
         'reviewed_by',
         'reviewed_at',
@@ -27,8 +33,10 @@ class OrderCancellationRequest extends Model
     ];
 
     protected $casts = [
-        'requested_at' => 'datetime',
-        'reviewed_at'  => 'datetime',
+        'requested_at'       => 'datetime',
+        'reviewed_at'        => 'datetime',
+        'return_reported_at' => 'datetime',
+        'return_verified_at' => 'datetime',
     ];
 
     public function order(): BelongsTo

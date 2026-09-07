@@ -34,6 +34,15 @@ class Delivery extends Model
         'external_notes',
         'proof_of_delivery',
         'status',
+        'return_status',
+        'return_reason',
+        'return_notes',
+        'return_requested_at',
+        'return_reported_at',
+        'return_verified_at',
+        'return_verified_by',
+        'return_resolution',
+        'reassigned_at',
         'accepted_at',
         'picked_up_at',
         'transit_at',
@@ -46,13 +55,17 @@ class Delivery extends Model
     ];
 
     protected $casts = [
-        'created_at'   => 'datetime',
-        'updated_at'   => 'datetime',
-        'accepted_at'  => 'datetime',
-        'picked_up_at' => 'datetime',
-        'transit_at'   => 'datetime',
-        'delivered_at' => 'datetime',
-        'cancelled_at' => 'datetime',
+        'created_at'           => 'datetime',
+        'updated_at'           => 'datetime',
+        'accepted_at'          => 'datetime',
+        'picked_up_at'         => 'datetime',
+        'transit_at'           => 'datetime',
+        'delivered_at'         => 'datetime',
+        'cancelled_at'         => 'datetime',
+        'return_requested_at'  => 'datetime',
+        'return_reported_at'   => 'datetime',
+        'return_verified_at'   => 'datetime',
+        'reassigned_at'        => 'datetime',
     ];
 
     protected $appends = [
@@ -144,17 +157,28 @@ class Delivery extends Model
     /* ── Status Constants ──────────────────────────── */
 
     // Full internal delivery flow (aligned with Order state machine)
-    const STATUS_WAITING_KITCHEN   = 'waiting_for_kitchen';
-    const STATUS_PENDING           = 'pending';
-    const STATUS_PREPARING         = 'preparing';
-    const STATUS_READY             = 'ready_for_pickup';
-    const STATUS_ASSIGNED          = 'assigned_to_rider';
-    const STATUS_PICKED_UP         = 'picked_up';
-    const STATUS_OUT_FOR_DELIVERY  = 'in_transit';       // renamed from out_for_delivery
-    const STATUS_DELIVERED            = 'delivered';
-    const STATUS_CANCELLED            = 'cancelled';
-    const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
-    const STATUS_FAILED               = 'failed_delivery';  // rider failed, requires reassign
+    const STATUS_WAITING_KITCHEN          = 'waiting_for_kitchen';
+    const STATUS_PENDING                  = 'pending';
+    const STATUS_PREPARING                = 'preparing';
+    const STATUS_READY                    = 'ready_for_pickup';
+    const STATUS_ASSIGNED                 = 'assigned_to_rider';
+    const STATUS_PICKED_UP                = 'picked_up';
+    const STATUS_OUT_FOR_DELIVERY         = 'in_transit';       // renamed from out_for_delivery
+    const STATUS_DELIVERED                = 'delivered';
+    const STATUS_CANCELLED                = 'cancelled';
+    const STATUS_CANCELLATION_REQUESTED   = 'cancellation_requested';
+    const STATUS_RETURN_REQUIRED          = 'return_required';
+    const STATUS_RETURN_PENDING_VERIFICATION = 'return_pending_verification';
+    const STATUS_FAILED                   = 'failed_delivery';  // rider failed, requires reassign
+
+    // Return status sub-states
+    const RETURN_STATUS_REQUIRED                    = 'return_required';
+    const RETURN_STATUS_RETURN_REQUIRED             = 'return_required';
+    const RETURN_STATUS_PENDING                     = 'return_pending_verification';
+    const RETURN_STATUS_RETURN_PENDING_VERIFICATION = 'return_pending_verification';
+    const RETURN_STATUS_VERIFIED                    = 'verified';
+    const RETURN_STATUS_RETURN_VERIFIED             = 'verified';
+    const RETURN_STATUS_REJECTED                    = 'rejected';
 
     // External delivery flow
     const STATUS_BOOKED   = 'booked';
@@ -219,6 +243,11 @@ class Delivery extends Model
         return $this->belongsTo(User::class, 'cancelled_by');
     }
 
+    public function returnVerifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_verified_by');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -261,9 +290,27 @@ class Delivery extends Model
         return $this->status === self::STATUS_CANCELLED;
     }
 
+    public function isReturnRequired(): bool
+    {
+        return $this->return_status === self::RETURN_STATUS_REQUIRED || $this->status === self::STATUS_RETURN_REQUIRED;
+    }
+
+    public function isReturnPendingVerification(): bool
+    {
+        return $this->return_status === self::RETURN_STATUS_PENDING || $this->status === self::STATUS_RETURN_PENDING_VERIFICATION;
+    }
+
+    public function isReturnVerified(): bool
+    {
+        return $this->return_status === self::RETURN_STATUS_VERIFIED;
+    }
+
     public function isAvailableForRiders(): bool
     {
-        return $this->isInternal() && $this->status === self::STATUS_READY && $this->rider_id === null;
+        return $this->isInternal() 
+            && $this->status === self::STATUS_READY 
+            && $this->rider_id === null
+            && !in_array($this->return_status, [self::RETURN_STATUS_REQUIRED, self::RETURN_STATUS_PENDING]);
     }
 
     /**
@@ -317,19 +364,32 @@ class Delivery extends Model
      */
     public function getStatusLabel(): string
     {
+        if ($this->return_status === self::RETURN_STATUS_PENDING || $this->status === self::STATUS_RETURN_PENDING_VERIFICATION) {
+            return 'Return Pending Verification';
+        }
+
+        if ($this->return_status === self::RETURN_STATUS_REQUIRED || $this->status === self::STATUS_RETURN_REQUIRED) {
+            return 'Return Required';
+        }
+
+        if ($this->return_status === self::RETURN_STATUS_VERIFIED && $this->status === self::STATUS_READY) {
+            return 'Ready for Reassignment';
+        }
+
         return match ($this->status) {
-            self::STATUS_WAITING_KITCHEN  => 'New Order',
-            self::STATUS_PENDING          => 'Pending',
-            self::STATUS_PREPARING        => 'Preparing',
-            self::STATUS_READY            => 'Ready for Pickup',
-            self::STATUS_ASSIGNED         => 'Rider Assigned',
-            self::STATUS_PICKED_UP        => 'Picked Up',
-            self::STATUS_OUT_FOR_DELIVERY => 'In Transit',
-            self::STATUS_DELIVERED        => 'Delivered',
-            self::STATUS_CANCELLED        => 'Cancelled',
-            self::STATUS_FAILED           => 'Failed Delivery',
-            self::STATUS_BOOKED           => 'Booked',
-            default                       => ucwords(str_replace('_', ' ', $this->status)),
+            self::STATUS_WAITING_KITCHEN            => 'New Order',
+            self::STATUS_PENDING                    => 'Pending',
+            self::STATUS_PREPARING                  => 'Preparing',
+            self::STATUS_READY                      => 'Ready for Pickup',
+            self::STATUS_ASSIGNED                   => 'Rider Assigned',
+            self::STATUS_PICKED_UP                  => 'Picked Up',
+            self::STATUS_OUT_FOR_DELIVERY           => 'In Transit',
+            self::STATUS_DELIVERED                  => 'Delivered',
+            self::STATUS_CANCELLED                  => 'Cancelled',
+            self::STATUS_CANCELLATION_REQUESTED     => 'Cancellation Requested',
+            self::STATUS_FAILED                     => 'Failed Delivery',
+            self::STATUS_BOOKED                     => 'Booked',
+            default                                 => ucwords(str_replace('_', ' ', $this->status)),
         };
     }
 
@@ -353,6 +413,14 @@ class Delivery extends Model
 
     public function getStatusColor(): string
     {
+        if ($this->return_status === self::RETURN_STATUS_PENDING || $this->status === self::STATUS_RETURN_PENDING_VERIFICATION) {
+            return 'bg-purple-600 text-white font-bold animate-pulse';
+        }
+
+        if ($this->return_status === self::RETURN_STATUS_REQUIRED || $this->status === self::STATUS_RETURN_REQUIRED) {
+            return 'bg-amber-600 text-white font-bold animate-pulse';
+        }
+
         return match ($this->status) {
             self::STATUS_WAITING_KITCHEN                => 'bg-orange-100 text-orange-700',
             self::STATUS_PENDING                        => 'bg-slate-100 text-slate-600',

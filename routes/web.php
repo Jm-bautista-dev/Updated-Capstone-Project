@@ -217,8 +217,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('deliveries/{delivery}/cancel', [DeliveryController::class, 'cancel'])->name('deliveries.cancel');
             Route::post('deliveries/{delivery}/fail', [DeliveryController::class, 'failDelivery'])->name('deliveries.fail');
             Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
+            Route::post('deliveries/{delivery}/verify-return', [DeliveryController::class, 'verifyReturn'])->name('deliveries.verify-return');
+            Route::post('deliveries/{delivery}/confirm-return', [DeliveryController::class, 'verifyReturn'])->name('deliveries.confirm-return');
             Route::post('cancellation-requests/{id}/accept', [App\Http\Controllers\Api\CancellationRequestController::class, 'accept'])->name('cancellation-requests.accept');
             Route::post('cancellation-requests/{id}/reject', [App\Http\Controllers\Api\CancellationRequestController::class, 'reject'])->name('cancellation-requests.reject');
+            Route::post('cancellation-requests/{id}/resolve', [App\Http\Controllers\Api\CancellationRequestController::class, 'resolve'])->name('cancellation-requests.resolve');
 
             // Pickups Management & Kitchen Preparation Queue
             Route::get('pickups', [App\Http\Controllers\Admin\PickupOrderController::class, 'index'])->name('pickups.index');

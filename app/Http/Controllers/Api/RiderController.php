@@ -503,7 +503,7 @@ class RiderController extends Controller
                     'rider_id'     => $rider->id,
                     'status'       => 'picked_up',
                     'picked_up_at' => now(),
-                    'updated_by'   => $rider->id,
+                    'updated_by'   => null,
                 ]);
 
                 $deliveryToBroadcast = $delivery->fresh(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch', 'rider']);
@@ -557,6 +557,9 @@ class RiderController extends Controller
 
             'cancelled', 'cancellation_requested', 'cancel', 'cancellation'
                 => $this->cancelOrder($request, $id),
+
+            'return_reported', 'returned', 'report_return', 'return-reported'
+                => $this->reportReturn($request, $id),
 
             'rejected', 'reject'
                 => $this->rejectOrder($request, $id),
@@ -663,7 +666,7 @@ class RiderController extends Controller
                 $delivery->update([
                     'status'     => 'in_transit',
                     'transit_at' => now(),
-                    'updated_by' => $rider->id,
+                    'updated_by' => null,
                 ]);
 
                 $deliveryToBroadcast = $delivery->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
@@ -776,7 +779,7 @@ class RiderController extends Controller
                 $updateData = [
                     'status'       => 'delivered',
                     'delivered_at' => now(),
-                    'updated_by'   => $rider->id,
+                    'updated_by'   => null,
                 ];
 
                 // Store proof of delivery photo if provided
@@ -847,7 +850,10 @@ class RiderController extends Controller
 
     /**
      * POST /api/v1/rider/orders/{id}/cancel
-     * Rider submits a cancellation request (does NOT directly cancel).
+     * POST /api/v1/rider/deliveries/{id}/cancel
+     * Rider cancellation workflow:
+     * - Pre-pickup: releases rider, order stays active, delivery resets to ready_for_pickup for other riders.
+     * - Post-pickup: initiates return workflow; rider must return items to branch.
      */
     public function cancelOrder(Request $request, $id): JsonResponse
     {
@@ -863,10 +869,11 @@ class RiderController extends Controller
             ]);
 
             return DB::transaction(function () use ($rider, $id, $request) {
-                $delivery = Delivery::with(['order.branch', 'order'])
+                $delivery = Delivery::with(['order.branch', 'order', 'sale.branch', 'sale'])
                     ->where(function ($q) use ($id) {
                         $q->where('id', $id)
-                            ->orWhere('order_id', $id);
+                            ->orWhere('order_id', $id)
+                            ->orWhere('sale_id', $id);
                     })
                     ->where('rider_id', $rider->id)
                     ->lockForUpdate()
@@ -897,85 +904,107 @@ class RiderController extends Controller
                     return response()->json(['success' => false, 'message' => 'Order is already cancelled.'], 422);
                 }
 
-                $order = $delivery->order ?: Order::find($delivery->order_id);
-                if (!$order) {
-                    return response()->json(['success' => false, 'message' => 'Order not found for this delivery.'], 404);
-                }
-
-                // Check for existing pending cancellation request
-                $existingRequest = OrderCancellationRequest::where('order_id', $order->id)
-                    ->where('status', 'pending')
-                    ->first();
-
-                if (!$existingRequest) {
-                    $existingRequest = \App\Models\CancellationRequest::where('order_id', $order->id)
-                        ->where('status', 'pending')
-                        ->first();
-                }
-
-                if ($existingRequest) {
+                if ($delivery->isReturnRequired() || $delivery->isReturnPendingVerification()) {
                     return response()->json([
-                        'success' => false,
-                        'message' => 'A cancellation request is already pending for this order.',
-                        'status'  => 'cancellation_requested',
-                        'request' => $existingRequest,
+                        'success'  => false,
+                        'message'  => 'Return is already in progress for this delivery.',
+                        'delivery' => $this->formatDelivery($delivery),
                     ], 422);
                 }
 
-                $prevOrderStatus = $order->status;
-                $prevDeliveryStatus = $delivery->status;
+                $reason = (string) $request->input('reason');
+                $notes = $request->input('notes');
 
-                // Update Order & Delivery status
-                $order->update([
-                    'status'                  => 'cancellation_requested',
-                    'is_cancellation_pending' => true,
-                    'cancellation_status'     => 'pending',
-                ]);
-                $delivery->update(['status' => 'cancellation_requested']);
+                // Determine if this is Pre-Pickup or Post-Pickup
+                $isPrePickup = ($delivery->status === Delivery::STATUS_ASSIGNED || $delivery->status === 'assigned_to_rider') 
+                    && $delivery->picked_up_at === null;
 
-                // Create in cancellation_requests table
-                \App\Models\CancellationRequest::create([
-                    'order_id' => $order->id,
-                    'rider_id' => $rider->id,
-                    'reason'   => $request->reason,
-                    'notes'    => $request->input('notes'),
-                    'status'   => 'pending',
-                ]);
+                if ($isPrePickup) {
+                    // ── SCENARIO A: Rider cancels BEFORE picking up food ──
+                    $result = $this->deliveryService->releaseRiderBeforePickup($delivery, $rider, $reason, $notes);
+                    $freshDelivery = $result['delivery']->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
 
-                // Create in order_cancellation_requests table
-                $cancellationRequest = OrderCancellationRequest::create([
-                    'order_id'                 => $order->id,
-                    'delivery_id'              => $delivery->id,
-                    'requested_by_rider_id'    => $rider->id,
-                    'branch_id'                => $order->branch_id,
-                    'reason'                   => $request->reason,
-                    'notes'                    => $request->input('notes'),
-                    'previous_order_status'    => $prevOrderStatus,
-                    'previous_delivery_status' => $prevDeliveryStatus,
-                    'status'                   => 'pending',
-                    'requested_at'             => now(),
-                ]);
+                    return response()->json([
+                        'success'  => true,
+                        'workflow' => 'pre_pickup_cancelled',
+                        'message'  => 'Delivery assignment cancelled and returned to available delivery pool.',
+                        'status'   => 'ready_for_pickup',
+                        'delivery' => $this->formatDelivery($freshDelivery),
+                        'data'     => $this->formatDelivery($freshDelivery),
+                    ], 200);
+                } else {
+                    // ── SCENARIO B: Rider cancels AFTER picking up food ──
+                    $result = $this->deliveryService->initiateReturnAfterPickup($delivery, $rider, $reason, $notes);
+                    $freshDelivery = $result['delivery']->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
 
-                // Real-Time Broadcasts
-                try {
-                    event(new CancellationRequested($cancellationRequest->fresh()));
-                    event(new OrderStatusUpdated($delivery->fresh(), 'rider'));
-                } catch (\Throwable $e) {
-                    Log::warning('Broadcast failed for CancellationRequested: ' . $e->getMessage());
+                    return response()->json([
+                        'success'  => true,
+                        'workflow' => 'return_required',
+                        'message'  => 'Return initiated. You must physically return the items to the branch and report return.',
+                        'status'   => 'return_required',
+                        'delivery' => $this->formatDelivery($freshDelivery),
+                        'data'     => $this->formatDelivery($freshDelivery),
+                        'request'  => $result['cancellation_request'] ?? null,
+                    ], 200);
                 }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Cancellation request submitted successfully. Waiting for cashier approval.',
-                    'status'  => 'cancellation_requested',
-                    'request' => $cancellationRequest->fresh(),
-                ]);
             });
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             Log::error('Rider::cancelOrder failed', ['error' => $e->getMessage(), 'id' => $id]);
-            return response()->json(['success' => false, 'message' => 'Failed to submit cancellation request'], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to submit cancellation request: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/rider/deliveries/{id}/return-reported
+     * POST /api/v1/rider/deliveries/{id}/returned
+     * POST /api/v1/rider/orders/{id}/return-reported
+     * POST /api/v1/rider/orders/{id}/returned
+     * Rider reports having physically brought the items back to the branch.
+     */
+    public function reportReturn(Request $request, $id): JsonResponse
+    {
+        try {
+            $rider = $this->resolveRider($request);
+            if (!$rider) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            $request->validate([
+                'notes' => 'nullable|string|max:500',
+            ]);
+
+            $delivery = Delivery::with(['order.branch', 'order', 'sale.branch', 'sale', 'rider'])
+                ->where(function ($q) use ($id) {
+                    $q->where('id', $id)
+                        ->orWhere('order_id', $id)
+                        ->orWhere('sale_id', $id);
+                })
+                ->where('rider_id', $rider->id)
+                ->first();
+
+            if (!$delivery) {
+                return response()->json(['success' => false, 'message' => 'Delivery not found or not assigned to you.'], 404);
+            }
+
+            $result = $this->deliveryService->reportReturnByRider($delivery, $rider, $request->input('notes'));
+            $freshDelivery = $result['delivery']->fresh(['order.branch', 'order.items.product', 'sale.branch', 'sale.items.product', 'rider']);
+
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Return reported to branch. Waiting for cashier to physically verify and confirm the returned items.',
+                'status'   => 'return_pending_verification',
+                'delivery' => $this->formatDelivery($freshDelivery),
+                'data'     => $this->formatDelivery($freshDelivery),
+            ], 200);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Log::error('Rider::reportReturn failed', ['error' => $e->getMessage(), 'id' => $id]);
+            return response()->json(['success' => false, 'message' => 'Failed to report return: ' . $e->getMessage()], 500);
         }
     }
 
@@ -1535,38 +1564,46 @@ class RiderController extends Controller
         $status = $delivery->status;
 
         $nextAction = match ($status) {
-            'ready_for_pickup'  => ($delivery->rider_id === null) ? 'accept' : null,
-            'assigned_to_rider' => 'pickup',
-            'picked_up'         => 'transit',
-            'in_transit'        => 'deliver',
-            default             => null,
+            'ready_for_pickup'            => ($delivery->rider_id === null) ? 'accept' : null,
+            'assigned_to_rider'           => 'pickup',
+            'picked_up'                   => 'transit',
+            'in_transit'                  => 'deliver',
+            'return_required'             => 'report_return',
+            'return_pending_verification' => 'waiting_verification',
+            default                       => null,
         };
 
         $nextActionLabel = match ($status) {
-            'ready_for_pickup'  => ($delivery->rider_id === null) ? 'Accept Delivery' : 'Waiting for Pickup',
-            'assigned_to_rider' => 'Pick Up Order',
-            'picked_up'         => 'Start Delivery',
-            'in_transit'        => 'Mark as Delivered',
-            'delivered'         => 'Delivered',
-            'cancelled'         => 'Cancelled',
-            default             => null,
+            'ready_for_pickup'            => ($delivery->rider_id === null) ? 'Accept Delivery' : 'Waiting for Pickup',
+            'assigned_to_rider'           => 'Pick Up Order',
+            'picked_up'                   => 'Start Delivery',
+            'in_transit'                  => 'Mark as Delivered',
+            'return_required'             => 'Report Items Returned to Store',
+            'return_pending_verification' => 'Awaiting Cashier Verification',
+            'delivered'                   => 'Delivered',
+            'cancelled'                   => 'Cancelled',
+            default                       => null,
         };
 
         $nextEndpoint = match ($status) {
-            'ready_for_pickup'  => ($delivery->rider_id === null) ? "/api/v1/rider/deliveries/{$delivery->id}/accept" : null,
-            'assigned_to_rider' => "/api/v1/rider/deliveries/{$delivery->id}/pickup",
-            'picked_up'         => "/api/v1/rider/deliveries/{$delivery->id}/transit",
-            'in_transit'        => "/api/v1/rider/deliveries/{$delivery->id}/deliver",
-            default             => null,
+            'ready_for_pickup'            => ($delivery->rider_id === null) ? "/api/v1/rider/deliveries/{$delivery->id}/accept" : null,
+            'assigned_to_rider'           => "/api/v1/rider/deliveries/{$delivery->id}/pickup",
+            'picked_up'                   => "/api/v1/rider/deliveries/{$delivery->id}/transit",
+            'in_transit'                  => "/api/v1/rider/deliveries/{$delivery->id}/deliver",
+            'return_required'             => "/api/v1/rider/deliveries/{$delivery->id}/return-reported",
+            'return_pending_verification' => null,
+            default                       => null,
         };
 
         $routePhase = match ($status) {
-            'ready_for_pickup'  => 'unassigned',
-            'assigned_to_rider' => 'rider_to_store',
-            'picked_up'         => 'store_to_customer',
-            'in_transit'        => 'rider_to_customer',
-            'delivered'         => 'completed',
-            default             => 'unassigned',
+            'ready_for_pickup'            => 'unassigned',
+            'assigned_to_rider'           => 'rider_to_store',
+            'picked_up'                   => 'store_to_customer',
+            'in_transit'                  => 'rider_to_customer',
+            'return_required'             => 'return_to_store',
+            'return_pending_verification' => 'at_store',
+            'delivered'                   => 'completed',
+            default                       => 'unassigned',
         };
 
         $pickupLocation = [
@@ -1593,61 +1630,73 @@ class RiderController extends Controller
         ];
 
         $routeDestination = match ($routePhase) {
-            'rider_to_store'                         => $pickupLocation,
-            'store_to_customer', 'rider_to_customer' => $customerDestination,
-            default                                  => null,
+            'rider_to_store', 'return_to_store', 'at_store' => $pickupLocation,
+            'store_to_customer', 'rider_to_customer'         => $customerDestination,
+            default                                          => null,
         };
 
         $activeMapsUrl = match ($routePhase) {
-            'rider_to_store'                         => $pickupLocation['maps_url'],
-            'store_to_customer', 'rider_to_customer' => $customerDestination['maps_url'],
-            default                                  => null,
+            'rider_to_store', 'return_to_store', 'at_store' => $pickupLocation['maps_url'],
+            'store_to_customer', 'rider_to_customer'         => $customerDestination['maps_url'],
+            default                                          => null,
         };
 
         return [
-            'id'                      => $order?->id ?? $delivery->id,
-            'delivery_id'             => $delivery->id,
-            'deliveryId'              => $delivery->id,
-            'order_id'                => $delivery->order_id,
-            'orderId'                 => $delivery->order_id,
-            'sale_id'                 => $delivery->sale_id,
-            'saleId'                  => $delivery->sale_id,
-            'order_number'            => $orderNumber,
-            'orderNumber'             => $orderNumber,
-            'order_source'            => $orderSource,
-            'orderSource'             => $orderSource,
-            'is_pos'                  => $isPos,
-            'isPos'                   => $isPos,
-            'status'                  => $delivery->status,
-            'fulfillment_type'        => 'delivery',
-            'current_state'           => $delivery->status,
-            'order_status'            => $order?->status ?? $delivery->status,
-            'orderStatus'             => $order?->status ?? $delivery->status,
-            'status_label'            => $delivery->getStatusLabel(),
-            'statusLabel'             => $delivery->getStatusLabel(),
-            'is_available'            => $delivery->isAvailableForRiders(),
-            'isAvailable'             => $delivery->isAvailableForRiders(),
-            'next_action'             => $nextAction,
-            'nextAction'              => $nextAction,
-            'next_action_label'       => $nextActionLabel,
-            'nextActionLabel'         => $nextActionLabel,
-            'next_endpoint'           => $nextEndpoint,
-            'route_phase'             => $routePhase,
-            'routePhase'              => $routePhase,
-            'route_destination'       => $routeDestination,
-            'active_destination'      => $routeDestination,
-            'pickup'                  => $pickupLocation,
-            'pickup_location'         => $pickupLocation,
-            'pickup_branch'           => $pickupLocation,
-            'customer_destination'    => $customerDestination,
-            'rider_id'                => $delivery->rider_id,
-            'rider_name'              => $delivery->rider?->name,
-            'accepted_at'             => $delivery->accepted_at?->toIso8601String(),
-            'picked_up_at'            => $delivery->picked_up_at?->toIso8601String(),
-            'transit_at'              => $delivery->transit_at?->toIso8601String(),
-            'delivered_at'            => $delivery->delivered_at?->toIso8601String(),
-            'cancellation_status'     => $order?->cancellation_status,
-            'is_cancellation_pending' => (bool) ($order?->is_cancellation_pending ?? false),
+            'id'                             => $order?->id ?? $delivery->id,
+            'delivery_id'                    => $delivery->id,
+            'deliveryId'                     => $delivery->id,
+            'order_id'                       => $delivery->order_id,
+            'orderId'                        => $delivery->order_id,
+            'sale_id'                        => $delivery->sale_id,
+            'saleId'                         => $delivery->sale_id,
+            'order_number'                   => $orderNumber,
+            'orderNumber'                    => $orderNumber,
+            'order_source'                   => $orderSource,
+            'orderSource'                    => $orderSource,
+            'is_pos'                         => $isPos,
+            'isPos'                          => $isPos,
+            'status'                         => $delivery->status,
+            'fulfillment_type'               => 'delivery',
+            'current_state'                  => $delivery->status,
+            'order_status'                   => $order?->status ?? $delivery->status,
+            'orderStatus'                    => $order?->status ?? $delivery->status,
+            'status_label'                   => $delivery->getStatusLabel(),
+            'statusLabel'                    => $delivery->getStatusLabel(),
+            'is_available'                   => $delivery->isAvailableForRiders(),
+            'isAvailable'                    => $delivery->isAvailableForRiders(),
+            'next_action'                    => $nextAction,
+            'nextAction'                     => $nextAction,
+            'next_action_label'              => $nextActionLabel,
+            'nextActionLabel'                => $nextActionLabel,
+            'next_endpoint'                  => $nextEndpoint,
+            'route_phase'                    => $routePhase,
+            'routePhase'                     => $routePhase,
+            'route_destination'              => $routeDestination,
+            'active_destination'             => $routeDestination,
+            'pickup'                         => $pickupLocation,
+            'pickup_location'                => $pickupLocation,
+            'pickup_branch'                  => $pickupLocation,
+            'customer_destination'           => $customerDestination,
+            'rider_id'                       => $delivery->rider_id,
+            'rider_name'                     => $delivery->rider?->name,
+            'accepted_at'                    => $delivery->accepted_at?->toIso8601String(),
+            'picked_up_at'                   => $delivery->picked_up_at?->toIso8601String(),
+            'transit_at'                     => $delivery->transit_at?->toIso8601String(),
+            'delivered_at'                   => $delivery->delivered_at?->toIso8601String(),
+            'cancellation_status'            => $order?->cancellation_status,
+            'is_cancellation_pending'        => (bool) ($order?->is_cancellation_pending ?? false),
+
+            // Return Tracking
+            'return_status'                  => $delivery->return_status,
+            'return_reason'                  => $delivery->return_reason,
+            'return_notes'                   => $delivery->return_notes,
+            'return_requested_at'            => $delivery->return_requested_at?->toIso8601String(),
+            'return_reported_at'             => $delivery->return_reported_at?->toIso8601String(),
+            'return_verified_at'             => $delivery->return_verified_at?->toIso8601String(),
+            'return_resolution'              => $delivery->return_resolution,
+            'is_return_required'             => $delivery->isReturnRequired(),
+            'is_return_pending_verification' => $delivery->isReturnPendingVerification(),
+            'is_return_verified'             => $delivery->isReturnVerified(),
 
             // Customer Info (safeguarded before acceptance)
             'customer_name'           => $customerName,

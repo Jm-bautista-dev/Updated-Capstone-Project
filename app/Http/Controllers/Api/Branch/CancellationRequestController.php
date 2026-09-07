@@ -12,6 +12,7 @@ use App\Events\CancellationApprovedEvent;
 use App\Events\CancellationResolved;
 use App\Events\OrderStatusUpdated;
 use App\Services\InventoryService;
+use App\Services\DeliveryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,13 +20,17 @@ use Illuminate\Support\Facades\Log;
 
 class CancellationRequestController extends Controller
 {
+    public function __construct(
+        protected DeliveryService $deliveryService
+    ) {
+    }
+
     /**
      * POS / Branch Manager REJECTS rider cancellation request
      */
     public function reject(Request $request, $id)
     {
         return DB::transaction(function () use ($id, $request) {
-            // Find cancellation request in either table
             /** @var CancellationRequest|null $cancellation */
             $cancellation = CancellationRequest::lockForUpdate()->find($id);
             /** @var OrderCancellationRequest|null $orderCancellation */
@@ -249,5 +254,99 @@ class CancellationRequestController extends Controller
                 'order'                => $order->fresh(),
             ]);
         });
+    }
+
+    /**
+     * POS / Branch Manager confirms returned order items and chooses resolution (reassign or cancel)
+     * POST /api/v1/branch/deliveries/{id}/confirm-return
+     * POST /api/v1/branch/deliveries/{id}/verify-return
+     */
+    public function confirmReturn(Request $request, $id)
+    {
+        $request->validate([
+            'decision' => 'nullable|in:reassign,cancel,reject',
+            'action'   => 'nullable|in:reassign,cancel,reject,confirm_and_reassign,confirm_and_cancel',
+            'notes'    => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $delivery = Delivery::with(['order.branch', 'sale.branch', 'rider'])->find($id);
+        if (!$delivery) {
+            return response()->json(['success' => false, 'message' => 'Delivery not found.'], 404);
+        }
+
+        // Branch authorization check
+        if (!$user->isAdmin() && $user->branch_id) {
+            $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
+            if ($branchId && (int) $user->branch_id !== (int) $branchId) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized for this branch.'], 403);
+            }
+        }
+
+        $decision = $request->input('decision') ?? ($request->input('action') === 'confirm_and_cancel' ? 'cancel' : 'reassign');
+        $notes = $request->input('notes');
+
+        try {
+            if ($decision === 'reject') {
+                $result = $this->deliveryService->rejectReturn($delivery, $user, $notes ?? 'Return rejected by cashier.');
+                return response()->json([
+                    'success'  => true,
+                    'message'  => 'Return rejected. Order restored to active state.',
+                    'delivery' => $result['delivery'],
+                ]);
+            }
+
+            $result = $this->deliveryService->verifyReturn($delivery, $user, $decision, $notes);
+
+            $msg = ($decision === 'cancel')
+                ? 'Returned items verified. Order and delivery permanently cancelled.'
+                : 'Returned items verified. Order returned to pool for rider reassignment.';
+
+            return response()->json([
+                'success'  => true,
+                'message'  => $msg,
+                'decision' => $decision,
+                'delivery' => $result['delivery'],
+            ]);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Log::error('Branch::confirmReturn failed', ['error' => $e->getMessage(), 'id' => $id]);
+            return response()->json(['success' => false, 'message' => 'Failed to process return: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Cashier directly reassigns delivery to available pool after physical return.
+     * POST /api/v1/branch/deliveries/{id}/reassign
+     */
+    public function reassign(Request $request, $id)
+    {
+        $request->merge(['decision' => 'reassign']);
+        return $this->confirmReturn($request, $id);
+    }
+
+    /**
+     * Cashier permanently cancels order after physical return.
+     * POST /api/v1/branch/deliveries/{id}/cancel-order
+     */
+    public function cancelOrderAfterReturn(Request $request, $id)
+    {
+        $request->merge(['decision' => 'cancel']);
+        return $this->confirmReturn($request, $id);
+    }
+
+    /**
+     * Cashier rejects return if food items were not physically returned.
+     * POST /api/v1/branch/deliveries/{id}/reject-return
+     */
+    public function rejectReturn(Request $request, $id)
+    {
+        $request->merge(['decision' => 'reject']);
+        return $this->confirmReturn($request, $id);
     }
 }

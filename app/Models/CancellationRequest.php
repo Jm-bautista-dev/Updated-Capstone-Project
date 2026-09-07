@@ -19,6 +19,12 @@ class CancellationRequest extends Model
         'reason',
         'notes',
         'status',
+        'return_status',
+        'return_reported_at',
+        'return_verified_at',
+        'return_verified_by',
+        'action_type',
+        'resolution_action',
         'idempotency_key',
         'requested_at',
         'reviewed_at',
@@ -29,8 +35,10 @@ class CancellationRequest extends Model
     ];
 
     protected $casts = [
-        'requested_at' => 'datetime',
-        'reviewed_at'  => 'datetime',
+        'requested_at'       => 'datetime',
+        'reviewed_at'        => 'datetime',
+        'return_reported_at' => 'datetime',
+        'return_verified_at' => 'datetime',
     ];
 
     public function order(): BelongsTo

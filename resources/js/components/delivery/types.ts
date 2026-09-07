@@ -103,6 +103,18 @@ export interface Delivery {
     // Proof of delivery
     proof_of_delivery?: string | null;
     proof_of_delivery_url?: string | null;
+
+    // Return Order Tracking
+    return_status?: string | null;
+    return_reason?: string | null;
+    return_notes?: string | null;
+    return_requested_at?: string | null;
+    return_reported_at?: string | null;
+    return_verified_at?: string | null;
+    return_resolution?: string | null;
+    is_return_required?: boolean;
+    is_return_pending_verification?: boolean;
+    is_return_verified?: boolean;
 }
 
 export interface DeliveryPagination {
@@ -176,6 +188,7 @@ export const STATUS_GROUPS = [
     { key: 'assigned_to_rider',   label: 'Rider Assigned', statuses: ['assigned_to_rider'], color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/20',  border: 'border-indigo-200 dark:border-indigo-900/30', ring: 'ring-indigo-500/10' },
     { key: 'picked_up',           label: 'Picked Up',      statuses: ['picked_up'],         color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-200 dark:border-purple-900/30', ring: 'ring-purple-500/10' },
     { key: 'in_transit',          label: 'In Transit',     statuses: ['in_transit', 'out_for_delivery'], color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/20', border: 'border-violet-200 dark:border-violet-900/30', ring: 'ring-violet-500/10' },
+    { key: 'return_required',     label: 'Returned / Verify', statuses: ['return_required', 'return_pending_verification'], color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100/80 dark:bg-amber-950/40', border: 'border-amber-300 dark:border-amber-800', ring: 'ring-amber-500/20' },
     { key: 'failed_delivery',     label: 'Failed / Reassign', statuses: ['failed_delivery'], color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-red-200 dark:border-red-900/30', ring: 'ring-red-500/10' },
     { key: 'delivered',           label: 'Delivered',      statuses: ['delivered'],         color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-200 dark:border-emerald-900/30', ring: 'ring-emerald-500/10' },
     { key: 'cancelled',           label: 'Cancelled',      statuses: ['cancelled'],         color: 'text-rose-600 dark:text-rose-400',     bg: 'bg-rose-50 dark:bg-rose-950/20',      border: 'border-rose-200 dark:border-rose-900/30',   ring: 'ring-rose-500/10' },
