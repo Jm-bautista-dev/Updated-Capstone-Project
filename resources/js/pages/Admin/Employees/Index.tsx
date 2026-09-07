@@ -48,9 +48,10 @@ interface Props {
     employees: Employee[];
     branches: Array<{ id: number; name: string }>;
     kpis?: EmployeeKpis;
+    isSuperAdmin?: boolean;
 }
 
-export default function EmployeeIndex({ employees, branches, kpis }: Props) {
+export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin = false }: Props) {
     const { props } = usePage<PageProps>();
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -268,6 +269,7 @@ export default function EmployeeIndex({ employees, branches, kpis }: Props) {
                     branches={branches}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
+                    isSuperAdmin={isSuperAdmin}
                 />
 
                 {/* Employee Display (Table or Grid View) */}
@@ -277,6 +279,7 @@ export default function EmployeeIndex({ employees, branches, kpis }: Props) {
                         onEdit={openEditModal}
                         onDelete={handleDelete}
                         onSelectEmployee={openEmployeeDrawer}
+                        isSuperAdmin={isSuperAdmin}
                     />
                 ) : (
                     <EmployeeGrid
@@ -284,6 +287,7 @@ export default function EmployeeIndex({ employees, branches, kpis }: Props) {
                         onEdit={openEditModal}
                         onDelete={handleDelete}
                         onSelectEmployee={openEmployeeDrawer}
+                        isSuperAdmin={isSuperAdmin}
                     />
                 )}
             </div>
@@ -295,6 +299,7 @@ export default function EmployeeIndex({ employees, branches, kpis }: Props) {
                 onOpenChange={setIsDrawerOpen}
                 onEdit={openEditModal}
                 onDelete={handleDelete}
+                isSuperAdmin={isSuperAdmin}
             />
 
             {/* Create/Edit Modal */}
@@ -458,6 +463,11 @@ export default function EmployeeIndex({ employees, branches, kpis }: Props) {
                                         <SelectValue placeholder="Access Level" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                        {isSuperAdmin && (
+                                            <SelectItem value="super_admin" className="rounded-xl py-2 font-bold cursor-pointer text-purple-600 dark:text-purple-400">
+                                                Super Admin
+                                            </SelectItem>
+                                        )}
                                         <SelectItem value="admin" className="rounded-xl py-2 font-bold cursor-pointer text-[#E75480] dark:text-[#FF4F81]">
                                             Admin Access
                                         </SelectItem>

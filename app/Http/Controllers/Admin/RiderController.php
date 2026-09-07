@@ -59,19 +59,23 @@ class RiderController extends Controller
 
     public function store(Request $request)
     {
-        // Normalize email input before validation
+        // Normalize email & phone input before validation
         if ($request->has('email')) {
             $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
+        if ($request->has('phone')) {
+            $request->merge(['phone' => Rider::normalizePhone($request->input('phone'))]);
         }
 
         $validated = $request->validate([
             'name'      => 'required|string|max:255',
             'email'     => ['required', 'email', Rule::unique('riders', 'email')->whereNull('deleted_at')],
-            'phone'     => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]{7,20}$/'],
+            'phone'     => ['nullable', 'string', 'max:20', Rule::unique('riders', 'phone')->whereNull('deleted_at')],
             'branch_id' => 'required|exists:branches,id',
             'password'  => 'nullable|string|min:6',
         ], [
             'email.unique' => 'The email is already associated with an active rider account.',
+            'phone.unique' => 'This mobile number is already registered to another rider.',
         ]);
 
         // ── Password Logic ─────────────────────────────────────────
@@ -117,20 +121,24 @@ class RiderController extends Controller
 
     public function update(Request $request, Rider $rider)
     {
-        // Normalize email input before validation
+        // Normalize email & phone input before validation
         if ($request->has('email')) {
             $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
+        if ($request->has('phone')) {
+            $request->merge(['phone' => Rider::normalizePhone($request->input('phone'))]);
         }
 
         $validated = $request->validate([
             'name'      => 'required|string|max:255',
             'email'     => ['required', 'email', Rule::unique('riders', 'email')->ignore($rider->id)->whereNull('deleted_at')],
-            'phone'     => ['nullable', 'string', 'max:20', 'regex:/^[\+]?[0-9\s\-\(\)]{7,20}$/'],
+            'phone'     => ['nullable', 'string', 'max:20', Rule::unique('riders', 'phone')->ignore($rider->id)->whereNull('deleted_at')],
             'branch_id' => 'required|exists:branches,id',
             'password'  => 'nullable|string|min:6',
             'is_active' => 'required|boolean',
         ], [
             'email.unique' => 'The email is already associated with an active rider account.',
+            'phone.unique' => 'This mobile number is already registered to another rider.',
         ]);
 
         if ($request->filled('password')) {
@@ -179,10 +187,12 @@ class RiderController extends Controller
             Log::warning('Failed to revoke tokens on rider retirement: ' . $e->getMessage());
         }
 
-        // 3. Free up email for future active accounts while preserving historical delivery references & rider identity
+        // 3. Free up email & phone for future active accounts while preserving historical delivery references & rider identity
         $retiredEmail = 'retired_' . $rider->id . '_' . time() . '_' . $rider->email;
+        $retiredPhone = $rider->phone ? 'retired_' . $rider->id . '_' . time() . '_' . $rider->phone : null;
         $rider->update([
             'email'     => $retiredEmail,
+            'phone'     => $retiredPhone ? substr($retiredPhone, 0, 50) : null,
             'is_active' => false,
             'status'    => 'offline',
         ]);

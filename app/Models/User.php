@@ -82,6 +82,40 @@ class User extends Authenticatable
         return $this->role === self::ROLE_CUSTOMER;
     }
 
+    /**
+     * Scope query to visible employees for a given user.
+     * - Excludes customer accounts.
+     * - If viewer is not a Super Admin, strictly excludes Super Admin accounts.
+     */
+    public function scopeManageableEmployees(Builder $query, ?User $viewer = null): Builder
+    {
+        $viewer = $viewer ?? \Illuminate\Support\Facades\Auth::user();
+
+        $query->where('role', '!=', self::ROLE_CUSTOMER);
+
+        if (!$viewer || !$viewer->isSuperAdmin()) {
+            $query->where('role', '!=', self::ROLE_SUPER_ADMIN);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Check if this user can manage the given target user.
+     */
+    public function canManageUser(User $target): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($target->isSuperAdmin()) {
+            return false;
+        }
+
+        return $this->isAdmin();
+    }
+
     public function isActive(): bool
     {
         return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_ACTIVE;

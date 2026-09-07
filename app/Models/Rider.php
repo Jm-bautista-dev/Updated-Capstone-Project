@@ -91,6 +91,44 @@ class Rider extends Authenticatable
         'heading'                => 'float',
     ];
 
+    /* ── Phone Normalization Helper ───────────────── */
+
+    /**
+     * Normalize phone number to standard Philippine mobile format (09XXXXXXXXX)
+     * or strip formatting noise.
+     */
+    public static function normalizePhone(?string $phone): ?string
+    {
+        if ($phone === null) {
+            return null;
+        }
+
+        $cleaned = trim($phone);
+        if ($cleaned === '') {
+            return null;
+        }
+
+        // Remove spaces, hyphens, parentheses, dots
+        $digits = preg_replace('/[^\d\+]/', '', $cleaned);
+
+        // Remove leading +
+        if (str_starts_with($digits, '+')) {
+            $digits = substr($digits, 1);
+        }
+
+        // If starts with 63 (e.g. 639171234567, 12 digits), convert to 09171234567
+        if (str_starts_with($digits, '63') && strlen($digits) === 12) {
+            return '0' . substr($digits, 2);
+        }
+
+        // If 10 digits starting with 9 (e.g. 9171234567), convert to 09171234567
+        if (str_starts_with($digits, '9') && strlen($digits) === 10) {
+            return '0' . $digits;
+        }
+
+        return $digits;
+    }
+
     /* ── Governance Helpers ────────────────────────── */
 
     public function isActive(): bool

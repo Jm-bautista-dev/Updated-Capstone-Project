@@ -292,11 +292,25 @@ class FinancialMetricsService
      */
     public function getSummaryMetrics($startDate = null, $endDate = null, ?int $branchId = null): array
     {
+        $tz = 'Asia/Manila';
+        $startUtc = null;
+        if ($startDate) {
+            $startUtc = ($startDate instanceof \DateTimeInterface)
+                ? Carbon::instance($startDate)->copy()->utc()
+                : Carbon::parse($startDate, $tz)->startOfDay()->utc();
+        }
+        $endUtc = null;
+        if ($endDate) {
+            $endUtc = ($endDate instanceof \DateTimeInterface)
+                ? Carbon::instance($endDate)->copy()->utc()
+                : Carbon::parse($endDate, $tz)->endOfDay()->utc();
+        }
+
         $salesQuery = Sale::with(['items.product.ingredients.stocks', 'delivery'])
             ->where('status', 'completed')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
-            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
-            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate));
+            ->when($startUtc, fn($q) => $q->where('created_at', '>=', $startUtc))
+            ->when($endUtc, fn($q) => $q->where('created_at', '<=', $endUtc));
 
         $sales = $salesQuery->get();
 
@@ -338,8 +352,8 @@ class FinancialMetricsService
 
         // Operating Expenses from Wastage / Losses
         $operatingExpenses = (float) Wastage::when($branchId, fn($q) => $q->where('branch_id', $branchId))
-            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
-            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
+            ->when($startUtc, fn($q) => $q->where('created_at', '>=', $startUtc))
+            ->when($endUtc, fn($q) => $q->where('created_at', '<=', $endUtc))
             ->sum('cost_at_loss');
 
         $grossProfit = $revenue - $cogs;

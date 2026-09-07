@@ -47,6 +47,20 @@ type InventorySuggestion = {
 const formatCurrency = (v?: number) =>
   new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(v ?? 0);
 
+export const getExpectedSalesColorClass = (val?: number | null): string => {
+  const num = typeof val === 'number' ? val : Number(val ?? 0);
+  if (num > 0) return 'text-emerald-600 dark:text-emerald-400';
+  if (num < 0) return 'text-rose-600 dark:text-rose-400';
+  return 'text-foreground';
+};
+
+export const getExpectedSalesIconColorClass = (val?: number | null): string => {
+  const num = typeof val === 'number' ? val : Number(val ?? 0);
+  if (num > 0) return 'text-emerald-500';
+  if (num < 0) return 'text-rose-500';
+  return 'text-(--ops-text-muted)';
+};
+
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -82,8 +96,8 @@ const ChartTooltip = ({ active, payload }: { active?: boolean; payload?: ChartTo
         {d?.predicted != null && (
           <>
             <div className="flex justify-between gap-4">
-              <span className="font-bold text-primary">Forecasted Sales</span>
-              <span className="font-black text-primary font-mono">{formatCurrency(d.predicted)}</span>
+              <span className={cn("font-bold", getExpectedSalesColorClass(d.predicted))}>Forecasted Sales</span>
+              <span className={cn("font-black font-mono", getExpectedSalesColorClass(d.predicted))}>{formatCurrency(d.predicted)}</span>
             </div>
             {d?.upper != null && (
               <div className="flex justify-between gap-4 opacity-60">
@@ -309,15 +323,16 @@ export default function SalesForecast() {
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-stretch">
                   
                   {/* Tomorrow Prediction */}
-                  <Card className="bg-linear-to-r! from-[#E75480]! to-[#FF4F81]! dark:from-[#E1062C]! dark:to-[#B90222]! text-white border border-[#E75480]/30 rounded-[14px] p-4.5 relative overflow-hidden group shadow-md shadow-[#E75480]/15 flex flex-col justify-between min-h-25">
-                    <div className="absolute top-0 right-0 size-24 bg-white/10 rounded-full blur-2xl opacity-40" />
-                    <div className="flex items-center justify-between mb-2 relative z-10">
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/90">{nextDayDate}</p>
-                      <FiZap className="size-4 text-white" />
+                  <Card className="bg-(--ops-surface-raised) border border-(--ops-border) rounded-[14px] p-4.5 relative overflow-hidden group shadow-sm flex flex-col justify-between min-h-25">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-(--ops-text-muted)">{nextDayDate}</p>
+                      <FiZap className={cn("size-4", getExpectedSalesIconColorClass(prediction))} />
                     </div>
-                    <div className="relative z-10">
-                      <h3 className="text-2xl font-black text-white tabular-nums leading-none">{formatCurrency(prediction)}</h3>
-                      <p className="text-[8px] text-white/80 font-bold uppercase mt-1.5 tracking-widest">Expected Daily Revenue</p>
+                    <div>
+                      <h3 className={cn("text-2xl font-black tabular-nums leading-none", getExpectedSalesColorClass(prediction))}>
+                        {formatCurrency(prediction)}
+                      </h3>
+                      <p className="text-[8px] text-(--ops-text-faint) font-bold uppercase mt-1.5 tracking-widest">Expected Daily Revenue</p>
                     </div>
                   </Card>
 
@@ -511,7 +526,9 @@ export default function SalesForecast() {
                                 </div>
                               </td>
                               <td className="px-5 py-3 text-right">
-                                <span className="font-black text-primary font-mono">{formatCurrency(f.predicted)}</span>
+                                <span className={cn("font-black font-mono", getExpectedSalesColorClass(f.predicted))}>
+                                  {formatCurrency(f.predicted)}
+                                </span>
                               </td>
                             </tr>
                           ))}

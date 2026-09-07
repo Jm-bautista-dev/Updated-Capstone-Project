@@ -42,6 +42,7 @@ const allNavItems: NavItem[] = [
     { title: 'POS Kiosk', href: '/pos', icon: Database },
     { title: 'Products', href: '/products', icon: Box },
     { title: 'Categories', href: '/categories', icon: Archive },
+    { title: 'Add-ons & Modifiers', href: '/admin/addons', icon: Zap },
     { title: 'Sales', href: '/sales', icon: ShoppingCart },
     { title: 'Inventory', href: '/inventory', icon: ClipboardList },
     { title: 'Reviews & Ratings', href: '/admin/reviews', icon: Star },
@@ -76,10 +77,10 @@ export function MobileBottomNav() {
     // Role-based navigation filtering matching AppSidebar
     const filteredNavItems = useMemo(() => {
         if (!user) return [];
-        if (user.role === 'admin') {
+        if (user.role === 'admin' || user.role === 'super_admin') {
             return allNavItems.filter((item) => item.title !== 'POS Kiosk');
         }
-        // Cashier restricted items
+        // Cashier restricted items (matching AppSidebar)
         const restrictedTitles = [
             'Dashboard',
             'Riders',
@@ -90,6 +91,7 @@ export function MobileBottomNav() {
             'Suggestions',
             'Branches',
             'Sales Data Management',
+            'Add-ons & Modifiers',
         ];
         return allNavItems.filter((item) => !restrictedTitles.includes(item.title));
     }, [user]);
@@ -97,20 +99,20 @@ export function MobileBottomNav() {
     // Primary bottom bar items (First 4 most relevant + "More")
     const primaryItems = useMemo(() => {
         if (!user) return [];
-        if (user.role === 'admin') {
+        if (user.role === 'admin' || user.role === 'super_admin') {
             return [
                 allNavItems.find((i) => i.title === 'Dashboard')!,
                 allNavItems.find((i) => i.title === 'Products')!,
                 allNavItems.find((i) => i.title === 'Sales')!,
                 allNavItems.find((i) => i.title === 'Delivery')!,
-            ];
+            ].filter(Boolean);
         }
         return [
             allNavItems.find((i) => i.title === 'POS Kiosk')!,
             allNavItems.find((i) => i.title === 'Products')!,
             allNavItems.find((i) => i.title === 'Sales')!,
             allNavItems.find((i) => i.title === 'Delivery')!,
-        ];
+        ].filter(Boolean);
     }, [user]);
 
     // Secondary items for "More" sheet
@@ -121,27 +123,47 @@ export function MobileBottomNav() {
 
     // Group secondary items into clean sections
     const secondarySections = useMemo(() => {
-        const sections = [
+        const sectionDefs = [
             {
                 label: 'Operations & Catalog',
-                titles: ['Categories', 'Inventory', 'Reviews & Ratings'],
+                titles: ['Categories', 'Add-ons & Modifiers', 'Inventory', 'Reviews & Ratings'],
+            },
+            {
+                label: 'Logistics & Fulfillment',
+                titles: ['Pickup Orders', 'Delivery', 'Riders'],
             },
             {
                 label: 'Sales & Analytics',
                 titles: ['Reports', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'],
             },
             {
-                label: 'Logistics & Team',
-                titles: ['Riders', 'Employees', 'Branches', 'Sales Data Management'],
+                label: 'Management & Team',
+                titles: ['Employees', 'Branches', 'Sales Data Management'],
             },
         ];
 
-        return sections
-            .map((sec) => ({
-                label: sec.label,
-                items: secondaryItems.filter((i) => sec.titles.includes(i.title)),
-            }))
+        const assignedTitles = new Set<string>();
+        const mappedSections = sectionDefs
+            .map((sec) => {
+                const items = secondaryItems.filter((i) => sec.titles.includes(i.title));
+                items.forEach((i) => assignedTitles.add(i.title));
+                return {
+                    label: sec.label,
+                    items,
+                };
+            })
             .filter((sec) => sec.items.length > 0);
+
+        // Safety fallback for any unsectioned secondary items
+        const remainingItems = secondaryItems.filter((i) => !assignedTitles.has(i.title));
+        if (remainingItems.length > 0) {
+            mappedSections.push({
+                label: 'Additional Services',
+                items: remainingItems,
+            });
+        }
+
+        return mappedSections;
     }, [secondaryItems]);
 
     const isCurrentUrl = useCallback(

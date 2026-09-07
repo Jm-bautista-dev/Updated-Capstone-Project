@@ -7,9 +7,10 @@ interface EmployeeGridProps {
     onEdit: (employee: Employee) => void;
     onDelete: (id: number) => void;
     onSelectEmployee?: (employee: Employee) => void;
+    isSuperAdmin?: boolean;
 }
 
-export function EmployeeGrid({ employees, onEdit, onDelete, onSelectEmployee }: EmployeeGridProps) {
+export function EmployeeGrid({ employees, onEdit, onDelete, onSelectEmployee, isSuperAdmin = false }: EmployeeGridProps) {
     if (employees.length === 0) {
         return (
             <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-12 text-center shadow-xs backdrop-blur-2xl">
@@ -33,6 +34,7 @@ export function EmployeeGrid({ employees, onEdit, onDelete, onSelectEmployee }: 
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onSelectEmployee={onSelectEmployee}
+                    isSuperAdmin={isSuperAdmin}
                 />
             ))}
         </div>

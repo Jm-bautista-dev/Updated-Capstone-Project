@@ -40,7 +40,7 @@ class EmployeeKpiRoleDefinitionTest extends TestCase
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Employees/Index')
             ->where('kpis.admins', 1)
-            ->where('kpis.total', 6)
+            ->where('kpis.total', 4) // excludes super admins for admin viewer (1 admin + 3 cashiers)
         );
     }
 
@@ -61,7 +61,7 @@ class EmployeeKpiRoleDefinitionTest extends TestCase
             ->component('Admin/Employees/Index')
             ->where('kpis.admins', 3)
             ->where('kpis.cashiers', 5)
-            ->where('kpis.total', 10)
+            ->where('kpis.total', 8) // excludes super admins for admin viewer (3 admins + 5 cashiers)
         );
     }
 

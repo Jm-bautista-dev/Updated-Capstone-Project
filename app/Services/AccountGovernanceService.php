@@ -401,6 +401,11 @@ class AccountGovernanceService
         User $reporter,
         bool $markUnderReview = false
     ): ModerationCase {
+        // Privilege hierarchy check: Super Admin cannot be flagged by non-super-admins
+        if ($target instanceof User && $target->isSuperAdmin() && !$reporter->isSuperAdmin()) {
+            throw new \RuntimeException('Unauthorized: Only Super Admins can manage or flag Super Admin accounts.');
+        }
+
         $targetType = $target instanceof Rider ? 'rider' : 'user';
 
         $case = ModerationCase::create([

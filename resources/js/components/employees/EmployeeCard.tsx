@@ -26,9 +26,10 @@ interface EmployeeCardProps {
     onEdit: (employee: Employee) => void;
     onDelete: (id: number) => void;
     onSelectEmployee?: (employee: Employee) => void;
+    isSuperAdmin?: boolean;
 }
 
-export function EmployeeCard({ employee, onEdit, onDelete, onSelectEmployee }: EmployeeCardProps) {
+export function EmployeeCard({ employee, onEdit, onDelete, onSelectEmployee, isSuperAdmin = false }: EmployeeCardProps) {
     return (
         <motion.div
             whileHover={{ y: -4 }}
@@ -83,21 +84,25 @@ export function EmployeeCard({ employee, onEdit, onDelete, onSelectEmployee }: E
                                     <span>View Profile</span>
                                 </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem
-                                onClick={() => onEdit(employee)}
-                                className="rounded-xl px-3 py-2 text-xs font-bold gap-2 cursor-pointer dark:focus:bg-white/10"
-                            >
-                                <Edit2 className="size-3.5 text-blue-500" />
-                                <span>Edit Account</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-[#F8C8DC]/40 dark:bg-white/10 my-1" />
-                            <DropdownMenuItem
-                                onClick={() => onDelete(employee.id)}
-                                className="rounded-xl px-3 py-2 text-xs font-bold gap-2 cursor-pointer text-rose-600 dark:text-rose-400 dark:focus:bg-rose-950/30"
-                            >
-                                <Trash2 className="size-3.5" />
-                                <span>Delete Member</span>
-                            </DropdownMenuItem>
+                            {(!isSuperAdmin && employee.role === 'super_admin') ? null : (
+                                <>
+                                    <DropdownMenuItem
+                                        onClick={() => onEdit(employee)}
+                                        className="rounded-xl px-3 py-2 text-xs font-bold gap-2 cursor-pointer dark:focus:bg-white/10"
+                                    >
+                                        <Edit2 className="size-3.5 text-blue-500" />
+                                        <span>Edit Account</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-[#F8C8DC]/40 dark:bg-white/10 my-1" />
+                                    <DropdownMenuItem
+                                        onClick={() => onDelete(employee.id)}
+                                        className="rounded-xl px-3 py-2 text-xs font-bold gap-2 cursor-pointer text-rose-600 dark:text-rose-400 dark:focus:bg-rose-950/30"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                        <span>Delete Member</span>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

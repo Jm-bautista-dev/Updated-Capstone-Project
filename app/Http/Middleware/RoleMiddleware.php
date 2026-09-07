@@ -31,7 +31,9 @@ class RoleMiddleware
             }
         }
 
-        if (!$user || !in_array($userRole, $roles)) {
+        $isAuthorized = in_array($userRole, $roles) || ($userRole === 'super_admin' && in_array('admin', $roles));
+
+        if (!$user || !$isAuthorized) {
             // If it's an API request, return 403 Forbidden JSON
             if ($request->expectsJson() || $request->is('api/*') || $request->is('v1/*')) {
                 return response()->json([

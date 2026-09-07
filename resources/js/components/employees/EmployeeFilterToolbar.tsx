@@ -25,6 +25,7 @@ interface EmployeeFilterToolbarProps {
     branches: Branch[];
     viewMode: ViewMode;
     onViewModeChange: (mode: ViewMode) => void;
+    isSuperAdmin?: boolean;
 }
 
 export function EmployeeFilterToolbar({
@@ -37,6 +38,7 @@ export function EmployeeFilterToolbar({
     branches,
     viewMode,
     onViewModeChange,
+    isSuperAdmin = false,
 }: EmployeeFilterToolbarProps) {
     return (
         <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] p-4 sm:p-6 backdrop-blur-2xl transition-colors duration-300 space-y-4">
@@ -69,9 +71,11 @@ export function EmployeeFilterToolbar({
                             <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10">
                                 All Roles
                             </SelectItem>
-                            <SelectItem value="super_admin" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-purple-600 dark:text-purple-400 cursor-pointer dark:focus:bg-white/10">
-                                Super Admin
-                            </SelectItem>
+                            {isSuperAdmin && (
+                                <SelectItem value="super_admin" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-purple-600 dark:text-purple-400 cursor-pointer dark:focus:bg-white/10">
+                                    Super Admin
+                                </SelectItem>
+                            )}
                             <SelectItem value="admin" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-[#E75480] dark:text-[#FF4F81] cursor-pointer dark:focus:bg-white/10">
                                 Admin Access
                             </SelectItem>

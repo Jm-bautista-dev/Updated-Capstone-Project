@@ -68,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
 
     protected function registerPolicies(): void
     {
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\User::class, \App\Policies\UserPolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\Product::class, \App\Policies\ResourcePolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\Category::class, \App\Policies\ResourcePolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\Ingredient::class, \App\Policies\IngredientPolicy::class);

@@ -25,9 +25,10 @@ interface EmployeeDrawerProps {
     onOpenChange: (open: boolean) => void;
     onEdit: (employee: Employee) => void;
     onDelete: (id: number) => void;
+    isSuperAdmin?: boolean;
 }
 
-export function EmployeeDrawer({ employee, open, onOpenChange, onEdit, onDelete }: EmployeeDrawerProps) {
+export function EmployeeDrawer({ employee, open, onOpenChange, onEdit, onDelete, isSuperAdmin = false }: EmployeeDrawerProps) {
     if (!employee) return null;
 
     return (

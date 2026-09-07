@@ -14,16 +14,18 @@ class EmployeeController extends Controller
 {
     public function index()
     {
+        $viewer = Auth::user();
+
         $employeeQuery = User::with('branch')
-            ->where('role', '!=', User::ROLE_CUSTOMER);
+            ->manageableEmployees($viewer);
 
         $employees = (clone $employeeQuery)
             ->latest()
             ->get();
 
-        // Calculate authoritative backend KPIs matching the roster definition:
+        // Calculate authoritative backend KPIs matching the visible roster definition:
         // Rule: ADMINISTRATORS KPI counts active ADMIN accounts ONLY (User::ROLE_ADMIN).
-        // SUPER_ADMIN is strictly EXCLUDED from the administrators count.
+        // SUPER_ADMIN is strictly EXCLUDED from the administrators count and total count when viewed by Admin.
         $activeQuery = (clone $employeeQuery)->where(function ($q) {
             $q->whereNull('account_status')->orWhere('account_status', '!=', User::STATUS_DEACTIVATED);
         });
@@ -36,20 +38,32 @@ class EmployeeController extends Controller
         ];
 
         return Inertia::render('Admin/Employees/Index', [
-            'employees' => $employees,
-            'branches'  => Branch::orderBy('name')->get(),
-            'kpis'      => $kpis,
+            'employees'    => $employees,
+            'branches'     => Branch::orderBy('name')->get(),
+            'kpis'         => $kpis,
+            'isSuperAdmin' => (bool) $viewer?->isSuperAdmin(),
         ]);
     }
 
     public function store(Request $request)
     {
+        $viewer = Auth::user();
+
+        // Block privilege escalation: Only Super Admin can create Super Admin
+        if ($request->input('role') === User::ROLE_SUPER_ADMIN && (!$viewer || !$viewer->isSuperAdmin())) {
+            abort(403, 'Unauthorized: You do not have permission to create a Super Admin account.');
+        }
+
         if ($request->has('email')) {
             $request->merge(['email' => strtolower(trim($request->input('email')))]);
         }
         if ($request->has('name')) {
             $request->merge(['name' => trim($request->input('name'))]);
         }
+
+        $allowedRoles = ($viewer && $viewer->isSuperAdmin())
+            ? 'admin,cashier,super_admin'
+            : 'admin,cashier';
 
         $validated = $request->validate([
             'name' => [
@@ -61,7 +75,7 @@ class EmployeeController extends Controller
             ],
             'email'     => 'required|string|email|max:100|unique:users',
             'password'  => 'nullable|string|min:8|max:100',
-            'role'      => 'required|string|in:admin,cashier',
+            'role'      => 'required|string|in:' . $allowedRoles,
             'branch_id' => 'required|exists:branches,id',
         ], [
             'name.regex' => 'Full name must only contain letters and spaces.',
@@ -108,12 +122,28 @@ class EmployeeController extends Controller
 
     public function update(Request $request, User $employee)
     {
+        $viewer = Auth::user();
+
+        // Security Gate: Non-super-admins cannot view or modify Super Admin accounts
+        if ($employee->isSuperAdmin() && (!$viewer || !$viewer->isSuperAdmin())) {
+            abort(403, 'Unauthorized: You cannot modify a Super Admin account.');
+        }
+
+        // Block privilege escalation: Non-super-admins cannot promote users to Super Admin
+        if ($request->input('role') === User::ROLE_SUPER_ADMIN && (!$viewer || !$viewer->isSuperAdmin())) {
+            abort(403, 'Unauthorized: You do not have permission to assign the Super Admin role.');
+        }
+
         if ($request->has('email')) {
             $request->merge(['email' => strtolower(trim($request->input('email')))]);
         }
         if ($request->has('name')) {
             $request->merge(['name' => trim($request->input('name'))]);
         }
+
+        $allowedRoles = ($viewer && $viewer->isSuperAdmin())
+            ? 'admin,cashier,super_admin'
+            : 'admin,cashier';
 
         $validated = $request->validate([
             'name' => [
@@ -125,7 +155,7 @@ class EmployeeController extends Controller
             ],
             'email'     => 'required|string|email|max:100|unique:users,email,' . $employee->id,
             'password'  => 'nullable|string|min:8|max:100',
-            'role'      => 'required|string|in:admin,cashier',
+            'role'      => 'required|string|in:' . $allowedRoles,
             'branch_id' => 'required|exists:branches,id',
         ], [
             'name.regex' => 'Full name must only contain letters and spaces.',
@@ -148,6 +178,13 @@ class EmployeeController extends Controller
 
     public function destroy(User $employee)
     {
+        $viewer = Auth::user();
+
+        // Security Gate: Non-super-admins cannot delete Super Admin accounts
+        if ($employee->isSuperAdmin() && (!$viewer || !$viewer->isSuperAdmin())) {
+            abort(403, 'Unauthorized: You cannot delete a Super Admin account.');
+        }
+
         if ($employee->id === Auth::id()) {
             return back()->with('error', 'You cannot delete yourself');
         }

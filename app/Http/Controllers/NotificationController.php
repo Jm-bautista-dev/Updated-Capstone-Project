@@ -369,7 +369,7 @@ class NotificationController extends Controller
         return Inertia::render('Inventory/Activity', [
             'logs' => $logs,
             'branches' => $user->isAdmin() ? Branch::all() : [],
-            'employees' => $user->isAdmin() ? User::all() : User::where('branch_id', $user->branch_id)->get(),
+            'employees' => User::manageableEmployees($user)->get(),
             'filters' => $request->only(['branch_id', 'employee_id', 'ingredient_id', 'date']),
         ]);
     }

@@ -28,11 +28,13 @@ class ReportController extends Controller
             ? ($request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int) $request->input('branch_id') : null)
             : (int) $user->branch_id;
 
+        [$startUtc, $endUtc] = $this->parseDateBoundaries($request->date_from, $request->date_to);
+
         $sales = Sale::with(['cashier', 'items.product', 'branch', 'order.user', 'delivery'])
             ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
             ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
-            ->when($request->date_from, fn($q) => $q->whereDate('created_at', '>=', $request->date_from))
-            ->when($request->date_to,   fn($q) => $q->whereDate('created_at', '<=', $request->date_to))
+            ->when($startUtc, fn($q) => $q->where('created_at', '>=', $startUtc))
+            ->when($endUtc,   fn($q) => $q->where('created_at', '<=', $endUtc))
             ->when($request->cashier_id && $user->isAdmin(), fn($q) => $q->where('user_id', $request->cashier_id))
             ->when($request->status,    fn($q) => $q->where('status', $request->status))
             ->latest()
@@ -51,8 +53,8 @@ class ReportController extends Controller
                 ->where('branch_id',  $user->branch_id)
             )
             ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
-            ->when($request->date_from, fn($q) => $q->whereDate('opened_at', '>=', $request->date_from))
-            ->when($request->date_to,   fn($q) => $q->whereDate('opened_at', '<=', $request->date_to))
+            ->when($startUtc, fn($q) => $q->where('opened_at', '>=', $startUtc))
+            ->when($endUtc,   fn($q) => $q->where('opened_at', '<=', $endUtc))
             ->when($request->cashier_id && $user->isAdmin(), fn($q) => $q->where('cashier_id', $request->cashier_id))
             ->latest()
             ->paginate(20, ['*'], 'shifts_page')
@@ -124,12 +126,14 @@ class ReportController extends Controller
             ? (int) $filters['branch_id']
             : null;
 
+        [$startUtc, $endUtc] = $this->parseDateBoundaries($filters['date_from'] ?? null, $filters['date_to'] ?? null);
+
         if ($activeTab === 'sales') {
             $sales = Sale::with(['cashier', 'items.product', 'branch', 'order.user', 'delivery'])
                 ->when(!$user->isAdmin(), fn($q) => $q->where('branch_id', $user->branch_id))
                 ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
-                ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $filters['date_from']))
-                ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('created_at', '<=', $filters['date_to']))
+                ->when($startUtc, fn($q) => $q->where('created_at', '>=', $startUtc))
+                ->when($endUtc,   fn($q) => $q->where('created_at', '<=', $endUtc))
                 ->when(isset($filters['cashier_id']) && $filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('user_id', $filters['cashier_id']))
                 ->when(isset($filters['status']) && $filters['status'] !== 'all', fn($q) => $q->where('status', $filters['status']))
                 ->latest()
@@ -163,7 +167,7 @@ class ReportController extends Controller
                 $saleProfit = $netProductSales - $saleCogs;
 
                 $row = [
-                    'date'             => $sale->created_at ? $sale->created_at->format('M d, Y H:i') : 'N/A',
+                    'date'             => $sale->created_at ? $sale->created_at->timezone('Asia/Manila')->format('M d, Y H:i') : 'N/A',
                     'order_number'     => $sale->order_number,
                     'branch'           => $sale->branch?->name ?? 'N/A',
                     'cashier'          => $sale->cashier_name,
@@ -190,8 +194,8 @@ class ReportController extends Controller
                     ->where('branch_id',  $user->branch_id)
                 )
                 ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
-                ->when($filters['date_from'] ?? null, fn($q) => $q->whereDate('opened_at', '>=', $filters['date_from']))
-                ->when($filters['date_to'] ?? null,   fn($q) => $q->whereDate('opened_at', '<=', $filters['date_to']))
+                ->when($startUtc, fn($q) => $q->where('opened_at', '>=', $startUtc))
+                ->when($endUtc,   fn($q) => $q->where('opened_at', '<=', $endUtc))
                 ->when(isset($filters['cashier_id']) && $filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('cashier_id', $filters['cashier_id']))
                 ->latest()
                 ->get();
@@ -199,8 +203,8 @@ class ReportController extends Controller
             return $shifts->map(function ($shift) {
                 return [
                     'cashier' => $shift->cashier?->name ?? 'N/A',
-                    'opened_at' => $shift->opened_at ? $shift->opened_at->format('M d, Y H:i') : 'N/A',
-                    'closed_at' => $shift->closed_at ? $shift->closed_at->format('M d, Y H:i') : 'Active',
+                    'opened_at' => $shift->opened_at ? $shift->opened_at->timezone('Asia/Manila')->format('M d, Y H:i') : 'N/A',
+                    'closed_at' => $shift->closed_at ? $shift->closed_at->timezone('Asia/Manila')->format('M d, Y H:i') : 'Active',
                     'starting_cash' => '₱' . number_format((float) $shift->starting_cash, 2),
                     'cash_sales' => '₱' . number_format((float) ($shift->total_cash_sales ?? 0), 2),
                     'expected_balance' => '₱' . number_format((float) ($shift->expected_balance ?? 0), 2),
@@ -352,21 +356,37 @@ class ReportController extends Controller
     }
 
     /**
+     * Parse date_from and date_to input into UTC start/end boundaries for database queries.
+     *
+     * @return array{0: ?\Carbon\Carbon, 1: ?\Carbon\Carbon}
+     */
+    private function parseDateBoundaries(?string $dateFrom, ?string $dateTo): array
+    {
+        $tz = 'Asia/Manila';
+        $startUtc = $dateFrom ? Carbon::parse($dateFrom, $tz)->startOfDay()->utc() : null;
+        $endUtc   = $dateTo   ? Carbon::parse($dateTo, $tz)->endOfDay()->utc() : null;
+
+        return [$startUtc, $endUtc];
+    }
+
+    /**
      * Build daily revenue and profit trend collection.
      */
     private function buildDailyTrend(?int $branchId, ?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback)
     {
+        [$startUtc, $endUtc] = $this->parseDateBoundaries($dateFrom, $dateTo);
+
         $sales = Sale::with(['items.product.ingredients.stocks'])
             ->where('status', 'completed')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
-            ->when($dateFrom, fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo,   fn($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('created_at', '>=', $fallback))
+            ->when($startUtc, fn($q) => $q->where('created_at', '>=', $startUtc))
+            ->when($endUtc,   fn($q) => $q->where('created_at', '<=', $endUtc))
+            ->when(!$startUtc, fn($q) => $q->where('created_at', '>=', $fallback))
             ->get();
 
         $dailyTrendMap = [];
         foreach ($sales as $sale) {
-            $dateKey = $sale->created_at->toDateString();
+            $dateKey = $sale->created_at ? $sale->created_at->timezone('Asia/Manila')->toDateString() : 'Unknown';
             if (!isset($dailyTrendMap[$dateKey])) {
                 $dailyTrendMap[$dateKey] = ['revenue' => 0.0, 'cogs' => 0.0, 'orders' => 0];
             }
@@ -409,14 +429,16 @@ class ReportController extends Controller
      */
     private function buildCategoryAndTopProductData(?int $branchId, ?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback): array
     {
+        [$startUtc, $endUtc] = $this->parseDateBoundaries($dateFrom, $dateTo);
+
         $topProducts = DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales',    'sale_items.sale_id',    '=', 'sales.id')
             ->where('sales.status', 'completed')
             ->when($branchId,  fn($q) => $q->where('sales.branch_id', $branchId))
-            ->when($dateFrom,  fn($q) => $q->whereDate('sales.created_at', '>=', $dateFrom))
-            ->when($dateTo,    fn($q) => $q->whereDate('sales.created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('sales.created_at', '>=', $fallback))
+            ->when($startUtc,  fn($q) => $q->where('sales.created_at', '>=', $startUtc))
+            ->when($endUtc,    fn($q) => $q->where('sales.created_at', '<=', $endUtc))
+            ->when(!$startUtc, fn($q) => $q->where('sales.created_at', '>=', $fallback))
             ->selectRaw('products.name,
                          SUM(sale_items.quantity) as total_sold,
                          SUM(sale_items.subtotal) as revenue')
@@ -445,11 +467,13 @@ class ReportController extends Controller
      */
     private function cancelledCount(?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback, ?int $branchId = null): int
     {
+        [$startUtc, $endUtc] = $this->parseDateBoundaries($dateFrom, $dateTo);
+
         return Sale::where('status', 'cancelled')
             ->when($branchId,  fn($q) => $q->where('branch_id', $branchId))
-            ->when($dateFrom,  fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo,    fn($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('created_at',     '>=', $fallback))
+            ->when($startUtc,  fn($q) => $q->where('created_at', '>=', $startUtc))
+            ->when($endUtc,    fn($q) => $q->where('created_at', '<=', $endUtc))
+            ->when(!$startUtc, fn($q) => $q->where('created_at', '>=', $fallback))
             ->count();
     }
 
@@ -458,12 +482,14 @@ class ReportController extends Controller
      */
     private function buildTopAddonsData(?int $branchId, ?string $dateFrom, ?string $dateTo, \DateTimeInterface $fallback): Collection
     {
+        [$startUtc, $endUtc] = $this->parseDateBoundaries($dateFrom, $dateTo);
+
         $sales = Sale::with('items')
             ->where('status', 'completed')
             ->when($branchId,  fn($q) => $q->where('branch_id', $branchId))
-            ->when($dateFrom,  fn($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo,    fn($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->when(!$dateFrom, fn($q) => $q->where('created_at',     '>=', $fallback))
+            ->when($startUtc,  fn($q) => $q->where('created_at', '>=', $startUtc))
+            ->when($endUtc,    fn($q) => $q->where('created_at', '<=', $endUtc))
+            ->when(!$startUtc, fn($q) => $q->where('created_at', '>=', $fallback))
             ->get();
 
         $addonsAgg = [];

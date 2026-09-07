@@ -202,14 +202,106 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     return null;
 };
 
-function getPeriodLabel(filters: { date_from?: string; date_to?: string }, type: 'Sales' | 'Orders') {
-    if (filters.date_from && filters.date_to) {
-        if (filters.date_from === filters.date_to && filters.date_from === format(new Date(), 'yyyy-MM-dd')) {
-            return `${type} Today`;
-        }
-        return `${type} (Selected Dates)`;
+function getPeriodInfo(filters: { date_from?: string; date_to?: string }) {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    const last7Str = format(subDays(new Date(), 6), 'yyyy-MM-dd');
+    const last30Str = format(subDays(new Date(), 29), 'yyyy-MM-dd');
+
+    if (!filters.date_from && !filters.date_to) {
+        return {
+            label: 'All-Time',
+            revenueTitle: 'Total Net Revenue',
+            ordersTitle: 'Total Completed Orders',
+            expensesTitle: 'Operating Expenses',
+            profitTitle: 'Net Profit',
+            badgeText: 'All-Time',
+            isToday: false,
+            isYesterday: false,
+        };
     }
-    return `All-Time ${type}`;
+
+    if (filters.date_from === todayStr && filters.date_to === todayStr) {
+        return {
+            label: 'Today',
+            revenueTitle: "Today's Revenue",
+            ordersTitle: "Today's Orders",
+            expensesTitle: "Today's Expenses",
+            profitTitle: "Today's Net Profit",
+            badgeText: 'Live Today',
+            isToday: true,
+            isYesterday: false,
+        };
+    }
+
+    if (filters.date_from === yesterdayStr && filters.date_to === yesterdayStr) {
+        return {
+            label: 'Yesterday',
+            revenueTitle: "Yesterday's Revenue",
+            ordersTitle: "Yesterday's Orders",
+            expensesTitle: "Yesterday's Expenses",
+            profitTitle: "Yesterday's Net Profit",
+            badgeText: 'Yesterday',
+            isToday: false,
+            isYesterday: true,
+        };
+    }
+
+    if (filters.date_from === last7Str && filters.date_to === todayStr) {
+        return {
+            label: 'Last 7 Days',
+            revenueTitle: 'Last 7 Days Revenue',
+            ordersTitle: 'Last 7 Days Orders',
+            expensesTitle: 'Last 7 Days Expenses',
+            profitTitle: 'Last 7 Days Profit',
+            badgeText: 'Last 7 Days',
+            isToday: false,
+            isYesterday: false,
+        };
+    }
+
+    if (filters.date_from === last30Str && filters.date_to === todayStr) {
+        return {
+            label: 'Last 30 Days',
+            revenueTitle: 'Last 30 Days Revenue',
+            ordersTitle: 'Last 30 Days Orders',
+            expensesTitle: 'Last 30 Days Expenses',
+            profitTitle: 'Last 30 Days Profit',
+            badgeText: 'Last 30 Days',
+            isToday: false,
+            isYesterday: false,
+        };
+    }
+
+    if (filters.date_from && filters.date_to && filters.date_from === filters.date_to) {
+        try {
+            const d = parseISO(filters.date_from);
+            const formatted = format(d, 'MMM d, yyyy');
+            return {
+                label: formatted,
+                revenueTitle: `Revenue (${formatted})`,
+                ordersTitle: `Orders (${formatted})`,
+                expensesTitle: `Expenses (${formatted})`,
+                profitTitle: `Profit (${formatted})`,
+                badgeText: formatted,
+                isToday: false,
+                isYesterday: false,
+            };
+        } catch {
+            // fallback
+        }
+    }
+
+    return {
+        label: 'Period',
+        revenueTitle: 'Period Net Revenue',
+        ordersTitle: 'Period Completed Orders',
+        expensesTitle: 'Period Expenses',
+        profitTitle: 'Period Net Profit',
+        badgeText: 'Filtered Period',
+        isToday: false,
+        isYesterday: false,
+    };
 }
 
 // ── DYNAMIC EXPORT MODAL ──
@@ -474,6 +566,7 @@ interface AdminReportsProps {
     cancelled_count: number;
     today_sales: number;
     isAdmin?: boolean;
+    profit_margin?: number;
     revenue_delta?: MetricDelta;
     orders_delta?: MetricDelta;
     expenses_delta?: MetricDelta;
@@ -498,6 +591,7 @@ function AdminReports({
     cancelled_count, 
     today_sales, 
     isAdmin = false,
+    profit_margin,
     revenue_delta,
     orders_delta,
     expenses_delta,
@@ -512,6 +606,8 @@ function AdminReports({
     const [selectedBranch, setSelectedBranch] = useState(filters.branch_id || 'all');
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
     const [isExportOpen, setIsExportOpen] = useState(false);
+
+    const periodInfo = useMemo(() => getPeriodInfo(filters), [filters]);
 
     React.useEffect(() => {
         setDateFrom(filters.date_from || '');
@@ -546,16 +642,11 @@ function AdminReports({
         const kpis = [];
         if (options.includedData.kpis) {
             if (activeTab === 'sales') {
-                const isFiltered = Boolean(dateFrom || dateTo);
-                const periodRevenueTitle = isFiltered ? "Period Net Revenue" : "Total Revenue";
-                const periodOrdersTitle = isFiltered ? "Period Completed Orders" : "Total Orders";
-                const periodProfitTitle = isFiltered ? "Period Net Profit" : "Net Profit";
-
-                kpis.push({ title: "Today's Sales", value: formatCurrency(today_sales ?? 0) });
-                kpis.push({ title: periodRevenueTitle, value: formatCurrency(total_revenue ?? 0) });
-                kpis.push({ title: periodOrdersTitle, value: (total_orders ?? 0).toLocaleString() });
+                kpis.push({ title: periodInfo.revenueTitle, value: formatCurrency(total_revenue ?? 0) });
+                kpis.push({ title: periodInfo.ordersTitle, value: (total_orders ?? 0).toLocaleString() });
                 if (isAdminUser) {
-                    kpis.push({ title: periodProfitTitle, value: formatCurrency(total_profit ?? 0) });
+                    kpis.push({ title: periodInfo.expensesTitle, value: formatCurrency(total_expenses ?? 0) });
+                    kpis.push({ title: periodInfo.profitTitle, value: formatCurrency(total_profit ?? 0) });
                 }
                 kpis.push({ title: "Cancelled Orders", value: (cancelled_count ?? 0).toLocaleString() });
             } else {
@@ -747,61 +838,63 @@ function AdminReports({
                     {/* Dashboard Reused KPI Cards Strip */}
                     <div className={cn("grid gap-4 pt-2", isAdminUser ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4")}>
                         <KPICard
-                            title="Today's Revenue"
-                            value={formatCurrency(today_sales ?? 0)}
+                            title={periodInfo.revenueTitle}
+                            value={formatCurrency(total_revenue ?? 0)}
                             icon={Zap}
-                            trend={today_revenue_delta?.trend || 'up'}
-                            trendValue={today_revenue_delta?.formatted_delta || (today_sales > 0 ? '+0.0%' : '0.0%')}
-                            comparison={today_revenue_delta?.comparison_label || 'vs yesterday'}
+                            trend={revenue_delta?.trend || (total_revenue > 0 ? 'up' : 'neutral')}
+                            trendValue={revenue_delta?.formatted_delta || (total_revenue > 0 ? '+0.0%' : '0.0%')}
+                            comparison={revenue_delta?.comparison_label || (periodInfo.isYesterday ? 'vs previous day' : (periodInfo.isToday ? 'vs yesterday' : 'vs previous timeframe'))}
                             sparklineData={[{ value: 45 }, { value: 65 }, { value: 80 }, { value: 95 }]}
-                            badgeText="Live Today"
+                            badgeText={periodInfo.badgeText}
                             index={0}
                         />
                         <KPICard
-                            title={getPeriodLabel(filters, 'Sales')}
-                            value={formatCurrency(total_revenue ?? 0)}
-                            icon={TrendingUp}
-                            trend={revenue_delta?.trend || 'up'}
-                            trendValue={revenue_delta?.formatted_delta || (total_revenue > 0 ? '+0.0%' : '0.0%')}
-                            comparison={revenue_delta?.comparison_label || 'vs previous timeframe'}
-                            sparklineData={[{ value: 30 }, { value: 45 }, { value: 60 }, { value: 80 }]}
-                            badgeText="Total Revenue"
-                            index={1}
-                        />
-                        <KPICard
-                            title={getPeriodLabel(filters, 'Orders')}
+                            title={periodInfo.ordersTitle}
                             value={(total_orders ?? 0).toLocaleString()}
                             icon={ShoppingBag}
                             trend={orders_delta?.trend || 'neutral'}
                             trendValue={orders_delta?.formatted_delta || '0.0%'}
-                            comparison={orders_delta?.comparison_label || 'completed volume'}
+                            comparison={orders_delta?.comparison_label || (periodInfo.isYesterday ? 'vs previous day' : (periodInfo.isToday ? 'vs yesterday' : 'completed volume'))}
                             sparklineData={[{ value: 40 }, { value: 60 }, { value: 70 }, { value: 85 }]}
                             badgeText="Fulfillment"
-                            index={2}
+                            index={1}
                         />
                         {isAdminUser && (
                             <KPICard
-                                title="Operating Expenses"
+                                title={periodInfo.expensesTitle}
                                 value={formatCurrency(total_expenses ?? 0)}
                                 icon={Receipt}
                                 trend={expenses_delta?.trend || 'down'}
                                 trendValue={expenses_delta?.formatted_delta || 'COGS'}
-                                comparison={expenses_delta?.comparison_label || 'cost of goods sold'}
+                                comparison={expenses_delta?.comparison_label || (periodInfo.isYesterday ? 'vs previous day' : (periodInfo.isToday ? 'vs yesterday' : 'cost of goods sold'))}
                                 sparklineData={[{ value: 25 }, { value: 40 }, { value: 55 }, { value: 70 }]}
                                 badgeText="Expenses"
+                                index={2}
+                            />
+                        )}
+                        {isAdminUser && (
+                            <KPICard
+                                title={periodInfo.profitTitle}
+                                value={formatCurrency(total_profit ?? 0)}
+                                icon={TrendingUp}
+                                trend={profit_delta?.trend || 'up'}
+                                trendValue={profit_delta?.formatted_delta || (profit_margin !== undefined ? `${profit_margin}%` : 'Margin')}
+                                comparison={profit_delta?.comparison_label || (periodInfo.isYesterday ? 'vs previous day' : (periodInfo.isToday ? 'vs yesterday' : 'revenue minus expenses'))}
+                                sparklineData={[{ value: 20 }, { value: 50 }, { value: 65 }, { value: 88 }]}
+                                badgeText={profit_margin !== undefined ? `${profit_margin}% Margin` : 'Margin'}
                                 index={3}
                             />
                         )}
                         {isAdminUser && (
                             <KPICard
-                                title="Net Profit"
-                                value={formatCurrency(total_profit ?? 0)}
-                                icon={TrendingUp}
-                                trend={profit_delta?.trend || 'up'}
-                                trendValue={profit_delta?.formatted_delta || 'Margin'}
-                                comparison={profit_delta?.comparison_label || 'revenue minus expenses'}
-                                sparklineData={[{ value: 20 }, { value: 50 }, { value: 65 }, { value: 88 }]}
-                                badgeText="Margin"
+                                title="Avg. Order Value"
+                                value={formatCurrency(total_orders > 0 ? (total_revenue / total_orders) : 0)}
+                                icon={DollarSign}
+                                trend="neutral"
+                                trendValue={profit_margin !== undefined ? `${profit_margin}% Margin` : 'AOV'}
+                                comparison="revenue per order"
+                                sparklineData={[{ value: 30 }, { value: 45 }, { value: 60 }, { value: 80 }]}
+                                badgeText="Efficiency"
                                 index={4}
                             />
                         )}
@@ -1179,6 +1272,7 @@ interface CashierReportsProps {
     today_sales: number;
     total_revenue: number;
     total_orders: number;
+    cancelled_count?: number;
     revenue_delta?: MetricDelta;
     orders_delta?: MetricDelta;
     today_revenue_delta?: MetricDelta;
@@ -1194,6 +1288,7 @@ function CashierReports({
     today_sales,
     total_revenue,
     total_orders,
+    cancelled_count = 0,
     revenue_delta,
     orders_delta,
     today_revenue_delta
@@ -1205,6 +1300,8 @@ function CashierReports({
     const [activeTab, setActiveTab] = useState<'sales' | 'shifts'>('sales');
     const [isExportOpen, setIsExportOpen] = useState(false);
 
+    const periodInfo = useMemo(() => getPeriodInfo(filters), [filters]);
+
     const handleReset = () => {
         setDateFrom('');
         setDateTo('');
@@ -1215,9 +1312,9 @@ function CashierReports({
 
     const triggerExport = async (options: ExportOptions) => {
         const kpis = [
-            { title: "Sales Today", value: formatCurrency(today_sales ?? 0) },
-            { title: "Total Revenue", value: formatCurrency(total_revenue ?? 0) },
-            { title: "Total Orders", value: (total_orders ?? 0).toLocaleString() }
+            { title: periodInfo.revenueTitle, value: formatCurrency(total_revenue ?? 0) },
+            { title: periodInfo.ordersTitle, value: (total_orders ?? 0).toLocaleString() },
+            { title: "Cancelled Orders", value: (cancelled_count ?? 0).toLocaleString() }
         ];
 
         const columns = [];
@@ -1248,35 +1345,24 @@ function CashierReports({
                     total: formatCurrency(sale.total)
                 }));
             } else {
-                rows = (shifts.data || []).map((s: ShiftItem) => {
-                    const opening = Number(s.opening_cash ?? s.opening_balance ?? 0);
-                    const expected = Number(s.expected_cash ?? s.expected_balance ?? 0);
-                    const actual = s.actual_cash !== null && s.actual_cash !== undefined 
-                        ? Number(s.actual_cash) 
-                        : (s.closing_balance !== null && s.closing_balance !== undefined ? Number(s.closing_balance) : null);
-                    const diff = s.difference !== null && s.difference !== undefined 
-                        ? Number(s.difference) 
-                        : (s.variance !== null && s.variance !== undefined ? Number(s.variance) : (actual !== null ? actual - expected : null));
-
-                    return {
-                        cashier: s.cashier?.name ?? 'N/A',
-                        opened_at: s.opened_at ? format(new Date(s.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
-                        closed_at: s.closed_at ? format(new Date(s.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
-                        opening: formatCurrency(opening),
-                        ending: formatCurrency(expected),
-                        actual: actual !== null ? formatCurrency(actual) : 'Active',
-                        diff: diff !== null ? formatCurrency(diff) : '—',
-                    };
-                });
+                rows = (shifts.data || []).map((shift: ShiftItem) => ({
+                    cashier: shift.cashier?.name ?? 'N/A',
+                    opened_at: shift.opened_at ? format(new Date(shift.opened_at), 'MMM dd, yyyy HH:mm') : 'N/A',
+                    closed_at: shift.closed_at ? format(new Date(shift.closed_at), 'MMM dd, yyyy HH:mm') : 'Active',
+                    opening: formatCurrency(shift.opening_cash ?? shift.opening_balance ?? 0),
+                    ending: formatCurrency(shift.expected_cash ?? shift.expected_balance ?? 0),
+                    actual: shift.actual_cash !== null && shift.actual_cash !== undefined ? formatCurrency(shift.actual_cash) : 'Active',
+                    diff: shift.difference !== null && shift.difference !== undefined ? formatCurrency(shift.difference) : '—'
+                }));
             }
         }
 
         try {
             const res = await axios.post('/reports/export/prepare', {
-                reportName: activeTab === 'sales' ? 'Order History Report' : 'My Cash Drawer Report',
+                reportName: activeTab === 'sales' ? 'Cashier Sales Log' : 'Cashier Shifts Log',
                 branch: 'Assigned Branch',
-                dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : 'Current Period',
-                generatedBy: 'Cashier Member',
+                dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : 'All Time',
+                generatedBy: 'Cashier Terminal',
                 kpis,
                 columns,
                 rows,
@@ -1342,39 +1428,50 @@ function CashierReports({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     <KPICard
-                        title="Sales Today"
-                        value={formatCurrency(today_sales ?? 0)}
+                        title={periodInfo.revenueTitle}
+                        value={formatCurrency(total_revenue ?? 0)}
                         icon={Zap}
-                        trend={today_revenue_delta?.trend || 'up'}
-                        trendValue={today_revenue_delta?.formatted_delta || (today_sales > 0 ? '+0.0%' : '0.0%')}
-                        comparison={today_revenue_delta?.comparison_label || 'vs yesterday'}
+                        trend={revenue_delta?.trend || (total_revenue > 0 ? 'up' : 'neutral')}
+                        trendValue={revenue_delta?.formatted_delta || (total_revenue > 0 ? '+0.0%' : '0.0%')}
+                        comparison={revenue_delta?.comparison_label || (periodInfo.isYesterday ? 'vs previous day' : (periodInfo.isToday ? 'vs yesterday' : 'vs previous timeframe'))}
                         sparklineData={[{ value: 40 }, { value: 60 }, { value: 85 }]}
-                        badgeText="Live Shift"
+                        badgeText={periodInfo.badgeText}
                         index={0}
                     />
                     <KPICard
-                        title={getPeriodLabel(filters, 'Sales')}
-                        value={formatCurrency(total_revenue ?? 0)}
-                        icon={DollarSign}
-                        trend={revenue_delta?.trend || 'up'}
-                        trendValue={revenue_delta?.formatted_delta || (total_revenue > 0 ? '+0.0%' : '0.0%')}
-                        comparison={revenue_delta?.comparison_label || 'period total'}
-                        sparklineData={[{ value: 30 }, { value: 65 }, { value: 90 }]}
-                        badgeText="Gross Sales"
-                        index={1}
-                    />
-                    <KPICard
-                        title={getPeriodLabel(filters, 'Orders')}
+                        title={periodInfo.ordersTitle}
                         value={(total_orders ?? 0).toLocaleString()}
                         icon={ShoppingBag}
                         trend={orders_delta?.trend || 'neutral'}
                         trendValue={orders_delta?.formatted_delta || '0.0%'}
-                        comparison={orders_delta?.comparison_label || 'completed receipts'}
+                        comparison={orders_delta?.comparison_label || (periodInfo.isYesterday ? 'vs previous day' : (periodInfo.isToday ? 'vs yesterday' : 'completed receipts'))}
                         sparklineData={[{ value: 20 }, { value: 55 }, { value: 80 }]}
                         badgeText="Fulfillment"
+                        index={1}
+                    />
+                    <KPICard
+                        title="Avg. Order Value"
+                        value={formatCurrency(total_orders > 0 ? (total_revenue / total_orders) : 0)}
+                        icon={DollarSign}
+                        trend="neutral"
+                        trendValue="AOV"
+                        comparison="revenue per receipt"
+                        sparklineData={[{ value: 30 }, { value: 50 }, { value: 70 }]}
+                        badgeText="Efficiency"
                         index={2}
+                    />
+                    <KPICard
+                        title="Cancelled Orders"
+                        value={(cancelled_count ?? 0).toLocaleString()}
+                        icon={AlertTriangle}
+                        trend={(cancelled_count ?? 0) > 5 ? 'down' : 'up'}
+                        trendValue={(cancelled_count ?? 0) > 5 ? 'High' : 'Low'}
+                        comparison="void count"
+                        sparklineData={[{ value: 5 }, { value: 3 }, { value: 8 }, { value: 2 }]}
+                        badgeText="Audited"
+                        index={3}
                     />
                 </div>
             </div>
@@ -1390,11 +1487,11 @@ function CashierReports({
                                 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
                                 activeTab === 'sales'
                                     ? 'bg-[#E75480] dark:bg-[#E1062C] text-white shadow-xs'
-                                    : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E]'
+                                    : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white'
                             )}
                         >
                             <ShoppingBag className="size-3.5" />
-                            <span>Order History</span>
+                            <span>Sales Log</span>
                         </button>
                         <button
                             type="button"
@@ -1403,62 +1500,74 @@ function CashierReports({
                                 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer',
                                 activeTab === 'shifts'
                                     ? 'bg-[#E75480] dark:bg-[#E1062C] text-white shadow-xs'
-                                    : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E]'
+                                    : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white'
                             )}
                         >
                             <DollarSign className="size-3.5" />
-                            <span>My Cash Drawer</span>
+                            <span>Shift Balances</span>
                         </button>
                     </div>
 
-                    <Select value={cashierId} onValueChange={(v) => {
-                        setCashierId(v);
-                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: v === 'all' ? '' : v, status: v === 'all' ? '' : status }, { preserveState: true });
-                    }}>
-                        <SelectTrigger className="h-10 w-full lg:w-44 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
-                            <SelectValue placeholder="Cashier" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
-                            <SelectItem value="all">All Cashiers</SelectItem>
-                            {cashiers.map((c: { id: number; name: string }) => (
-                                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    {/* Filter Cashiers */}
+                    {cashiers.length > 0 && (
+                        <Select value={cashierId} onValueChange={(val) => {
+                            setCashierId(val);
+                            router.get('/reports', { 
+                                date_from: dateFrom, 
+                                date_to: dateTo, 
+                                cashier_id: val === 'all' ? '' : val, 
+                                status: status === 'all' ? '' : status 
+                            }, { preserveState: true });
+                        }}>
+                            <SelectTrigger className="h-9 px-3 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                <SelectValue placeholder="All Cashiers" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
+                                <SelectItem value="all">All Cashiers</SelectItem>
+                                {cashiers.map(c => (
+                                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
 
-                    <Select value={status} onValueChange={(v) => {
-                        setStatus(v);
-                        router.get('/reports', { date_from: dateFrom, date_to: dateTo, cashier_id: cashierId === 'all' ? '' : cashierId, status: v === 'all' ? '' : status }, { preserveState: true });
-                    }}>
-                        <SelectTrigger className="h-10 w-full lg:w-40 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
-                            <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="preparing">Preparing</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    {/* Filter Status (Only for Sales Tab) */}
+                    {activeTab === 'sales' && (
+                        <Select value={status} onValueChange={(val) => {
+                            setStatus(val);
+                            router.get('/reports', { 
+                                date_from: dateFrom, 
+                                date_to: dateTo, 
+                                cashier_id: cashierId === 'all' ? '' : cashierId, 
+                                status: val === 'all' ? '' : val 
+                            }, { preserveState: true });
+                        }}>
+                            <SelectTrigger className="h-9 px-3 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                <SelectValue placeholder="All Statuses" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold">
+                                <SelectItem value="all">All Statuses</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="refunded">Refunded</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
 
-                    <Button variant="ghost" onClick={handleReset} className="h-10 px-4 rounded-2xl text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#E75480] dark:hover:text-[#FF4F81] cursor-pointer">
-                        <RefreshCw className="size-3.5 mr-1.5" /> Reset Filters
-                    </Button>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
-                    <Search className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                    {activeTab === 'sales' ? (
-                        <span>Analyzing <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{sales.total || 0}</strong> Orders</span>
-                    ) : (
-                        <span>Analyzing <strong className="text-[#3D2C2E] dark:text-[#F8FAFC]">{shifts.total || 0}</strong> Shifts</span>
+                    {(dateFrom || dateTo || (cashierId && cashierId !== 'all') || (status && status !== 'all')) && (
+                        <Button 
+                            variant="ghost" 
+                            onClick={handleReset}
+                            className="h-9 px-3 rounded-2xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                        >
+                            Reset
+                        </Button>
                     )}
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 p-6 sm:p-7 space-y-5">
+            {/* Content Table Container */}
+            <div className="rounded-4xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] p-6 shadow-xs backdrop-blur-xl">
                 {activeTab === 'sales' ? (
                     <div className="rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 overflow-hidden">
                         <table className="w-full text-left border-collapse text-xs">
@@ -1599,7 +1708,7 @@ function CashierReports({
 // ── MAIN EXPORT COMPONENT ──
 export default function ReportsIndex(props: AdminReportsProps & CashierReportsProps) {
     const { auth } = usePage().props as unknown as { auth: { user: { role: string } } };
-    const isAdmin = auth.user.role === 'admin';
+    const isAdmin = auth.user.role === 'admin' || auth.user.role === 'super_admin';
 
     return (
         <AppLayout breadcrumbs={[{ title: 'Reports', href: '/reports' }]}>

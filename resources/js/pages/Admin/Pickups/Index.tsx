@@ -76,6 +76,7 @@ interface PickupOrder {
     scheduled_pickup_display?: string;
     scheduled_pickup_time?: string;
     prep_start_at?: string;
+    prep_start_display?: string;
     estimated_prep_time_minutes?: number;
     is_prep_window_open?: boolean;
     is_prep_due?: boolean;
@@ -598,7 +599,7 @@ export default function PickupDashboard({
                                                     Pickup Time:
                                                 </span>
                                                 <span className="font-bold text-primary">
-                                                    {order.scheduled_pickup_display || (order.scheduled_pickup_at ? (
+                                                    {order.scheduled_pickup_display || order.scheduled_pickup_time || (order.scheduled_pickup_at ? (
                                                         `${new Date(order.scheduled_pickup_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })} (${new Date(order.scheduled_pickup_at).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })})`
                                                     ) : 'ASAP')}
                                                 </span>
@@ -607,7 +608,7 @@ export default function PickupDashboard({
                                                 <div className="flex items-center justify-between text-gray-500">
                                                     <span>Kitchen Prepare Around:</span>
                                                     <span className="font-mono">
-                                                        {new Date(order.prep_start_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                        {order.prep_start_display || new Date(order.prep_start_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}
                                                     </span>
                                                 </div>
                                             )}
@@ -934,7 +935,7 @@ export default function PickupDashboard({
                                     <div className="flex justify-between">
                                         <span className="text-gray-500 dark:text-gray-400">Scheduled Kitchen Prep Window:</span>
                                         <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                                            {new Date(earlyPrepOrder.prep_start_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                            {earlyPrepOrder.prep_start_display || new Date(earlyPrepOrder.prep_start_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}
                                         </span>
                                     </div>
                                 )}
