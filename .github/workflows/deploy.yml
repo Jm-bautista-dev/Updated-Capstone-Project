@@ -112,7 +112,9 @@ jobs:
             !node_modules
             !tests
             !.github
+            !storage/framework
             !storage/logs
+            !public/storage
             !.env
           retention-days: 1
 
@@ -150,8 +152,8 @@ jobs:
       #    --archive     preserves permissions, timestamps, symlinks
       #    --compress    reduces transfer size
       #    --progress    shows file-level progress in the Actions log
-      #    --delete      removes server files that no longer exist locally
-      #    Excluded paths are never transferred to the server.
+      #    --delete      removes server files that no longer exist locally (except excluded paths)
+      #    EXCLUDED PATHS ARE PROTECTED: User-uploaded persistent images and runtime caches are NEVER deleted.
       - name: Sync files to server via rsync
         run: |
           rsync -azP \
@@ -160,7 +162,10 @@ jobs:
             --exclude='node_modules' \
             --exclude='tests' \
             --exclude='.github' \
+            --exclude='storage/app/public' \
+            --exclude='storage/framework' \
             --exclude='storage/logs' \
+            --exclude='public/storage' \
             --exclude='.env' \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.PORT }} -o StrictHostKeyChecking=no" \
             ./release/ \
@@ -180,16 +185,21 @@ jobs:
 
             cd ~/domains/makidesuoperation.site/public_html
 
-            # Ensure required storage and cache directories exist with write permissions
+            # Ensure persistent storage and runtime cache directories exist with write permissions
             echo "--- Ensuring storage directory structure & permissions ---"
+            mkdir -p storage/app/public/products storage/app/public/categories storage/app/public/delivery-proofs storage/app/public/proof_of_delivery storage/app/public/receipts storage/app/public/reviews
             mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/framework/testing storage/logs bootstrap/cache
             chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 
             # Ensure static asset and storage symlinks exist
             echo "--- Creating storage & static asset symlinks ---"
-            ln -sfn ../storage/app/public public/storage 2>/dev/null || true
+            php artisan storage:link || ln -sfn ../storage/app/public public/storage 2>/dev/null || true
             ln -sf public/build build 2>/dev/null || true
             ln -sf public/images images 2>/dev/null || true
+
+            # Verify persistent storage integrity and permissions
+            echo "--- Verifying persistent storage integrity ---"
+            php artisan storage:verify --fix || true
 
             # Note: vendor/ is pre-built in GitHub Actions and synced via rsync, avoiding proc_open restrictions on Hostinger
             echo "--- Caching config / routes / views ---"
