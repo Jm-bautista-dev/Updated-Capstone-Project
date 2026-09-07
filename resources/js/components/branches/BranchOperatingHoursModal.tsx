@@ -11,7 +11,7 @@ import {
     Save,
     Sparkles,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -101,24 +101,10 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
         description: '',
     });
 
-    // ── Mode Form ───────────────────────────────────────────────────────────
-    const modeForm = useForm({
-        operating_mode: branch?.operating_mode ?? 'automatic',
-        reason: branch?.mode_override_reason ?? '',
-        duration_hours: '',
-    });
-
+    // ── Mode Override State ──────────────────────────────────────────────────
+    const [overrideReason, setOverrideReason] = useState('');
+    const [overrideDuration, setOverrideDuration] = useState('');
     const [isUpdatingMode, setIsUpdatingMode] = useState(false);
-
-    useEffect(() => {
-        if (branch) {
-            modeForm.setData({
-                operating_mode: branch.operating_mode ?? 'automatic',
-                reason: branch.mode_override_reason ?? '',
-                duration_hours: '',
-            });
-        }
-    }, [branch?.id, branch?.operating_mode, branch?.mode_override_reason]);
 
     // ── Weekly Schedule Form ────────────────────────────────────────────────
     const defaultSchedules: BranchScheduleItem[] = Array.from({ length: 7 }, (_, i) => {
@@ -156,6 +142,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
         if (mode === currentMode) return;
 
         if (mode === 'force_closed') {
+            setOverrideReason(branch.mode_override_reason ?? '');
+            setOverrideDuration('');
             setConfirmModal({
                 isOpen: true,
                 targetMode: 'force_closed',
@@ -163,6 +151,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                 description: 'Customers will no longer be able to place new orders while the branch is forced closed.',
             });
         } else if (mode === 'force_open') {
+            setOverrideReason(branch.mode_override_reason ?? '');
+            setOverrideDuration('');
             setConfirmModal({
                 isOpen: true,
                 targetMode: 'force_open',
@@ -181,8 +171,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
         customDuration?: string
     ) => {
         setIsUpdatingMode(true);
-        const reason = customReason !== undefined ? customReason : modeForm.data.reason;
-        const durationHours = customDuration !== undefined ? customDuration : modeForm.data.duration_hours;
+        const reason = customReason !== undefined ? customReason : overrideReason;
+        const durationHours = customDuration !== undefined ? customDuration : overrideDuration;
 
         router.post(
             `/branches/${branch.id}/operating-mode`,
@@ -195,11 +185,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                 preserveScroll: true,
                 onSuccess: () => {
                     setConfirmModal({ isOpen: false, targetMode: 'automatic', title: '', description: '' });
-                    modeForm.setData({
-                        operating_mode: targetMode,
-                        reason: '',
-                        duration_hours: '',
-                    });
+                    setOverrideReason('');
+                    setOverrideDuration('');
                 },
                 onFinish: () => {
                     setIsUpdatingMode(false);
@@ -760,8 +747,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                     </label>
                     <Input
                         placeholder="e.g. Emergency electrical repair, Holiday extension"
-                        value={modeForm.data.reason}
-                        onChange={(e) => modeForm.setData('reason', e.target.value)}
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
                         className="h-10 rounded-xl text-xs bg-white dark:bg-[#121218]"
                     />
 
@@ -769,8 +756,8 @@ export function BranchOperatingHoursModal({ branch, open, onClose }: BranchOpera
                         Auto-Expire Override After (Optional)
                     </label>
                     <select
-                        value={modeForm.data.duration_hours}
-                        onChange={(e) => modeForm.setData('duration_hours', e.target.value)}
+                        value={overrideDuration}
+                        onChange={(e) => setOverrideDuration(e.target.value)}
                         className="w-full h-10 px-3 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 text-xs font-medium bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] outline-none"
                     >
                         <option value="">Indefinite (Until manually changed)</option>
