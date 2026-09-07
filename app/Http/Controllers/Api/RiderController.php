@@ -1610,6 +1610,7 @@ class RiderController extends Controller
             'orderNumber'             => $orderNumber,
             'order_source'            => $orderSource,
             'status'                  => $delivery->status,
+            'fulfillment_type'        => 'delivery',
             'current_state'           => $delivery->status,
             'order_status'            => $order?->status ?? $delivery->status,
             'orderStatus'             => $order?->status ?? $delivery->status,
