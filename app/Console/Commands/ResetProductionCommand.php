@@ -68,16 +68,6 @@ class ResetProductionCommand extends Command
         // Clean old storage uploads
         $this->info('--- 4. Cleaning Storage & Ensuring Directory Structure ---');
         $storageAppPublic = storage_path('app/public');
-        $preservedFiles = [
-            'products/KFa94aeoc6u2uNtrtJWut6OBEwcPK1NPzhPLSBIB.webp',
-            'products/UuQgPx8vEmB4XZYLHr222EIwftUsZC9zo23bhklw.webp',
-            'products/i31yyCKTEeGIXK5TcMSFloUfq1fvM6CV56oWT27l.webp',
-            'products/jIb4tHWIVCvbZBVEnbN2QVK1uC3m4DvfAs9OYkIh.webp',
-            'products/qiBrIy089cM72hsEIEloWRKlNoWTE6N6yVL8J568.webp',
-            'products/vVqWLaP6Tme2blpPlg69o7mMv8uxWvJrh9VrKnOX.webp',
-            'products/vvOZ06NJoGhT9R9709hd4HSqsVBhZaU2u2nmOFee.webp',
-            'products/xzu04WKAWtNnkqjbtR93YbZtD4nq9TLp3M5aqzoC.jpg',
-        ];
 
         $subDirs = ['products', 'categories', 'delivery-proofs', 'proof_of_delivery', 'receipts', 'reviews'];
         foreach ($subDirs as $dir) {
@@ -86,27 +76,15 @@ class ResetProductionCommand extends Command
                 @mkdir($dirPath, 0775, true);
             }
 
-            // Remove non-preserved files from old uploads
-            if ($dir !== 'products') {
-                $files = glob($dirPath . '/*');
-                foreach ($files as $file) {
-                    if (is_file($file) && basename($file) !== '.gitignore') {
-                        @unlink($file);
-                    }
-                }
-            } else {
-                $files = glob($dirPath . '/*');
-                foreach ($files as $file) {
-                    if (is_file($file) && basename($file) !== '.gitignore') {
-                        $rel = 'products/' . basename($file);
-                        if (!in_array($rel, $preservedFiles, true)) {
-                            @unlink($file);
-                        }
-                    }
+            // Remove all files from old uploads (keep .gitignore if present)
+            $files = glob($dirPath . '/*');
+            foreach ($files as $file) {
+                if (is_file($file) && basename($file) !== '.gitignore') {
+                    @unlink($file);
                 }
             }
         }
-        $this->info('   ✓ Storage directories ready and old test uploads cleaned.');
+        $this->info('   ✓ Storage upload directories created and cleaned (0 files).');
 
         // Recreate storage symlink
         $this->info('--- 5. Verifying & Linking Public Storage ---');

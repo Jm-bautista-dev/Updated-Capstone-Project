@@ -13,24 +13,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Run branch seeder first
+        // 1. Seed structural operational branches & super admin system configuration
         $this->call([
             BranchSeeder::class,
-            CategorySeeder::class,
-            ProductSeeder::class,
-            InventorySeeder::class,
             SuperAdminSeeder::class,
         ]);
 
-        // User::factory(10)->create();
-
+        // 2. Seed primary production Admin User
         User::updateOrCreate(
             ['email' => 'jmbautista0228@gmail.com'],
             [
-                'name' => 'Admin User',
-                'password' => bcrypt('09475591719'),
-                'role' => 'admin',
-                'branch_id' => 1,
+                'name'              => 'Admin User',
+                'password'          => bcrypt('09475591719'),
+                'role'              => 'admin',
+                'branch_id'         => 1,
                 'email_verified_at' => now(),
             ]
         );
