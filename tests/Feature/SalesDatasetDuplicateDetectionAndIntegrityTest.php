@@ -368,7 +368,7 @@ class SalesDatasetDuplicateDetectionAndIntegrityTest extends TestCase
             ->component('Admin/SalesDataManagement/Index')
             ->where('stats.total_sales_records', 2)
             ->where('stats.duplicate_records_detected', 0)
-            ->where('stats.data_integrity_status', 'Optimal')
+            ->where('stats.data_integrity_status', fn ($val) => $val === 'Optimal')
         );
     }
 

@@ -16,6 +16,7 @@ use App\Events\StockUpdated;
 use App\Models\Branch;
 use App\Models\CashierShift;
 use App\Models\ProductAddon;
+use App\Models\User;
 
 class SaleService
 {
@@ -60,14 +61,39 @@ class SaleService
      */
     public function processSale(array $data): Sale
     {
-        $sale = DB::transaction(function () use ($data): Sale {
-            /** @var \App\Models\User $user */
-            $user     = Auth::user();
-            $branchId = $user->branch_id;
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if (!$user?->branch_id) {
+            throw new \Exception('User is not assigned to a branch. Cannot process sale.');
+        }
 
-            if (!$branchId) {
-                throw new \Exception('User is not assigned to a branch. Cannot process sale.');
-            }
+        $sale = DB::transaction(fn (): Sale => $this->executeProcessSale($data, $user));
+
+        // 8. ── POST-COMMIT: ALLOCATE PRINT JOB ──────────────────────────────
+        try {
+            /** @var PrintJobService $printJobService */
+            $printJobService = app(PrintJobService::class);
+            $idempotencyKey = $data['idempotency_key'] ?? null;
+            $terminalId = $data['terminal_id'] ?? null;
+            $printJob = $printJobService->createForSale($sale, $idempotencyKey, $terminalId);
+            $sale->setRelation('printJob', $printJob);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('SaleService: Print job allocation failed gracefully: ' . $e->getMessage());
+        }
+
+        return $sale;
+    }
+
+    /**
+     * Execute the atomic sale creation within a database transaction.
+     *
+     * @param array $data
+     * @param User $user
+     * @return Sale
+     */
+    protected function executeProcessSale(array $data, User $user): Sale
+    {
+        $branchId = (int) $user->branch_id;
 
             // 1. Batch-fetch all products with their ingredients (eager loading)
             $itemIds = array_map(fn($it) => $it['id'] ?? $it['product_id'] ?? 0, $data['items']);
@@ -381,21 +407,6 @@ class SaleService
                     array_merge($data['delivery_info'], ['sale_id' => $sale->id])
                 );
             }
-
-            return $sale;
-        });
-
-        // 8. ── POST-COMMIT: ALLOCATE PRINT JOB ──────────────────────────────
-        try {
-            /** @var PrintJobService $printJobService */
-            $printJobService = app(PrintJobService::class);
-            $idempotencyKey = $data['idempotency_key'] ?? null;
-            $terminalId = $data['terminal_id'] ?? null;
-            $printJob = $printJobService->createForSale($sale, $idempotencyKey, $terminalId);
-            $sale->setRelation('printJob', $printJob);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('SaleService: Print job allocation failed gracefully: ' . $e->getMessage());
-        }
 
         return $sale;
     }
