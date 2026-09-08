@@ -460,7 +460,7 @@ export default function SalesForecast() {
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
                         <LegendDot color="#52525b" label="Actual" />
-                        <LegendDot color="#E1062C" label="Forecast" />
+                        <LegendDot color="#10b981" label="Forecast" />
                       </div>
                     </CardHeader>
                     <CardContent className="p-6">
@@ -473,8 +473,8 @@ export default function SalesForecast() {
                                 <stop offset="95%" stopColor="#52525b" stopOpacity={0} />
                               </linearGradient>
                               <linearGradient id="gradBand" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#E1062C" stopOpacity={0.1} />
-                                <stop offset="95%" stopColor="#E1062C" stopOpacity={0.01} />
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/10 dark:text-zinc-850" />
@@ -484,16 +484,16 @@ export default function SalesForecast() {
 
                             {/* Confidence Interval band */}
                             <Area type="monotone" dataKey="upper" fill="url(#gradBand)" stroke="none" fillOpacity={1} />
-                            <Area type="monotone" dataKey="lower" fill="#09090b" stroke="none" fillOpacity={1} />
+                            <Area type="monotone" dataKey="lower" fill="var(--ops-surface-raised, #09090b)" stroke="none" fillOpacity={1} />
 
                             {/* Actual metrics */}
                             <Area type="monotone" dataKey="actual" stroke="#52525b" strokeWidth={2.5} fill="url(#gradActual)" fillOpacity={1} dot={false} animationDuration={1000} />
 
                             {/* Prediction vectors */}
-                            <Line type="monotone" dataKey="predicted" stroke="#E1062C" strokeWidth={3} dot={{ r: 2.5, fill: '#E1062C', strokeWidth: 0 }} animationDuration={1000} />
+                            <Line type="monotone" dataKey="predicted" stroke="#10b981" strokeWidth={3} dot={{ r: 2.5, fill: '#10b981', strokeWidth: 0 }} animationDuration={1000} />
 
                             {referenceDate && (
-                              <ReferenceLine x={referenceDate} stroke="#E1062C" strokeDasharray="4 4" strokeOpacity={0.3} label={{ value: 'Today', position: 'top', fontSize: 8, fill: '#E1062C', fontWeight: 'black', textAnchor: 'middle' }} />
+                              <ReferenceLine x={referenceDate} stroke="#10b981" strokeDasharray="4 4" strokeOpacity={0.35} label={{ value: 'Today', position: 'top', fontSize: 8, fill: '#10b981', fontWeight: 'black', textAnchor: 'middle' }} />
                             )}
                           </ComposedChart>
                         </ResponsiveContainer>
