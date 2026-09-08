@@ -85,7 +85,7 @@ class Delivery extends Model
         }
 
         if ($this->relationLoaded('sale') && $this->sale) {
-            return $this->sale->order_number ?? $this->sale->invoice_number;
+            return $this->sale->order_number;
         }
 
         if ($this->order_id) {
@@ -96,9 +96,9 @@ class Delivery extends Model
         }
 
         if ($this->sale_id) {
-            $saleRow = \Illuminate\Support\Facades\DB::table('sales')->where('id', $this->sale_id)->first(['order_number', 'invoice_number']);
-            if ($saleRow) {
-                return $saleRow->order_number ?? $saleRow->invoice_number;
+            $orderNumber = \Illuminate\Support\Facades\DB::table('sales')->where('id', $this->sale_id)->value('order_number');
+            if ($orderNumber) {
+                return $orderNumber;
             }
         }
 
