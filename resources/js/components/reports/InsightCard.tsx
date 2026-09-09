@@ -67,7 +67,7 @@ export function InsightCard() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: index * 0.05 }}
-                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between space-y-4 hover:-translate-y-1 hover:border-[#E75480]/40 group"
+                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4"
                         >
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between gap-2">
@@ -100,7 +100,7 @@ export function InsightCard() {
                                     className="h-8 text-xs font-bold text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 gap-1.5 cursor-pointer p-0"
                                 >
                                     <span>Take Action</span>
-                                    <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                                    <ArrowRight className="size-3.5" />
                                 </Button>
                             </div>
                         </motion.div>

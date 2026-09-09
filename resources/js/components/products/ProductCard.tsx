@@ -128,6 +128,15 @@ export function ProductCard({
                         ) : (
                             <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono">{product.stock} {product.unit || 'pcs'}</span>
                         )}
+
+                        {product.stock <= 0 && product.insufficient_ingredients && product.insufficient_ingredients.length > 0 && (
+                            <span 
+                                className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold truncate max-w-37.5 text-right mt-0.5 block ml-auto"
+                                title={product.insufficient_ingredients.map(i => i.reason_display || i.name).join(' | ')}
+                            >
+                                Missing: {product.insufficient_ingredients.map(i => i.name).join(', ')}
+                            </span>
+                        )}
                     </div>
                 </div>
 

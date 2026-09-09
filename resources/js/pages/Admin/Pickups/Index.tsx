@@ -432,13 +432,13 @@ export default function PickupDashboard({
 
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <Card className="border-gray-200 dark:border-gray-800">
+                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-gray-500">Today Total</p>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.today_total}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800">
+                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Prepare Now</p>
@@ -451,25 +451,25 @@ export default function PickupDashboard({
                             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.due_prep ?? stats.pending_prep}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800">
+                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Scheduled (Future)</p>
                             <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.scheduled_future ?? 0}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800">
+                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-orange-600 dark:text-orange-400">In Kitchen</p>
                             <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{stats.preparing}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800">
+                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Ready for Pickup</p>
                             <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{stats.ready}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800">
+                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
                         <CardContent className="p-4">
                             <p className="text-xs font-medium text-green-600 dark:text-green-400">Completed</p>
                             <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.completed_today}</p>
@@ -557,7 +557,7 @@ export default function PickupDashboard({
                             const isUnpaid = order.payment_status === 'unpaid';
 
                             return (
-                                <Card key={order.id} className="border-gray-200 dark:border-gray-800 flex flex-col justify-between hover:shadow-md transition-shadow">
+                                <Card key={order.id} className="border-gray-200 dark:border-gray-800 flex flex-col justify-between hover:translate-y-0 hover:shadow-none hover:ring-0">
                                     <CardHeader className="pb-3">
                                         <div className="flex items-start justify-between">
                                             <div>

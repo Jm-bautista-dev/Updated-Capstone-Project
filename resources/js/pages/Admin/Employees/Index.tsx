@@ -103,9 +103,9 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
             case 'name': {
                 const trimmed = String(value || '').trim();
                 if (!trimmed) error = 'Full name is required';
-                else if (trimmed.length < 3) error = 'Must be at least 3 characters';
-                else if (trimmed.length > 80) error = 'Too long (max 80 characters)';
-                else if (!/[a-zA-Z]/.test(trimmed)) error = 'Invalid name format';
+                else if (trimmed.length < 2) error = 'Full name must be at least 2 characters';
+                else if (trimmed.length > 50) error = 'Full name cannot exceed 50 characters';
+                else if (!/^[A-Za-z\s]+$/.test(trimmed)) error = 'Full name must only contain letters and spaces';
                 break;
             }
             case 'email': {
@@ -338,7 +338,9 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
                                 maxLength={50}
                                 autoFocus
                             />
-                            {localErrors.name && <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.name}</p>}
+                            {(localErrors.name || errors.name) && (
+                                <p className="text-xs text-rose-500 font-bold ml-1">{localErrors.name || errors.name}</p>
+                            )}
                         </div>
 
                         {/* Email Address */}

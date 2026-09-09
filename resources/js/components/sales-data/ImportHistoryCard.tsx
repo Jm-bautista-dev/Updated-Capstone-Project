@@ -26,7 +26,7 @@ interface ImportHistoryCardProps {
 
 export function ImportHistoryCard({ importsHistory }: ImportHistoryCardProps) {
     return (
-        <Card className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] overflow-hidden backdrop-blur-2xl transition-colors duration-300 flex flex-col">
+        <Card className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] overflow-hidden backdrop-blur-2xl transition-colors duration-300 flex flex-col hover:translate-y-0 hover:shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:hover:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:ring-0">
             <CardHeader className="border-b border-[#F8C8DC]/40 dark:border-white/10 p-6 flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className="text-base font-black text-[#3D2C2E] dark:text-[#F8FAFC]">

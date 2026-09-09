@@ -131,14 +131,23 @@ export function ReportCategoryCard({ onSelectCategory, activeCategory }: ReportC
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: index * 0.03 }}
                             onClick={() => onSelectCategory(cat.id)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onSelectCategory(cat.id);
+                                }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`Select category ${cat.title}`}
                             className={cn(
-                                'rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between space-y-4 cursor-pointer group hover:-translate-y-1 hover:border-[#E75480]/40',
+                                'rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81]',
                                 isActive && 'ring-2 ring-[#E75480] dark:ring-[#FF4F81] bg-[#FFF5F7]/90 dark:bg-[#181824]/90'
                             )}
                         >
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs group-hover:scale-110 transition-transform', cat.accentColor)}>
+                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs', cat.accentColor)}>
                                         <Icon className="size-5.5" />
                                     </div>
                                     <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase border', cat.accentColor)}>
@@ -147,7 +156,7 @@ export function ReportCategoryCard({ onSelectCategory, activeCategory }: ReportC
                                 </div>
 
                                 <div>
-                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors">
+                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
                                         {cat.title}
                                     </h3>
                                     <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] mt-1 line-clamp-2 leading-relaxed">
@@ -166,7 +175,7 @@ export function ReportCategoryCard({ onSelectCategory, activeCategory }: ReportC
                                     className="h-8 px-2 text-xs font-bold text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 gap-1 cursor-pointer"
                                 >
                                     <span>Explore</span>
-                                    <ArrowUpRight className="size-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                    <ArrowUpRight className="size-3.5" />
                                 </Button>
                             </div>
                         </motion.div>

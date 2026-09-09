@@ -51,8 +51,7 @@ export function SalesDataHero({ stats }: SalesDataHeroProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 relative z-10 pt-2">
                 {/* Total Sales Records */}
                 <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors"
                 >
                     <div className="p-3 rounded-2xl bg-[#FADADD]/40 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] shrink-0">
                         <Database className="size-5" />
@@ -68,8 +67,7 @@ export function SalesDataHero({ stats }: SalesDataHeroProps) {
 
                 {/* Last Import Date */}
                 <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors"
                 >
                     <div className="p-3 rounded-2xl bg-blue-100/60 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shrink-0">
                         <Calendar className="size-5" />
@@ -85,8 +83,7 @@ export function SalesDataHero({ stats }: SalesDataHeroProps) {
 
                 {/* Last Imported By */}
                 <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors"
                 >
                     <div className="p-3 rounded-2xl bg-purple-100/60 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 shrink-0">
                         <User className="size-5" />
@@ -102,8 +99,7 @@ export function SalesDataHero({ stats }: SalesDataHeroProps) {
 
                 {/* Duplicates Detected */}
                 <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors"
                 >
                     <div className="p-3 rounded-2xl bg-amber-100/60 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 shrink-0">
                         <AlertTriangle className="size-5" />
@@ -126,8 +122,7 @@ export function SalesDataHero({ stats }: SalesDataHeroProps) {
 
                 {/* Data Integrity */}
                 <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors"
                 >
                     <div className="p-3 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
                         <Shield className="size-5" />

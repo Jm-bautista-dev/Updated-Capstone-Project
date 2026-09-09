@@ -7,7 +7,10 @@ import {
     Trash2, 
     MapPin, 
     Tag, 
-    Info 
+    Info,
+    AlertCircle,
+    AlertTriangle,
+    CheckCircle2
 } from 'lucide-react';
 
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -41,11 +44,36 @@ export interface Branch {
     name: string;
 }
 
+export interface InsufficientIngredient {
+    ingredient_id: number | null;
+    ingredient_name: string;
+    name: string;
+    required_quantity: number;
+    required: number;
+    available_quantity: number;
+    stock: number;
+    shortage_quantity: number;
+    shortage: number;
+    unit: string;
+    status: 'INSUFFICIENT_STOCK' | 'NO_INVENTORY_RECORD';
+    has_inventory_record: boolean;
+    reason: string;
+    reason_display: string;
+    branch_id?: number;
+    branch_name?: string;
+}
+
 export interface BranchStockItem {
     branch_id: number;
     branch_name: string;
     stock: number;
+    available?: number;
     is_available: boolean;
+    status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+    status_label?: string;
+    is_low_stock?: boolean;
+    limiting_ingredient?: string | null;
+    insufficient_ingredients?: InsufficientIngredient[];
 }
 
 export interface Product {
@@ -62,6 +90,11 @@ export interface Product {
     cost_price: number;
     selling_price: number;
     status: string;
+    availability_status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+    is_available?: boolean;
+    limiting_ingredient?: string | null;
+    insufficient_ingredients?: InsufficientIngredient[];
+    blocking_ingredients?: InsufficientIngredient[];
     image_url: string | null;
     ingredients: Ingredient[];
     branches: Branch[];
@@ -96,6 +129,10 @@ export function ProductDrawer({
     const hasValidCost = product.cost_price != null && Number(product.cost_price) > 0;
     const profit = hasValidCost ? product.selling_price - product.cost_price : 0;
     const marginPct = (hasValidCost && product.selling_price > 0) ? (profit / product.selling_price) * 100 : null;
+
+    const isOutOfStock = product.status === 'Out of Stock' || product.availability_status === 'OUT_OF_STOCK' || product.stock <= 0;
+    const isLowStock = product.status === 'Low Stock' || product.availability_status === 'LOW_STOCK';
+    const insufficientList = product.insufficient_ingredients || product.blocking_ingredients || [];
 
     return (
         <Sheet open={open} onOpenChange={(val) => !val && onClose()}>
@@ -135,6 +172,122 @@ export function ProductDrawer({
                             SKU: {product.sku || 'N/A'} • Created {format(new Date(product.created_at), 'MMM d, yyyy')}
                         </SheetDescription>
                     </SheetHeader>
+
+                    {/* Product Availability & Stock Shortage Diagnostics */}
+                    <div className={cn(
+                        "p-4 rounded-2xl border transition-all duration-300 space-y-3",
+                        isOutOfStock
+                            ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200/80 dark:border-rose-900/50"
+                            : isLowStock
+                                ? "bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/80 dark:border-amber-900/50"
+                                : "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/80 dark:border-emerald-900/50"
+                    )}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                {isOutOfStock ? (
+                                    <AlertCircle className="size-4.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                ) : isLowStock ? (
+                                    <AlertTriangle className="size-4.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                ) : (
+                                    <CheckCircle2 className="size-4.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                )}
+                                <span className={cn(
+                                    "text-xs font-extrabold uppercase tracking-wider",
+                                    isOutOfStock
+                                        ? "text-rose-800 dark:text-rose-300"
+                                        : isLowStock
+                                            ? "text-amber-800 dark:text-amber-300"
+                                            : "text-emerald-800 dark:text-emerald-300"
+                                )}>
+                                    Product Availability: {product.status}
+                                </span>
+                            </div>
+                            <span className={cn(
+                                "text-xs font-mono font-extrabold px-2.5 py-0.5 rounded-full border",
+                                isOutOfStock
+                                    ? "bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800"
+                                    : isLowStock
+                                        ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                                        : "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                            )}>
+                                {product.stock} {product.unit || 'pcs'} Available
+                            </span>
+                        </div>
+
+                        {/* Reason Breakdown when Insufficient Ingredients or Out of Stock */}
+                        {isOutOfStock ? (
+                            <div className="space-y-2 pt-1 border-t border-rose-200/60 dark:border-rose-900/40">
+                                <span className="text-[11px] font-bold text-rose-900 dark:text-rose-200 block uppercase tracking-wider">
+                                    Why is this product out of stock?
+                                </span>
+
+                                {insufficientList.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {insufficientList.map((item, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="p-3 rounded-xl bg-white/90 dark:bg-[#15151F] border border-rose-200 dark:border-rose-900/60 shadow-2xs space-y-1.5"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-extrabold text-xs text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                        {item.ingredient_name || item.name}
+                                                        {item.branch_name && (
+                                                            <span className="text-[10px] font-normal text-[#9E8B8E] dark:text-[#94A3B8] ml-1.5">
+                                                                ({item.branch_name})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                    <span className={cn(
+                                                        "text-[10px] font-bold px-2 py-0.5 rounded-md border uppercase font-mono",
+                                                        item.status === 'NO_INVENTORY_RECORD'
+                                                            ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                                                            : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800"
+                                                    )}>
+                                                        {item.status === 'NO_INVENTORY_RECORD' ? 'No Inventory Record' : `Short by ${item.shortage_quantity ?? item.shortage} ${item.unit}`}
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-1.5 text-[10px] text-[#5D4A4D] dark:text-[#CBD5E1] bg-rose-50/40 dark:bg-rose-950/20 p-2 rounded-lg font-mono">
+                                                    <div>
+                                                        <span className="text-[#9E8B8E] dark:text-[#64748B] block">Required:</span>
+                                                        <span className="font-bold">{item.required_quantity ?? item.required} {item.unit}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[#9E8B8E] dark:text-[#64748B] block">Available:</span>
+                                                        <span className="font-bold">{item.available_quantity ?? item.stock} {item.unit}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-rose-600 dark:text-rose-400 block font-bold">Shortage:</span>
+                                                        <span className="font-extrabold text-rose-600 dark:text-rose-400">
+                                                            -{item.shortage_quantity ?? item.shortage} {item.unit}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-[11px] text-rose-800 dark:text-rose-300 font-medium italic">
+                                                    {item.reason_display || `${item.name} is short by ${item.shortage_quantity ?? item.shortage} ${item.unit}.`}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-rose-700 dark:text-rose-300 font-medium">
+                                        Physical stock is depleted or unavailable for fulfillment in selected branch.
+                                    </p>
+                                )}
+                            </div>
+                        ) : isLowStock ? (
+                            <p className="text-xs text-amber-800 dark:text-amber-300 font-medium pt-1 border-t border-amber-200/60 dark:border-amber-900/40">
+                                {product.limiting_ingredient
+                                    ? `Stock capacity is limited by available ${product.limiting_ingredient}. Restock soon to prevent order blockage.`
+                                    : 'Remaining inventory is nearing low stock threshold.'}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium pt-1 border-t border-emerald-200/60 dark:border-emerald-900/40">
+                                All required recipe ingredients and materials are fully stocked and available for preparation.
+                            </p>
+                        )}
+                    </div>
 
                     {/* Product Description */}
                     {product.description && (
@@ -193,27 +346,43 @@ export function ProductDrawer({
                             </span>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                             {product.branch_breakdown && Object.keys(product.branch_breakdown).length > 0 ? (
                                 Object.values(product.branch_breakdown).map((b) => (
-                                    <div key={b.branch_id} className="flex items-center justify-between py-1 text-xs">
-                                        <span className="font-semibold text-[#3D2C2E] dark:text-[#E2E8F0] flex items-center gap-1.5">
-                                            <MapPin className="size-3 text-[#E75480] dark:text-[#FF4F81]" />
-                                            {b.branch_name}
-                                        </span>
-                                        <span className={cn(
-                                            "font-mono font-extrabold px-2 py-0.5 rounded-lg border text-xs",
-                                            b.stock > 0
-                                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
-                                                : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/40"
-                                        )}>
-                                            {b.stock} {product.unit || 'pcs'}
-                                        </span>
+                                    <div key={b.branch_id} className="p-2.5 rounded-xl bg-[#FFFDFE] dark:bg-[#15151E] border border-[#F8C8DC]/30 dark:border-white/5 space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-semibold text-[#3D2C2E] dark:text-[#E2E8F0] flex items-center gap-1.5">
+                                                <MapPin className="size-3 text-[#E75480] dark:text-[#FF4F81]" />
+                                                {b.branch_name}
+                                            </span>
+                                            <span className={cn(
+                                                "font-mono font-extrabold px-2 py-0.5 rounded-lg border text-xs",
+                                                b.stock > 0
+                                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
+                                                    : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/40"
+                                            )}>
+                                                {b.stock} {product.unit || 'pcs'}
+                                            </span>
+                                        </div>
+
+                                        {/* If branch is out of stock and has shortages */}
+                                        {b.insufficient_ingredients && b.insufficient_ingredients.length > 0 && (
+                                            <div className="text-[10px] text-rose-600 dark:text-rose-400 font-medium pl-4 space-y-0.5">
+                                                {b.insufficient_ingredients.map((ins, i) => (
+                                                    <div key={i} className="flex items-center gap-1">
+                                                        <span>• {ins.name}:</span>
+                                                        <span className="font-mono">
+                                                            {ins.status === 'NO_INVENTORY_RECORD' ? 'No inventory record' : `short by ${ins.shortage_quantity} ${ins.unit}`}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             ) : (
                                 <div className="flex items-center justify-between py-1 text-xs">
-                                    <span className="font-semibold text-[#3D2C2E] dark:text-[#E2E8F0]">Global Stock</span>
+                                    <span className="font-semibold text-[#3D2C2E] dark:text-[#E2E8F0]">Branch Stock</span>
                                     <span className="font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{product.stock} {product.unit || 'pcs'}</span>
                                 </div>
                             )}

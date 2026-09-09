@@ -164,6 +164,7 @@ export default function CashierPerformance() {
                         sparklineData={[{ value: 30 }, { value: 65 }, { value: 90 }]}
                         badgeText="Gross Sales"
                         index={0}
+                        disableHover={true}
                     />
                     <KPICard
                         title="Total Transactions"
@@ -175,6 +176,7 @@ export default function CashierPerformance() {
                         sparklineData={[{ value: 20 }, { value: 55 }, { value: 80 }]}
                         badgeText="Volume"
                         index={1}
+                        disableHover={true}
                     />
                     <KPICard
                         title="Overall Avg Order"
@@ -186,6 +188,7 @@ export default function CashierPerformance() {
                         sparklineData={[{ value: 40 }, { value: 60 }, { value: 75 }]}
                         badgeText="Basket Avg"
                         index={2}
+                        disableHover={true}
                     />
                     <KPICard
                         title="Top Representative"
@@ -197,6 +200,7 @@ export default function CashierPerformance() {
                         sparklineData={[{ value: 50 }, { value: 70 }, { value: 95 }]}
                         badgeText="Leader"
                         index={3}
+                        disableHover={true}
                     />
                 </div>
 

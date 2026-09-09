@@ -6,7 +6,6 @@ import {
     DialogContent,
     DialogDescription,
     DialogFooter,
-    DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -20,6 +19,7 @@ interface ConfirmDialogProps {
     confirmText?: string;
     cancelText?: string;
     variant?: 'default' | 'destructive';
+    isLoading?: boolean;
 }
 
 export function ConfirmDialog({
@@ -30,11 +30,12 @@ export function ConfirmDialog({
     description = "This action cannot be undone.",
     confirmText = "Confirm",
     cancelText = "Cancel",
-    variant = 'default'
+    variant = 'default',
+    isLoading = false,
 }: ConfirmDialogProps) {
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-background dark:bg-zinc-900 ring-1 ring-black/[0.05] dark:ring-white/[0.05]">
+        <Dialog open={open} onOpenChange={(val) => !isLoading && onOpenChange(val)}>
+            <DialogContent className="sm:max-w-100 p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-background dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/5">
                 <div className="p-6">
                     <div className="flex items-center gap-4 mb-4">
                         <div className={cn(
@@ -47,7 +48,7 @@ export function ConfirmDialog({
                             <DialogTitle className="text-xl font-black italic tracking-tighter uppercase leading-tight text-foreground dark:text-white">
                                 {title}
                             </DialogTitle>
-                            <DialogDescription className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase opacity-70 leading-relaxed">
+                            <DialogDescription className="text-xs font-medium text-muted-foreground dark:text-zinc-400 leading-relaxed">
                                 {description}
                             </DialogDescription>
                         </div>
@@ -58,6 +59,7 @@ export function ConfirmDialog({
                     <Button
                         type="button"
                         variant="ghost"
+                        disabled={isLoading}
                         className="flex-1 h-11 rounded-xl font-bold text-muted-foreground hover:bg-muted dark:hover:bg-zinc-800"
                         onClick={() => onOpenChange(false)}
                     >
@@ -65,6 +67,7 @@ export function ConfirmDialog({
                     </Button>
                     <Button
                         type="button"
+                        disabled={isLoading}
                         variant={variant === 'destructive' ? 'destructive' : 'default'}
                         className={cn(
                             "flex-1 h-11 rounded-xl font-black italic tracking-tight shadow-lg active:scale-95 transition-all text-sm",
@@ -72,7 +75,6 @@ export function ConfirmDialog({
                         )}
                         onClick={() => {
                             onConfirm();
-                            onOpenChange(false);
                         }}
                     >
                         {confirmText}

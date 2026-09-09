@@ -61,7 +61,7 @@ class SaleService
      */
     public function processSale(array $data): Sale
     {
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = Auth::user();
         if (!$user?->branch_id) {
             throw new \Exception('User is not assigned to a branch. Cannot process sale.');
@@ -94,324 +94,373 @@ class SaleService
     protected function executeProcessSale(array $data, User $user): Sale
     {
         $branchId = (int) $user->branch_id;
+        $orderType = $data['type'] ?? 'dine-in';
+        $paymentMethod = $data['payment_method'] ?? 'cash';
 
-            // 1. Batch-fetch all products with their ingredients (eager loading)
-            $itemIds = array_map(fn($it) => $it['id'] ?? $it['product_id'] ?? 0, $data['items']);
-            $productsQuery = Product::with(['ingredients.stocks'])
-                ->whereIn('id', $itemIds)
-                ->where(function ($q) use ($branchId) {
-                    $q->where('branch_id', $branchId)
-                      ->orWhereNull('branch_id')
-                      ->orWhereHas('branches', function ($bq) use ($branchId) {
-                          $bq->where('branches.id', $branchId);
-                      });
-                });
+        // 1. Process items, modifier groups, and inventory requirements
+        [
+            $saleItemsData,
+            $ingredientRequirements,
+            $directRequirements,
+            $costTotal,
+            $products
+        ] = $this->parseAndComputeSaleItems($data['items'] ?? [], $branchId);
 
-            $products = $productsQuery->get()->keyBy('id');
-
-            // Aggregate totals per ingredient and per product
-            $ingredientRequirements = []; // [ingredient_id => total_quantity_needed]
-            $directRequirements = [];     // [product_id => total_quantity_needed]
-            $costTotal   = 0;
-            $saleProfit  = 0;
-            $saleItemsData = [];
-
-            foreach ($data['items'] as $item) {
-                $pId = $item['id'] ?? $item['product_id'] ?? null;
-                $product = $products->get($pId);
-                if (!$product) {
-                    throw new \Exception("Product with ID {$pId} is not available in this branch.");
-                }
-
-                $qty = (float) $item['quantity'];
-
-                if ($product->ingredients->isNotEmpty()) {
-                    // Recipe-based: deduct from ingredient_stocks
-                    foreach ($product->ingredients as $ingredient) {
-                        $qtyInput = (float) $ingredient->pivot->quantity_required;
-                        $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
-                        $baseRequiredPerProduct = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient($qtyInput, $unitInput, $ingredient->unit, $ingredient->avg_weight_per_piece);
-                        $needed = $baseRequiredPerProduct * $qty;
-                        $ingredientRequirements[$ingredient->id] =
-                            ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
-                    }
-                } else {
-                    $directRequirements[$product->id] = ($directRequirements[$product->id] ?? 0) + $qty;
-                }
-
-                // Enforce required modifier group validation
-                $productGroups = $product->getActiveAddonGroups();
-                $selectedGroupCounts = [];
-                if (!empty($item['selected_addons'])) {
-                    $rawCheck = is_string($item['selected_addons']) ? json_decode($item['selected_addons'], true) : $item['selected_addons'];
-                    if (is_array($rawCheck)) {
-                        foreach ($rawCheck as $rc) {
-                            $gId = $rc['group_id'] ?? null;
-                            if ($gId) {
-                                $selectedGroupCounts[$gId] = ($selectedGroupCounts[$gId] ?? 0) + (int)($rc['quantity'] ?? 1);
-                            }
-                        }
-                    }
-                }
-
-                foreach ($productGroups as $pGroup) {
-                    $selectedInGroup = $selectedGroupCounts[$pGroup->id] ?? 0;
-                    if ($pGroup->is_required && $selectedInGroup === 0) {
-                        throw new \Exception("Required modifier group '{$pGroup->name}' must have at least " . ($pGroup->min_selections ?: 1) . " selection for product '{$product->name}'.");
-                    }
-                    if ($pGroup->min_selections > 0 && $selectedInGroup < $pGroup->min_selections) {
-                        throw new \Exception("Modifier group '{$pGroup->name}' requires at least {$pGroup->min_selections} selections (got {$selectedInGroup}) for product '{$product->name}'.");
-                    }
-                    if ($pGroup->max_selections !== null && $selectedInGroup > $pGroup->max_selections) {
-                        throw new \Exception("Modifier group '{$pGroup->name}' allows at most {$pGroup->max_selections} selections (got {$selectedInGroup}) for product '{$product->name}'.");
-                    }
-                }
-
-                $computedCost = $product->computeProductCost($branchId);
-
-                $addonTotal = 0.0;
-                $addonCost = 0.0;
-                $normalizedAddons = [];
-
-                if (!empty($item['selected_addons'])) {
-                    $rawAddons = is_string($item['selected_addons']) 
-                        ? json_decode($item['selected_addons'], true) 
-                        : $item['selected_addons'];
-
-                    if (is_array($rawAddons)) {
-                        foreach ($rawAddons as $rawAd) {
-                            $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
-                            $adModel = $addonId ? (\App\Models\AddOn::find($addonId) ?? ProductAddon::find($addonId)) : null;
-                            
-                            $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
-                            // Authoritative backend pricing: always use database catalog price if model exists
-                            $adPrice = $adModel ? (float) $adModel->price : (isset($rawAd['price']) ? (float) $rawAd['price'] : 0.0);
-                            $adCost = $adModel ? (float) ($adModel->cost_price ?? 0) : (isset($rawAd['cost_price']) ? (float) $rawAd['cost_price'] : 0.0);
-                            $adQty = max(1, (float) ($rawAd['quantity'] ?? 1));
-
-                            $adLineTotal = $adPrice * $adQty;
-                            $adLineCost = $adCost * $adQty;
-
-                            $addonTotal += $adLineTotal;
-                            $addonCost += $adLineCost;
-
-                            // Deduct inventory ONLY if addon is stock_linked and linked to an ingredient
-                            $isStockLinked = $adModel ? (bool) ($adModel->stock_linked ?? ($adModel->ingredient_id !== null)) : false;
-                            if ($isStockLinked && $adModel && $adModel->ingredient_id) {
-                                $needed = (float) ($adModel->ingredient_quantity ?? 1.0) * $adQty * $qty;
-                                $ingredientRequirements[$adModel->ingredient_id] =
-                                    ($ingredientRequirements[$adModel->ingredient_id] ?? 0) + $needed;
-                            }
-
-                            $normalizedAddons[] = [
-                                'addon_id'   => $addonId,
-                                'name'       => $adName,
-                                'price'      => $adPrice,
-                                'cost_price' => $adCost,
-                                'quantity'   => $adQty,
-                                'subtotal'   => $adLineTotal,
-                                'group_id'   => $rawAd['group_id'] ?? null,
-                                'group_name' => $rawAd['group_name'] ?? null,
-                            ];
-                        }
-                    }
-                }
-
-                $itemCost    = ($computedCost * $qty) + ($addonCost * $qty);
-                $itemSelling = ((float) $product->selling_price * $qty) + ($addonTotal * $qty);
-                $itemProfit  = $itemSelling - $itemCost;
-
-                $costTotal  += $itemCost;
-                $saleProfit += $itemProfit;
-
-                $saleItemsData[] = [
-                    'product_id'      => $product->id,
-                    'quantity'        => $qty,
-                    'unit_price'      => $product->selling_price,
-                    'cost_price'      => $computedCost,
-                    'subtotal'        => $itemSelling,
-                    'addon_total'     => $addonTotal * $qty,
-                    'selected_addons' => $normalizedAddons,
-                    'profit'          => $itemProfit,
-                ];
-            }
-
-            // 2. ── VALIDATE BEFORE MUTATION ─────────────────────────────────────
-            $force = $data['force'] ?? false;
-            if (!$force) {
-                if (!empty($ingredientRequirements)) {
-                    $this->validateIngredientStock($ingredientRequirements, $branchId);
-                }
-                if (!empty($directRequirements)) {
-                    $this->validateDirectStock($directRequirements, $branchId, $products);
-                }
-            }
-
-            // 3. ── DEDUCT INGREDIENTS (branch-scoped, atomic) ───────────────────
-            $orderRef = $data['order_number'] ?? ('SALE-' . strtoupper(uniqid()));
-
+        // 2. Validate before mutation
+        $force = $data['force'] ?? false;
+        if (!$force) {
             if (!empty($ingredientRequirements)) {
-                $this->deductIngredientStock($ingredientRequirements, $branchId, $orderRef, $force);
+                $this->validateIngredientStock($ingredientRequirements, $branchId);
             }
-
-            // 4. ── DEDUCT BRANCH PRODUCT PHYSICAL STOCK ─────────────────────────
             if (!empty($directRequirements)) {
-                $this->deductBranchProductStock($directRequirements, $branchId, $orderRef);
+                $this->validateDirectStock($directRequirements, $branchId, $products);
             }
+        }
 
-            // 5. ── AUTHORITATIVE MONETARY & DISCOUNT CALCULATIONS ───────────────
-            $orderType = $data['type'] ?? 'dine-in';
-            $paymentMethod = $data['payment_method'] ?? 'cash';
-            
-            // Cash Control: Check for active shift if payment is cash
-            $activeShift = null;
-            if ($paymentMethod === 'cash') {
-                $activeShift = CashierShift::where('cashier_id', $user->id)
-                    ->where('status', 'open')
-                    ->first();
-                
-                if (!$activeShift) {
-                    throw new \Exception('No active shift found. Please open a shift before processing cash sales.');
-                }
+        // 3. Deduct ingredients & physical stock
+        $orderRef = $data['order_number'] ?? ('SALE-' . strtoupper(uniqid()));
+
+        if (!empty($ingredientRequirements)) {
+            $this->deductIngredientStock($ingredientRequirements, $branchId, $orderRef, $force);
+        }
+
+        if (!empty($directRequirements)) {
+            $this->deductBranchProductStock($directRequirements, $branchId, $orderRef);
+        }
+
+        // 4. Check active shift for cash
+        $activeShift = null;
+        if ($paymentMethod === 'cash') {
+            $activeShift = CashierShift::where('cashier_id', $user->id)
+                ->where('status', 'open')
+                ->first();
+
+            if (!$activeShift) {
+                throw new \Exception('No active shift found. Please open a shift before processing cash sales.');
             }
+        }
 
-            $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
-            $costTotal = round($costTotal, 2);
+        // 5. Authoritative monetary & discount calculations
+        $productSubtotal = round(array_sum(array_column($saleItemsData, 'subtotal')), 2);
+        $costTotal = round($costTotal, 2);
 
-            // Handle Discount Calculations authoritatively
-            $discountDetails = $data['discount_details'] ?? null;
-            if (is_string($discountDetails)) {
-                $decoded = json_decode($discountDetails, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $discountDetails = $decoded;
-                }
-            }
+        [
+            $discount,
+            $discountType,
+            $discountDetails,
+            $deliveryFee,
+            $saleTotal,
+            $saleProfit,
+            $paidAmount,
+            $changeAmount
+        ] = $this->calculateSaleFinancials($data, $branchId, $productSubtotal, $costTotal, $orderType, $paymentMethod, $saleItemsData);
 
-            $rawDiscountType = $data['discount_type'] ?? ($discountDetails['type'] ?? null);
-            $discountType = self::normalizeDiscountType($rawDiscountType);
-            $discount = 0.00;
+        $sale = Sale::create([
+            'order_number'     => $orderRef,
+            'user_id'          => $user->id,
+            'branch_id'        => $branchId,
+            'type'             => $orderType,
+            'subtotal'         => $productSubtotal,
+            'discount'         => $discount,
+            'discount_type'    => $discountType,
+            'discount_details' => $discountDetails,
+            'delivery_fee'     => $deliveryFee,
+            'total'            => $saleTotal,
+            'cost_total'       => $costTotal,
+            'profit'           => $saleProfit,
+            'paid_amount'      => $paidAmount,
+            'change_amount'    => $changeAmount,
+            'payment_method'   => $paymentMethod,
+            'status'           => $data['status'] ?? 'completed',
+        ]);
 
-            if ($rawDiscountType || !empty($discountDetails) || (isset($data['discount']) && (float) $data['discount'] > 0)) {
-                // Determine eligible subtotal
-                $eligibleItemIds = $discountDetails['eligible_item_ids'] ?? [];
-                $eligibleSubtotal = 0.00;
+        // Update Shift totals if cash (using authoritative discounted saleTotal)
+        if ($activeShift && $paymentMethod === 'cash') {
+            $activeShift->increment('total_cash_sales', $saleTotal);
+            $activeShift->increment('expected_balance', $saleTotal);
+        }
 
-                foreach ($saleItemsData as $item) {
-                    if (empty($eligibleItemIds) || in_array($item['product_id'], $eligibleItemIds)) {
-                        $eligibleSubtotal += (float) $item['subtotal'];
-                    }
-                }
-                $eligibleSubtotal = round($eligibleSubtotal, 2);
+        // 6. Create Sale Items
+        foreach ($saleItemsData as $itemData) {
+            $itemData['sale_id'] = $sale->id;
+            SaleItem::create($itemData);
+        }
 
-                if ($rawDiscountType === 'custom_fixed' || (isset($discountDetails['mode']) && $discountDetails['mode'] === 'fixed') || (isset($discountDetails['fixed_amount']) && (float) $discountDetails['fixed_amount'] > 0)) {
-                    $fixedVal = (float) ($discountDetails['fixed_amount'] ?? $data['discount'] ?? 0);
-                    $discount = round(min($eligibleSubtotal, max(0.0, $fixedVal)), 2);
-                } elseif (isset($discountDetails['percentage']) && (float) $discountDetails['percentage'] > 0) {
-                    $rate = min(100.0, max(0.0, (float) $discountDetails['percentage']));
-                    $discount = round(($eligibleSubtotal * $rate) / 100.0, 2);
-                } elseif ($discountType === 'twenty_percent') {
-                    $discount = round(($eligibleSubtotal * 20.0) / 100.0, 2);
-                } elseif ($discountType === 'five_percent') {
-                    $discount = round(($eligibleSubtotal * 5.0) / 100.0, 2);
-                } elseif (isset($data['discount']) && (float) $data['discount'] > 0) {
-                    $rawDiscount = (float) $data['discount'];
-                    $discount = round(min($productSubtotal, max(0.0, $rawDiscount)), 2);
-                }
-            }
+        // 7. Real-time broadcast and cache invalidation
+        broadcast(new SaleCreated($sale))->toOthers();
+        \App\Services\TopPickService::clearCache();
 
-            // Normalization & Sanity Checks
-            $discount = round(min($productSubtotal, max(0.0, $discount)), 2);
-            $netProductSales = round(max(0.0, $productSubtotal - $discount), 2);
-
-            $deliveryFee = 0.00;
-            if ($orderType === 'delivery') {
-                $rawFee = $data['delivery_info']['delivery_fee'] ?? null;
-                $distanceKm = isset($data['delivery_info']['distance_km']) ? (float) $data['delivery_info']['distance_km'] : null;
-                /** @var Branch|null $branch */
-                $branch = Branch::find($branchId);
-
-                if ($distanceKm !== null && $distanceKm < 0) {
-                    throw new \Exception("Delivery distance cannot be negative.");
-                }
-
-                if ($rawFee !== null) {
-                    $parsedFee = (float) $rawFee;
-                    if ($parsedFee < 0 || !is_finite($parsedFee)) {
-                        throw new \Exception("Delivery fee must be a valid non-negative number.");
-                    }
-                    $maxFee = (float) (config('delivery.max_delivery_fee') ?: 300.00);
-                    if ($maxFee > 0 && $parsedFee > $maxFee) {
-                        throw new \Exception("Delivery fee (₱" . number_format($parsedFee, 2) . ") exceeds maximum configured limit of ₱" . number_format($maxFee, 2) . ".");
-                    }
-                    $deliveryFee = round($parsedFee, 2);
-                } elseif ($branch && $distanceKm !== null) {
-                    $feeService = app(\App\Services\DeliveryFeeService::class);
-                    $calculated = $feeService->calculateFee($branch, $distanceKm, $netProductSales);
-                    $deliveryFee = $calculated['delivery_fee'];
-                } elseif ($branch) {
-                    $deliveryFee = round((float) ($branch->base_delivery_fee ?? 49.00), 2);
-                }
-            }
-
-            $saleTotal = round($netProductSales + $deliveryFee, 2);
-            $saleProfit = round($netProductSales - $costTotal, 2);
-
-            // Validate Amount Paid & Change
-            $paidAmount = round((float) ($data['paid_amount'] ?? $saleTotal), 2);
-
-            if ($paymentMethod === 'cash') {
-                if ($paidAmount < $saleTotal) {
-                    throw new \Exception("Insufficient payment: received ₱" . number_format($paidAmount, 2) . ", but order total is ₱" . number_format($saleTotal, 2) . ".");
-                }
-                $changeAmount = round(max(0.0, $paidAmount - $saleTotal), 2);
-            } else {
-                $paidAmount = $saleTotal;
-                $changeAmount = 0.00;
-            }
-
-            $sale = Sale::create([
-                'order_number'     => $orderRef,
-                'user_id'          => $user->id,
-                'branch_id'        => $branchId,
-                'type'             => $orderType,
-                'subtotal'         => $productSubtotal,
-                'discount'         => $discount,
-                'discount_type'    => $discountType,
-                'discount_details' => $discountDetails,
-                'delivery_fee'     => $deliveryFee,
-                'total'            => $saleTotal,
-                'cost_total'       => $costTotal,
-                'profit'           => $saleProfit,
-                'paid_amount'      => $paidAmount,
-                'change_amount'    => $changeAmount,
-                'payment_method'   => $paymentMethod,
-                'status'           => $data['status'] ?? 'completed',
-            ]);
-
-            // Update Shift totals if cash (using authoritative discounted saleTotal)
-            if ($activeShift && $paymentMethod === 'cash') {
-                $activeShift->increment('total_cash_sales', $saleTotal);
-                $activeShift->increment('expected_balance', $saleTotal);
-            }
-
-            // 6. ── CREATE SALE ITEMS ────────────────────────────────────────────
-            foreach ($saleItemsData as $itemData) {
-                $itemData['sale_id'] = $sale->id;
-                SaleItem::create($itemData);
-            }
-
-            // 7. 🔥 BROADCAST: Sale registered in real-time
-            broadcast(new SaleCreated($sale))->toOthers();
-            \App\Services\TopPickService::clearCache();
-
-            // 7. ── DELIVERY (if applicable) ─────────────────────────────────────
-            if (($data['type'] ?? 'dine-in') === 'delivery' && !empty($data['delivery_info'])) {
-                $this->deliveryService->createDelivery(
-                    array_merge($data['delivery_info'], ['sale_id' => $sale->id])
-                );
-            }
+        // 8. Delivery creation if applicable
+        if ($orderType === 'delivery' && !empty($data['delivery_info'])) {
+            $this->deliveryService->createDelivery(
+                array_merge($data['delivery_info'], ['sale_id' => $sale->id])
+            );
+        }
 
         return $sale;
+    }
+
+    /**
+     * Parse ordered items, validate modifier groups, and compute ingredient/product requirements.
+     *
+     * @param array $items
+     * @param int $branchId
+     * @return array [saleItemsData, ingredientRequirements, directRequirements, costTotal, products]
+     */
+    protected function parseAndComputeSaleItems(array $items, int $branchId): array
+    {
+        $itemIds = array_map(fn($it) => $it['id'] ?? $it['product_id'] ?? 0, $items);
+        $products = Product::with(['ingredients.stocks'])
+            ->whereIn('id', $itemIds)
+            ->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id')
+                  ->orWhereHas('branches', function ($bq) use ($branchId) {
+                      $bq->where('branches.id', $branchId);
+                  });
+            })
+            ->get()
+            ->keyBy('id');
+
+        $ingredientRequirements = [];
+        $directRequirements = [];
+        $costTotal = 0.0;
+        $saleItemsData = [];
+
+        foreach ($items as $item) {
+            $pId = $item['id'] ?? $item['product_id'] ?? null;
+            /** @var Product|null $product */
+            $product = $products->get($pId);
+            if (!$product) {
+                throw new \Exception("Product with ID {$pId} is not available in this branch.");
+            }
+
+            $qty = (float) $item['quantity'];
+
+            if ($product->ingredients->isNotEmpty()) {
+                foreach ($product->ingredients as $ingredient) {
+                    $qtyInput = (float) $ingredient->pivot->quantity_required;
+                    $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+                    $baseRequiredPerProduct = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient($qtyInput, $unitInput, $ingredient->unit, $ingredient->avg_weight_per_piece);
+                    $needed = $baseRequiredPerProduct * $qty;
+                    $ingredientRequirements[$ingredient->id] = ($ingredientRequirements[$ingredient->id] ?? 0) + $needed;
+                }
+            } else {
+                $directRequirements[$product->id] = ($directRequirements[$product->id] ?? 0) + $qty;
+            }
+
+            // Enforce required modifier group validation
+            $productGroups = $product->getActiveAddonGroups();
+            $selectedGroupCounts = [];
+            if (!empty($item['selected_addons'])) {
+                $rawCheck = is_string($item['selected_addons']) ? json_decode($item['selected_addons'], true) : $item['selected_addons'];
+                if (is_array($rawCheck)) {
+                    foreach ($rawCheck as $rc) {
+                        $gId = $rc['group_id'] ?? null;
+                        if ($gId) {
+                            $selectedGroupCounts[$gId] = ($selectedGroupCounts[$gId] ?? 0) + (int)($rc['quantity'] ?? 1);
+                        }
+                    }
+                }
+            }
+
+            foreach ($productGroups as $pGroup) {
+                $selectedInGroup = $selectedGroupCounts[$pGroup->id] ?? 0;
+                if ($pGroup->is_required && $selectedInGroup === 0) {
+                    throw new \Exception("Required modifier group '{$pGroup->name}' must have at least " . ($pGroup->min_selections ?: 1) . " selection for product '{$product->name}'.");
+                }
+                if ($pGroup->min_selections > 0 && $selectedInGroup < $pGroup->min_selections) {
+                    throw new \Exception("Modifier group '{$pGroup->name}' requires at least {$pGroup->min_selections} selections (got {$selectedInGroup}) for product '{$product->name}'.");
+                }
+                if ($pGroup->max_selections !== null && $selectedInGroup > $pGroup->max_selections) {
+                    throw new \Exception("Modifier group '{$pGroup->name}' allows at most {$pGroup->max_selections} selections (got {$selectedInGroup}) for product '{$product->name}'.");
+                }
+            }
+
+            $computedCost = $product->computeProductCost($branchId);
+            $addonTotal = 0.0;
+            $addonCost = 0.0;
+            $normalizedAddons = [];
+
+            if (!empty($item['selected_addons'])) {
+                $rawAddons = is_string($item['selected_addons']) 
+                    ? json_decode($item['selected_addons'], true) 
+                    : $item['selected_addons'];
+
+                if (is_array($rawAddons)) {
+                    foreach ($rawAddons as $rawAd) {
+                        $addonId = $rawAd['addon_id'] ?? $rawAd['id'] ?? null;
+                        $adModel = $addonId ? (\App\Models\AddOn::find($addonId) ?? ProductAddon::find($addonId)) : null;
+                        
+                        $adName = $adModel?->name ?? ($rawAd['name'] ?? 'Add-on');
+                        $adPrice = $adModel ? (float) $adModel->price : (isset($rawAd['price']) ? (float) $rawAd['price'] : 0.0);
+                        $adCost = $adModel ? (float) ($adModel->cost_price ?? 0) : (isset($rawAd['cost_price']) ? (float) $rawAd['cost_price'] : 0.0);
+                        $adQty = max(1, (float) ($rawAd['quantity'] ?? 1));
+
+                        $adLineTotal = $adPrice * $adQty;
+                        $adLineCost = $adCost * $adQty;
+
+                        $addonTotal += $adLineTotal;
+                        $addonCost += $adLineCost;
+
+                        $isStockLinked = $adModel ? (bool) ($adModel->stock_linked ?? ($adModel->ingredient_id !== null)) : false;
+                        if ($isStockLinked && $adModel && $adModel->ingredient_id) {
+                            $needed = (float) ($adModel->ingredient_quantity ?? 1.0) * $adQty * $qty;
+                            $ingredientRequirements[$adModel->ingredient_id] = ($ingredientRequirements[$adModel->ingredient_id] ?? 0) + $needed;
+                        }
+
+                        $normalizedAddons[] = [
+                            'addon_id'   => $addonId,
+                            'name'       => $adName,
+                            'price'      => $adPrice,
+                            'cost_price' => $adCost,
+                            'quantity'   => $adQty,
+                            'subtotal'   => $adLineTotal,
+                            'group_id'   => $rawAd['group_id'] ?? null,
+                            'group_name' => $rawAd['group_name'] ?? null,
+                        ];
+                    }
+                }
+            }
+
+            $itemCost    = ($computedCost * $qty) + ($addonCost * $qty);
+            $itemSelling = ((float) $product->selling_price * $qty) + ($addonTotal * $qty);
+            $itemProfit  = $itemSelling - $itemCost;
+
+            $costTotal += $itemCost;
+
+            $saleItemsData[] = [
+                'product_id'      => $product->id,
+                'quantity'        => $qty,
+                'unit_price'      => $product->selling_price,
+                'cost_price'      => $computedCost,
+                'subtotal'        => $itemSelling,
+                'addon_total'     => $addonTotal * $qty,
+                'selected_addons' => $normalizedAddons,
+                'profit'          => $itemProfit,
+            ];
+        }
+
+        return [$saleItemsData, $ingredientRequirements, $directRequirements, $costTotal, $products];
+    }
+
+    /**
+     * Compute authoritative discount, delivery fee, totals, profit, and payment amounts.
+     *
+     * @param array $data
+     * @param int $branchId
+     * @param float $productSubtotal
+     * @param float $costTotal
+     * @param string $orderType
+     * @param string $paymentMethod
+     * @param array $saleItemsData
+     * @return array [discount, discountType, discountDetails, deliveryFee, saleTotal, saleProfit, paidAmount, changeAmount]
+     */
+    protected function calculateSaleFinancials(
+        array $data,
+        int $branchId,
+        float $productSubtotal,
+        float $costTotal,
+        string $orderType,
+        string $paymentMethod,
+        array $saleItemsData
+    ): array {
+        $discountDetails = $data['discount_details'] ?? null;
+        if (is_string($discountDetails)) {
+            $decoded = json_decode($discountDetails, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $discountDetails = $decoded;
+            }
+        }
+
+        $rawDiscountType = $data['discount_type'] ?? ($discountDetails['type'] ?? null);
+        $discountType = self::normalizeDiscountType($rawDiscountType);
+        $discount = 0.00;
+
+        if ($rawDiscountType || !empty($discountDetails) || (isset($data['discount']) && (float) $data['discount'] > 0)) {
+            $eligibleItemIds = $discountDetails['eligible_item_ids'] ?? [];
+            $eligibleSubtotal = 0.00;
+
+            foreach ($saleItemsData as $item) {
+                if (empty($eligibleItemIds) || in_array($item['product_id'], $eligibleItemIds)) {
+                    $eligibleSubtotal += (float) $item['subtotal'];
+                }
+            }
+            $eligibleSubtotal = round($eligibleSubtotal, 2);
+
+            if ($rawDiscountType === 'custom_fixed' || (isset($discountDetails['mode']) && $discountDetails['mode'] === 'fixed') || (isset($discountDetails['fixed_amount']) && (float) $discountDetails['fixed_amount'] > 0)) {
+                $fixedVal = (float) ($discountDetails['fixed_amount'] ?? $data['discount'] ?? 0);
+                $discount = round(min($eligibleSubtotal, max(0.0, $fixedVal)), 2);
+            } elseif (isset($discountDetails['percentage']) && (float) $discountDetails['percentage'] > 0) {
+                $rate = min(100.0, max(0.0, (float) $discountDetails['percentage']));
+                $discount = round(($eligibleSubtotal * $rate) / 100.0, 2);
+            } elseif ($discountType === 'twenty_percent') {
+                $discount = round(($eligibleSubtotal * 20.0) / 100.0, 2);
+            } elseif ($discountType === 'five_percent') {
+                $discount = round(($eligibleSubtotal * 5.0) / 100.0, 2);
+            } elseif (isset($data['discount']) && (float) $data['discount'] > 0) {
+                $rawDiscount = (float) $data['discount'];
+                $discount = round(min($productSubtotal, max(0.0, $rawDiscount)), 2);
+            }
+        }
+
+        $discount = round(min($productSubtotal, max(0.0, $discount)), 2);
+        $netProductSales = round(max(0.0, $productSubtotal - $discount), 2);
+
+        $deliveryFee = 0.00;
+        if ($orderType === 'delivery') {
+            $rawFee = $data['delivery_info']['delivery_fee'] ?? null;
+            $distanceKm = isset($data['delivery_info']['distance_km']) ? (float) $data['delivery_info']['distance_km'] : null;
+            /** @var Branch|null $branch */
+            $branch = Branch::find($branchId);
+
+            if ($distanceKm !== null && $distanceKm < 0) {
+                throw new \Exception("Delivery distance cannot be negative.");
+            }
+
+            if ($rawFee !== null) {
+                $parsedFee = (float) $rawFee;
+                if ($parsedFee < 0 || !is_finite($parsedFee)) {
+                    throw new \Exception("Delivery fee must be a valid non-negative number.");
+                }
+                $maxFee = (float) (config('delivery.max_delivery_fee') ?: 300.00);
+                if ($maxFee > 0 && $parsedFee > $maxFee) {
+                    throw new \Exception("Delivery fee (₱" . number_format($parsedFee, 2) . ") exceeds maximum configured limit of ₱" . number_format($maxFee, 2) . ".");
+                }
+                $deliveryFee = round($parsedFee, 2);
+            } elseif ($branch && $distanceKm !== null) {
+                $feeService = app(\App\Services\DeliveryFeeService::class);
+                $calculated = $feeService->calculateFee($branch, $distanceKm, $netProductSales);
+                $deliveryFee = $calculated['delivery_fee'];
+            } elseif ($branch) {
+                $deliveryFee = round((float) ($branch->base_delivery_fee ?? 49.00), 2);
+            }
+        }
+
+        $saleTotal = round($netProductSales + $deliveryFee, 2);
+        $saleProfit = round($netProductSales - $costTotal, 2);
+
+        $paidAmount = round((float) ($data['paid_amount'] ?? $saleTotal), 2);
+        if ($paymentMethod === 'cash') {
+            if ($paidAmount < $saleTotal) {
+                throw new \Exception("Insufficient payment: received ₱" . number_format($paidAmount, 2) . ", but order total is ₱" . number_format($saleTotal, 2) . ".");
+            }
+            $changeAmount = round(max(0.0, $paidAmount - $saleTotal), 2);
+        } else {
+            $paidAmount = $saleTotal;
+            $changeAmount = 0.00;
+        }
+
+        return [
+            $discount,
+            $discountType,
+            $discountDetails,
+            $deliveryFee,
+            $saleTotal,
+            $saleProfit,
+            $paidAmount,
+            $changeAmount
+        ];
     }
 
     // ──────────────────────────────────────────────────────────────────────────

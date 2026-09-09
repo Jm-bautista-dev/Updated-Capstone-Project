@@ -154,6 +154,7 @@ class ConsolidateProductsCommand extends Command
 
                 // B. For each duplicate, migrate its branch stock into branch_product for master
                 foreach ($duplicates as $dup) {
+                    /** @var Product $dup */
                     $dupBranchId = $dup->branch_id ?: 2;
                     $dupStock = (float) $dup->stock;
 

@@ -165,6 +165,14 @@ export function ProductTable({
                                         {/* Status */}
                                         <td className="p-4 px-6 align-middle text-center">
                                             <StatusBadge status={product.status} />
+                                            {product.stock <= 0 && product.insufficient_ingredients && product.insufficient_ingredients.length > 0 && (
+                                                <div 
+                                                    className="mt-1 text-[10px] text-rose-600 dark:text-rose-400 font-semibold max-w-35 mx-auto truncate" 
+                                                    title={product.insufficient_ingredients.map(i => i.reason_display || i.name).join(' | ')}
+                                                >
+                                                    Short: {product.insufficient_ingredients.map(i => `${i.name} (-${i.shortage_quantity ?? i.shortage})`).join(', ')}
+                                                </div>
+                                            )}
                                         </td>
 
                                         {/* Registered */}

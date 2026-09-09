@@ -86,11 +86,11 @@ export function ExportCenter() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: index * 0.04 }}
-                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between space-y-4 hover:-translate-y-1 hover:border-[#E75480]/40 group"
+                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4"
                         >
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs group-hover:scale-110 transition-transform', opt.color)}>
+                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs', opt.color)}>
                                         <Icon className="size-5.5" />
                                     </div>
                                     <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border', opt.color)}>
@@ -122,7 +122,7 @@ export function ExportCenter() {
                                         </>
                                     ) : (
                                         <>
-                                            <Download className="size-4 text-[#E75480] dark:text-[#FF4F81] group-hover:text-white" />
+                                            <Download className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
                                             <span>Generate {opt.id.toUpperCase()}</span>
                                         </>
                                     )}

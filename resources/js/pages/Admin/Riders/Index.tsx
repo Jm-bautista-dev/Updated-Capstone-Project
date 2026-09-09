@@ -8,12 +8,12 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 
 import { type ViewMode } from '@/components/products/ViewSwitcher';
+import { RemoveRiderModal } from '@/components/riders/RemoveRiderModal';
 import { RiderDrawer } from '@/components/riders/RiderDrawer';
 import { RiderFilterToolbar } from '@/components/riders/RiderFilterToolbar';
 import { RiderGrid } from '@/components/riders/RiderGrid';
 import { RidersHero } from '@/components/riders/RidersHero';
 import { RiderTable, type Rider } from '@/components/riders/RiderTable';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -74,6 +74,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
     const [search, setSearch] = useState(filters.search || '');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [riderToDelete, setRiderToDelete] = useState<Rider | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Rider detail drawer state
     const [selectedRiderForDrawer, setSelectedRiderForDrawer] = useState<Rider | null>(null);
@@ -140,13 +141,27 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
     };
 
     const confirmDelete = () => {
-        if (!riderToDelete) return;
+        if (!riderToDelete || isDeleting) return;
+        setIsDeleting(true);
+
         router.delete(`/riders/${riderToDelete.id}`, {
-            onSuccess: () => {
-                toast.success(`${riderToDelete.name} has been removed from the fleet.`);
-                setRiderToDelete(null);
+            preserveScroll: true,
+            onSuccess: (page) => {
+                setIsDeleting(false);
+                const flashError = (page.props as PageProps)?.flash?.error;
+                if (flashError) {
+                    toast.error(String(flashError));
+                } else {
+                    toast.success(`${riderToDelete.name} has been removed from the fleet.`);
+                    setShowDeleteConfirm(false);
+                    setRiderToDelete(null);
+                }
             },
-            onError: () => toast.error('Failed to delete rider. Please try again.'),
+            onError: (err) => {
+                setIsDeleting(false);
+                const message = Object.values(err)[0] || 'Failed to delete rider. Please try again.';
+                toast.error(String(message));
+            },
         });
     };
 
@@ -264,6 +279,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                     className="h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]"
                                     value={data.name}
                                     onChange={(e) => setData('name', e.target.value)}
+                                    maxLength={255}
                                     required
                                 />
                                 {errors.name && <p className="text-xs text-rose-500 font-bold ml-1">{errors.name}</p>}
@@ -280,6 +296,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                     className="h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]"
                                     value={data.email}
                                     onChange={(e) => setData('email', e.target.value)}
+                                    maxLength={255}
                                     required
                                 />
                                 {errors.email && <p className="text-xs text-rose-500 font-bold ml-1">{errors.email}</p>}
@@ -296,6 +313,7 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                         className="h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]"
                                         value={data.phone}
                                         onChange={(e) => setData('phone', e.target.value)}
+                                        maxLength={20}
                                     />
                                     {errors.phone && <p className="text-xs text-rose-500 font-bold ml-1">{errors.phone}</p>}
                                 </div>
@@ -492,20 +510,20 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                 </DialogContent>
             </Dialog>
 
-            {/* Confirm Delete Dialog */}
-            <ConfirmDialog
+            {/* Remove Rider Confirmation Modal */}
+            <RemoveRiderModal
                 open={showDeleteConfirm}
-                onOpenChange={setShowDeleteConfirm}
+                onOpenChange={(open) => {
+                    if (!isDeleting) {
+                        setShowDeleteConfirm(open);
+                        if (!open) {
+                            setRiderToDelete(null);
+                        }
+                    }
+                }}
+                rider={riderToDelete}
                 onConfirm={confirmDelete}
-                variant="destructive"
-                title="Remove Rider from Fleet?"
-                description={
-                    riderToDelete
-                        ? `This will permanently remove ${riderToDelete.name} from the fleet. This action cannot be undone.`
-                        : ''
-                }
-                confirmText="Remove Rider"
-                cancelText="Keep Rider"
+                isDeleting={isDeleting}
             />
         </AppLayout>
     );

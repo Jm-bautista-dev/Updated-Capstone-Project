@@ -64,7 +64,7 @@ export function PerformanceSummary({
                 return (
                     <div
                         key={idx}
-                        className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-5 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 space-y-4"
+                        className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-5 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 space-y-4"
                     >
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2.5">

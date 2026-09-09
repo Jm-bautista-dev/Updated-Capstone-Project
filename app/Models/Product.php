@@ -311,15 +311,45 @@ class Product extends Model
                     ->first();
                 $stock = $pivot ? (float) $pivot->stock : 0.0;
                 $isActive = $pivot ? (bool) $pivot->is_active : false;
+                $safeStock = max(0.0, $stock);
+                $isAvail = $isActive && $safeStock >= 1;
+                $status = !$isAvail ? 'OUT_OF_STOCK' : ($safeStock <= 5 ? 'LOW_STOCK' : 'IN_STOCK');
+                $statusLabel = !$isAvail ? 'Out of Stock' : ($safeStock <= 5 ? 'Low Stock' : 'In Stock');
+
+                $insufficientIngredients = [];
+                if (!$isAvail) {
+                    $shortage = (float) max(0.0, round(1.0 - $safeStock, 4));
+                    $insufficientIngredients[] = [
+                        'ingredient_id'        => null,
+                        'ingredient_name'      => 'Physical Stock',
+                        'name'                 => 'Physical Stock',
+                        'required_quantity'    => 1.0,
+                        'required'             => 1.0,
+                        'available_quantity'   => $safeStock,
+                        'stock'                => $safeStock,
+                        'shortage_quantity'    => $shortage,
+                        'shortage'             => $shortage,
+                        'unit'                 => $this->unit ?? 'pcs',
+                        'status'               => $pivot ? 'INSUFFICIENT_STOCK' : 'NO_INVENTORY_RECORD',
+                        'has_inventory_record' => $pivot !== null,
+                        'reason'               => $pivot ? 'INSUFFICIENT_STOCK' : 'NO_INVENTORY_RECORD',
+                        'reason_display'       => $pivot
+                            ? "Physical stock is insufficient. Required: 1 {$this->unit}, Available: {$safeStock} {$this->unit}."
+                            : "No inventory record found for this branch.",
+                    ];
+                }
 
                 return [
-                    'available'            => max(0, $stock),
-                    'is_available'         => $isActive && $stock >= 1,
-                    'max_servings'         => max(0, $stock),
-                    'limiting_ingredient'  => $stock < 1 ? 'Physical Stock' : null,
-                    'blocking_ingredients' => $stock < 1 ? ['Physical Stock'] : [],
-                    'is_low_stock'         => $stock > 0 && $stock <= 5,
-                    'scope'                => 'branch',
+                    'available'                 => $safeStock,
+                    'is_available'              => $isAvail,
+                    'status'                    => $status,
+                    'status_label'              => $statusLabel,
+                    'max_servings'              => $safeStock,
+                    'limiting_ingredient'       => $safeStock < 1 ? 'Physical Stock' : null,
+                    'blocking_ingredients'      => $insufficientIngredients,
+                    'insufficient_ingredients'  => $insufficientIngredients,
+                    'is_low_stock'              => $safeStock > 0 && $safeStock <= 5,
+                    'scope'                     => 'branch',
                 ];
             }
 
@@ -328,33 +358,53 @@ class Product extends Model
             $branchBreakdown = [];
             $totalStock = 0;
             $hasAnyStock = false;
+            $allInsufficient = [];
 
             foreach ($allBranches as $branch) {
                 $bAvail = $this->dynamicAvailability($branch->id);
                 $bStock = (float) $bAvail['available'];
                 $branchBreakdown[$branch->id] = [
-                    'branch_id'    => $branch->id,
-                    'branch_name'  => $branch->name,
-                    'stock'        => $bStock,
-                    'available'    => $bStock,
-                    'is_available' => $bAvail['is_available'],
+                    'branch_id'                => $branch->id,
+                    'branch_name'              => $branch->name,
+                    'stock'                    => $bStock,
+                    'available'                => $bStock,
+                    'is_available'             => (bool) $bAvail['is_available'],
+                    'status'                   => $bAvail['status'],
+                    'status_label'             => $bAvail['status_label'],
+                    'is_low_stock'             => (bool) $bAvail['is_low_stock'],
+                    'limiting_ingredient'      => $bAvail['limiting_ingredient'] ?? null,
+                    'insufficient_ingredients' => $bAvail['insufficient_ingredients'] ?? [],
+                    'blocking_ingredients'     => $bAvail['blocking_ingredients'] ?? [],
                 ];
                 $totalStock += $bStock;
                 if ($bAvail['is_available']) {
                     $hasAnyStock = true;
+                } else {
+                    foreach ($bAvail['insufficient_ingredients'] as $ins) {
+                        $allInsufficient[] = array_merge($ins, [
+                            'branch_id'   => $branch->id,
+                            'branch_name' => $branch->name,
+                        ]);
+                    }
                 }
             }
 
+            $overallStatus = !$hasAnyStock ? 'OUT_OF_STOCK' : ($totalStock <= 5 ? 'LOW_STOCK' : 'IN_STOCK');
+            $overallStatusLabel = !$hasAnyStock ? 'Out of Stock' : ($totalStock <= 5 ? 'Low Stock' : 'In Stock');
+
             return [
-                'available'                   => $totalStock,
-                'total_stock'                 => $totalStock,
-                'branch_breakdown'            => $branchBreakdown,
-                'is_available'                => $hasAnyStock,
-                'max_servings'                => $totalStock,
-                'limiting_ingredient'         => !$hasAnyStock ? 'Physical Stock' : null,
-                'blocking_ingredients'        => !$hasAnyStock ? ['Physical Stock'] : [],
-                'is_low_stock'                => $totalStock > 0 && $totalStock <= 5,
-                'scope'                       => 'all_branches',
+                'available'                 => $totalStock,
+                'total_stock'               => $totalStock,
+                'branch_breakdown'          => $branchBreakdown,
+                'is_available'              => $hasAnyStock,
+                'status'                    => $overallStatus,
+                'status_label'              => $overallStatusLabel,
+                'max_servings'              => $totalStock,
+                'limiting_ingredient'       => !$hasAnyStock ? 'Physical Stock' : null,
+                'blocking_ingredients'      => $allInsufficient,
+                'insufficient_ingredients'  => $allInsufficient,
+                'is_low_stock'              => $totalStock > 0 && $totalStock <= 5,
+                'scope'                     => 'all_branches',
             ];
         }
 
@@ -364,35 +414,53 @@ class Product extends Model
             $branchBreakdown = [];
             $totalProducibleStock = 0;
             $hasAnyStock = false;
+            $allInsufficient = [];
 
             foreach ($allBranches as $branch) {
                 $bAvail = $this->dynamicAvailability($branch->id);
                 $availCount = (float) $bAvail['available'];
                 $branchBreakdown[$branch->id] = [
-                    'branch_id'           => $branch->id,
-                    'branch_name'         => $branch->name,
-                    'stock'               => $availCount,
-                    'available'           => $availCount,
-                    'is_available'        => $bAvail['is_available'],
-                    'is_low_stock'        => $bAvail['is_low_stock'],
-                    'limiting_ingredient' => $bAvail['limiting_ingredient'],
+                    'branch_id'                => $branch->id,
+                    'branch_name'              => $branch->name,
+                    'stock'                    => $availCount,
+                    'available'                => $availCount,
+                    'is_available'             => (bool) $bAvail['is_available'],
+                    'status'                   => $bAvail['status'],
+                    'status_label'             => $bAvail['status_label'],
+                    'is_low_stock'             => (bool) $bAvail['is_low_stock'],
+                    'limiting_ingredient'      => $bAvail['limiting_ingredient'] ?? null,
+                    'insufficient_ingredients' => $bAvail['insufficient_ingredients'] ?? [],
+                    'blocking_ingredients'     => $bAvail['blocking_ingredients'] ?? [],
                 ];
                 $totalProducibleStock += $availCount;
                 if ($bAvail['is_available']) {
                     $hasAnyStock = true;
+                } else {
+                    foreach ($bAvail['insufficient_ingredients'] as $ins) {
+                        $allInsufficient[] = array_merge($ins, [
+                            'branch_id'   => $branch->id,
+                            'branch_name' => $branch->name,
+                        ]);
+                    }
                 }
             }
 
+            $overallStatus = !$hasAnyStock ? 'OUT_OF_STOCK' : ($totalProducibleStock <= 5 ? 'LOW_STOCK' : 'IN_STOCK');
+            $overallStatusLabel = !$hasAnyStock ? 'Out of Stock' : ($totalProducibleStock <= 5 ? 'Low Stock' : 'In Stock');
+
             return [
-                'available'                   => $totalProducibleStock,
-                'total_stock'                 => $totalProducibleStock,
-                'branch_breakdown'            => $branchBreakdown,
-                'is_available'                => $hasAnyStock,
-                'max_servings'                => $totalProducibleStock,
-                'limiting_ingredient'         => !$hasAnyStock ? 'Out of Stock in all branches' : null,
-                'blocking_ingredients'        => [],
-                'is_low_stock'                => $totalProducibleStock > 0 && $totalProducibleStock <= 5,
-                'scope'                       => 'all_branches',
+                'available'                 => $totalProducibleStock,
+                'total_stock'               => $totalProducibleStock,
+                'branch_breakdown'          => $branchBreakdown,
+                'is_available'              => $hasAnyStock,
+                'status'                    => $overallStatus,
+                'status_label'              => $overallStatusLabel,
+                'max_servings'              => $totalProducibleStock,
+                'limiting_ingredient'       => !$hasAnyStock ? 'Out of Stock in all branches' : null,
+                'blocking_ingredients'      => $allInsufficient,
+                'insufficient_ingredients'  => $allInsufficient,
+                'is_low_stock'              => $totalProducibleStock > 0 && $totalProducibleStock <= 5,
+                'scope'                     => 'all_branches',
             ];
         }
 
@@ -406,7 +474,7 @@ class Product extends Model
 
         $minPossible = PHP_FLOAT_MAX;
         $limitingIngredient = null;
-        $blockingIngredients = [];
+        $insufficientIngredients = [];
 
         foreach ($ingredients as $ingredient) {
             $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);
@@ -429,7 +497,8 @@ class Product extends Model
                 ? $ingredient->stocks->firstWhere('branch_id', $branchId)
                 : $ingredient->stocks()->where('branch_id', $branchId)->first();
 
-            $availableInStock = $stockRow ? (float) $stockRow->stock : 0.0;
+            $hasInventoryRecord = ($stockRow !== null);
+            $availableInStock = $stockRow ? max(0.0, (float) $stockRow->stock) : 0.0;
 
             $unitsPossible = floor($availableInStock / $requiredPerUnit);
 
@@ -440,14 +509,30 @@ class Product extends Model
 
             if ($availableInStock < $requiredPerUnit) {
                 $displayUnit = $ingredient->unit ?? 'pcs';
-                $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity($availableInStock, $displayUnit);
-                $displayRequired = \App\Utils\UnitConverter::convertFromBaseQuantity($requiredPerUnit, $displayUnit);
+                $displayStock = max(0.0, (float) \App\Utils\UnitConverter::convertFromBaseQuantity($availableInStock, $displayUnit));
+                $displayRequired = (float) \App\Utils\UnitConverter::convertFromBaseQuantity($requiredPerUnit, $displayUnit);
+                $shortage = (float) max(0.0, round($displayRequired - $displayStock, 4));
 
-                $blockingIngredients[] = [
-                    'name'     => $ingredient->name,
-                    'stock'    => $displayStock,
-                    'required' => $displayRequired,
-                    'unit'     => $displayUnit
+                $statusReason = $hasInventoryRecord ? 'INSUFFICIENT_STOCK' : 'NO_INVENTORY_RECORD';
+                $reasonDisplay = $hasInventoryRecord
+                    ? "{$ingredient->name} is short by {$shortage} {$displayUnit}. Required: {$displayRequired} {$displayUnit}, Available: {$displayStock} {$displayUnit}."
+                    : "{$ingredient->name} — Inventory record unavailable for this branch.";
+
+                $insufficientIngredients[] = [
+                    'ingredient_id'        => $ingredient->id,
+                    'ingredient_name'      => $ingredient->name,
+                    'name'                 => $ingredient->name,
+                    'required_quantity'    => $displayRequired,
+                    'required'             => $displayRequired,
+                    'available_quantity'   => $displayStock,
+                    'stock'                => $displayStock,
+                    'shortage_quantity'    => $shortage,
+                    'shortage'             => $shortage,
+                    'unit'                 => $displayUnit,
+                    'status'               => $statusReason,
+                    'has_inventory_record' => $hasInventoryRecord,
+                    'reason'               => $statusReason,
+                    'reason_display'       => $reasonDisplay,
                 ];
             }
         }
@@ -455,15 +540,21 @@ class Product extends Model
         $recipeUnits = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (float) $minPossible);
         // For recipe products: available is prepared branch stock + producible units (or producible units if direct stock is 0)
         $available = $branchStock > 0 ? ($branchStock + $recipeUnits) : $recipeUnits;
+        $isAvail = $isActive && $available >= 1;
+        $status = !$isAvail ? 'OUT_OF_STOCK' : ($available <= 5 ? 'LOW_STOCK' : 'IN_STOCK');
+        $statusLabel = !$isAvail ? 'Out of Stock' : ($available <= 5 ? 'Low Stock' : 'In Stock');
 
         return [
-            'available'            => $available,
-            'is_available'         => $isActive && $available >= 1,
-            'max_servings'         => $available,
-            'limiting_ingredient'  => $available < 1 ? ($limitingIngredient ?? 'Insufficient Ingredients') : ($available <= 5 ? $limitingIngredient : null),
-            'blocking_ingredients' => $blockingIngredients,
-            'is_low_stock'         => $available > 0 && $available <= 5,
-            'scope'                => 'branch',
+            'available'                 => $available,
+            'is_available'              => $isAvail,
+            'status'                    => $status,
+            'status_label'              => $statusLabel,
+            'max_servings'              => $available,
+            'limiting_ingredient'       => $available < 1 ? ($limitingIngredient ?? 'Insufficient Ingredients') : ($available <= 5 ? $limitingIngredient : null),
+            'blocking_ingredients'      => $insufficientIngredients,
+            'insufficient_ingredients'  => $insufficientIngredients,
+            'is_low_stock'              => $available > 0 && $available <= 5,
+            'scope'                     => 'branch',
         ];
     }
 

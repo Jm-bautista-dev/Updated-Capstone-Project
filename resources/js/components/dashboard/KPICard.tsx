@@ -21,6 +21,8 @@ export interface KPICardProps {
     sparklineData?: SparklineItem[];
     badgeText?: string;
     index?: number;
+    className?: string;
+    disableHover?: boolean;
 }
 
 export function KPICard({
@@ -34,6 +36,8 @@ export function KPICard({
     sparklineData,
     badgeText,
     index = 0,
+    className,
+    disableHover = false,
 }: KPICardProps) {
     const isUp = trend === 'up';
     const isDown = trend === 'down';
@@ -43,16 +47,26 @@ export function KPICard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="group relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] p-6 backdrop-blur-xl transition-all duration-300 flex flex-col justify-between overflow-hidden"
+            whileHover={disableHover ? undefined : { y: -4, transition: { duration: 0.2 } }}
+            className={cn(
+                "relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] p-6 backdrop-blur-xl transition-colors duration-300 flex flex-col justify-between overflow-hidden",
+                !disableHover && "group transition-all",
+                className
+            )}
         >
             {/* Top Accent Light Bar */}
-            <div className="absolute top-0 inset-x-0 h-1 bg-linear-to-r from-transparent via-[#E75480]/30 dark:via-[#E1062C]/40 to-transparent group-hover:via-[#E75480] dark:group-hover:via-[#E1062C] transition-all duration-500" />
+            <div className={cn(
+                "absolute top-0 inset-x-0 h-1 bg-linear-to-r from-transparent via-[#E75480]/30 dark:via-[#E1062C]/40 to-transparent transition-all duration-500",
+                !disableHover && "group-hover:via-[#E75480] dark:group-hover:via-[#E1062C]"
+            )} />
 
             <div>
                 {/* Header Row: Icon & Trend Badge */}
                 <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-2xl bg-[#FADADD]/35 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] group-hover:scale-110 group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white transition-all duration-300 shadow-xs">
+                    <div className={cn(
+                        "p-3 rounded-2xl bg-[#FADADD]/35 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] transition-all duration-300 shadow-xs",
+                        !disableHover && "group-hover:scale-110 group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white"
+                    )}>
                         <Icon className="size-5" />
                     </div>
 

@@ -78,7 +78,10 @@ class EmployeeController extends Controller
             'role'      => 'required|string|in:' . $allowedRoles,
             'branch_id' => 'required|exists:branches,id',
         ], [
-            'name.regex' => 'Full name must only contain letters and spaces.',
+            'name.required' => 'Full name is required.',
+            'name.min'      => 'Full name must be at least 2 characters.',
+            'name.max'      => 'Full name cannot exceed 50 characters.',
+            'name.regex'    => 'Full name must only contain letters and spaces.',
             'branch_id.required' => 'Please select an assigned branch.',
         ]);
 
@@ -158,7 +161,10 @@ class EmployeeController extends Controller
             'role'      => 'required|string|in:' . $allowedRoles,
             'branch_id' => 'required|exists:branches,id',
         ], [
-            'name.regex' => 'Full name must only contain letters and spaces.',
+            'name.required' => 'Full name is required.',
+            'name.min'      => 'Full name must be at least 2 characters.',
+            'name.max'      => 'Full name cannot exceed 50 characters.',
+            'name.regex'    => 'Full name must only contain letters and spaces.',
             'branch_id.required' => 'Please select an assigned branch.',
         ]);
 

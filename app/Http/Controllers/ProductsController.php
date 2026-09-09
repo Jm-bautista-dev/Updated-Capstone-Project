@@ -62,9 +62,11 @@ class ProductsController extends Controller
                 $product->is_available = (bool) $availability['is_available'];
                 $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
                 $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+                $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
                 $product->max_servings = $availability['max_servings'] ?? $product->stock;
                 $product->is_low_stock = (bool) $availability['is_low_stock'];
-                $product->status = $this->getStockStatus($product->stock);
+                $product->status = $availability['status_label'] ?? $this->getStockStatus($product->stock);
+                $product->availability_status = $availability['status'] ?? ($product->stock <= 0 ? 'OUT_OF_STOCK' : ($product->stock <= 5 ? 'LOW_STOCK' : 'IN_STOCK'));
                 $product->branch_breakdown = null;
             } else {
                 // Admin viewing "All Branches"
@@ -73,11 +75,13 @@ class ProductsController extends Controller
                 $product->is_available = (bool) $availability['is_available'];
                 $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
                 $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+                $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
                 $product->max_servings = $availability['max_servings'] ?? $product->stock;
                 $product->is_low_stock = (bool) $availability['is_low_stock'];
-                $product->status = $product->is_available
+                $product->status = $availability['status_label'] ?? ($product->is_available
                     ? ($product->stock <= 5 ? 'Low Stock' : 'In Stock')
-                    : 'Out of Stock';
+                    : 'Out of Stock');
+                $product->availability_status = $availability['status'] ?? (!$product->is_available ? 'OUT_OF_STOCK' : ($product->stock <= 5 ? 'LOW_STOCK' : 'IN_STOCK'));
                 $product->branch_breakdown = $availability['branch_breakdown'] ?? [];
             }
 

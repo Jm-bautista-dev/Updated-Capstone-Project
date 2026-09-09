@@ -98,7 +98,7 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.04 }}
-                        className="p-4 rounded-3xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#E75480]/40 transition-all flex flex-col justify-between space-y-3 group shadow-2xs"
+                        className="p-4 rounded-3xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 transition-colors duration-300 flex flex-col justify-between space-y-3 shadow-2xs"
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
@@ -111,7 +111,7 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                                     {rep.fileType === 'xlsx' ? <FileSpreadsheet className="size-5" /> : <FileText className="size-5" />}
                                 </div>
                                 <div className="space-y-0.5">
-                                    <h3 className="font-extrabold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors line-clamp-1">
+                                    <h3 className="font-extrabold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] line-clamp-1">
                                         {rep.name}
                                     </h3>
                                     <div className="flex items-center gap-2 text-[11px] font-mono text-[#7D6B6E] dark:text-[#94A3B8]">
