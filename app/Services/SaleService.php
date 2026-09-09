@@ -254,7 +254,10 @@ class SaleService
                 $this->deductIngredientStock($ingredientRequirements, $branchId, $orderRef, $force);
             }
 
-            // 4. ── (Product Level Stock Deduction Removed) ──────────────────────
+            // 4. ── DEDUCT BRANCH PRODUCT PHYSICAL STOCK ─────────────────────────
+            if (!empty($directRequirements)) {
+                $this->deductBranchProductStock($directRequirements, $branchId, $orderRef);
+            }
 
             // 5. ── AUTHORITATIVE MONETARY & DISCOUNT CALCULATIONS ───────────────
             $orderType = $data['type'] ?? 'dine-in';
@@ -528,6 +531,48 @@ class SaleService
     }
 
     /**
+     * Deduct from branch_product — strictly for the current branch.
+     */
+    protected function deductBranchProductStock(array $requirements, int $branchId, string $ref): void
+    {
+        foreach ($requirements as $productId => $qty) {
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $productId)
+                ->where('branch_id', $branchId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($pivot) {
+                $previousStock = (float) $pivot->stock;
+                $newStock = max(0, $previousStock - $qty);
+
+                DB::table('branch_product')
+                    ->where('id', $pivot->id)
+                    ->update([
+                        'stock'      => $newStock,
+                        'updated_at' => now(),
+                    ]);
+
+                StockLog::create([
+                    'storable_type'  => Product::class,
+                    'storable_id'    => $productId,
+                    'branch_id'      => $branchId,
+                    'user_id'        => Auth::id(),
+                    'action_type'    => 'pos_deduction',
+                    'quantity'       => $qty,
+                    'quantity_base'  => $qty,
+                    'unit'           => 'pcs',
+                    'previous_stock' => $previousStock,
+                    'new_stock'      => $newStock,
+                    'reference'      => "Sale: {$ref}",
+                ]);
+
+                broadcast(new StockUpdated($branchId, Product::class, $productId))->toOthers();
+            }
+        }
+    }
+
+    /**
      * Void a sale and restore ingredient stocks.
      *
      * @param Sale $sale
@@ -550,6 +595,42 @@ class SaleService
                 $product = $item->product;
                 if (!$product) continue;
 
+                // 1. Restore branch physical stock
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $product->id)
+                    ->where('branch_id', $branchId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($pivot) {
+                    $previousStock = (float) $pivot->stock;
+                    $newStock = $previousStock + (float) $item->quantity;
+
+                    DB::table('branch_product')
+                        ->where('id', $pivot->id)
+                        ->update([
+                            'stock'      => $newStock,
+                            'updated_at' => now(),
+                        ]);
+
+                    StockLog::create([
+                        'storable_type'  => Product::class,
+                        'storable_id'    => $product->id,
+                        'branch_id'      => $branchId,
+                        'user_id'        => Auth::id(),
+                        'action_type'    => 'sale_void_restoration',
+                        'quantity'       => $item->quantity,
+                        'quantity_base'  => $item->quantity,
+                        'unit'           => $product->unit ?? 'pcs',
+                        'previous_stock' => $previousStock,
+                        'new_stock'      => $newStock,
+                        'reference'      => "Void Sale: {$freshSale->order_number}",
+                    ]);
+
+                    broadcast(new StockUpdated($branchId, Product::class, $product->id))->toOthers();
+                }
+
+                // 2. Restore ingredient stocks if recipe present
                 if ($product->ingredients->isNotEmpty()) {
                     foreach ($product->ingredients as $ingredient) {
                         $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);

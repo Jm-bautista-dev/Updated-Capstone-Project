@@ -229,7 +229,22 @@ class ApiOrderController extends Controller
             // --- 5. BRANCH CONSISTENCY ---
             foreach ($validated['items'] as $item) {
                 $product = $products->get($item['product_id']);
-                if ($product && $product->branch_id && (int) $product->branch_id !== (int) $branchId) {
+                if (!$product) continue;
+
+                if ($product->branch_id && (int) $product->branch_id !== (int) $branchId) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Product '{$product->name}' is not available in the selected branch."
+                    ], 400);
+                }
+
+                $hasBranchMapping = DB::table('branch_product')
+                    ->where('product_id', $product->id)
+                    ->where('branch_id', $branchId)
+                    ->where('is_active', true)
+                    ->exists();
+
+                if (!$hasBranchMapping && !$product->branch_id) {
                     return response()->json([
                         'success' => false,
                         'message' => "Product '{$product->name}' is not available in the selected branch."

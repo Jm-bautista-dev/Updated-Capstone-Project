@@ -273,7 +273,26 @@ class Product extends Model
      * Returns an array with available quantity and the limiting ingredient name.
      * 
     /**
-     * Compute dynamic availability based on ingredient stock in a specific branch.
+     * Scope a query to only include records available for a given branch.
+     */
+    public function scopeForBranch(Builder $query, int $branchId): Builder
+    {
+        return $query->where(function ($q) use ($branchId) {
+            $q->where('products.branch_id', $branchId)
+              ->orWhere(function ($q2) use ($branchId) {
+                  $q2->whereNull('products.branch_id')
+                     ->where(function ($q3) use ($branchId) {
+                         $q3->whereHas('branches', function ($bq) use ($branchId) {
+                             $bq->where('branches.id', $branchId)
+                                ->where('branch_product.is_active', true);
+                         })->orWhereDoesntHave('branches');
+                     });
+              });
+        });
+    }
+
+    /**
+     * Compute dynamic availability based on branch_product stock and ingredient stock in a specific branch.
      * Returns an array with available quantity, limiting ingredient name, and blocking ingredients.
      *
      * @param int|null $branchId When null, aggregates and provides per-branch breakdown.
@@ -290,11 +309,12 @@ class Product extends Model
                     ->where('product_id', $this->id)
                     ->where('branch_id', $branchId)
                     ->first();
-                $stock = $pivot ? (float) $pivot->stock : (float) ($this->stock ?? 0);
+                $stock = $pivot ? (float) $pivot->stock : 0.0;
+                $isActive = $pivot ? (bool) $pivot->is_active : false;
 
                 return [
                     'available'            => max(0, $stock),
-                    'is_available'         => $stock >= 1,
+                    'is_available'         => $isActive && $stock >= 1,
                     'max_servings'         => max(0, $stock),
                     'limiting_ingredient'  => $stock < 1 ? 'Physical Stock' : null,
                     'blocking_ingredients' => $stock < 1 ? ['Physical Stock'] : [],
@@ -377,6 +397,13 @@ class Product extends Model
         }
 
         // 3. Single Branch-Specific Availability Calculation (Core Business Truth)
+        $pivot = DB::table('branch_product')
+            ->where('product_id', $this->id)
+            ->where('branch_id', $branchId)
+            ->first();
+        $branchStock = $pivot ? (float) $pivot->stock : 0.0;
+        $isActive = $pivot ? (bool) $pivot->is_active : true;
+
         $minPossible = PHP_FLOAT_MAX;
         $limitingIngredient = null;
         $blockingIngredients = [];
@@ -425,13 +452,15 @@ class Product extends Model
             }
         }
 
-        $available = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (float) $minPossible);
+        $recipeUnits = ($minPossible === PHP_FLOAT_MAX) ? 0 : max(0, (float) $minPossible);
+        // For recipe products: available is prepared branch stock + producible units (or producible units if direct stock is 0)
+        $available = $branchStock > 0 ? ($branchStock + $recipeUnits) : $recipeUnits;
 
         return [
             'available'            => $available,
-            'is_available'         => $available >= 1,
+            'is_available'         => $isActive && $available >= 1,
             'max_servings'         => $available,
-            'limiting_ingredient'  => $available < 1 ? ($limitingIngredient ?? 'Insufficient Stock') : ($available <= 5 ? $limitingIngredient : null),
+            'limiting_ingredient'  => $available < 1 ? ($limitingIngredient ?? 'Insufficient Ingredients') : ($available <= 5 ? $limitingIngredient : null),
             'blocking_ingredients' => $blockingIngredients,
             'is_low_stock'         => $available > 0 && $available <= 5,
             'scope'                => 'branch',
@@ -454,26 +483,23 @@ class Product extends Model
             return ['success' => false, 'message' => "Quantity must be greater than 0."];
         }
 
-        $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
+        // 1. Branch physical stock validation
+        $pivot = DB::table('branch_product')
+            ->where('product_id', $this->id)
+            ->where('branch_id', $branchId)
+            ->first();
+        $currentPhysicalStock = $pivot ? (float) $pivot->stock : 0.0;
 
-        // 1. Fallback for items with no recipe (direct physical stock)
-        if ($ingredients->isEmpty()) {
-            $pivot = DB::table('branch_product')
-                ->where('product_id', $this->id)
-                ->where('branch_id', $branchId)
-                ->first();
-            $currentStock = $pivot ? (float) $pivot->stock : (float) ($this->stock ?? 0);
-
-            if ($currentStock < $requestedQuantity) {
-                return [
-                    'success' => false,
-                    'message' => "Insufficient physical stock for '{$this->name}' (Requested: {$requestedQuantity}, Available: {$currentStock})"
-                ];
-            }
-            return ['success' => true, 'message' => null];
+        if ($currentPhysicalStock < $requestedQuantity) {
+            return [
+                'success' => false,
+                'message' => "Insufficient physical stock for '{$this->name}' in this branch (Requested: {$requestedQuantity}, Available: {$currentPhysicalStock})"
+            ];
         }
 
-        // 2. Recipe-based validation
+        $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
+
+        // 2. Recipe-based validation if product has ingredients
         foreach ($ingredients as $ingredient) {
             try {
                 $qtyPerUnit = (float) ($ingredient->pivot->quantity_required ?? 0);
@@ -616,20 +642,25 @@ class Product extends Model
             }
         }
 
-        // 2. Check direct products
+        // 2. Check and lock branch physical stock for direct products (no recipe)
         foreach ($directProductRequirements as $pId => $req) {
             /** @var Product $p */
             $p = $req['product'];
-            $pivot = DB::table('branch_product')
+            $pivotQuery = DB::table('branch_product')
                 ->where('product_id', $pId)
-                ->where('branch_id', $branchId)
-                ->first();
-            $available = $pivot ? (float) $pivot->stock : (float) ($p->stock ?? 0);
+                ->where('branch_id', $branchId);
+
+            if ($lockForUpdate) {
+                $pivotQuery->lockForUpdate();
+            }
+
+            $pivot = $pivotQuery->first();
+            $available = $pivot ? (float) $pivot->stock : 0.0;
 
             if ($available < $req['needed']) {
                 return [
                     'success' => false,
-                    'message' => "Insufficient physical stock for '{$p->name}'. (Available: {$available}, Required: {$req['needed']})."
+                    'message' => "Insufficient physical stock for '{$p->name}' in this branch. (Available: {$available}, Required: {$req['needed']})."
                 ];
             }
         }

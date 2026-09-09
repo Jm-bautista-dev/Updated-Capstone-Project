@@ -43,13 +43,7 @@ class ProductsController extends Controller
         $query = Product::query()->with(['category', 'ingredients.stocks', 'branch', 'branches', 'addons']);
 
         if ($branchId) {
-            $query->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                  ->orWhereNull('branch_id')
-                  ->orWhereHas('branches', function ($bq) use ($branchId) {
-                      $bq->where('branches.id', $branchId);
-                  });
-            });
+            $query->forBranch($branchId);
         }
 
         if ($request->filled('search')) {
@@ -182,28 +176,10 @@ class ProductsController extends Controller
                 'sku' => [
                     'nullable',
                     'string',
-                    function ($attribute, $value, $fail) use ($request, $user, $branchOption, $branchId, $branchIds) {
-                        $targetBranches = [];
-                        if ($user->isAdmin()) {
-                            if (!empty($branchIds) && is_array($branchIds)) {
-                                $targetBranches = $branchIds;
-                            } elseif ($branchOption === 'both') {
-                                $targetBranches = Branch::pluck('id')->toArray();
-                            } elseif (!empty($branchId)) {
-                                $targetBranches = [$branchId];
-                            }
-                        } else {
-                            $targetBranches = [$user->branch_id];
-                        }
-
-                        if (!empty($targetBranches)) {
-                            $exists = Product::where('sku', $value)
-                                ->whereIn('branch_id', $targetBranches)
-                                ->exists();
-
-                            if ($exists) {
-                                $fail('The SKU "' . $value . '" is already in use in one of the selected branches.');
-                            }
+                    function ($attribute, $value, $fail) use ($request) {
+                        $exists = Product::where('sku', strtoupper(trim($value)))->first();
+                        if ($exists && strtolower(trim($exists->name)) !== strtolower(trim($request->input('name')))) {
+                            $fail('The SKU "' . $value . '" is already in use by product: ' . $exists->name);
                         }
                     }
                 ],
@@ -211,7 +187,7 @@ class ProductsController extends Controller
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                => 'nullable|string',
-                'recipe'                     => 'required|array|min:1',
+                'recipe'                     => 'nullable|array',
                 'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
                 'recipe.*.unit'              => 'required|string',
@@ -222,50 +198,56 @@ class ProductsController extends Controller
                 'branch_ids.*'               => 'exists:branches,id',
                 'addon_ids'                  => 'nullable|array',
                 'addon_ids.*'                => 'exists:add_ons,id',
+                'stock'                      => 'nullable|numeric|min:0',
             ], [
                 'branch_option.required' => 'Please select at least one branch for this product.',
                 'branch_id.required_if'  => 'Please select a valid branch for this product.',
             ]);
 
-            // Strip manual cost_price/stock if sent in request
-            unset($validated['cost_price'], $validated['stock']);
-
-            // ✅ Prevent Duplicate Ingredients in Recipe
-            $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
-            if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'recipe' => 'Duplicate ingredients are not allowed in the same product recipe.'
-                ]);
+            // Strip manual cost_price if sent in request; strip stock if recipe is present
+            unset($validated['cost_price']);
+            if (!empty($validated['recipe'])) {
+                unset($validated['stock']);
             }
 
-            // ✅ Strict Recipe and Cost Consistency Validations
-            foreach ($validated['recipe'] as $idx => $item) {
-                if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+            // ✅ Prevent Duplicate Ingredients in Recipe if recipe is present
+            if (!empty($validated['recipe'])) {
+                $ingredientIds = array_column($validated['recipe'], 'ingredient_id');
+                if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                        'recipe' => 'Duplicate ingredients are not allowed in the same product recipe.'
                     ]);
                 }
 
-                /** @var Ingredient $ing */
-                $ing = Ingredient::find($item['ingredient_id']);
-                if (!$ing) continue;
+                // ✅ Strict Recipe and Cost Consistency Validations
+                foreach ($validated['recipe'] as $idx => $item) {
+                    if (!isset($item['quantity_required']) || $item['quantity_required'] <= 0) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe.{$idx}.quantity_required" => "Cannot compute cost: missing ingredient quantity."
+                        ]);
+                    }
 
-                $usedUnit = strtolower(trim($item['unit']));
-                $baseUnit = strtolower(trim($ing->unit));
+                    /** @var Ingredient $ing */
+                    $ing = Ingredient::find($item['ingredient_id']);
+                    if (!$ing) continue;
 
-                if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
-                    $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
-                    $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe.{$idx}.unit" => "Invalid unit '{$item['unit']}' for ingredient '{$ing->name}'. Please select a {$family} unit ({$validUnits})."
-                    ]);
-                }
+                    $usedUnit = strtolower(trim($item['unit']));
+                    $baseUnit = strtolower(trim($ing->unit));
 
-                // Verify base cost exists
-                if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
-                    ]);
+                    if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
+                        $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
+                        $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe.{$idx}.unit" => "Invalid unit '{$item['unit']}' for ingredient '{$ing->name}'. Please select a {$family} unit ({$validUnits})."
+                        ]);
+                    }
+
+                    // Verify base cost exists
+                    if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
+                        ]);
+                    }
                 }
             }
 
@@ -290,9 +272,8 @@ class ProductsController extends Controller
                     ]);
                 }
 
-                foreach ($targetBranches as $branch) {
-                    // ✅ Validate ingredients exist in this branch
-                    if (!empty($validated['recipe'])) {
+                if (!empty($validated['recipe'])) {
+                    foreach ($targetBranches as $branch) {
                         foreach ($validated['recipe'] as $item) {
                             $exists = IngredientStock::where('ingredient_id', $item['ingredient_id'])
                                 ->where('branch_id', $branch->id)
@@ -308,12 +289,12 @@ class ProductsController extends Controller
                             }
                         }
                     }
-
-                    // ✅ Create separate product per branch via service
-                    $this->productService->store($validated, $request->file('image'), $branch->id);
                 }
 
-                return redirect()->back()->with('success', 'Product(s) created successfully.');
+                // ✅ Create ONE single global product record with branch inventory
+                $this->productService->store($validated, $request->file('image'), $targetBranches);
+
+                return redirect()->back()->with('success', 'Product registered successfully in the Global Catalog.');
             });
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -437,7 +418,15 @@ class ProductsController extends Controller
                 }
             }
 
-            $this->productService->update($product, $validated, $request->file('image'));
+            $targetBranches = null;
+            if ($request->has('branch_ids') || $request->has('branch_id')) {
+                $branchIds = $request->input('branch_ids') ?: ($request->filled('branch_id') ? [$request->input('branch_id')] : null);
+                if ($branchIds) {
+                    $targetBranches = Branch::whereIn('id', $branchIds)->get();
+                }
+            }
+
+            $this->productService->update($product, $validated, $request->file('image'), $targetBranches);
 
             return redirect()->back()->with('success', 'Product updated successfully.');
 

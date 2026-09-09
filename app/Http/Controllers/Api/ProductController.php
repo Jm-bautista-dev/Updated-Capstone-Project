@@ -59,13 +59,13 @@ class ProductController extends Controller
         $query = Product::with(['unit_model', 'category', 'branches']);
 
         if ($branchId) {
-            // Scope to specific branch via pivot table OR direct ownership OR global
+            // Scope to specific branch via active branch_product pivot OR direct ownership
             $query->where(function ($q) use ($branchId) {
                 $q->whereHas('branches', function ($sq) use ($branchId) {
-                    $sq->where('branches.id', $branchId);
+                    $sq->where('branches.id', $branchId)
+                       ->where('branch_product.is_active', true);
                 })
-                ->orWhere('branch_id', $branchId)
-                ->orWhereNull('branch_id');
+                ->orWhere('branch_id', $branchId);
             });
         }
 
@@ -176,9 +176,8 @@ class ProductController extends Controller
         })->get(['id', 'name', 'image_path']);
 
         $productsQuery = Product::where(function ($q) use ($branchIdResolved) {
-            $q->whereHas('branches', fn($bq) => $bq->where('branches.id', $branchIdResolved))
-              ->orWhere('branch_id', $branchIdResolved)
-              ->orWhereNull('branch_id');
+            $q->whereHas('branches', fn($bq) => $bq->where('branches.id', $branchIdResolved)->where('branch_product.is_active', true))
+              ->orWhere('branch_id', $branchIdResolved);
         })->with(['unit_model', 'category']);
 
         if ($request->filled('category_id')) {

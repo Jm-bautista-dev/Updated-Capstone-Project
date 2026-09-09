@@ -100,12 +100,19 @@ class ProductBranchAndInventoryLowStockTest extends TestCase
         $response->assertStatus(302);
         $this->assertDatabaseHas('products', [
             'name' => 'Santa Cruz Rice Roll',
-            'branch_id' => $this->branchSantaCruz->id,
+            'branch_id' => null,
+        ]);
+        $product = Product::where('name', 'Santa Cruz Rice Roll')->first();
+        $this->assertNotNull($product);
+        $this->assertDatabaseHas('branch_product', [
+            'product_id' => $product->id,
+            'branch_id'  => $this->branchSantaCruz->id,
+            'is_active'  => true,
         ]);
     }
 
     /**
-     * TEST 2: Select Victoria -> Product creation succeeds for Victoria.
+     * TEST 2: Select Victoria -> Product creation succeeds for Victoria in global catalog.
      */
     public function test_create_product_with_single_branch_victoria_succeeds()
     {
@@ -146,12 +153,19 @@ class ProductBranchAndInventoryLowStockTest extends TestCase
         $response->assertStatus(302);
         $this->assertDatabaseHas('products', [
             'name' => 'Victoria Rice Roll',
-            'branch_id' => $this->branchVictoria->id,
+            'branch_id' => null,
+        ]);
+        $product = Product::where('name', 'Victoria Rice Roll')->first();
+        $this->assertNotNull($product);
+        $this->assertDatabaseHas('branch_product', [
+            'product_id' => $product->id,
+            'branch_id'  => $this->branchVictoria->id,
+            'is_active'  => true,
         ]);
     }
 
     /**
-     * TEST 3: Select Both Branches -> Creates separate product per branch with both relationships.
+     * TEST 3: Select Both Branches -> Creates ONE global product record assigned to both branches.
      */
     public function test_create_product_with_both_branches_succeeds()
     {
@@ -197,9 +211,20 @@ class ProductBranchAndInventoryLowStockTest extends TestCase
             ]);
 
         $response->assertStatus(302);
-        $this->assertEquals(2, Product::where('name', 'Global Specialty Maki')->count());
-        $this->assertDatabaseHas('products', ['name' => 'Global Specialty Maki', 'branch_id' => $this->branchSantaCruz->id]);
-        $this->assertDatabaseHas('products', ['name' => 'Global Specialty Maki', 'branch_id' => $this->branchVictoria->id]);
+        $this->assertEquals(1, Product::where('name', 'Global Specialty Maki')->count(), 'Must be 1 single global product record.');
+        $product = Product::where('name', 'Global Specialty Maki')->first();
+        $this->assertNotNull($product);
+        $this->assertNull($product->branch_id, 'Global product record must have branch_id = null.');
+        $this->assertDatabaseHas('branch_product', [
+            'product_id' => $product->id,
+            'branch_id'  => $this->branchSantaCruz->id,
+            'is_active'  => true,
+        ]);
+        $this->assertDatabaseHas('branch_product', [
+            'product_id' => $product->id,
+            'branch_id'  => $this->branchVictoria->id,
+            'is_active'  => true,
+        ]);
     }
 
     /**

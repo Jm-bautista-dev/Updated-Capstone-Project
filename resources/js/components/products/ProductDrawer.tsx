@@ -184,30 +184,25 @@ export function ProductDrawer({
                         </div>
                     )}
 
-                    {/* Stock Level Details */}
-                    <div className="p-4 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                            <span className="flex items-center gap-2">
-                                <Package className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                <span>Current Stock Level</span>
+                    {/* Stock By Branch (Global Product Inventory Consolidation) */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8]">
+                            <span className="flex items-center gap-1.5">
+                                <Package className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                                <span>Stock By Branch</span>
                             </span>
-                            <span className="font-mono text-sm">{product.stock} {product.unit || 'pcs'}</span>
                         </div>
-                    </div>
 
-                    {/* Branch Availability Breakdown */}
-                    <div className="space-y-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] flex items-center gap-1.5">
-                            <MapPin className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                            <span>Branch Inventory Breakdown</span>
-                        </span>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
                             {product.branch_breakdown && Object.keys(product.branch_breakdown).length > 0 ? (
                                 Object.values(product.branch_breakdown).map((b) => (
-                                    <div key={b.branch_id} className="p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between shadow-2xs">
-                                        <span className="text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">{b.branch_name}</span>
+                                    <div key={b.branch_id} className="flex items-center justify-between py-1 text-xs">
+                                        <span className="font-semibold text-[#3D2C2E] dark:text-[#E2E8F0] flex items-center gap-1.5">
+                                            <MapPin className="size-3 text-[#E75480] dark:text-[#FF4F81]" />
+                                            {b.branch_name}
+                                        </span>
                                         <span className={cn(
-                                            "text-xs font-mono font-extrabold px-2 py-0.5 rounded-lg border",
+                                            "font-mono font-extrabold px-2 py-0.5 rounded-lg border text-xs",
                                             b.stock > 0
                                                 ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
                                                 : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/40"
@@ -217,11 +212,19 @@ export function ProductDrawer({
                                     </div>
                                 ))
                             ) : (
-                                <div className="col-span-2 p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between shadow-2xs">
-                                    <span className="text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">Global Stock</span>
-                                    <span className="text-xs font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{product.stock} {product.unit || 'pcs'}</span>
+                                <div className="flex items-center justify-between py-1 text-xs">
+                                    <span className="font-semibold text-[#3D2C2E] dark:text-[#E2E8F0]">Global Stock</span>
+                                    <span className="font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{product.stock} {product.unit || 'pcs'}</span>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Total Stock Divider & Total */}
+                        <div className="pt-2.5 border-t border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between text-xs font-extrabold">
+                            <span className="uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Total Stock</span>
+                            <span className="font-mono text-sm text-emerald-600 dark:text-emerald-400 font-black">
+                                {product.stock} {product.unit || 'pcs'}
+                            </span>
                         </div>
                     </div>
 

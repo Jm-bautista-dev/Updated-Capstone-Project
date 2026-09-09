@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\StockLog;
 use App\Models\Wastage;
 use App\Models\Order;
+use App\Events\StockUpdated;
 use App\Utils\UnitConverter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -130,10 +131,34 @@ class InventoryService
      */
     protected function stockInProduct($productId, $quantity, $quantityBase, $rawUnit, $branchId, $userId, ?string $reference = null) {
         $product = Product::findOrFail($productId);
-        $previousStock = (float) $product->stock;
+        
+        $pivot = DB::table('branch_product')
+            ->where('product_id', $productId)
+            ->where('branch_id', $branchId)
+            ->first();
+
+        $previousStock = $pivot ? (float) $pivot->stock : 0.0;
         $newStock = $previousStock + $quantityBase;
 
-        $product->update(['stock' => $newStock, 'unit' => UnitConverter::normalizeUnit($rawUnit)]);
+        if ($pivot) {
+            DB::table('branch_product')->where('id', $pivot->id)->update([
+                'stock'      => $newStock,
+                'is_active'  => true,
+                'updated_at' => now(),
+            ]);
+        } else {
+            DB::table('branch_product')->insert([
+                'branch_id'  => $branchId,
+                'product_id' => $productId,
+                'stock'      => $newStock,
+                'price'      => $product->selling_price,
+                'is_active'  => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $product->update(['unit' => UnitConverter::normalizeUnit($rawUnit)]);
 
         return StockLog::create([
             'storable_type'  => Product::class,
@@ -245,6 +270,41 @@ class InventoryService
 
             foreach ($order->items as $item) {
                 $product = $item->product;
+                if (!$product) continue;
+
+                // 1. Atomically deduct physical stock from branch_product
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $product->id)
+                    ->where('branch_id', $order->branch_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($pivot) {
+                    $previousStock = (float) $pivot->stock;
+                    $newStock = max(0, $previousStock - (float) $item->quantity);
+
+                    DB::table('branch_product')
+                        ->where('id', $pivot->id)
+                        ->update(['stock' => $newStock, 'updated_at' => now()]);
+
+                    StockLog::create([
+                        'storable_type'  => Product::class,
+                        'storable_id'    => $product->id,
+                        'branch_id'      => $order->branch_id,
+                        'user_id'        => Auth::id(),
+                        'action_type'    => 'order_deduction',
+                        'quantity'       => $item->quantity,
+                        'quantity_base'  => $item->quantity,
+                        'unit'           => $product->unit ?? 'pcs',
+                        'previous_stock' => $previousStock,
+                        'new_stock'      => $newStock,
+                        'reference'      => "Order #{$order->order_number}",
+                    ]);
+
+                    broadcast(new StockUpdated($order->branch_id, Product::class, $product->id))->toOthers();
+                }
+
+                // 2. Deduct ingredient stocks if product has a recipe
                 foreach ($product->ingredients as $ingredient) {
                     $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
                     $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
@@ -298,6 +358,41 @@ class InventoryService
 
             foreach ($order->items as $item) {
                 $product = $item->product;
+                if (!$product) continue;
+
+                // 1. Restore physical stock to branch_product
+                $pivot = DB::table('branch_product')
+                    ->where('product_id', $product->id)
+                    ->where('branch_id', $order->branch_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($pivot) {
+                    $previousStock = (float) $pivot->stock;
+                    $newStock = $previousStock + (float) $item->quantity;
+
+                    DB::table('branch_product')
+                        ->where('id', $pivot->id)
+                        ->update(['stock' => $newStock, 'updated_at' => now()]);
+
+                    StockLog::create([
+                        'storable_type'  => Product::class,
+                        'storable_id'    => $product->id,
+                        'branch_id'      => $order->branch_id,
+                        'user_id'        => Auth::id(),
+                        'action_type'    => 'order_restoration',
+                        'quantity'       => $item->quantity,
+                        'quantity_base'  => $item->quantity,
+                        'unit'           => $product->unit ?? 'pcs',
+                        'previous_stock' => $previousStock,
+                        'new_stock'      => $newStock,
+                        'reference'      => "Cancelled Order #{$order->order_number}",
+                    ]);
+
+                    broadcast(new StockUpdated($order->branch_id, Product::class, $product->id))->toOthers();
+                }
+
+                // 2. Restore ingredient stocks
                 foreach ($product->ingredients as $ingredient) {
                     $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
                     $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
