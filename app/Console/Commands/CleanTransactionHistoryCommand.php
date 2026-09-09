@@ -382,27 +382,29 @@ class CleanTransactionHistoryCommand extends Command
         $dbUser = config('database.connections.mysql.username', 'root');
         $dbPass = config('database.connections.mysql.password', '');
 
-        // 1. Try mysqldump if available
-        $mysqldumpPath = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
-        if (!file_exists($mysqldumpPath)) {
-            $mysqldumpPath = 'mysqldump';
-        }
+        // 1. Try mysqldump if available and exec() is allowed
+        if (function_exists('exec')) {
+            $mysqldumpPath = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
+            if (!file_exists($mysqldumpPath)) {
+                $mysqldumpPath = 'mysqldump';
+            }
 
-        $cmd = sprintf(
-            '"%s" --host=%s --port=%s --user=%s %s %s > "%s" 2>&1',
-            $mysqldumpPath,
-            escapeshellarg($dbHost),
-            escapeshellarg($dbPort),
-            escapeshellarg($dbUser),
-            $dbPass ? '--password=' . escapeshellarg($dbPass) : '',
-            escapeshellarg($dbName),
-            $filePath
-        );
+            $cmd = sprintf(
+                '"%s" --host=%s --port=%s --user=%s %s %s > "%s" 2>&1',
+                $mysqldumpPath,
+                escapeshellarg($dbHost),
+                escapeshellarg($dbPort),
+                escapeshellarg($dbUser),
+                $dbPass ? '--password=' . escapeshellarg($dbPass) : '',
+                escapeshellarg($dbName),
+                $filePath
+            );
 
-        @exec($cmd, $output, $returnCode);
+            @exec($cmd, $output, $returnCode);
 
-        if ($returnCode === 0 && file_exists($filePath) && filesize($filePath) > 0) {
-            return $filePath;
+            if ($returnCode === 0 && file_exists($filePath) && filesize($filePath) > 0) {
+                return $filePath;
+            }
         }
 
         // 2. Fallback to robust PHP/PDO exporter (universal for shared hosting)

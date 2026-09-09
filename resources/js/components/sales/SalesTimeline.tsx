@@ -60,7 +60,16 @@ export function SalesTimeline({ sales, onSelectSale }: SalesTimelineProps) {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.3, delay: index * 0.04 }}
                             onClick={() => onSelectSale(sale)}
-                            className="relative flex items-center justify-between gap-4 p-3.5 rounded-2xl bg-white/60 dark:bg-[#181820]/60 border border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#E75480]/40 transition-all cursor-pointer group shadow-2xs"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onSelectSale(sale);
+                                }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`View details for transaction #${sale.order_number}`}
+                            className="relative flex items-center justify-between gap-4 p-3.5 rounded-2xl bg-white/60 dark:bg-[#181820]/60 border border-[#F8C8DC]/40 dark:border-white/10 transition-all cursor-pointer shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81]"
                         >
                             {/* Dot Pin */}
                             <div className="absolute -left-7.75 top-1/2 -translate-y-1/2 size-4 rounded-full bg-white dark:bg-[#121218] border-2 border-[#E75480] dark:border-[#FF4F81] flex items-center justify-center shadow-xs">
@@ -103,7 +112,7 @@ export function SalesTimeline({ sales, onSelectSale }: SalesTimelineProps) {
                                 )}>
                                     {formatCurrency(Number(sale.total || 0))}
                                 </span>
-                                <ArrowUpRight className="size-4 text-[#7D6B6E] dark:text-[#94A3B8] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors" />
+                                <ArrowUpRight className="size-4 text-[#7D6B6E] dark:text-[#94A3B8]" />
                             </div>
 
                         </motion.div>

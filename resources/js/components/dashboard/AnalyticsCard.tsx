@@ -8,6 +8,7 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
+    Legend,
     ResponsiveContainer,
     BarChart,
     Bar,
@@ -15,6 +16,7 @@ import {
     Pie,
     Cell,
 } from 'recharts';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
@@ -44,6 +46,61 @@ interface PaymentMethodItem {
 
 const PIE_COLORS = ['#E75480', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'];
 
+/**
+ * Authoritative financial color semantic configuration for Operational Trajectory.
+ * 
+ * Rules:
+ * - Revenue (Inflow / Positive business outcome): Emerald Green (#10b981)
+ * - COGS / Ingredient Cost (Outflow / Expense): Rose Red (#f43f5e) with dashed pattern for accessibility
+ * - Profit Margin % (Performance / Ratio): Sky Blue (#0ea5e9) visually positive & distinct from Revenue
+ * - Net Profit (Bottom line profit): Emerald Green (#10b981)
+ */
+export const TRAJECTORY_SERIES_CONFIG = {
+    revenue: {
+        key: 'revenue',
+        label: 'Operational Revenue (₱)',
+        shortLabel: 'Total Revenue',
+        color: '#10b981',
+        gradientId: 'colorRevenue',
+        strokeWidth: 3,
+        strokeDasharray: undefined,
+        areaOpacity: { start: 0.35, end: 0 },
+        badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40 text-emerald-600 dark:text-emerald-400',
+        textClass: 'text-emerald-600 dark:text-emerald-400',
+    },
+    cogs: {
+        key: 'cogs',
+        label: 'COGS / Ingredient Cost (₱)',
+        shortLabel: 'COGS / Ingredient Cost',
+        color: '#f43f5e',
+        gradientId: 'colorCogs',
+        strokeWidth: 2.5,
+        strokeDasharray: '4 4',
+        areaOpacity: { start: 0.25, end: 0 },
+        badgeClass: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/40 text-rose-600 dark:text-rose-400',
+        textClass: 'text-rose-600 dark:text-rose-400',
+    },
+    margin: {
+        key: 'margin_pct',
+        label: 'Profit Margin (%)',
+        shortLabel: 'Avg Margin',
+        color: '#0ea5e9',
+        gradientId: 'colorMargin',
+        strokeWidth: 3,
+        strokeDasharray: undefined,
+        areaOpacity: { start: 0.3, end: 0 },
+        badgeClass: 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/40 text-sky-600 dark:text-sky-400',
+        textClass: 'text-sky-600 dark:text-sky-400',
+    },
+    profit: {
+        key: 'profit',
+        label: 'Net Profit (₱)',
+        shortLabel: 'Net Profit',
+        color: '#10b981',
+        textClass: 'text-emerald-600 dark:text-emerald-400',
+    },
+} as const;
+
 export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesOverTimeItem[] }) {
     const totalRev = React.useMemo(() => salesOverTime.reduce((sum, item) => sum + (item.revenue || 0), 0), [salesOverTime]);
     const totalCogs = React.useMemo(() => salesOverTime.reduce((sum, item) => sum + (item.cogs || 0), 0), [salesOverTime]);
@@ -72,44 +129,58 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                     </p>
                 </div>
 
-                {/* Summary Badges */}
+                {/* Summary Badges (KPI Cards directly above chart) */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-right">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">Total Revenue</span>
+                    <div className={cn("px-3 py-1.5 rounded-xl border text-right", TRAJECTORY_SERIES_CONFIG.revenue.badgeClass)}>
+                        <span className="text-[9px] font-bold uppercase tracking-wider block">Total Revenue</span>
                         <span className="text-xs font-mono font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(totalRev)}</span>
                     </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-right">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">COGS / Ingredient Cost</span>
-                        <span className="text-xs font-mono font-extrabold text-amber-600 dark:text-amber-400">{formatCurrency(totalCogs)}</span>
+                    <div className={cn("px-3 py-1.5 rounded-xl border text-right", TRAJECTORY_SERIES_CONFIG.cogs.badgeClass)}>
+                        <span className="text-[9px] font-bold uppercase tracking-wider block">COGS / Ingredient Cost</span>
+                        <span className="text-xs font-mono font-extrabold">{formatCurrency(totalCogs)}</span>
                     </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-right">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Avg Margin</span>
-                        <span className="text-xs font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{avgMargin.toFixed(1)}%</span>
+                    <div className={cn("px-3 py-1.5 rounded-xl border text-right", TRAJECTORY_SERIES_CONFIG.margin.badgeClass)}>
+                        <span className="text-[9px] font-bold uppercase tracking-wider block">Avg Margin</span>
+                        <span className="text-xs font-mono font-extrabold">{avgMargin.toFixed(1)}%</span>
                     </div>
                 </div>
             </div>
 
-            <div className="h-72 w-full min-h-72 min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 500, height: 250 }}>
+            <div className="h-80 w-full min-h-80 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={220} initialDimension={{ width: 500, height: 280 }}>
                     <AreaChart data={salesOverTime} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                         <defs>
-                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#E75480" stopOpacity={0.4} />
-                                <stop offset="95%" stopColor="#E75480" stopOpacity={0} />
+                            <linearGradient id={TRAJECTORY_SERIES_CONFIG.revenue.gradientId} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={TRAJECTORY_SERIES_CONFIG.revenue.color} stopOpacity={TRAJECTORY_SERIES_CONFIG.revenue.areaOpacity.start} />
+                                <stop offset="95%" stopColor={TRAJECTORY_SERIES_CONFIG.revenue.color} stopOpacity={TRAJECTORY_SERIES_CONFIG.revenue.areaOpacity.end} />
                             </linearGradient>
-                            <linearGradient id="colorCogs" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                            <linearGradient id={TRAJECTORY_SERIES_CONFIG.cogs.gradientId} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={TRAJECTORY_SERIES_CONFIG.cogs.color} stopOpacity={TRAJECTORY_SERIES_CONFIG.cogs.areaOpacity.start} />
+                                <stop offset="95%" stopColor={TRAJECTORY_SERIES_CONFIG.cogs.color} stopOpacity={TRAJECTORY_SERIES_CONFIG.cogs.areaOpacity.end} />
                             </linearGradient>
-                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                            <linearGradient id={TRAJECTORY_SERIES_CONFIG.margin.gradientId} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={TRAJECTORY_SERIES_CONFIG.margin.color} stopOpacity={TRAJECTORY_SERIES_CONFIG.margin.areaOpacity.start} />
+                                <stop offset="95%" stopColor={TRAJECTORY_SERIES_CONFIG.margin.color} stopOpacity={TRAJECTORY_SERIES_CONFIG.margin.areaOpacity.end} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--ops-border, rgba(255, 255, 255, 0.06))" />
                         <XAxis dataKey="date" stroke="#9E8B8E" fontSize={11} tickLine={false} />
-                        <YAxis yAxisId="left" stroke="#E75480" fontSize={10} tickLine={false} tickFormatter={(val) => `₱${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} />
-                        <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={10} tickLine={false} tickFormatter={(val) => `${val}%`} domain={[0, 100]} />
+                        <YAxis 
+                            yAxisId="left" 
+                            stroke={TRAJECTORY_SERIES_CONFIG.revenue.color} 
+                            fontSize={10} 
+                            tickLine={false} 
+                            tickFormatter={(val) => `₱${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} 
+                        />
+                        <YAxis 
+                            yAxisId="right" 
+                            orientation="right" 
+                            stroke={TRAJECTORY_SERIES_CONFIG.margin.color} 
+                            fontSize={10} 
+                            tickLine={false} 
+                            tickFormatter={(val) => `${val}%`} 
+                            domain={[0, 100]} 
+                        />
                         <Tooltip
                             content={({ active, payload, label }) => {
                                 if (active && payload && payload.length) {
@@ -119,22 +190,42 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                                     const prof = data.profit ?? (rev - cogs);
                                     const margin = data.margin_pct ?? (rev > 0 ? (prof / rev) * 100 : 0);
                                     return (
-                                        <div className="p-3.5 rounded-2xl bg-white/95 dark:bg-[#1C1C28]/95 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xl backdrop-blur-md text-xs font-['Outfit'] space-y-1.5 min-w-44">
+                                        <div className="p-3.5 rounded-2xl bg-white/95 dark:bg-[#1C1C28]/95 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xl backdrop-blur-md text-xs font-['Outfit'] space-y-2 min-w-48">
                                             <p className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] border-b border-[#F8C8DC]/40 dark:border-white/10 pb-1">{label}</p>
-                                            <div className="flex items-center justify-between gap-3 text-rose-600 dark:text-rose-400 font-semibold">
-                                                <span>Revenue:</span>
+                                            
+                                            {/* Revenue Row (Green) */}
+                                            <div className={cn("flex items-center justify-between gap-3 font-semibold", TRAJECTORY_SERIES_CONFIG.revenue.textClass)}>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="size-2 rounded-full inline-block shrink-0" style={{ backgroundColor: TRAJECTORY_SERIES_CONFIG.revenue.color }} />
+                                                    <span>Revenue:</span>
+                                                </span>
                                                 <span className="font-mono font-extrabold">{formatCurrency(rev)}</span>
                                             </div>
-                                            <div className="flex items-center justify-between gap-3 text-amber-600 dark:text-amber-400 font-semibold">
-                                                <span>COGS / Ingredient Cost:</span>
+                                            
+                                            {/* COGS / Ingredient Cost Row (Red) */}
+                                            <div className={cn("flex items-center justify-between gap-3 font-semibold", TRAJECTORY_SERIES_CONFIG.cogs.textClass)}>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="size-2 rounded-full inline-block shrink-0" style={{ backgroundColor: TRAJECTORY_SERIES_CONFIG.cogs.color }} />
+                                                    <span>COGS / Cost:</span>
+                                                </span>
                                                 <span className="font-mono font-extrabold">{formatCurrency(cogs)}</span>
                                             </div>
-                                            <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400 font-semibold">
-                                                <span>Net Profit:</span>
+                                            
+                                            {/* Net Profit Row (Green) */}
+                                            <div className={cn("flex items-center justify-between gap-3 font-semibold", TRAJECTORY_SERIES_CONFIG.profit.textClass)}>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="size-2 rounded-full inline-block shrink-0" style={{ backgroundColor: TRAJECTORY_SERIES_CONFIG.profit.color }} />
+                                                    <span>Net Profit:</span>
+                                                </span>
                                                 <span className="font-mono font-extrabold">{formatCurrency(prof)}</span>
                                             </div>
-                                            <div className="flex items-center justify-between gap-3 text-emerald-700 dark:text-emerald-300 font-semibold pt-0.5 border-t border-[#F8C8DC]/20 dark:border-white/5">
-                                                <span>Profit Margin:</span>
+                                            
+                                            {/* Margin % Row (Performance Sky) */}
+                                            <div className={cn("flex items-center justify-between gap-3 font-semibold pt-1 border-t border-[#F8C8DC]/20 dark:border-white/5", TRAJECTORY_SERIES_CONFIG.margin.textClass)}>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="size-2 rounded-full inline-block shrink-0" style={{ backgroundColor: TRAJECTORY_SERIES_CONFIG.margin.color }} />
+                                                    <span>Profit Margin:</span>
+                                                </span>
                                                 <span className="font-mono font-extrabold">{margin.toFixed(1)}%</span>
                                             </div>
                                         </div>
@@ -143,9 +234,57 @@ export function TrajectoryChart({ salesOverTime = [] }: { salesOverTime?: SalesO
                                 return null;
                             }}
                         />
-                        <Area yAxisId="left" type="monotone" dataKey="revenue" name="Operational Revenue (₱)" stroke="#E75480" strokeWidth={3} fill="url(#colorRevenue)" />
-                        <Area yAxisId="left" type="monotone" dataKey="cogs" name="COGS / Ingredient Cost (₱)" stroke="#f59e0b" strokeWidth={2.5} strokeDasharray="4 4" fill="url(#colorCogs)" />
-                        <Area yAxisId="right" type="monotone" dataKey="margin_pct" name="Profit Margin (%)" stroke="#10b981" strokeWidth={3} fill="url(#colorProfit)" />
+
+                        {/* Synchronized Legend: Dynamically reflects series colors and stroke patterns */}
+                        <Legend
+                            verticalAlign="bottom"
+                            height={36}
+                            content={() => (
+                                <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 pt-3 border-t border-[#F8C8DC]/20 dark:border-white/5 text-xs font-semibold">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: TRAJECTORY_SERIES_CONFIG.revenue.color }} />
+                                        <span className="text-[#3D2C2E] dark:text-[#E2E8F0] font-bold">{TRAJECTORY_SERIES_CONFIG.revenue.label}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-3.5 h-1 border-b-2 border-dashed shrink-0" style={{ borderColor: TRAJECTORY_SERIES_CONFIG.cogs.color }} />
+                                        <span className="text-[#3D2C2E] dark:text-[#E2E8F0] font-bold">{TRAJECTORY_SERIES_CONFIG.cogs.label}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: TRAJECTORY_SERIES_CONFIG.margin.color }} />
+                                        <span className="text-[#3D2C2E] dark:text-[#E2E8F0] font-bold">{TRAJECTORY_SERIES_CONFIG.margin.label}</span>
+                                    </div>
+                                </div>
+                            )}
+                        />
+
+                        <Area 
+                            yAxisId="left" 
+                            type="monotone" 
+                            dataKey={TRAJECTORY_SERIES_CONFIG.revenue.key} 
+                            name={TRAJECTORY_SERIES_CONFIG.revenue.label} 
+                            stroke={TRAJECTORY_SERIES_CONFIG.revenue.color} 
+                            strokeWidth={TRAJECTORY_SERIES_CONFIG.revenue.strokeWidth} 
+                            fill={`url(#${TRAJECTORY_SERIES_CONFIG.revenue.gradientId})`} 
+                        />
+                        <Area 
+                            yAxisId="left" 
+                            type="monotone" 
+                            dataKey={TRAJECTORY_SERIES_CONFIG.cogs.key} 
+                            name={TRAJECTORY_SERIES_CONFIG.cogs.label} 
+                            stroke={TRAJECTORY_SERIES_CONFIG.cogs.color} 
+                            strokeWidth={TRAJECTORY_SERIES_CONFIG.cogs.strokeWidth} 
+                            strokeDasharray={TRAJECTORY_SERIES_CONFIG.cogs.strokeDasharray} 
+                            fill={`url(#${TRAJECTORY_SERIES_CONFIG.cogs.gradientId})`} 
+                        />
+                        <Area 
+                            yAxisId="right" 
+                            type="monotone" 
+                            dataKey={TRAJECTORY_SERIES_CONFIG.margin.key} 
+                            name={TRAJECTORY_SERIES_CONFIG.margin.label} 
+                            stroke={TRAJECTORY_SERIES_CONFIG.margin.color} 
+                            strokeWidth={TRAJECTORY_SERIES_CONFIG.margin.strokeWidth} 
+                            fill={`url(#${TRAJECTORY_SERIES_CONFIG.margin.gradientId})`} 
+                        />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>

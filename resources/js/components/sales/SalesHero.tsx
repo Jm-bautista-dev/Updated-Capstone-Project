@@ -181,14 +181,14 @@ export function SalesHero({ stats, activeBranchName }: SalesHeroProps) {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.05 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-[#E75480]/40 transition-all duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300"
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Today's Revenue</span>
                                 <span className="text-[10px] text-(--ops-text-muted) cursor-help" title={stats?.definition || "Recognized net food revenue from completed transactions today (after discounts, excluding delivery fees)"}>ⓘ</span>
                             </div>
-                            <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                            <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs">
                                 <DollarSign className="size-5" />
                             </div>
                         </div>
@@ -215,11 +215,11 @@ export function SalesHero({ stats, activeBranchName }: SalesHeroProps) {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.1 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-emerald-400/40 transition-all duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300"
                     >
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Completed Orders</span>
-                            <div className="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                            <div className="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-center shadow-2xs">
                                 <CheckCircle className="size-5" />
                             </div>
                         </div>
@@ -245,11 +245,11 @@ export function SalesHero({ stats, activeBranchName }: SalesHeroProps) {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.15 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-amber-400/40 transition-all duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300"
                     >
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Pending Queue</span>
-                            <div className="size-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                            <div className="size-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center shadow-2xs">
                                 <Clock className="size-5" />
                             </div>
                         </div>
@@ -268,11 +268,11 @@ export function SalesHero({ stats, activeBranchName }: SalesHeroProps) {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.2 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl group hover:border-purple-400/40 transition-all duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300"
                     >
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Avg Order Value</span>
-                            <div className="size-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900/50 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform">
+                            <div className="size-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900/50 flex items-center justify-center shadow-2xs">
                                 <ShoppingBag className="size-5" />
                             </div>
                         </div>

@@ -59,14 +59,14 @@ export function SalesCardGrid({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.03 }}
                         className={cn(
-                            'rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between space-y-5 hover:-translate-y-1 hover:border-[#E75480]/40 group',
+                            'rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between space-y-5',
                             isVoided && 'opacity-65 bg-rose-50/30 dark:bg-rose-950/10'
                         )}
                     >
                         {/* Header: SKU & Status */}
                         <div className="flex items-center justify-between gap-2 border-b border-[#F8C8DC]/40 dark:border-white/10 pb-4">
                             <div className="flex items-center gap-2">
-                                <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center font-mono font-black shadow-2xs group-hover:scale-105 transition-transform">
+                                <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center font-mono font-black shadow-2xs">
                                     <Receipt className="size-5" />
                                 </div>
                                 <div>
