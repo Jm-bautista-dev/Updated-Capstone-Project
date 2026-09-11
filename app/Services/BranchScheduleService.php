@@ -200,7 +200,7 @@ class BranchScheduleService
         $special = null;
         try {
             $special = BranchSpecialSchedule::where('branch_id', $branch->id)
-                ->whereDate('date', $dateStr)
+                ->where('date', $dateStr)
                 ->first();
         } catch (\Throwable $e) {
             $special = null;

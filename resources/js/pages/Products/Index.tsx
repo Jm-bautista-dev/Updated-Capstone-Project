@@ -38,7 +38,7 @@ import {
     SelectValue
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import { getCompatibleUnits, convertToBaseQuantityWithIngredient } from '@/lib/unit-converter';
+import { getCompatibleUnits, convertToBaseQuantityWithIngredient, getMeasurementFamily, convertToBaseQuantity } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
 type Category = {
@@ -51,6 +51,7 @@ type Ingredient = {
     name: string;
     unit: string;
     stock: number;
+    avg_weight_per_piece?: number | null;
 };
 
 const PRODUCT_UNITS = [
@@ -407,6 +408,25 @@ export default function ProductsIndex() {
         e.preventDefault();
         setAddErrors({});
 
+        // Client-side validation: average weight is required when a pcs ingredient is used in grams
+        for (let i = 0; i < data.recipe.length; i++) {
+            const item = data.recipe[i];
+            if (!item.ingredient_id) continue;
+            const ing = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
+            if (!ing) continue;
+            const baseFamily = getMeasurementFamily(ing.unit);
+            const selectedFamily = getMeasurementFamily(item.unit);
+            if (baseFamily === 'count' && selectedFamily === 'mass') {
+                const avgW = (ing as unknown as { avg_weight_per_piece?: number }).avg_weight_per_piece;
+                if (!avgW || Number(avgW) <= 0) {
+                    setAddErrors({
+                        [`recipe.${i}.unit`]: 'Average weight per piece is required to use this ingredient in grams.',
+                    });
+                    return;
+                }
+            }
+        }
+
         let payloadOption = data.branch_option || 'single';
         let payloadBranchId = data.branch_id;
         const currentBranchIds = data.branch_ids || [];
@@ -449,6 +469,25 @@ export default function ProductsIndex() {
         e.preventDefault();
         if (!selectedProduct) return;
         setEditErrors({});
+
+        // Client-side validation: average weight is required when a pcs ingredient is used in grams
+        for (let i = 0; i < data.recipe.length; i++) {
+            const item = data.recipe[i];
+            if (!item.ingredient_id) continue;
+            const ing = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
+            if (!ing) continue;
+            const baseFamily = getMeasurementFamily(ing.unit);
+            const selectedFamily = getMeasurementFamily(item.unit);
+            if (baseFamily === 'count' && selectedFamily === 'mass') {
+                const avgW = (ing as unknown as { avg_weight_per_piece?: number }).avg_weight_per_piece;
+                if (!avgW || Number(avgW) <= 0) {
+                    setEditErrors({
+                        [`recipe.${i}.unit`]: 'Average weight per piece is required to use this ingredient in grams.',
+                    });
+                    return;
+                }
+            }
+        }
 
         let payloadOption = data.branch_option || 'single';
         let payloadBranchId = data.branch_id;
@@ -989,41 +1028,79 @@ export default function ProductsIndex() {
                                     {data.recipe.map((item, idx) => {
                                         const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
                                         const compatibleUnits = selectedIng ? getCompatibleUnits(selectedIng.unit) : ['g', 'kg', 'mg', 'ml', 'L', 'pcs'];
+                                        const baseFamily = selectedIng ? getMeasurementFamily(selectedIng.unit) : null;
+                                        const selectedFamily = getMeasurementFamily(item.unit);
+                                        const isWeightOnCount = baseFamily === 'count' && selectedFamily === 'mass';
+                                        const avgWeight = selectedIng?.avg_weight_per_piece ? Number(selectedIng.avg_weight_per_piece) : 0;
+                                        const hasValidAvgWeight = avgWeight > 0;
+                                        const qtyNum = parseFloat(item.quantity_required);
+                                        const convertedPcs = (hasValidAvgWeight && !isNaN(qtyNum) && qtyNum > 0)
+                                            ? Number((convertToBaseQuantity(qtyNum, item.unit) / avgWeight).toFixed(4))
+                                            : null;
+
                                         return (
-                                            <div key={idx} className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
-                                                <select
-                                                    required
-                                                    value={item.ingredient_id}
-                                                    onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                    className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
-                                                >
-                                                    <option value="">-- Choose Ingredient --</option>
-                                                    {ingredients.map((ing) => (
-                                                        <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-                                                    ))}
-                                                </select>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    required
-                                                    value={item.quantity_required}
-                                                    onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                    className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
-                                                    placeholder="Qty"
-                                                />
-                                                <select
-                                                    required
-                                                    value={item.unit}
-                                                    onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
-                                                    className="w-18 h-9 px-1.5 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-mono font-bold cursor-pointer"
-                                                >
-                                                    {compatibleUnits.map((u) => (
-                                                        <option key={u} value={u}>{u}</option>
-                                                    ))}
-                                                </select>
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
-                                                    <Trash2 className="size-3.5" />
-                                                </Button>
+                                            <div key={idx} className="flex flex-col bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10 gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        required
+                                                        value={item.ingredient_id}
+                                                        onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                        className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
+                                                    >
+                                                        <option value="">-- Choose Ingredient --</option>
+                                                        {ingredients.map((ing) => (
+                                                            <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                                                        ))}
+                                                    </select>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        min="0.0001"
+                                                        required
+                                                        value={item.quantity_required}
+                                                        onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                        className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
+                                                        placeholder="Qty"
+                                                    />
+                                                    <select
+                                                        required
+                                                        value={item.unit}
+                                                        onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                        className="w-24 h-9 px-1.5 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-mono font-bold cursor-pointer"
+                                                    >
+                                                        {compatibleUnits.map((u) => (
+                                                            <option key={u} value={u}>
+                                                                {u === 'g' ? 'grams (g)' : (u === 'pcs' ? 'pcs' : u)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                                        <Trash2 className="size-3.5" />
+                                                    </Button>
+                                                </div>
+
+                                                {isWeightOnCount && (
+                                                    <div className="flex items-center justify-between text-[11px] px-2.5 py-1 rounded-lg bg-pink-500/5 dark:bg-pink-500/10 border border-pink-500/15">
+                                                        {hasValidAvgWeight ? (
+                                                            <>
+                                                                <span className="text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                                    Average weight: <span className="font-semibold text-[#3D2C2E] dark:text-[#F8FAFC]">{avgWeight}g / pcs</span>
+                                                                </span>
+                                                                <span className="text-[#E75480] dark:text-[#FF4F81] font-bold font-mono">
+                                                                    Inventory consumption: {convertedPcs !== null ? `${convertedPcs} pcs` : '—'}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                                                ⚠️ Average weight per piece is required to use this ingredient in grams.
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {addErrors[`recipe.${idx}.unit`] && (
+                                                    <p className="text-[11px] font-semibold text-rose-500 pl-1">{addErrors[`recipe.${idx}.unit`]}</p>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1291,41 +1368,79 @@ export default function ProductsIndex() {
                                     {data.recipe.map((item, idx) => {
                                         const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
                                         const compatibleUnits = selectedIng ? getCompatibleUnits(selectedIng.unit) : ['g', 'kg', 'mg', 'ml', 'L', 'pcs'];
+                                        const baseFamily = selectedIng ? getMeasurementFamily(selectedIng.unit) : null;
+                                        const selectedFamily = getMeasurementFamily(item.unit);
+                                        const isWeightOnCount = baseFamily === 'count' && selectedFamily === 'mass';
+                                        const avgWeight = selectedIng?.avg_weight_per_piece ? Number(selectedIng.avg_weight_per_piece) : 0;
+                                        const hasValidAvgWeight = avgWeight > 0;
+                                        const qtyNum = parseFloat(item.quantity_required);
+                                        const convertedPcs = (hasValidAvgWeight && !isNaN(qtyNum) && qtyNum > 0)
+                                            ? Number((convertToBaseQuantity(qtyNum, item.unit) / avgWeight).toFixed(4))
+                                            : null;
+
                                         return (
-                                            <div key={idx} className="flex items-center gap-2 bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
-                                                <select
-                                                    required
-                                                    value={item.ingredient_id}
-                                                    onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
-                                                    className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
-                                                >
-                                                    <option value="">-- Choose Ingredient --</option>
-                                                    {ingredients.map((ing) => (
-                                                        <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-                                                    ))}
-                                                </select>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    required
-                                                    value={item.quantity_required}
-                                                    onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
-                                                    className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
-                                                    placeholder="Qty"
-                                                />
-                                                <select
-                                                    required
-                                                    value={item.unit}
-                                                    onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
-                                                    className="w-18 h-9 px-1.5 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-mono font-bold cursor-pointer"
-                                                >
-                                                    {compatibleUnits.map((u) => (
-                                                        <option key={u} value={u}>{u}</option>
-                                                    ))}
-                                                </select>
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
-                                                    <Trash2 className="size-3.5" />
-                                                </Button>
+                                            <div key={idx} className="flex flex-col bg-[#FFF5F7] dark:bg-[#181820] p-2.5 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10 gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        required
+                                                        value={item.ingredient_id}
+                                                        onChange={(e) => updateRecipeItem(idx, 'ingredient_id', e.target.value)}
+                                                        className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
+                                                    >
+                                                        <option value="">-- Choose Ingredient --</option>
+                                                        {ingredients.map((ing) => (
+                                                            <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                                                        ))}
+                                                    </select>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        min="0.0001"
+                                                        required
+                                                        value={item.quantity_required}
+                                                        onChange={(e) => updateRecipeItem(idx, 'quantity_required', e.target.value)}
+                                                        className="w-20 h-9 text-xs font-bold font-mono bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] rounded-lg border-[#F8C8DC]/60 dark:border-white/10"
+                                                        placeholder="Qty"
+                                                    />
+                                                    <select
+                                                        required
+                                                        value={item.unit}
+                                                        onChange={(e) => updateRecipeItem(idx, 'unit', e.target.value)}
+                                                        className="w-24 h-9 px-1.5 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-mono font-bold cursor-pointer"
+                                                    >
+                                                        {compatibleUnits.map((u) => (
+                                                            <option key={u} value={u}>
+                                                                {u === 'g' ? 'grams (g)' : (u === 'pcs' ? 'pcs' : u)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeRecipeItem(idx)} className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                                        <Trash2 className="size-3.5" />
+                                                    </Button>
+                                                </div>
+
+                                                {isWeightOnCount && (
+                                                    <div className="flex items-center justify-between text-[11px] px-2.5 py-1 rounded-lg bg-pink-500/5 dark:bg-pink-500/10 border border-pink-500/15">
+                                                        {hasValidAvgWeight ? (
+                                                            <>
+                                                                <span className="text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                                    Average weight: <span className="font-semibold text-[#3D2C2E] dark:text-[#F8FAFC]">{avgWeight}g / pcs</span>
+                                                                </span>
+                                                                <span className="text-[#E75480] dark:text-[#FF4F81] font-bold font-mono">
+                                                                    Inventory consumption: {convertedPcs !== null ? `${convertedPcs} pcs` : '—'}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                                                ⚠️ Average weight per piece is required to use this ingredient in grams.
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {editErrors[`recipe.${idx}.unit`] && (
+                                                    <p className="text-[11px] font-semibold text-rose-500 pl-1">{editErrors[`recipe.${idx}.unit`]}</p>
+                                                )}
                                             </div>
                                         );
                                     })}

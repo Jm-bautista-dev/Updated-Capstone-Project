@@ -358,7 +358,7 @@ class ReportController extends Controller
     /**
      * Parse date_from and date_to input into UTC start/end boundaries for database queries.
      *
-     * @return array{0: ?\Carbon\Carbon, 1: ?\Carbon\Carbon}
+     * @return array{0: ?Carbon, 1: ?Carbon}
      */
     private function parseDateBoundaries(?string $dateFrom, ?string $dateTo): array
     {

@@ -13,7 +13,7 @@ class UnitConverter
 
         return match ($u) {
             'mg', 'milligram', 'milligrams',
-            'g', 'gram', 'grams',
+            'g', 'gram', 'grams', 'grams (g)', 'gram (g)', 'g (grams)',
             'kg', 'kilogram', 'kilograms' => 'mass',
 
             'ml', 'milliliter', 'milliliters',
@@ -63,8 +63,8 @@ class UnitConverter
         return match ($family) {
             'mass'   => ['mg', 'g', 'kg'],
             'volume' => ['ml', 'L'],
-            'count'  => ['pcs', 'cloves', 'half', 'whole'],
-            default  => ['pcs'],
+            'count'  => ['pcs', 'g', 'cloves', 'half', 'whole'],
+            default  => ['pcs', 'g'],
         };
     }
 
@@ -253,6 +253,7 @@ class UnitConverter
     {
         return [
             'mg', 'g', 'kg',
+            'grams', 'gram', 'grams (g)',
             'ml', 'l', 'L', 'liters',
             'pcs', 'pc', 'pieces',
             'box', 'bottle', 'pack', 'sack',

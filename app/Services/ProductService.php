@@ -35,12 +35,15 @@ class ProductService
             }
 
             // Step 1: Check if product already exists globally (by SKU or Name + Category)
+            /** @var Product|null $existingProduct */
             $existingProduct = null;
             if (!empty($validated['sku'])) {
+                /** @var Product|null $existingProduct */
                 $existingProduct = Product::where('sku', strtoupper(trim($validated['sku'])))->first();
             }
 
             if (!$existingProduct) {
+                /** @var Product|null $existingProduct */
                 $existingProduct = Product::whereRaw('LOWER(name) = ?', [strtolower(trim($validated['name']))])
                     ->where('category_id', $validated['category_id'])
                     ->first();
@@ -48,6 +51,7 @@ class ProductService
 
             if ($existingProduct) {
                 // Product already exists: maintain as global, do not duplicate
+                /** @var Product $product */
                 $product = $existingProduct;
                 $product->update(['branch_id' => null]);
 
@@ -86,6 +90,7 @@ class ProductService
                     ImageHelper::syncToPublicStorage($imagePath);
                 }
 
+                /** @var Product $product */
                 $product = Product::create([
                     'name'          => $validated['name'],
                     'sku'           => $this->generateSku($validated['sku'] ?? null),
@@ -120,19 +125,12 @@ class ProductService
                         $ingredient = Ingredient::find($item['ingredient_id']);
                         if ($ingredient) {
                             $inputUnit = $item['unit'] ?? $ingredient->unit;
-                            $baseUnit = UnitConverter::normalizeUnit($ingredient->unit);
-                            $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
-                                (float) $item['quantity_required'],
-                                $inputUnit,
-                                $ingredient->unit,
-                                $ingredient->avg_weight_per_piece
-                            );
 
                             MenuItemIngredient::create([
                                 'menu_item_id'      => $product->id,
                                 'ingredient_id'     => $item['ingredient_id'],
-                                'quantity_required' => $baseQty,
-                                'unit'              => $baseUnit,
+                                'quantity_required' => (float) $item['quantity_required'],
+                                'unit'              => $inputUnit,
                             ]);
                         }
                     }
@@ -144,6 +142,7 @@ class ProductService
                 }
             }
 
+            /** @var Product $product */
             $product->refresh();
             $product->update(['cost_price' => $product->computeProductCost()]);
 
@@ -235,19 +234,12 @@ class ProductService
                     $ingredient = Ingredient::find($item['ingredient_id']);
                     if ($ingredient) {
                         $inputUnit = $item['unit'] ?? $ingredient->unit;
-                        $baseUnit = UnitConverter::normalizeUnit($ingredient->unit);
-                        $baseQty = UnitConverter::convertToBaseQuantityWithIngredient(
-                            (float) $item['quantity_required'],
-                            $inputUnit,
-                            $ingredient->unit,
-                            $ingredient->avg_weight_per_piece
-                        );
 
                         MenuItemIngredient::create([
                             'menu_item_id'      => $product->id,
                             'ingredient_id'     => $item['ingredient_id'],
-                            'quantity_required' => $baseQty,
-                            'unit'              => $baseUnit,
+                            'quantity_required' => (float) $item['quantity_required'],
+                            'unit'              => $inputUnit,
                         ]);
                     }
                 }

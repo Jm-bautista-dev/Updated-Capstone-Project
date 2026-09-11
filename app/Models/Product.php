@@ -508,10 +508,18 @@ class Product extends Model
             }
 
             if ($availableInStock < $requiredPerUnit) {
-                $displayUnit = $ingredient->unit ?? 'pcs';
-                $displayStock = max(0.0, (float) \App\Utils\UnitConverter::convertFromBaseQuantity($availableInStock, $displayUnit));
-                $displayRequired = (float) \App\Utils\UnitConverter::convertFromBaseQuantity($requiredPerUnit, $displayUnit);
-                $shortage = (float) max(0.0, round($displayRequired - $displayStock, 4));
+                $isCrossUnit = strtolower(trim($unitInput)) !== strtolower(trim($ingredient->unit));
+                if ($isCrossUnit) {
+                    $displayUnit = $unitInput;
+                    $displayStock = max(0.0, (float) \App\Utils\UnitConverter::convertQuantity($availableInStock, $ingredient->unit, $unitInput, $ingredient->avg_weight_per_piece));
+                    $displayRequired = (float) $qtyInput;
+                    $shortage = (float) max(0.0, round($displayRequired - $displayStock, 4));
+                } else {
+                    $displayUnit = $ingredient->unit ?? 'pcs';
+                    $displayStock = max(0.0, (float) \App\Utils\UnitConverter::convertFromBaseQuantity($availableInStock, $displayUnit));
+                    $displayRequired = (float) \App\Utils\UnitConverter::convertFromBaseQuantity($requiredPerUnit, $displayUnit);
+                    $shortage = (float) max(0.0, round($displayRequired - $displayStock, 4));
+                }
 
                 $statusReason = $hasInventoryRecord ? 'INSUFFICIENT_STOCK' : 'NO_INVENTORY_RECORD';
                 $reasonDisplay = $hasInventoryRecord
@@ -614,9 +622,16 @@ class Product extends Model
                 $availableStock = $stockRecord ? (float) $stockRecord->stock : 0.0;
 
                 if ($availableStock < $totalNeeded) {
-                    $displayUnit = $ingredient->unit ?? 'unit(s)';
-                    $displayAvailable = \App\Utils\UnitConverter::convertFromBaseQuantity($availableStock, $displayUnit);
-                    $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($totalNeeded, $displayUnit);
+                    $isCrossUnit = strtolower(trim($unitInput)) !== strtolower(trim($ingredient->unit));
+                    if ($isCrossUnit) {
+                        $displayUnit = $unitInput;
+                        $displayAvailable = \App\Utils\UnitConverter::convertQuantity($availableStock, $ingredient->unit, $unitInput, $ingredient->avg_weight_per_piece);
+                        $displayNeeded = $qtyPerUnit * $requestedQuantity;
+                    } else {
+                        $displayUnit = $ingredient->unit ?? 'unit(s)';
+                        $displayAvailable = \App\Utils\UnitConverter::convertFromBaseQuantity($availableStock, $displayUnit);
+                        $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($totalNeeded, $displayUnit);
+                    }
 
                     return [
                         'success' => false,
@@ -694,9 +709,12 @@ class Product extends Model
 
                     if (!isset($ingredientRequirements[$ingredient->id])) {
                         $ingredientRequirements[$ingredient->id] = [
-                            'name'   => $ingredient->name,
-                            'unit'   => $ingredient->unit ?? 'unit(s)',
-                            'needed' => 0.0,
+                            'name'         => $ingredient->name,
+                            'unit'         => $ingredient->unit ?? 'unit(s)',
+                            'needed'       => 0.0,
+                            'display_unit' => $unitInput,
+                            'base_unit'    => $ingredient->unit,
+                            'avg_weight'   => $ingredient->avg_weight_per_piece,
                         ];
                     }
                     $ingredientRequirements[$ingredient->id]['needed'] += $totalNeeded;
@@ -722,9 +740,15 @@ class Product extends Model
 
             $available = $stockRow ? (float) $stockRow->stock : 0.0;
             if ($available < $req['needed']) {
-                $displayUnit = $req['unit'];
-                $displayAvailable = \App\Utils\UnitConverter::convertFromBaseQuantity($available, $displayUnit);
-                $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($req['needed'], $displayUnit);
+                $displayUnit = $req['display_unit'] ?? $req['unit'];
+                $isCrossUnit = strtolower(trim($displayUnit)) !== strtolower(trim($req['base_unit'] ?? $req['unit']));
+                if ($isCrossUnit) {
+                    $displayAvailable = \App\Utils\UnitConverter::convertQuantity($available, $req['base_unit'], $displayUnit, $req['avg_weight'] ?? null);
+                    $displayNeeded = \App\Utils\UnitConverter::convertQuantity($req['needed'], $req['base_unit'], $displayUnit, $req['avg_weight'] ?? null);
+                } else {
+                    $displayAvailable = \App\Utils\UnitConverter::convertFromBaseQuantity($available, $displayUnit);
+                    $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($req['needed'], $displayUnit);
+                }
 
                 return [
                     'success' => false,

@@ -5,7 +5,7 @@
 
 export const getMeasurementFamily = (unit: string): 'mass' | 'volume' | 'count' | null => {
   const u = unit.toLowerCase().trim();
-  if (['mg', 'milligram', 'milligrams', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms'].includes(u)) {
+  if (['mg', 'milligram', 'milligrams', 'g', 'gram', 'grams', 'grams (g)', 'gram (g)', 'g (grams)', 'kg', 'kilogram', 'kilograms'].includes(u)) {
     return 'mass';
   }
   if (['ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters'].includes(u)) {
@@ -40,8 +40,8 @@ export const getCompatibleUnits = (unit: string): string[] => {
   const family = getMeasurementFamily(unit);
   if (family === 'mass') return ['mg', 'g', 'kg'];
   if (family === 'volume') return ['ml', 'L'];
-  if (family === 'count') return ['pcs', 'cloves', 'half', 'whole'];
-  return ['pcs'];
+  if (family === 'count') return ['pcs', 'g', 'cloves', 'half', 'whole'];
+  return ['pcs', 'g'];
 };
 
 export const getDefaultRecipeUnit = (inventoryUnit: string): string => {
@@ -130,6 +130,7 @@ export const convertToBaseQuantityWithIngredient = (
 export const getAllowedUnits = (): string[] => {
   return [
     'mg', 'g', 'kg',
+    'grams', 'gram', 'grams (g)',
     'ml', 'l', 'L', 'liters',
     'pcs', 'pc', 'pieces',
     'box', 'bottle', 'pack', 'sack',

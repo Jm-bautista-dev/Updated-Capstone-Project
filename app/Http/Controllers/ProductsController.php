@@ -238,6 +238,19 @@ class ProductsController extends Controller
                     $usedUnit = strtolower(trim($item['unit']));
                     $baseUnit = strtolower(trim($ing->unit));
 
+                    $familyUsed = UnitConverter::getMeasurementFamily($usedUnit);
+                    $familyBase = UnitConverter::getMeasurementFamily($baseUnit);
+
+                    // Average weight is required when a count (pcs) ingredient is consumed in grams (mass)
+                    if ($familyBase === 'count' && $familyUsed === 'mass') {
+                        if (empty($ing->avg_weight_per_piece) || (float) $ing->avg_weight_per_piece <= 0) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                "recipe.{$idx}.unit" => "Average weight per piece is required to use this ingredient in grams.",
+                                "recipe" => "Average weight per piece is required to use '{$ing->name}' in grams."
+                            ]);
+                        }
+                    }
+
                     if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
                         $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';
                         $validUnits = implode(', ', UnitConverter::getCompatibleUnits($baseUnit));
@@ -384,6 +397,19 @@ class ProductsController extends Controller
 
                     $usedUnit = strtolower(trim($item['unit']));
                     $baseUnit = strtolower(trim($ing->unit));
+
+                    $familyUsed = UnitConverter::getMeasurementFamily($usedUnit);
+                    $familyBase = UnitConverter::getMeasurementFamily($baseUnit);
+
+                    // Average weight is required when a count (pcs) ingredient is consumed in grams (mass)
+                    if ($familyBase === 'count' && $familyUsed === 'mass') {
+                        if (empty($ing->avg_weight_per_piece) || (float) $ing->avg_weight_per_piece <= 0) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                "recipe.{$idx}.unit" => "Average weight per piece is required to use this ingredient in grams.",
+                                "recipe" => "Average weight per piece is required to use '{$ing->name}' in grams."
+                            ]);
+                        }
+                    }
 
                     if (!UnitConverter::areUnitsCompatible($usedUnit, $baseUnit, $ing->avg_weight_per_piece)) {
                         $family = UnitConverter::getMeasurementFamily($baseUnit) ?? 'compatible';

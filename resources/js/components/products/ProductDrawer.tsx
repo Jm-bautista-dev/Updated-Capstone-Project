@@ -33,6 +33,7 @@ export interface Ingredient {
     name: string;
     unit: string;
     stock: number;
+    avg_weight_per_piece?: number | null;
     pivot: {
         quantity_required: string;
         unit?: string;
@@ -406,14 +407,30 @@ export function ProductDrawer({
 
                         {product.ingredients && product.ingredients.length > 0 ? (
                             <div className="space-y-2">
-                                {product.ingredients.map((ing) => (
-                                    <div key={ing.id} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/30 dark:border-white/10 text-xs">
-                                        <span className="font-semibold text-[#3D2C2E] dark:text-[#F8FAFC]">{ing.name}</span>
-                                        <span className="font-bold text-[#E75480] dark:text-[#FF4F81] font-mono">
-                                            {ing.pivot?.quantity_required} {ing.pivot?.unit || ing.unit}
-                                        </span>
-                                    </div>
-                                ))}
+                                {product.ingredients.map((ing) => {
+                                    const rawQty = parseFloat(String(ing.pivot?.quantity_required || 0));
+                                    const pivotUnit = (ing.pivot?.unit || ing.unit || '').toLowerCase().trim();
+                                    const baseUnit = (ing.unit || '').toLowerCase().trim();
+                                    const isWeightOnPcs = baseUnit === 'pcs' && ['g', 'gram', 'grams', 'grams (g)'].includes(pivotUnit);
+                                    const avgWeight = ing.avg_weight_per_piece ? Number(ing.avg_weight_per_piece) : 0;
+                                    const convertedPcs = avgWeight > 0 ? Number((rawQty / avgWeight).toFixed(4)) : null;
+
+                                    return (
+                                        <div key={ing.id} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/30 dark:border-white/10 text-xs">
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-[#3D2C2E] dark:text-[#F8FAFC]">{ing.name}</span>
+                                                {isWeightOnPcs && convertedPcs !== null && (
+                                                    <span className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                        ≈ {convertedPcs} pcs @ {avgWeight}g/pc
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="font-bold text-[#E75480] dark:text-[#FF4F81] font-mono">
+                                                {ing.pivot?.quantity_required} {ing.pivot?.unit || ing.unit}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ) : (
                             <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-medium flex items-center gap-2">
