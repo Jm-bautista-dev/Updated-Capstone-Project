@@ -21,9 +21,14 @@ class Ingredient extends Model
 
     protected $fillable = [
         'name',
+        'is_composite',
         'unit',
         'cost_per_base_unit',
         'avg_weight_per_piece',
+    ];
+
+    protected $casts = [
+        'is_composite' => 'boolean',
     ];
 
     public function toArray(): array
@@ -32,6 +37,8 @@ class Ingredient extends Model
         $user = \Illuminate\Support\Facades\Auth::user();
         if (!$user || !$user->isAdmin()) {
             unset($array['cost_per_base_unit']);
+            unset($array['subrecipe_items']);
+            unset($array['subrecipeItems']);
         }
         return $array;
     }
@@ -58,6 +65,22 @@ class Ingredient extends Model
     }
 
     /* ── Relationships ──────────────────────────────── */
+
+    /**
+     * Sub-recipe items defining internal micro-ingredients (if composite).
+     */
+    public function subrecipeItems(): HasMany
+    {
+        return $this->hasMany(IngredientSubrecipeItem::class, 'composite_ingredient_id');
+    }
+
+    /**
+     * Composite items in which this ingredient is used as a sub-recipe component.
+     */
+    public function usedInSubrecipes(): HasMany
+    {
+        return $this->hasMany(IngredientSubrecipeItem::class, 'component_ingredient_id');
+    }
 
     /**
      * Branch-scoped stock rows for this ingredient.

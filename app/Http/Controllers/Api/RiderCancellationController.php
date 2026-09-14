@@ -35,6 +35,6 @@ class RiderCancellationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        return (new Rider\RiderDeliveryController())->cancellationRequests($request);
+        return app(Rider\RiderDeliveryController::class)->cancellationRequests($request);
     }
 }

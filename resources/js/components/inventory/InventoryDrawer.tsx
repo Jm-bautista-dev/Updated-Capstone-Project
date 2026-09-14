@@ -10,7 +10,10 @@ import {
     DollarSign,
     Scale,
     AlertTriangle,
-    Layers
+    Layers,
+    MinusCircle,
+    ChefHat,
+    ShieldCheck
 } from 'lucide-react';
 
 import type { InventoryRow } from '@/components/inventory/InventoryHero';
@@ -47,6 +50,9 @@ interface InventoryDrawerProps {
     onTabChange: (tab: 'overview' | 'history' | 'procurement') => void;
     onOpenStockIn: (row: InventoryRow) => void;
     onOpenWastage: (row: InventoryRow) => void;
+    onOpenReduceStock?: (row: InventoryRow) => void;
+    onOpenSubrecipe?: (row: InventoryRow) => void;
+    onOpenBatchPrepare?: (row: InventoryRow) => void;
     onOpenEdit: (row: InventoryRow) => void;
     onOpenDelete: (row: InventoryRow) => void;
 }
@@ -62,6 +68,9 @@ export function InventoryDrawer({
     onTabChange,
     onOpenStockIn,
     onOpenWastage,
+    onOpenReduceStock,
+    onOpenSubrecipe,
+    onOpenBatchPrepare,
     onOpenEdit,
     onOpenDelete,
 }: InventoryDrawerProps) {
@@ -92,7 +101,7 @@ export function InventoryDrawer({
                     <div>
                         <div className="flex items-center gap-2 text-xs font-bold text-[#9E8B8E] dark:text-[#64748B] uppercase tracking-wider">
                             <Tag className="size-3.5" />
-                            <span>Ingredient Item</span>
+                            <span>{row.is_composite ? 'Composite Ingredient' : 'Standard Ingredient'}</span>
                         </div>
                         <h2 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate">
                             {row.name}
@@ -183,6 +192,50 @@ export function InventoryDrawer({
                                     <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{row.branch_name || 'Global'}</span>
                                 </div>
                             </div>
+
+                            {/* Composite Sub-recipe Preview Card for Admin */}
+                            {isAdmin && row.is_composite && (
+                                <div className="p-4 rounded-2xl bg-linear-to-br from-purple-50/70 to-pink-50/70 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200/70 dark:border-purple-800/40 shadow-2xs space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="size-4 text-purple-600 dark:text-purple-400" />
+                                            <span className="text-xs font-black text-purple-900 dark:text-purple-200">
+                                                Confidential Sub-Recipe
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-white/80 dark:bg-[#121218] px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800/50">
+                                            Hidden from POS
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-[#7D6B6E] dark:text-[#94A3B8] leading-relaxed">
+                                        This item is composed of internal micro-ingredients. When prepared in batches, component stocks are atomically deducted.
+                                    </p>
+                                    <div className="flex gap-2 pt-1">
+                                        {onOpenSubrecipe && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => { onClose(); onOpenSubrecipe(row); }}
+                                                className="flex-1 h-9 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
+                                            >
+                                                <ShieldCheck className="size-3.5" />
+                                                <span>Configure Formula</span>
+                                            </Button>
+                                        )}
+                                        {onOpenBatchPrepare && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => { onClose(); onOpenBatchPrepare(row); }}
+                                                className="flex-1 h-9 rounded-xl bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
+                                            >
+                                                <ChefHat className="size-3.5" />
+                                                <span>Batch Prepare</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -248,6 +301,17 @@ export function InventoryDrawer({
                                 <span>Restock / Stock In</span>
                             </Button>
 
+                            {onOpenReduceStock && (
+                                <Button
+                                    onClick={() => { onClose(); onOpenReduceStock(row); }}
+                                    variant="outline"
+                                    className="w-full h-12 border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-2xl font-bold text-xs gap-2 cursor-pointer shadow-2xs"
+                                >
+                                    <MinusCircle className="size-4" />
+                                    <span>Reduce Stock (Manual / Damage)</span>
+                                </Button>
+                            )}
+
                             <Button
                                 onClick={() => { onClose(); onOpenWastage(row); }}
                                 variant="outline"
@@ -256,6 +320,26 @@ export function InventoryDrawer({
                                 <Layers className="size-4" />
                                 <span>Log Spoilage / Wastage</span>
                             </Button>
+
+                            {isAdmin && row.is_composite && onOpenBatchPrepare && (
+                                <Button
+                                    onClick={() => { onClose(); onOpenBatchPrepare(row); }}
+                                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs gap-2 cursor-pointer shadow-xs"
+                                >
+                                    <ChefHat className="size-4" />
+                                    <span>Batch Preparation / Production</span>
+                                </Button>
+                            )}
+
+                            {isAdmin && row.is_composite && onOpenSubrecipe && (
+                                <Button
+                                    onClick={() => { onClose(); onOpenSubrecipe(row); }}
+                                    className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-bold text-xs gap-2 cursor-pointer shadow-xs"
+                                >
+                                    <ShieldCheck className="size-4" />
+                                    <span>Configure Confidential Sub-Recipe</span>
+                                </Button>
+                            )}
 
                             {isAdmin && (
                                 <Button

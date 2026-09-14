@@ -24,7 +24,9 @@ import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notification-bell';
 import { ApplyDiscountModal, type PosDiscount } from '@/components/pos/ApplyDiscountModal';
 import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
+import { PostCheckoutReceiptModal, type PrintStatus } from '@/components/pos/PostCheckoutReceiptModal';
 import { ProductModifierModal, type ModifierGroup, type ProductForModifier, type SelectedModifier } from '@/components/pos/ProductModifierModal';
+import { ThermalReceipt58mm } from '@/components/pos/ThermalReceipt58mm';
 import { ResultModal } from '@/components/result-modal';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
@@ -226,6 +228,18 @@ export default function PosIndex() {
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [activeDiscount, setActiveDiscount] = useState<PosDiscount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Receipt & USB Printing State ---
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [activePrintJob, setActivePrintJob] = useState<LocalPrintJobPayload | null>(null);
+  const [receiptPrintStatus, setReceiptPrintStatus] = useState<PrintStatus>('idle');
+  const [lastSaleSummary, setLastSaleSummary] = useState<{
+    orderNumber?: string;
+    total?: number;
+    paidAmount?: number;
+    changeAmount?: number;
+    paymentMethod?: string;
+  } | null>(null);
 
   // --- Delivery State ---
   const [deliveryInfo, setDeliveryInfo] = useState<PosDeliveryInfo>({
@@ -558,6 +572,15 @@ export default function PosIndex() {
         const sale = ((page.props as unknown) as { recentOrders?: Record<string, unknown>[] }).recentOrders?.[0] || null;
         const orderNum = printJob?.order_number || (sale?.order_number as string) || 'POS-ORDER';
 
+        const summary = {
+          orderNumber: orderNum,
+          total: Number(cartTotal),
+          paidAmount: Number(paid),
+          changeAmount: Number(paymentMethod === 'cash' ? changeDue : 0),
+          paymentMethod: paymentMethod,
+        };
+        setLastSaleSummary(summary);
+
         // 1. Immediately reset cart and kiosk view to ready state
         setCart([]);
         setActiveDiscount(null);
@@ -578,17 +601,33 @@ export default function PosIndex() {
         setKioskStep('browse');
         setOrderType('dine-in');
 
-        // 2. Dispatch silent print to local thermal bridge if connected
-        if (printJob && printJob.raw_escpos_base64 && isPrinterReady) {
-          const printResult = await sendToLocalPrintBridge(printJob);
-          if (printResult.success) {
-            toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {
-              duration: 3500,
-            });
+        // 2. Dispatch silent print to local thermal bridge if connected, or offer browser fallback
+        if (printJob) {
+          setActivePrintJob(printJob);
+
+          if (printJob.raw_escpos_base64 && isPrinterReady) {
+            setReceiptPrintStatus('printing');
+            const printResult = await sendToLocalPrintBridge(printJob);
+            if (printResult.success) {
+              setReceiptPrintStatus('success');
+              toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {
+                duration: 3500,
+              });
+            } else {
+              setReceiptPrintStatus('failed');
+              setIsReceiptModalOpen(true);
+              toast.warning(`⚠️ Order #${orderNum} Completed (Printer offline)`, {
+                description: 'Order saved successfully. Check USB printer connection or retry.',
+                duration: 4500,
+              });
+            }
           } else {
-            toast.warning(`✓ Order #${orderNum} Completed (Printer offline)`, {
-              description: 'Order saved successfully.',
-              duration: 4000,
+            // Local print bridge is offline or not installed
+            setReceiptPrintStatus('bridge_offline');
+            setIsReceiptModalOpen(true);
+            toast.info(`✓ Order #${orderNum} Completed`, {
+              description: 'Order saved. Select print option below.',
+              duration: 3500,
             });
           }
         } else {
@@ -675,8 +714,17 @@ export default function PosIndex() {
             {/* Printer Bridge Status Indicator */}
             <button
               type="button"
-              onClick={() => checkPrinterNow()}
-              title={isPrinterReady ? "Thermal Printer Ready" : "Thermal Print Bridge Offline - Click to re-check"}
+              onClick={() => {
+                checkPrinterNow();
+                if (activePrintJob) {
+                  setIsReceiptModalOpen(true);
+                }
+              }}
+              title={
+                isPrinterReady 
+                  ? (activePrintJob ? "Thermal Printer Ready (Click to view/reprint last receipt)" : "Thermal Printer Ready")
+                  : (activePrintJob ? "Thermal Print Bridge Offline (Click to view/print last receipt)" : "Thermal Print Bridge Offline - Click to re-check")
+              }
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer",
                 isPrinterReady
@@ -1595,6 +1643,23 @@ export default function PosIndex() {
           onClose={() => setModifierProduct(null)}
           product={modifierProduct}
           onConfirm={handleConfirmModifierProduct}
+        />
+
+        {/* Post-Checkout Thermal Receipt & USB Print Retry Modal */}
+        <PostCheckoutReceiptModal
+          isOpen={isReceiptModalOpen}
+          onClose={() => setIsReceiptModalOpen(false)}
+          printJob={activePrintJob}
+          initialStatus={receiptPrintStatus}
+          isBridgeConnected={isPrinterReady}
+          saleSummary={lastSaleSummary}
+        />
+
+        {/* Global Print Container for 58mm Thermal Receipt (Print Only) */}
+        <ThermalReceipt58mm
+          receiptData={activePrintJob?.receipt_data}
+          formattedText={activePrintJob?.formatted_text}
+          isPrintOnly={true}
         />
       </div>
     </AppLayout>

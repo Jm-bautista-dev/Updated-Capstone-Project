@@ -19,6 +19,7 @@ export interface InventoryRow {
     is_out_of_stock: boolean;
     avg_weight_per_piece: number | null;
     cost_per_unit: number;
+    is_composite?: boolean;
     display_unit?: string;
     display_stock?: number;
     display_price?: number;

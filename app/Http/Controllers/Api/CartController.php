@@ -100,6 +100,7 @@ class CartController extends Controller
                 }
 
                 // Check for existing cart item with identical product and addons
+                /** @var CartItem|null $cartItem */
                 $cartItem = $cart->items()
                     ->where('product_id', $product->id)
                     ->where('selected_addons', !empty($selectedAddons) ? json_encode($selectedAddons) : null)

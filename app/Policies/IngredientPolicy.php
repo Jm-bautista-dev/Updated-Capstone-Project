@@ -48,4 +48,21 @@ class IngredientPolicy
     {
         return $user->isAdmin();
     }
+
+    /**
+     * Determine if the user can manage sub-recipe composition or execute batch prep.
+     */
+    public function manageSubrecipe(User $user, Ingredient $ingredient): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
+     * Determine if the user can manually reduce stock.
+     * Accessible by both Admins and Cashiers.
+     */
+    public function reduceStock(User $user, Ingredient $ingredient): bool
+    {
+        return $user->isAdmin() || $user->isCashier();
+    }
 }

@@ -15,7 +15,17 @@ use App\Traits\BelongsToBranch;
 class Product extends Model
 {
     use BelongsToBranch, SoftDeletes;
-    protected $fillable = ['name', 'sku', 'selling_price', 'description', 'cost_price', 'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id', 'barcode'];
+    protected $fillable = [
+        'name', 'sku', 'selling_price', 'description', 'cost_price',
+        'costing_method', 'manual_cost',
+        'category_id', 'image_path', 'branch_id', 'type', 'created_by', 'stock', 'unit', 'unit_id', 'barcode'
+    ];
+
+    protected $casts = [
+        'manual_cost' => 'float',
+        'cost_price' => 'float',
+        'selling_price' => 'float',
+    ];
 
     protected $appends = ['computed_stock', 'image_url', 'average_rating', 'review_count', 'quantity_sold'];
 
@@ -27,6 +37,9 @@ class Product extends Model
                     $barcode = '888' . str_pad(mt_rand(0, 999999999), 9, '0', STR_PAD_LEFT);
                 } while (static::withTrashed()->where(['barcode' => $barcode])->exists());
                 $product->barcode = $barcode;
+            }
+            if (empty($product->costing_method)) {
+                $product->costing_method = 'automatic';
             }
         });
     }
@@ -45,7 +58,11 @@ class Product extends Model
                 $array['cost_price'],
                 $array['cost'],
                 $array['has_cost'],
-                $array['costPrice']
+                $array['costPrice'],
+                $array['costing_method'],
+                $array['manual_cost'],
+                $array['automatic_cost'],
+                $array['active_cost']
             );
         }
         return $array;
@@ -797,13 +814,21 @@ class Product extends Model
     }
 
     /**
-     * Compute the cost of this product based on its ingredients and their branch-specific cost.
-     * If branch_id is not provided or the product has no ingredients, falls back to direct cost_price.
+     * Determine if this product currently uses manual costing.
+     */
+    public function isManualCosting(): bool
+    {
+        return ($this->costing_method ?? 'automatic') === 'manual';
+    }
+
+    /**
+     * Compute the automatic ingredient-based cost of this product.
+     * Always calculates from ingredients or master/pivot fallback, ignoring manual_cost.
      *
      * @param int|null $branchId
      * @return float
      */
-    public function computeProductCost(?int $branchId = null): float
+    public function getAutomaticCost(?int $branchId = null): float
     {
         $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
 
@@ -867,6 +892,34 @@ class Product extends Model
         }
 
         return round((float) ($this->cost_price ?? 0.0), 4);
+    }
+
+    /**
+     * Get the active cost of this product according to its selected costing method.
+     *
+     * @param int|null $branchId
+     * @return float
+     */
+    public function getActiveCost(?int $branchId = null): float
+    {
+        if ($this->isManualCosting() && $this->manual_cost !== null) {
+            return round((float) $this->manual_cost, 4);
+        }
+
+        return $this->getAutomaticCost($branchId);
+    }
+
+    /**
+     * Compute the cost of this product based on its active costing method.
+     * If manual costing is selected, returns manual_cost.
+     * Otherwise, calculates automatic ingredient-based cost.
+     *
+     * @param int|null $branchId
+     * @return float
+     */
+    public function computeProductCost(?int $branchId = null): float
+    {
+        return $this->getActiveCost($branchId);
     }
 }
 

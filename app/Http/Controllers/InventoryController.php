@@ -95,6 +95,7 @@ class InventoryController extends Controller
                     'is_low_stock'         => $stockRow->isLowStock(),
                     'is_out_of_stock'      => $stockRow->isOutOfStock(),
                     'status'               => 'active',
+                    'is_composite'         => (bool) $ingredient->is_composite,
                     'avg_weight_per_piece' => $ingredient->avg_weight_per_piece,
                     'cost_per_unit'        => $user->isAdmin() ? $displayPrice : 0,
                     'cost_per_base_unit'   => $user->isAdmin() ? $baseUnitPrice : 0,
@@ -145,6 +146,7 @@ class InventoryController extends Controller
             'avg_weight_per_piece' => 'nullable|numeric|gt:0|max:10000',
             'cost_per_base_unit'   => 'required|numeric|min:0|max:999999',
             'cost_per_unit'        => 'nullable|numeric|min:0|max:999999',
+            'is_composite'         => 'nullable|boolean',
             'branch_id'            => 'nullable|exists:branches,id',
             'branch_ids'           => 'nullable|array',
             'branch_ids.*'         => 'exists:branches,id',
@@ -172,11 +174,13 @@ class InventoryController extends Controller
         }
 
         $displayUnit = strtolower(trim($validated['unit']));
+        $isComposite = $request->boolean('is_composite');
 
         // Create ONE global ingredient (deduplicated by name)
         $ingredient = Ingredient::firstOrCreate(
             ['name' => $validated['name']],
             [
+                'is_composite'         => $isComposite,
                 'unit'                 => $displayUnit,
                 'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? null,
                 'cost_per_base_unit'   => $normalizedCostPerBaseUnit
@@ -185,6 +189,7 @@ class InventoryController extends Controller
 
         // Update properties if they already existed
         $ingredient->update([
+            'is_composite'         => $isComposite,
             'unit'                 => $displayUnit,
             'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
             'cost_per_base_unit'   => $normalizedCostPerBaseUnit
@@ -247,6 +252,7 @@ class InventoryController extends Controller
                 'regex:/^[A-Za-z\s]+$/'
             ],
             'unit'                 => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'is_composite'         => 'nullable|boolean',
             'branch_id'            => 'nullable|exists:branches,id',
             'stock'                => 'nullable|numeric|min:0|max:10000',
             'low_stock_level'      => 'nullable|numeric|min:0|max:10000',
@@ -267,12 +273,18 @@ class InventoryController extends Controller
                 ? ($conversionFactor > 0 ? (float) $validated['cost_per_base_unit'] / $conversionFactor : (float) $validated['cost_per_base_unit'])
                 : (float) $ingredient->cost_per_base_unit);
 
-        $ingredient->update([
+        $updateData = [
             'name'                 => $validated['name'],
             'unit'                 => $normalizedUnit,
             'avg_weight_per_piece' => $validated['avg_weight_per_piece'] ?? $ingredient->avg_weight_per_piece,
             'cost_per_base_unit'   => $normalizedInputCost > 0 ? $normalizedInputCost : (float) $ingredient->cost_per_base_unit,
-        ]);
+        ];
+
+        if ($request->has('is_composite')) {
+            $updateData['is_composite'] = $request->boolean('is_composite');
+        }
+
+        $ingredient->update($updateData);
 
         // If branch_id and stock provided, update that branch's stock row
         if (!empty($validated['branch_id']) && isset($validated['stock'])) {

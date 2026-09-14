@@ -76,6 +76,9 @@ type Product = {
     description?: string | null;
     stock: number;
     cost_price: number;
+    costing_method?: 'automatic' | 'manual';
+    manual_cost?: number | null;
+    automatic_cost?: number | null;
     selling_price: number;
     status: string;
     image_url: string | null;
@@ -226,6 +229,8 @@ export default function ProductsIndex() {
         category_id: '',
         description: '',
         cost_price: '',
+        costing_method: 'automatic' as 'automatic' | 'manual',
+        manual_cost: '',
         selling_price: '',
         branch_option: initialBranchIds.length > 1 ? 'both' : 'single',
         branch_id: initialBranchIds.length === 1 ? initialBranchIds[0] : initialBranchId,
@@ -356,9 +361,15 @@ export default function ProductsIndex() {
     // Modal Handlers
     const openAddModal = () => {
         reset();
+        setData((prev) => ({
+            ...prev,
+            costing_method: 'automatic',
+            manual_cost: '',
+        }));
         setImageFile(null);
         setImagePreview(null);
         setRemoveImage(false);
+        setAddErrors({});
         setIsAddModalOpen(true);
     };
 
@@ -370,6 +381,8 @@ export default function ProductsIndex() {
             category_id: product.category_id != null ? String(product.category_id) : '',
             description: product.description || '',
             cost_price: product.cost_price != null ? String(product.cost_price) : '0',
+            costing_method: (product.costing_method as 'automatic' | 'manual') || 'automatic',
+            manual_cost: product.manual_cost != null ? String(product.manual_cost) : '',
             selling_price: product.selling_price != null ? String(product.selling_price) : '0',
             branch_id: product.branch_id != null ? String(product.branch_id) : '',
             branch_ids: product.branches ? product.branches.map(b => String(b.id)) : [],
@@ -861,22 +874,81 @@ export default function ProductsIndex() {
                                 </select>
                             </div>
 
-                            {/* Automatic Product Calculation Summary Card */}
-                            <div className="col-span-2 bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-4 space-y-3">
-                                <div className="flex items-center justify-between">
+                            {/* Product Costing & Stock Calculation Summary Card */}
+                            <div className="col-span-2 bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-4 space-y-3.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <div className="size-7 rounded-lg bg-[#E75480]/10 dark:bg-[#E1062C]/20 flex items-center justify-center text-[#E75480] dark:text-[#FF4F81]">
                                             <Layers className="size-4" />
                                         </div>
                                         <div>
-                                            <h5 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Automatic Product Calculation</h5>
-                                            <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Derived from recipe ingredients & branch inventory</p>
+                                            <h5 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Product Costing & Inventory</h5>
+                                            <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Configure product cost basis and recipe stock</p>
                                         </div>
                                     </div>
-                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#E75480]/15 dark:bg-[#FF4F81]/20 text-[#E75480] dark:text-[#FF4F81]">
-                                        Automatic
-                                    </span>
+
+                                    {isAdmin && (
+                                        <div className="flex items-center p-1 rounded-xl bg-white dark:bg-[#121218] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('costing_method', 'automatic')}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                                    data.costing_method === 'automatic'
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white shadow-xs"
+                                                        : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                                )}
+                                            >
+                                                Automatic Costing
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('costing_method', 'manual')}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                                    data.costing_method === 'manual'
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white shadow-xs"
+                                                        : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                                )}
+                                            >
+                                                Manual Costing
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {data.costing_method === 'manual' && (
+                                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
+                                        <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
+                                            <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span>Manual Costing Active (Temporary Override)</span>
+                                        </div>
+                                        <p className="text-[11px] leading-relaxed text-amber-800/90 dark:text-amber-200/90">
+                                            The underlying recipe is completely preserved and inventory will continue to be deducted on sale. You can switch back to Automatic Costing anytime.
+                                        </p>
+                                        <div className="pt-1">
+                                            <label className="text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300 block mb-1">
+                                                Manual Product Cost (PHP) *
+                                            </label>
+                                            <div className="relative max-w-xs">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-xs text-amber-800 dark:text-amber-200">₱</span>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    required={data.costing_method === 'manual'}
+                                                    value={data.manual_cost}
+                                                    onChange={(e) => setData('manual_cost', e.target.value)}
+                                                    placeholder="0.00"
+                                                    className="h-10 pl-7 rounded-xl bg-white dark:bg-[#181820] border-amber-400/50 text-amber-900 dark:text-amber-100 font-mono font-bold text-sm"
+                                                />
+                                            </div>
+                                            {errors.manual_cost && (
+                                                <p className="text-xs text-rose-600 dark:text-rose-400 font-bold mt-1">{errors.manual_cost}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {liveCalculation.missingRecordIngredient && (
                                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
@@ -885,24 +957,52 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
 
-                                {isAdmin && liveCalculation.missingCostIngredient && (
-                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
-                                        <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                                        <span>Unable to calculate product cost because <strong>{liveCalculation.missingCostIngredient}</strong> has no valid cost.</span>
+                                {isAdmin && data.costing_method === 'automatic' && liveCalculation.missingCostIngredient && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span>Missing cost data for <strong>{liveCalculation.missingCostIngredient}</strong>.</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('costing_method', 'manual')}
+                                            className="text-[11px] font-extrabold text-[#E75480] dark:text-[#FF4F81] underline cursor-pointer shrink-0"
+                                        >
+                                            Switch to Manual
+                                        </button>
                                     </div>
                                 )}
 
                                 <div className={cn("grid gap-3 pt-1", isAdmin ? "grid-cols-2" : "grid-cols-1")}>
                                     {isAdmin && (
-                                        <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
+                                        <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10 space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                    {data.costing_method === 'manual' ? 'Active Cost (Manual)' : 'Calculated Cost Price'}
+                                                </span>
+                                                <span className={cn(
+                                                    "text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md",
+                                                    data.costing_method === 'manual'
+                                                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                                )}>
+                                                    {data.costing_method === 'manual' ? 'Manual' : 'Auto'}
+                                                </span>
+                                            </div>
                                             <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                                {data.recipe.length === 0 ? (
+                                                {data.costing_method === 'manual' ? (
+                                                    <span>₱{data.manual_cost && !isNaN(parseFloat(data.manual_cost)) ? parseFloat(data.manual_cost).toFixed(2) : '0.00'}</span>
+                                                ) : data.recipe.length === 0 ? (
                                                     <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
                                                 ) : (
                                                     <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
                                                 )}
                                             </div>
+                                            {data.costing_method === 'manual' && data.recipe.length > 0 && liveCalculation.costPrice !== null && (
+                                                <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B] block font-mono">
+                                                    (Auto Recipe: ₱{liveCalculation.costPrice.toFixed(2)})
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 
@@ -1200,22 +1300,81 @@ export default function ProductsIndex() {
                                 </select>
                             </div>
 
-                            {/* Automatic Product Calculation Summary Card */}
-                            <div className="col-span-2 bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-4 space-y-3">
-                                <div className="flex items-center justify-between">
+                            {/* Product Costing & Stock Calculation Summary Card */}
+                            <div className="col-span-2 bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl p-4 space-y-3.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <div className="size-7 rounded-lg bg-[#E75480]/10 dark:bg-[#E1062C]/20 flex items-center justify-center text-[#E75480] dark:text-[#FF4F81]">
                                             <Layers className="size-4" />
                                         </div>
                                         <div>
-                                            <h5 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Automatic Product Calculation</h5>
-                                            <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Derived from recipe ingredients & branch inventory</p>
+                                            <h5 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">Product Costing & Inventory</h5>
+                                            <p className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">Configure product cost basis and recipe stock</p>
                                         </div>
                                     </div>
-                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#E75480]/15 dark:bg-[#FF4F81]/20 text-[#E75480] dark:text-[#FF4F81]">
-                                        Automatic
-                                    </span>
+
+                                    {isAdmin && (
+                                        <div className="flex items-center p-1 rounded-xl bg-white dark:bg-[#121218] border border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('costing_method', 'automatic')}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                                    data.costing_method === 'automatic'
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white shadow-xs"
+                                                        : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                                )}
+                                            >
+                                                Automatic Costing
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setData('costing_method', 'manual')}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                                    data.costing_method === 'manual'
+                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white shadow-xs"
+                                                        : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                                )}
+                                            >
+                                                Manual Costing
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {data.costing_method === 'manual' && (
+                                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-xs font-medium space-y-2">
+                                        <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
+                                            <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span>Manual Costing Active (Temporary Override)</span>
+                                        </div>
+                                        <p className="text-[11px] leading-relaxed text-amber-800/90 dark:text-amber-200/90">
+                                            The underlying recipe is completely preserved and inventory will continue to be deducted on sale. You can switch back to Automatic Costing anytime.
+                                        </p>
+                                        <div className="pt-1">
+                                            <label className="text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300 block mb-1">
+                                                Manual Product Cost (PHP) *
+                                            </label>
+                                            <div className="relative max-w-xs">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-xs text-amber-800 dark:text-amber-200">₱</span>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    required={data.costing_method === 'manual'}
+                                                    value={data.manual_cost}
+                                                    onChange={(e) => setData('manual_cost', e.target.value)}
+                                                    placeholder="0.00"
+                                                    className="h-10 pl-7 rounded-xl bg-white dark:bg-[#181820] border-amber-400/50 text-amber-900 dark:text-amber-100 font-mono font-bold text-sm"
+                                                />
+                                            </div>
+                                            {editErrors.manual_cost && (
+                                                <p className="text-xs text-rose-600 dark:text-rose-400 font-bold mt-1">{editErrors.manual_cost}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {liveCalculation.missingRecordIngredient && (
                                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
@@ -1224,24 +1383,52 @@ export default function ProductsIndex() {
                                     </div>
                                 )}
 
-                                {isAdmin && liveCalculation.missingCostIngredient && (
-                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
-                                        <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                                        <span>Unable to calculate product cost because <strong>{liveCalculation.missingCostIngredient}</strong> has no valid cost.</span>
+                                {isAdmin && data.costing_method === 'automatic' && liveCalculation.missingCostIngredient && (
+                                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Info className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span>Missing cost data for <strong>{liveCalculation.missingCostIngredient}</strong>.</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('costing_method', 'manual')}
+                                            className="text-[11px] font-extrabold text-[#E75480] dark:text-[#FF4F81] underline cursor-pointer shrink-0"
+                                        >
+                                            Switch to Manual
+                                        </button>
                                     </div>
                                 )}
 
                                 <div className={cn("grid gap-3 pt-1", isAdmin ? "grid-cols-2" : "grid-cols-1")}>
                                     {isAdmin && (
-                                        <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] block mb-0.5">Calculated Cost Price</span>
+                                        <div className="bg-white dark:bg-[#121218] p-3 rounded-xl border border-[#F8C8DC]/40 dark:border-white/10 space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                    {data.costing_method === 'manual' ? 'Active Cost (Manual)' : 'Calculated Cost Price'}
+                                                </span>
+                                                <span className={cn(
+                                                    "text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md",
+                                                    data.costing_method === 'manual'
+                                                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                                )}>
+                                                    {data.costing_method === 'manual' ? 'Manual' : 'Auto'}
+                                                </span>
+                                            </div>
                                             <div className="text-sm font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                                {data.recipe.length === 0 ? (
+                                                {data.costing_method === 'manual' ? (
+                                                    <span>₱{data.manual_cost && !isNaN(parseFloat(data.manual_cost)) ? parseFloat(data.manual_cost).toFixed(2) : '0.00'}</span>
+                                                ) : data.recipe.length === 0 ? (
                                                     <span className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-normal italic">Add ingredients to calculate</span>
                                                 ) : (
                                                     <span>₱{liveCalculation.costPrice !== null ? liveCalculation.costPrice.toFixed(2) : '0.00'}</span>
                                                 )}
                                             </div>
+                                            {data.costing_method === 'manual' && data.recipe.length > 0 && liveCalculation.costPrice !== null && (
+                                                <span className="text-[10px] text-[#9E8B8E] dark:text-[#64748B] block font-mono">
+                                                    (Auto Recipe: ₱{liveCalculation.costPrice.toFixed(2)})
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 

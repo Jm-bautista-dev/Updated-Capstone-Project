@@ -250,6 +250,7 @@ class PosController extends Controller
                         'paper_width'       => $printJob->paper_width,
                         'raw_escpos_base64' => $printJob->raw_escpos_base64,
                         'formatted_text'    => $printJob->formatted_text,
+                        'receipt_data'      => $printJob->receipt_data,
                     ] : null);
             }
 
@@ -272,6 +273,7 @@ class PosController extends Controller
                     'paper_width'       => $printJob->paper_width,
                     'raw_escpos_base64' => $printJob->raw_escpos_base64,
                     'formatted_text'    => $printJob->formatted_text,
+                    'receipt_data'      => $printJob->receipt_data,
                 ] : null);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('POS Checkout Failed', [

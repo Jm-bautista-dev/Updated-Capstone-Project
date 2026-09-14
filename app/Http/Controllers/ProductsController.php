@@ -87,14 +87,21 @@ class ProductsController extends Controller
 
             if ($user && $user->isAdmin()) {
                 $costPrice = $product->computeProductCost($branchId);
+                $automaticCost = $product->getAutomaticCost($branchId);
                 $product->cost_price = $costPrice;
                 $product->cost = $costPrice;
                 $product->has_cost = $costPrice > 0;
+                $product->costing_method = $product->costing_method ?? 'automatic';
+                $product->manual_cost = $product->manual_cost !== null ? (float) $product->manual_cost : null;
+                $product->automatic_cost = $automaticCost;
             } else {
                 $product->cost_price = null;
                 $product->cost = null;
                 $product->has_cost = false;
-                $product->makeHidden(['cost_price']);
+                $product->costing_method = null;
+                $product->manual_cost = null;
+                $product->automatic_cost = null;
+                $product->makeHidden(['cost_price', 'manual_cost', 'costing_method']);
             }
             $product->is_direct = !$product->hasRecipe();
 
@@ -189,6 +196,8 @@ class ProductsController extends Controller
                 ],
                 'category_id'                => 'required|exists:categories,id',
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
+                'costing_method'             => 'nullable|string|in:automatic,manual',
+                'manual_cost'                => 'required_if:costing_method,manual|nullable|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                => 'nullable|string',
                 'recipe'                     => 'nullable|array',
@@ -206,6 +215,8 @@ class ProductsController extends Controller
             ], [
                 'branch_option.required' => 'Please select at least one branch for this product.',
                 'branch_id.required_if'  => 'Please select a valid branch for this product.',
+                'manual_cost.required_if' => 'Manual product cost is required when Manual Costing is selected.',
+                'manual_cost.min'         => 'Manual product cost must be at least 0.',
             ]);
 
             // Strip manual cost_price if sent in request; strip stock if recipe is present
@@ -259,10 +270,11 @@ class ProductsController extends Controller
                         ]);
                     }
 
-                    // Verify base cost exists
-                    if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
+                    // Verify base cost exists when in automatic costing mode
+                    $isManualMode = ($validated['costing_method'] ?? 'automatic') === 'manual';
+                    if (!$isManualMode && $ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit."
+                            "recipe" => "Missing base cost for ingredient '{$ing->name}'. Cannot compute live cost without a valid cost_per_base_unit. Select Manual Costing to enter a manual cost."
                         ]);
                     }
                 }
@@ -349,6 +361,8 @@ class ProductsController extends Controller
                 'description'                => 'nullable|string',
                 'category_id'                => 'required|exists:categories,id',
                 'selling_price'              => 'required|numeric|min:0|max:999999.99',
+                'costing_method'             => 'nullable|string|in:automatic,manual',
+                'manual_cost'                => 'required_if:costing_method,manual|nullable|numeric|min:0|max:999999.99',
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'remove_image'               => 'nullable|boolean',
                 'recipe'                     => 'nullable|array',
@@ -358,6 +372,9 @@ class ProductsController extends Controller
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
                 'addon_ids'                  => 'nullable|array',
                 'addon_ids.*'                => 'exists:add_ons,id',
+            ], [
+                'manual_cost.required_if'    => 'Manual product cost is required when Manual Costing is selected.',
+                'manual_cost.min'            => 'Manual product cost must be at least 0.',
             ]);
 
             // Strip manual cost_price/stock if sent in request
@@ -419,10 +436,11 @@ class ProductsController extends Controller
                         ]);
                     }
 
-                    // Verify base cost exists
-                    if ($ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
+                    // Verify base cost exists when in automatic costing mode
+                    $isManualMode = ($validated['costing_method'] ?? $product->costing_method ?? 'automatic') === 'manual';
+                    if (!$isManualMode && $ing->cost_per_base_unit <= 0 && $ing->stocks()->where('cost_per_unit', '>', 0)->doesntExist()) {
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            "recipe" => "Unable to calculate product cost because '{$ing->name}' does not have a valid inventory cost."
+                            "recipe" => "Unable to calculate product cost because '{$ing->name}' does not have a valid inventory cost. Select Manual Costing to specify a temporary cost."
                         ]);
                     }
                 }

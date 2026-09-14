@@ -49,7 +49,7 @@ class ReceiptFormatterService
     /**
      * Build standard receipt payload array from a Sale or Order model.
      */
-    public function buildReceiptData(Sale|Order $record, ?string $jobType = 'receipt', ?string $reprintReason = null): array
+    public function buildReceiptData(Sale|Order $record, ?string $jobType = 'receipt', ?string $reprintReason = null, ?int $paperWidthOverride = null): array
     {
         $isSale = $record instanceof Sale;
         $branch = $record->branch ?? ($record->branch_id ? Branch::find($record->branch_id) : null);
@@ -61,7 +61,7 @@ class ReceiptFormatterService
 
         $orderNumber = $record->order_number ?: ($isSale ? "POS-{$record->id}" : "ORD-{$record->id}");
         $fulfillmentType = strtoupper($record->type ?? $record->fulfillment_type ?? 'DINE-IN');
-        $paperWidth = (int) ($branch?->receipt_paper_width ?? 80);
+        $paperWidth = $paperWidthOverride ?: (int) ($branch?->receipt_paper_width ?? 80);
 
         // Extract items
         $items = [];
@@ -182,14 +182,14 @@ class ReceiptFormatterService
             $lines[] = "Pickup Code: {$data['pickup_verification_code']}";
         }
         if (!empty($data['cashier_name'])) {
-            $lines[] = "Cashier: {$data['cashier_name']}";
+            $lines[] = mb_strimwidth("Cashier: {$data['cashier_name']}", 0, $cols, '..');
         }
 
         if (!empty($data['customer_name'])) {
-            $lines[] = "Customer: {$data['customer_name']}";
+            $lines[] = mb_strimwidth("Customer: {$data['customer_name']}", 0, $cols, '..');
         }
         if (!empty($data['customer_address'])) {
-            $lines[] = "Address: {$data['customer_address']}";
+            $lines[] = mb_strimwidth("Address: {$data['customer_address']}", 0, $cols, '..');
         }
 
         $lines[] = $divider;
@@ -306,13 +306,13 @@ class ReceiptFormatterService
         $out .= $this->twoColumn("Order #: {$data['order_number']}", $data['fulfillment_type'], $cols) . "\n";
         $out .= "Date: {$data['date_time']}\n";
         if (!empty($data['cashier_name'])) {
-            $out .= "Cashier: {$data['cashier_name']}\n";
+            $out .= mb_strimwidth("Cashier: {$data['cashier_name']}", 0, $cols, '..') . "\n";
         }
         if (!empty($data['customer_name'])) {
-            $out .= "Customer: {$data['customer_name']}\n";
+            $out .= mb_strimwidth("Customer: {$data['customer_name']}", 0, $cols, '..') . "\n";
         }
         if (!empty($data['customer_address'])) {
-            $out .= "Address: {$data['customer_address']}\n";
+            $out .= mb_strimwidth("Address: {$data['customer_address']}", 0, $cols, '..') . "\n";
         }
         $out .= str_repeat('-', $cols) . "\n";
 

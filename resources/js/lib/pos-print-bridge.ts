@@ -3,13 +3,49 @@ import { useEffect, useState, useCallback } from 'react';
 
 const LOCAL_BRIDGE_URL = 'http://127.0.0.1:18181';
 
+export interface ReceiptItemPayload {
+    name: string;
+    quantity: number;
+    unit_price: number;
+    subtotal: number;
+    addons?: Array<{ name: string; price: number }>;
+}
+
+export interface ReceiptDataPayload {
+    branch_id?: number;
+    branch_name?: string;
+    branch_address?: string;
+    order_number?: string;
+    date_time?: string;
+    fulfillment_type?: string;
+    cashier_name?: string;
+    customer_name?: string;
+    customer_phone?: string;
+    customer_address?: string;
+    items?: ReceiptItemPayload[];
+    subtotal?: number;
+    discount?: number;
+    discount_type?: string;
+    delivery_fee?: number;
+    total?: number;
+    payment_method?: string;
+    paid_amount?: number;
+    change_amount?: number;
+    paper_width?: number;
+    is_reprint?: boolean;
+    reprint_reason?: string;
+    reprinted_at?: string;
+}
+
 export interface LocalPrintJobPayload {
+    id?: number;
     job_uuid: string;
     order_number: string;
     printer_name?: string;
     paper_width?: number;
     raw_escpos_base64?: string;
     formatted_text?: string;
+    receipt_data?: ReceiptDataPayload;
 }
 
 export type PrinterBridgeStatus = 'ready' | 'offline' | 'checking';
@@ -112,3 +148,13 @@ export function usePrinterStatus() {
         checkNow,
     };
 }
+
+/**
+ * Trigger native browser thermal print targeting the 58mm receipt layout
+ */
+export function triggerBrowserThermalPrint(): void {
+    if (typeof window !== 'undefined') {
+        window.print();
+    }
+}
+

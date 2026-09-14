@@ -10,6 +10,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 
 import AlertError from '@/components/alert-error';
+import { BatchPrepareModal } from '@/components/batch-prepare-modal';
+import { CompositeSubrecipeModal } from '@/components/composite-subrecipe-modal';
 import InputError from '@/components/input-error';
 import { InventoryDrawer, type ActivityLog } from '@/components/inventory/InventoryDrawer';
 import { InventoryFilterToolbar } from '@/components/inventory/InventoryFilterToolbar';
@@ -19,6 +21,7 @@ import { MassRestockModal } from '@/components/mass-restock-modal';
 import { ReceiptScannerModal } from '@/components/receipt-scanner-modal';
 import { ResultModal } from '@/components/result-modal';
 import { StockInModal } from '@/components/stock-in-modal';
+import { StockReductionModal } from '@/components/stock-reduction-modal';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -111,6 +114,9 @@ export default function InventoryIndex() {
     const [isResultModalOpen, setIsResultModalOpen] = useState(false);
     const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
     const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
+    const [isStockReductionModalOpen, setIsStockReductionModalOpen] = useState(false);
+    const [isSubrecipeModalOpen, setIsSubrecipeModalOpen] = useState(false);
+    const [isBatchPrepareModalOpen, setIsBatchPrepareModalOpen] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     
     const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
@@ -206,6 +212,21 @@ export default function InventoryIndex() {
         setIsWastageModalOpen(true);
     };
 
+    const openStockReductionModal = (row: InventoryRow) => {
+        setSelectedRow(row);
+        setIsStockReductionModalOpen(true);
+    };
+
+    const openSubrecipeModal = (row: InventoryRow) => {
+        setSelectedRow(row);
+        setIsSubrecipeModalOpen(true);
+    };
+
+    const openBatchPrepareModal = (row: InventoryRow) => {
+        setSelectedRow(row);
+        setIsBatchPrepareModalOpen(true);
+    };
+
     const openMassRestockModal = () => {
         const branchId = currentBranchId ? Number(currentBranchId) : branchList[0]?.id || 1;
         const branchName = branchList.find(b => b.id === branchId)?.name || 'Default Branch';
@@ -215,6 +236,7 @@ export default function InventoryIndex() {
 
     const { data, setData, processing, reset } = useForm({
         name: '',
+        is_composite: false,
         unit: 'g',
         stock: '0',
         low_stock_level: '5',
@@ -428,6 +450,7 @@ export default function InventoryIndex() {
         setLocalErrors({});
         setData({
             name: row.name,
+            is_composite: Boolean(row.is_composite),
             unit: row.display_unit || row.unit,
             stock: String(row.display_stock ?? row.stock),
             low_stock_level: String(row.low_stock_level ?? 5),
@@ -467,6 +490,7 @@ export default function InventoryIndex() {
 
         router.post('/inventory', {
             name: data.name,
+            is_composite: Boolean(data.is_composite),
             unit: data.unit,
             initial_stock: Number(data.stock),
             low_stock_level: Number(data.low_stock_level),
@@ -475,7 +499,7 @@ export default function InventoryIndex() {
             cost_per_unit: calculatedCostPerUnit,
             branch_id: data.branch_id ? Number(data.branch_id) : undefined,
             branch_ids: data.branch_ids.map(Number),
-        } as Record<string, string | number | number[] | undefined>, {
+        } as Record<string, string | boolean | number | number[] | undefined>, {
             onSuccess: () => {
                 setIsAddSubmitting(false);
                 setIsAddModalOpen(false);
@@ -516,13 +540,14 @@ export default function InventoryIndex() {
 
         router.put(`/inventory/${selectedRow?.id}`, {
             name: data.name,
+            is_composite: Boolean(data.is_composite),
             unit: data.unit,
             branch_id: data.branch_id ? Number(data.branch_id) : undefined,
             stock: Number(data.stock),
             low_stock_level: Number(data.low_stock_level),
             avg_weight_per_piece: data.avg_weight_per_piece ? Number(data.avg_weight_per_piece) : undefined,
             cost_per_unit: Number(data.cost_per_unit),
-        } as Record<string, string | number | undefined>, {
+        } as Record<string, string | boolean | number | undefined>, {
             onSuccess: () => {
                 setIsEditSubmitting(false);
                 setIsEditModalOpen(false);
@@ -650,6 +675,7 @@ export default function InventoryIndex() {
                         onSelectRow={openDetailDrawer}
                         onOpenStockIn={openStockInModal}
                         onOpenWastage={openWastageModal}
+                        onOpenReduceStock={openStockReductionModal}
                         onOpenEdit={handleEdit}
                         onOpenDelete={handleDelete}
                     />
@@ -749,6 +775,9 @@ export default function InventoryIndex() {
                 onTabChange={setDrawerTab}
                 onOpenStockIn={openStockInModal}
                 onOpenWastage={openWastageModal}
+                onOpenReduceStock={openStockReductionModal}
+                onOpenSubrecipe={openSubrecipeModal}
+                onOpenBatchPrepare={openBatchPrepareModal}
                 onOpenEdit={handleEdit}
                 onOpenDelete={handleDelete}
             />
@@ -767,6 +796,44 @@ export default function InventoryIndex() {
                 item={selectedRow}
                 type="ingredient"
             />
+
+            <StockReductionModal
+                open={isStockReductionModalOpen}
+                onOpenChange={setIsStockReductionModalOpen}
+                ingredient={selectedRow}
+                onSuccess={() => {
+                    fetchActivityLogs();
+                    router.reload({ only: ['inventory', 'stats'] });
+                }}
+            />
+
+            {isAdmin && (
+                <CompositeSubrecipeModal
+                    open={isSubrecipeModalOpen}
+                    onOpenChange={setIsSubrecipeModalOpen}
+                    ingredient={selectedRow}
+                    allIngredients={inventory}
+                    onSuccess={() => {
+                        fetchActivityLogs();
+                        router.reload({ only: ['inventory', 'stats'] });
+                    }}
+                />
+            )}
+
+            {isAdmin && (
+                <BatchPrepareModal
+                    open={isBatchPrepareModalOpen}
+                    onOpenChange={setIsBatchPrepareModalOpen}
+                    ingredient={selectedRow}
+                    branches={branchList}
+                    currentBranchId={currentBranchId}
+                    allIngredients={inventory}
+                    onSuccess={() => {
+                        fetchActivityLogs();
+                        router.reload({ only: ['inventory', 'stats'] });
+                    }}
+                />
+            )}
 
             {activeRestockBranch && (
                 <MassRestockModal
@@ -816,6 +883,42 @@ export default function InventoryIndex() {
                         )}
 
                         <div className="grid grid-cols-2 gap-4">
+                            {isAdmin && (
+                                <div className="col-span-2 space-y-1.5">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">
+                                        Ingredient Classification
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('is_composite', false)}
+                                            className={cn(
+                                                "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                                                !data.is_composite
+                                                    ? "bg-[#FFF5F7] dark:bg-[#181820] border-[#E75480] dark:border-[#FF4F81] text-[#E75480] dark:text-[#FF4F81] shadow-2xs"
+                                                    : "bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#7D6B6E] dark:text-[#94A3B8]"
+                                            )}
+                                        >
+                                            <div className="font-extrabold text-xs">Standard Ingredient</div>
+                                            <div className="text-[10px] opacity-80">Simple inventory tracking</div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('is_composite', true)}
+                                            className={cn(
+                                                "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                                                data.is_composite
+                                                    ? "bg-purple-50 dark:bg-purple-950/40 border-purple-500 text-purple-700 dark:text-purple-300 shadow-2xs"
+                                                    : "bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#7D6B6E] dark:text-[#94A3B8]"
+                                            )}
+                                        >
+                                            <div className="font-extrabold text-xs">Composite Ingredient</div>
+                                            <div className="text-[10px] opacity-80">Has confidential sub-recipe</div>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Ingredient Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} placeholder="e.g. Premium White Rice" className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />
@@ -946,6 +1049,42 @@ export default function InventoryIndex() {
                         )}
 
                         <div className="grid grid-cols-2 gap-4">
+                            {isAdmin && (
+                                <div className="col-span-2 space-y-1.5">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">
+                                        Ingredient Classification
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('is_composite', false)}
+                                            className={cn(
+                                                "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                                                !data.is_composite
+                                                    ? "bg-[#FFF5F7] dark:bg-[#181820] border-[#E75480] dark:border-[#FF4F81] text-[#E75480] dark:text-[#FF4F81] shadow-2xs"
+                                                    : "bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#7D6B6E] dark:text-[#94A3B8]"
+                                            )}
+                                        >
+                                            <div className="font-extrabold text-xs">Standard Ingredient</div>
+                                            <div className="text-[10px] opacity-80">Simple inventory tracking</div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setData('is_composite', true)}
+                                            className={cn(
+                                                "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                                                data.is_composite
+                                                    ? "bg-purple-50 dark:bg-purple-950/40 border-purple-500 text-purple-700 dark:text-purple-300 shadow-2xs"
+                                                    : "bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#7D6B6E] dark:text-[#94A3B8]"
+                                            )}
+                                        >
+                                            <div className="font-extrabold text-xs">Composite Ingredient</div>
+                                            <div className="text-[10px] opacity-80">Has confidential sub-recipe</div>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="col-span-2 space-y-1.5">
                                 <label className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] ml-1">Ingredient Name</label>
                                 <Input required value={data.name} onChange={(e) => setData('name', e.target.value)} className="h-12 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#F8FAFC]" />

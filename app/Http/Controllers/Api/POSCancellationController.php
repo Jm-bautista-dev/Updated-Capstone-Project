@@ -34,7 +34,7 @@ class POSCancellationController extends Controller
      */
     public function approve(Request $request, int $id): JsonResponse
     {
-        return (new Branch\CancellationRequestController())->approve($request, $id);
+        return app(Branch\CancellationRequestController::class)->approve($request, $id);
     }
 
     /**
@@ -43,6 +43,6 @@ class POSCancellationController extends Controller
      */
     public function reject(Request $request, int $id): JsonResponse
     {
-        return (new Branch\CancellationRequestController())->reject($request, $id);
+        return app(Branch\CancellationRequestController::class)->reject($request, $id);
     }
 }

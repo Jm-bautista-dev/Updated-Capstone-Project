@@ -89,6 +89,9 @@ export interface Product {
     description?: string | null;
     stock: number;
     cost_price: number;
+    costing_method?: 'automatic' | 'manual';
+    manual_cost?: number | null;
+    automatic_cost?: number | null;
     selling_price: number;
     status: string;
     availability_status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
@@ -307,9 +310,21 @@ export function ProductDrawer({
                     {isAdmin ? (
                         <div className="grid grid-cols-3 gap-3">
                             <div className="p-3.5 rounded-2xl bg-white dark:bg-[#181822] border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs text-center flex flex-col justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Cost Price</span>
+                                <div className="flex items-center justify-center gap-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">Cost Price</span>
+                                    {product.costing_method === 'manual' && (
+                                        <span className="text-[8px] font-black uppercase px-1 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">Manual</span>
+                                    )}
+                                </div>
                                 {hasValidCost ? (
-                                    <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-1 block">{formatCurrency(product.cost_price)}</span>
+                                    <div>
+                                        <span className="text-sm font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-1 block">{formatCurrency(product.cost_price)}</span>
+                                        {product.costing_method === 'manual' && product.automatic_cost && Number(product.automatic_cost) > 0 && (
+                                            <span className="text-[9px] text-[#9E8B8E] dark:text-[#64748B] font-mono block mt-0.5">
+                                                Auto: {formatCurrency(product.automatic_cost)}
+                                            </span>
+                                        )}
+                                    </div>
                                 ) : (
                                     <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1 block">Cost unavailable</span>
                                 )}

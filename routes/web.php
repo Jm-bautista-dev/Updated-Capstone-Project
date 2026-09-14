@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\DeliveryController;
 use App\Http\Controllers\Admin\RiderController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InventoryActionController;
+use App\Http\Controllers\CompositeIngredientController;
 
 /*
 |--------------------------------------------------------------------------
@@ -139,6 +140,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/inventory/{id}', [InventoryController::class, 'update'])->name('inventory.update');
             Route::delete('/inventory/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
 
+            // Composite Ingredients & Sub-recipes (Admin only)
+            Route::get('/admin/ingredients/{ingredient}/subrecipe', [CompositeIngredientController::class, 'getSubrecipe'])->name('admin.ingredients.subrecipe');
+            Route::post('/admin/ingredients/{ingredient}/subrecipe', [CompositeIngredientController::class, 'saveSubrecipe'])->name('admin.ingredients.save-subrecipe');
+            Route::post('/admin/ingredients/{ingredient}/prepare', [CompositeIngredientController::class, 'prepareBatch'])->name('admin.ingredients.prepare');
+
             // Sales Data Management (Admin only)
             Route::get('admin/sales-data', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'index'])->name('admin.sales-data.index');
             Route::post('admin/sales-data/validate', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'validateFile'])->name('admin.sales-data.validate');
@@ -187,6 +193,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
             Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
             Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
+            Route::post('/inventory/{ingredient}/reduce-stock', [CompositeIngredientController::class, 'reduceStock'])->name('inventory.reduce-stock');
             Route::post('/inventory/scan-receipt/upload', [App\Http\Controllers\Api\ReceiptController::class, 'upload'])->name('inventory.scan-receipt.upload');
             Route::post('/inventory/scan-receipt/process', [App\Http\Controllers\Api\ReceiptController::class, 'process'])->name('inventory.scan-receipt.process');
             Route::post('/inventory/scan-receipt/confirm', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn'])->name('inventory.scan-receipt.confirm');

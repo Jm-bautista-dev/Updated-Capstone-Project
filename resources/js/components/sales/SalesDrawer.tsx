@@ -12,9 +12,10 @@ import {
     X,
     RotateCw
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 
+import { ThermalReceipt58mm } from '@/components/pos/ThermalReceipt58mm';
 import type { Sale } from '@/components/sales/SalesHero';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,8 +23,17 @@ import {
     Sheet,
     SheetContent,
 } from '@/components/ui/sheet';
-import { sendToLocalPrintBridge } from '@/lib/pos-print-bridge';
+import { sendToLocalPrintBridge, triggerBrowserThermalPrint } from '@/lib/pos-print-bridge';
 import { cn, formatReceiptBranchHeading } from '@/lib/utils';
+
+const safeFormatDate = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    try {
+        return format(parseISO(dateStr), 'MMMM dd, yyyy • hh:mm a');
+    } catch {
+        return dateStr;
+    }
+};
 
 interface SalesDrawerProps {
     sale: Sale | null;
@@ -42,6 +52,47 @@ export function SalesDrawer({
 }: SalesDrawerProps) {
     const [tab, setTab] = useState<'items' | 'receipt'>('items');
     const [reprinting, setReprinting] = useState(false);
+
+    const mappedReceiptData = useMemo(() => {
+        if (!sale) return null;
+        let customerName: string | undefined = undefined;
+        if (typeof sale.discount_details === 'string') {
+            try {
+                const parsed = JSON.parse(sale.discount_details);
+                customerName = parsed?.customer_name;
+            } catch {
+                customerName = undefined;
+            }
+        } else if (typeof sale.discount_details === 'object' && sale.discount_details) {
+            customerName = (sale.discount_details as Record<string, unknown>)?.customer_name as string | undefined;
+        }
+
+        return {
+            branch_name: sale.branch?.name || sale.order?.branch?.name || 'Maki Desu',
+            branch_address: sale.branch?.address || sale.order?.branch?.address,
+            order_number: sale.order_number || `POS-${sale.id}`,
+            date_time: safeFormatDate(sale.created_at),
+            fulfillment_type: (sale.type || 'DINE-IN').toUpperCase(),
+            cashier_name: sale.cashier?.name || 'Staff',
+            customer_name: customerName,
+            items: sale.items?.map(i => ({
+                name: i.product?.name || 'Item',
+                quantity: Number(i.quantity || 1),
+                unit_price: Number(i.unit_price || (Number(i.subtotal) / Number(i.quantity || 1))),
+                subtotal: Number(i.subtotal || 0),
+                addons: i.selected_addons?.map(a => ({ name: a.name, price: Number(a.price || 0) })) || []
+            })) || [],
+            subtotal: Number(sale.subtotal || sale.total),
+            discount: Number(sale.discount || 0),
+            discount_type: sale.discount_type,
+            delivery_fee: Number(sale.delivery_fee || sale.delivery?.delivery_fee || 0),
+            total: Number(sale.total),
+            payment_method: (sale.payment_method || 'CASH').toUpperCase(),
+            paid_amount: Number(sale.paid_amount || sale.total),
+            change_amount: Number(sale.change_amount || 0),
+            paper_width: 58,
+        };
+    }, [sale]);
 
     const handleThermalReprint = async () => {
         if (!sale?.id) return;
@@ -73,15 +124,6 @@ export function SalesDrawer({
 
     const formatCurrency = (amt: number) =>
         new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amt);
-
-    const safeFormatDate = (dateStr?: string) => {
-        if (!dateStr) return 'N/A';
-        try {
-            return format(parseISO(dateStr), 'MMMM dd, yyyy • hh:mm a');
-        } catch {
-            return dateStr;
-        }
-    };
 
     const isVoided = sale.status === 'cancelled';
 
@@ -452,12 +494,12 @@ export function SalesDrawer({
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => window.print()}
+                        onClick={() => triggerBrowserThermalPrint()}
                         className="h-11 px-3 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] text-xs font-bold gap-1.5 cursor-pointer"
-                        title="Browser Print Preview"
+                        title="Browser 58mm Thermal Print"
                     >
                         <Printer className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                        <span className="hidden sm:inline">Browser</span>
+                        <span className="hidden sm:inline">Browser (58mm)</span>
                     </Button>
 
                     {isAdmin && !isVoided && onOpenVoidModal && (
@@ -472,6 +514,12 @@ export function SalesDrawer({
                         </Button>
                     )}
                 </div>
+
+                {/* Dedicated 58mm Thermal Receipt Print Element (Hidden in screen, visible in print) */}
+                <ThermalReceipt58mm
+                    receiptData={mappedReceiptData}
+                    isPrintOnly={true}
+                />
 
             </SheetContent>
         </Sheet>

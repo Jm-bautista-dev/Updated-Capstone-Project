@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, RefreshCw, Edit2, Trash2, Eye, Layers, PackageSearch } from 'lucide-react';
+import { Package, RefreshCw, Edit2, Trash2, Eye, Layers, PackageSearch, MinusCircle } from 'lucide-react';
 
 import type { InventoryRow } from '@/components/inventory/InventoryHero';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -19,6 +19,7 @@ interface InventoryTableProps {
     onSelectRow: (row: InventoryRow) => void;
     onOpenStockIn: (row: InventoryRow) => void;
     onOpenWastage: (row: InventoryRow) => void;
+    onOpenReduceStock?: (row: InventoryRow) => void;
     onOpenEdit: (row: InventoryRow) => void;
     onOpenDelete: (row: InventoryRow) => void;
 }
@@ -33,6 +34,7 @@ export function InventoryTable({
     onSelectRow,
     onOpenStockIn,
     onOpenWastage,
+    onOpenReduceStock,
     onOpenEdit,
     onOpenDelete,
 }: InventoryTableProps) {
@@ -118,9 +120,16 @@ export function InventoryTable({
                                                         <Package className="size-5 text-[#E75480]/60 dark:text-[#FF4F81]/60" />
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors leading-snug">
-                                                            {row.name}
-                                                        </span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors leading-snug">
+                                                                {row.name}
+                                                            </span>
+                                                            {row.is_composite && (
+                                                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
+                                                                    Composite
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className="text-[11px] font-mono text-[#9E8B8E] dark:text-[#64748B]">
                                                             SKU: {skuString}
                                                         </span>
@@ -184,6 +193,18 @@ export function InventoryTable({
                                                     >
                                                         <RefreshCw className="size-4" />
                                                     </Button>
+
+                                                    {onOpenReduceStock && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            onClick={() => onOpenReduceStock(row)}
+                                                            className="size-8 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500 dark:text-rose-400 cursor-pointer"
+                                                            title="Reduce Stock"
+                                                        >
+                                                            <MinusCircle className="size-4" />
+                                                        </Button>
+                                                    )}
 
                                                     <Button
                                                         size="icon"

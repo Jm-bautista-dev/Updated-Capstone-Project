@@ -97,11 +97,13 @@ class ProductService
                     'category_id'   => $validated['category_id'],
                     'description'   => $validated['description'] ?? null,
                     'cost_price'    => 0, // Automatically calculated from recipe
-                    'selling_price' => $validated['selling_price'],
-                    'image_path'    => $imagePath,
-                    'branch_id'     => null, // 👈 1 PRODUCT = 1 GLOBAL PRODUCT RECORD
-                    'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? 'pcs'),
-                    'stock'         => 0, // Computed dynamically from branch_product
+                    'selling_price'  => $validated['selling_price'],
+                    'costing_method' => $validated['costing_method'] ?? 'automatic',
+                    'manual_cost'    => isset($validated['manual_cost']) && $validated['manual_cost'] !== '' ? (float) $validated['manual_cost'] : null,
+                    'image_path'     => $imagePath,
+                    'branch_id'      => null, // 👈 1 PRODUCT = 1 GLOBAL PRODUCT RECORD
+                    'unit'           => UnitConverter::normalizeUnit($validated['unit'] ?? 'pcs'),
+                    'stock'          => 0, // Computed dynamically from branch_product
                 ]);
 
                 // Step 3: Insert branch_product records for all selected branches
@@ -179,15 +181,26 @@ class ProductService
                 ImageHelper::syncToPublicStorage($imagePath);
             }
 
+            $oldCostingMethod = $product->costing_method ?? 'automatic';
+            $oldManualCost = $product->manual_cost !== null ? (float) $product->manual_cost : null;
+            $oldActiveCost = $product->computeProductCost();
+
+            $newCostingMethod = $validated['costing_method'] ?? $oldCostingMethod;
+            $newManualCost = array_key_exists('manual_cost', $validated)
+                ? ($validated['manual_cost'] !== null && $validated['manual_cost'] !== '' ? (float) $validated['manual_cost'] : null)
+                : $oldManualCost;
+
             $product->update([
-                'name'          => $validated['name'],
-                'sku'           => $validated['sku'] ?? $product->sku,
-                'category_id'   => $validated['category_id'],
-                'description'   => $validated['description'] ?? null,
-                'selling_price' => $validated['selling_price'],
-                'image_path'    => $imagePath,
-                'branch_id'     => null, // Maintain global product record
-                'unit'          => UnitConverter::normalizeUnit($validated['unit'] ?? $product->unit ?? 'pcs'),
+                'name'           => $validated['name'],
+                'sku'            => $validated['sku'] ?? $product->sku,
+                'category_id'    => $validated['category_id'],
+                'description'    => $validated['description'] ?? null,
+                'selling_price'  => $validated['selling_price'],
+                'costing_method' => $newCostingMethod,
+                'manual_cost'    => $newManualCost,
+                'image_path'     => $imagePath,
+                'branch_id'      => null, // Maintain global product record
+                'unit'           => UnitConverter::normalizeUnit($validated['unit'] ?? $product->unit ?? 'pcs'),
             ]);
 
             // Sync branch selection if provided
@@ -251,7 +264,26 @@ class ProductService
             }
 
             $product->refresh();
-            $product->update(['cost_price' => $product->computeProductCost()]);
+            $newActiveCost = $product->computeProductCost();
+            $product->update(['cost_price' => $newActiveCost]);
+
+            // Audit log if costing settings changed
+            if ($oldCostingMethod !== $newCostingMethod || $oldManualCost !== $newManualCost) {
+                AuditLogger::log(
+                    action: 'product_costing_updated',
+                    target: "Product #{$product->id} ({$product->name})",
+                    beforeState: [
+                        'costing_method' => $oldCostingMethod,
+                        'manual_cost'    => $oldManualCost,
+                        'active_cost'    => $oldActiveCost,
+                    ],
+                    afterState: [
+                        'costing_method' => $newCostingMethod,
+                        'manual_cost'    => $newManualCost,
+                        'active_cost'    => $newActiveCost,
+                    ]
+                );
+            }
 
             // Broadcast updates to all branches
             $allBranches = Branch::all();
