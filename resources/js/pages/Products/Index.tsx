@@ -184,15 +184,22 @@ export default function ProductsIndex() {
     const stateChannel = useMemo(() => new BroadcastChannel('app-state-updates'), []);
 
     useEffect(() => {
+        let lastReloadTime = Date.now();
         const handleMessage = (e: MessageEvent) => {
             if (e.data.type === 'inventory-updated' || e.data.type === 'products-updated') {
-                router.reload();
+                lastReloadTime = Date.now();
+                router.reload({ only: ['products', 'summary'] });
             }
         };
         stateChannel.addEventListener('message', handleMessage);
 
         const handleFocus = () => {
-            router.reload();
+            // Throttle focus reload so rapid tab switches do not hammer the server
+            const now = Date.now();
+            if (now - lastReloadTime > 15000) {
+                lastReloadTime = now;
+                router.reload({ only: ['products', 'summary'] });
+            }
         };
         window.addEventListener('focus', handleFocus);
 

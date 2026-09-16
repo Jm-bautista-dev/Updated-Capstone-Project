@@ -58,6 +58,8 @@ export function ImageWithFallback({
             <img
                 src={src}
                 alt={alt}
+                loading={props.loading || 'lazy'}
+                decoding="async"
                 onLoad={() => setIsLoaded(true)}
                 onError={() => {
                     setHasError(true);

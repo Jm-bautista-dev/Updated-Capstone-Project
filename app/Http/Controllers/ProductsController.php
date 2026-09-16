@@ -55,29 +55,22 @@ class ProductsController extends Controller
         }
 
         $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId, $branches, $user) {
+            $availability = $product->dynamicAvailability($branchId, $branches);
+            $product->stock = (float) $availability['available'];
+            $product->is_available = (bool) $availability['is_available'];
+            $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
+            $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+            $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
+            $product->max_servings = $availability['max_servings'] ?? $product->stock;
+            $product->is_low_stock = (bool) $availability['is_low_stock'];
+
             if ($branchId) {
                 // Scoped to a specific single branch
-                $availability = $product->dynamicAvailability($branchId);
-                $product->stock = (float) $availability['available'];
-                $product->is_available = (bool) $availability['is_available'];
-                $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
-                $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
-                $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
-                $product->max_servings = $availability['max_servings'] ?? $product->stock;
-                $product->is_low_stock = (bool) $availability['is_low_stock'];
                 $product->status = $availability['status_label'] ?? $this->getStockStatus($product->stock);
                 $product->availability_status = $availability['status'] ?? ($product->stock <= 0 ? 'OUT_OF_STOCK' : ($product->stock <= 5 ? 'LOW_STOCK' : 'IN_STOCK'));
                 $product->branch_breakdown = null;
             } else {
                 // Admin viewing "All Branches"
-                $availability = $product->dynamicAvailability(null);
-                $product->stock = (float) $availability['available'];
-                $product->is_available = (bool) $availability['is_available'];
-                $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
-                $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
-                $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
-                $product->max_servings = $availability['max_servings'] ?? $product->stock;
-                $product->is_low_stock = (bool) $availability['is_low_stock'];
                 $product->status = $availability['status_label'] ?? ($product->is_available
                     ? ($product->stock <= 5 ? 'Low Stock' : 'In Stock')
                     : 'Out of Stock');
@@ -86,8 +79,10 @@ class ProductsController extends Controller
             }
 
             if ($user && $user->isAdmin()) {
-                $costPrice = $product->computeProductCost($branchId);
                 $automaticCost = $product->getAutomaticCost($branchId);
+                $costPrice = ($product->isManualCosting() && $product->manual_cost !== null)
+                    ? round((float) $product->manual_cost, 4)
+                    : $automaticCost;
                 $product->cost_price = $costPrice;
                 $product->cost = $costPrice;
                 $product->has_cost = $costPrice > 0;

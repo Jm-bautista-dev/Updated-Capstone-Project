@@ -27,7 +27,7 @@ class Product extends Model
         'selling_price' => 'float',
     ];
 
-    protected $appends = ['computed_stock', 'image_url', 'average_rating', 'review_count', 'quantity_sold'];
+    protected $appends = ['image_url'];
 
     protected static function booted()
     {
@@ -269,6 +269,9 @@ class Product extends Model
      */
     public function hasRecipe(): bool
     {
+        if ($this->relationLoaded('ingredients')) {
+            return $this->ingredients->isNotEmpty();
+        }
         return $this->ingredients()->exists();
     }
 
@@ -315,7 +318,7 @@ class Product extends Model
      * @param int|null $branchId When null, aggregates and provides per-branch breakdown.
      * @return array
      */
-    public function dynamicAvailability(?int $branchId = null): array
+    public function dynamicAvailability(?int $branchId = null, $allBranches = null): array
     {
         $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
 
@@ -326,6 +329,7 @@ class Product extends Model
                     ->where('product_id', $this->id)
                     ->where('branch_id', $branchId)
                     ->first();
+
                 $stock = $pivot ? (float) $pivot->stock : 0.0;
                 $isActive = $pivot ? (bool) $pivot->is_active : false;
                 $safeStock = max(0.0, $stock);
@@ -371,14 +375,14 @@ class Product extends Model
             }
 
             // All branches aggregation for direct products
-            $allBranches = \App\Models\Branch::all();
+            $allBranches = $allBranches ?: \App\Models\Branch::all();
             $branchBreakdown = [];
             $totalStock = 0;
             $hasAnyStock = false;
             $allInsufficient = [];
 
             foreach ($allBranches as $branch) {
-                $bAvail = $this->dynamicAvailability($branch->id);
+                $bAvail = $this->dynamicAvailability($branch->id, $allBranches);
                 $bStock = (float) $bAvail['available'];
                 $branchBreakdown[$branch->id] = [
                     'branch_id'                => $branch->id,
@@ -427,14 +431,14 @@ class Product extends Model
 
         // 2. All Branches Aggregation for Recipe Products
         if (!$branchId) {
-            $allBranches = \App\Models\Branch::all();
+            $allBranches = $allBranches ?: \App\Models\Branch::all();
             $branchBreakdown = [];
             $totalProducibleStock = 0;
             $hasAnyStock = false;
             $allInsufficient = [];
 
             foreach ($allBranches as $branch) {
-                $bAvail = $this->dynamicAvailability($branch->id);
+                $bAvail = $this->dynamicAvailability($branch->id, $allBranches);
                 $availCount = (float) $bAvail['available'];
                 $branchBreakdown[$branch->id] = [
                     'branch_id'                => $branch->id,
@@ -882,10 +886,12 @@ class Product extends Model
 
         // Direct product fallback
         if ($branchId) {
-            $pivot = DB::table('branch_product')
-                ->where('product_id', $this->id)
-                ->where('branch_id', $branchId)
-                ->first();
+            $pivot = $this->relationLoaded('branches')
+                ? $this->branches->firstWhere('id', $branchId)?->pivot
+                : DB::table('branch_product')
+                    ->where('product_id', $this->id)
+                    ->where('branch_id', $branchId)
+                    ->first();
             if ($pivot && (float)($pivot->cost_price ?? 0) > 0) {
                 return round((float) $pivot->cost_price, 4);
             }
