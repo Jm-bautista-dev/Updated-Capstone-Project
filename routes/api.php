@@ -27,6 +27,7 @@ Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeli
 // Direct non-v1 Auth endpoints for client compatibility
 Route::post('login',          [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('register',       [AuthController::class, 'register']);
+Route::post('auth/google',    [AuthController::class, 'googleAuth'])->middleware('throttle:15,1');
 Route::post('rider/login',    [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('logout',         [AuthController::class, 'logout'])->middleware(['auth:sanctum,web']);
 
@@ -36,6 +37,7 @@ Route::prefix('v1')->group(function () {
     // Public Routes (with security rate limiting)
     Route::post('register',       [AuthController::class, 'register']);
     Route::post('login',          [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('auth/google',    [AuthController::class, 'googleAuth'])->middleware('throttle:15,1');
     Route::post('rider/login',    [AuthController::class, 'login'])->middleware('throttle:10,1');
     Route::post('send-otp',       [VerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
     Route::post('verify-otp',     [VerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');

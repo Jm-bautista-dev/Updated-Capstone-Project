@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Models\Rider;
 use App\Models\EmailVerification;
 use App\Services\SecurityAuditLogger;
+use App\Services\GoogleAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -307,5 +309,161 @@ class AuthController extends Controller
             'role'          => $user->role ?? ($user instanceof Rider ? 'rider' : 'customer'),
             'branch_id'     => $user->branch_id ?? null,
         ];
+    }
+
+    /**
+     * Google Sign-In / Sign-Up verification endpoint for Mobile App.
+     * POST /api/v1/auth/google
+     */
+    public function googleAuth(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_token'   => 'required|string',
+            'email'      => 'nullable|string',
+            'first_name' => 'nullable|string',
+            'last_name'  => 'nullable|string',
+            'name'       => 'nullable|string',
+        ]);
+
+        /** @var GoogleAuthService $googleAuthService */
+        $googleAuthService = app(GoogleAuthService::class);
+        $claims = $googleAuthService->verifyIdToken($validated['id_token']);
+
+        if (!$claims) {
+            Log::warning('[GOOGLE AUTH] ID Token verification failed or invalid', [
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired Google authorization token.',
+            ], 401);
+        }
+
+        $verifiedEmail = strtolower(trim($claims['email']));
+        $googleSub = $claims['sub'] ?? null;
+        $givenName = $claims['given_name'] ?? null;
+        $familyName = $claims['family_name'] ?? null;
+        $fullName = $claims['name'] ?? null;
+        $picture = $claims['picture'] ?? null;
+
+        /** @var User|null $user */
+        $user = User::whereRaw('LOWER(email) = ?', [$verifiedEmail])->first();
+
+        if ($user) {
+            // Check account status and is_active flag
+            $accountStatus = strtolower($user->account_status ?? 'active');
+            $isActive = isset($user->is_active) ? (bool) $user->is_active : true;
+
+            if (in_array($accountStatus, ['restricted', 'deactivated', 'suspended'], true) || !$isActive) {
+                Log::warning('[GOOGLE AUTH] Login rejected - Account restricted or inactive', [
+                    'user_id'        => $user->id,
+                    'email'          => $verifiedEmail,
+                    'account_status' => $accountStatus,
+                    'is_active'      => $isActive,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'code'    => 'ACCOUNT_RESTRICTED',
+                    'message' => 'Your account has been restricted. Please contact support.',
+                ], 403);
+            }
+
+            // Sync user attributes from Google claims if not already populated
+            $needsSave = false;
+
+            if (empty($user->google_id) && !empty($googleSub)) {
+                $user->google_id = $googleSub;
+                $needsSave = true;
+            }
+
+            if (empty($user->profile_photo_path) && !empty($picture)) {
+                $user->profile_photo_path = $picture;
+                $needsSave = true;
+            }
+
+            if (empty($user->email_verified_at)) {
+                $user->email_verified_at = now();
+                $needsSave = true;
+            }
+
+            if (empty($user->first_name) && !empty($givenName)) {
+                $user->first_name = $givenName;
+                $needsSave = true;
+            }
+
+            if (empty($user->last_name) && !empty($familyName)) {
+                $user->last_name = $familyName;
+                $needsSave = true;
+            }
+
+            if (empty($user->name)) {
+                $user->name = $fullName ?: trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                $needsSave = true;
+            }
+
+            if ($needsSave) {
+                $user->save();
+            }
+        } else {
+            // Provision new customer in the database
+            $firstName = $givenName ?: ($request->first_name ?: ($fullName ? explode(' ', $fullName)[0] : 'Customer'));
+            $lastName = $familyName ?: ($request->last_name ?: ($fullName && str_contains($fullName, ' ') ? substr($fullName, strpos($fullName, ' ') + 1) : ''));
+            $name = $fullName ?: trim($firstName . ' ' . $lastName);
+            if (empty($name)) {
+                $name = $request->name ?: 'Customer';
+            }
+
+            $user = User::create([
+                'first_name'         => $firstName,
+                'last_name'          => $lastName,
+                'name'               => $name,
+                'email'              => $verifiedEmail,
+                'password'           => Hash::make(Str::random(32)),
+                'role'               => User::ROLE_CUSTOMER,
+                'email_verified_at'  => now(),
+                'is_active'          => true,
+                'account_status'     => User::STATUS_ACTIVE,
+                'avatar_id'          => 1,
+                'google_id'          => $googleSub,
+                'profile_photo_path' => $picture,
+                'mobile_number'      => $request->mobile_number ?? '',
+            ]);
+
+            Log::info('[GOOGLE AUTH] New Customer Account Provisioned via Google Sign-In', [
+                'user_id' => $user->id,
+                'email'   => $verifiedEmail,
+            ]);
+        }
+
+        // Issue Laravel Sanctum Bearer Token
+        $token = $user->createToken('customer_google_token')->plainTextToken;
+
+        Log::info('[GOOGLE AUTH] Google Authentication Successful', [
+            'user_id' => $user->id,
+            'email'   => $verifiedEmail,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Google authentication successful.',
+            'data'    => [
+                'user' => [
+                    'id'                 => $user->id,
+                    'first_name'         => $user->first_name ?? ($user->name ?? 'Customer'),
+                    'last_name'          => $user->last_name ?? '',
+                    'name'               => $user->name ?? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+                    'email'              => $user->email ?? '',
+                    'mobile_number'      => $user->mobile_number ?? '',
+                    'role'               => $user->role ?? User::ROLE_CUSTOMER,
+                    'avatar_id'          => $user->avatar_id ?? 1,
+                    'profile_photo_path' => $user->profile_photo_path ?? null,
+                    'account_status'     => $user->account_status ?? 'active',
+                    'is_active'          => isset($user->is_active) ? (bool) $user->is_active : true,
+                ],
+                'token' => $token,
+            ],
+        ], 200);
     }
 }

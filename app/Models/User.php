@@ -24,8 +24,13 @@ class User extends Authenticatable
         'last_name',
         'mobile_number',
         'email',
+        'email_verified_at',
         'password',
         'role',
+        'google_id',
+        'avatar_id',
+        'is_active',
+        'profile_photo_path',
         'account_status',
         'status_reason',
         'restricted_at',
@@ -118,7 +123,8 @@ class User extends Authenticatable
 
     public function isActive(): bool
     {
-        return ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_ACTIVE;
+        $isActiveFlag = array_key_exists('is_active', $this->attributes) ? (bool) $this->attributes['is_active'] : true;
+        return $isActiveFlag && ($this->account_status ?? self::STATUS_ACTIVE) === self::STATUS_ACTIVE;
     }
 
     public function isUnderReview(): bool
@@ -379,6 +385,8 @@ class User extends Authenticatable
             'cod_restricted_at'          => 'datetime',
             'cod_restriction_expires_at' => 'datetime',
             'is_order_restricted'        => 'boolean',
+            'is_active'                  => 'boolean',
+            'avatar_id'                  => 'integer',
             'password'                   => 'hashed',
             'two_factor_confirmed_at'    => 'datetime',
             'last_notifications_read_at' => 'datetime',

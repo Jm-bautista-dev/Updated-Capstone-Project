@@ -39,6 +39,17 @@ return [
         'key' => env('GOOGLE_VISION_API_KEY'),
     ],
 
+    'google' => [
+        'web_client_id' => env('GOOGLE_WEB_CLIENT_ID', '817393512526-i3p0lcoqkh616826c6flr9mt2u06a4ij.apps.googleusercontent.com'),
+        'ios_client_id' => env('GOOGLE_IOS_CLIENT_ID', '463425689467-vabq08tcesgjjjbaq222tk95rvrjd6ge.apps.googleusercontent.com'),
+        'client_ids'    => array_values(array_filter([
+            env('GOOGLE_WEB_CLIENT_ID', '817393512526-i3p0lcoqkh616826c6flr9mt2u06a4ij.apps.googleusercontent.com'),
+            env('GOOGLE_IOS_CLIENT_ID', '463425689467-vabq08tcesgjjjbaq222tk95rvrjd6ge.apps.googleusercontent.com'),
+            env('GOOGLE_CLIENT_ID'),
+            env('GOOGLE_ANDROID_CLIENT_ID'),
+        ])),
+    ],
+
     'openrouteservice' => [
         'key'      => env('OPENROUTESERVICE_API_KEY'),
         'base_url' => env('OPENROUTESERVICE_BASE_URL', 'https://api.openrouteservice.org/v2/directions/driving-car'),
