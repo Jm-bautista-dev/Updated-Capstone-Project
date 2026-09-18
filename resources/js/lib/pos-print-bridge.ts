@@ -270,10 +270,19 @@ export function savePrinterConfig(updates: Partial<PrinterConfig>): PrinterConfi
  */
 const KNOWN_BLE_PRINTER_SERVICES = [
     '000018f0-0000-1000-8000-00805f9b34fb', // Standard ESC/POS Service
-    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // PosBank / Generic BLE Printer
+    '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / CC2541 POS Printers (most common 58mm BLE)
+    '0000ffe1-0000-1000-8000-00805f9b34fb', 
     '0000ff00-0000-1000-8000-00805f9b34fb', // ISSC Transparent Serial
+    '0000ff02-0000-1000-8000-00805f9b34fb',
+    '0000ff03-0000-1000-8000-00805f9b34fb',
     '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Dual Mode
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // PosBank / Generic BLE Printer
     '0000fee7-0000-1000-8000-00805f9b34fb', // Tencent / Chinese POS BLE
+    '0000ae00-0000-1000-8000-00805f9b34fb', // Xprinter BLE
+    '0000ae01-0000-1000-8000-00805f9b34fb',
+    '0000af30-0000-1000-8000-00805f9b34fb', // MPT-II / Goojprt BLE
+    '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
+    '0000180a-0000-1000-8000-00805f9b34fb', // Device Info
 ];
 
 /**
@@ -307,23 +316,48 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
 
         // Connect GATT Server
         if (device.gatt) {
+            if (device.gatt.connected) {
+                try { device.gatt.disconnect(); } catch {}
+            }
+
             const server = await device.gatt.connect();
             let matchedCharacteristic: WebBluetoothCharacteristic | null = null;
 
-            // Probe known printer services for writable characteristic
-            for (const serviceUuid of KNOWN_BLE_PRINTER_SERVICES) {
+            // Probe available primary services first
+            if (server.getPrimaryServices) {
                 try {
-                    const service = await server.getPrimaryService(serviceUuid);
-                    if (service && service.getCharacteristics) {
-                        const chars = await service.getCharacteristics();
-                        const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
-                        if (writeChar) {
-                            matchedCharacteristic = writeChar;
-                            break;
-                        }
+                    const services = await server.getPrimaryServices();
+                    for (const s of services) {
+                        try {
+                            if (s.getCharacteristics) {
+                                const chars = await s.getCharacteristics();
+                                const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
+                                if (writeChar) {
+                                    matchedCharacteristic = writeChar;
+                                    break;
+                                }
+                            }
+                        } catch {}
                     }
-                } catch {
-                    // Try next service UUID
+                } catch {}
+            }
+
+            // Fallback: probe known service UUIDs
+            if (!matchedCharacteristic) {
+                for (const serviceUuid of KNOWN_BLE_PRINTER_SERVICES) {
+                    try {
+                        const service = await server.getPrimaryService(serviceUuid);
+                        if (service && service.getCharacteristics) {
+                            const chars = await service.getCharacteristics();
+                            const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
+                            if (writeChar) {
+                                matchedCharacteristic = writeChar;
+                                break;
+                            }
+                        }
+                    } catch {
+                        // Try next service UUID
+                    }
                 }
             }
 
@@ -386,11 +420,34 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
             return { success: false, message: 'No serial port selected.' };
         }
 
-        const info = port.getInfo ? port.getInfo() : {};
-        const printerName = 'Bluetooth SPP Printer (POS58D)';
+        // Clean up any previously opened port to avoid COM lock conflicts
+        if (activeSerialPort && activeSerialPort !== port) {
+            try { await activeSerialPort.close?.(); } catch {}
+            activeSerialPort = null;
+        }
 
-        // Open port at 9600 / configured baud rate
-        await port.open({ baudRate });
+        const info = port.getInfo ? port.getInfo() : {};
+        const printerName = 'POS58D Bluetooth Printer';
+
+        // Check if port is already open
+        let isAlreadyOpen = false;
+        try {
+            if (port.readable || port.writable) {
+                isAlreadyOpen = true;
+            }
+        } catch {}
+
+        if (!isAlreadyOpen) {
+            try {
+                await port.open({ baudRate });
+            } catch (openErr: unknown) {
+                const errName = (openErr as { name?: string; message?: string })?.name;
+                if (errName !== 'InvalidStateError' && !String(openErr).includes('already open')) {
+                    throw openErr;
+                }
+            }
+        }
+
         activeSerialPort = port;
 
         savePrinterConfig({
@@ -404,7 +461,7 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
         return {
             success: true,
             printer: {
-                id: `spp_${info.usbVendorId || 'bluetooth'}_${Date.now()}`,
+                id: `spp_${info.usbVendorId || 'bt'}_${Date.now()}`,
                 name: printerName,
                 isDefault: true,
                 port: `Bluetooth SPP Link (${baudRate} baud)`,
@@ -441,6 +498,14 @@ const KNOWN_PRINTER_VENDORS = [
     { vendorId: 0x10c4 }, // Silicon Labs (CP210x USB-Serial)
     { vendorId: 0x0403 }, // FTDI
     { vendorId: 0x067b }, // Prolific PL2303
+    { vendorId: 0x6868 }, // Xprinter / Zhuhai
+    { vendorId: 0x0525 }, // Netchip POS
+    { vendorId: 0x28e9 }, // GigaDevice POS
+    { vendorId: 0x20d1 }, // Zjiang POS58
+    { vendorId: 0x8888 }, // Generic 58mm Thermal
+    { vendorId: 0x09c5 }, // Generic USB POS
+    { vendorId: 0x0456 }, // Analog Devices POS
+    { vendorId: 0x1003 }, // Winpos
 ];
 
 /**
@@ -563,6 +628,136 @@ export async function scanAndRequestWebSerialPrinter(baudRate = 9600): Promise<{
 }
 
 /**
+ * Retrieve all already-authorized direct browser devices (Serial/Bluetooth SPP, WebUSB)
+ * Instantly populates connected hardware without prompting.
+ */
+export async function getAuthorizedDirectPrinters(): Promise<DetectedPrinter[]> {
+    const list: DetectedPrinter[] = [];
+
+    // 1. Check authorized Serial / Bluetooth SPP ports
+    if (isWebSerialSupported()) {
+        try {
+            const serial = (navigator as unknown as { serial: { getPorts(): Promise<WebSerialPort[]> } }).serial;
+            const ports = await serial.getPorts();
+            for (let i = 0; i < ports.length; i++) {
+                const p = ports[i];
+                const info = p.getInfo ? p.getInfo() : {};
+                const name = info.usbVendorId 
+                    ? `Serial Device (0x${info.usbVendorId.toString(16)}:0x${(info.usbProductId || 0).toString(16)})`
+                    : `POS58D Bluetooth SPP Port`;
+                list.push({
+                    id: `serial_auth_${i}_${info.usbVendorId || 'bt'}`,
+                    name: name,
+                    isDefault: i === 0,
+                    port: `Bluetooth SPP Link (COM)`,
+                    type: 'webserial',
+                    vendorId: info.usbVendorId,
+                    productId: info.usbProductId,
+                    rawDevice: p,
+                });
+            }
+        } catch {}
+    }
+
+    // 2. Check authorized WebUSB devices
+    if (isWebUsbSupported()) {
+        try {
+            const usb = (navigator as unknown as { usb: { getDevices(): Promise<WebUSBDevice[]> } }).usb;
+            const devices = await usb.getDevices();
+            for (let i = 0; i < devices.length; i++) {
+                const d = devices[i];
+                list.push({
+                    id: `usb_auth_${d.vendorId}_${d.productId}`,
+                    name: d.productName || `USB Thermal Printer (${d.vendorId.toString(16)}:${d.productId.toString(16)})`,
+                    isDefault: list.length === 0,
+                    port: `USB VID:0x${d.vendorId.toString(16).toUpperCase()} PID:0x${d.productId.toString(16).toUpperCase()}`,
+                    type: 'webusb',
+                    vendorId: d.vendorId,
+                    productId: d.productId,
+                    rawDevice: d,
+                });
+            }
+        } catch {}
+    }
+
+    return list;
+}
+
+/**
+ * Instantly connect to a selected DetectedPrinter (Serial, WebUSB, or BLE)
+ */
+export async function connectDirectDevice(
+    printer: DetectedPrinter,
+    baudRate = 9600
+): Promise<{ success: boolean; message: string }> {
+    if (printer.type === 'webserial') {
+        const port = printer.rawDevice as WebSerialPort;
+        if (!port) {
+            return { success: false, message: 'Invalid serial port device handle.' };
+        }
+
+        try {
+            if (activeSerialPort && activeSerialPort !== port) {
+                try { await activeSerialPort.close?.(); } catch {}
+                activeSerialPort = null;
+            }
+
+            let isOpen = false;
+            try {
+                if (port.readable || port.writable) isOpen = true;
+            } catch {}
+
+            if (!isOpen) {
+                try {
+                    await port.open({ baudRate });
+                } catch (openErr: unknown) {
+                    const errStr = String(openErr);
+                    if (!errStr.includes('already open') && (openErr as { name?: string })?.name !== 'InvalidStateError') {
+                        throw openErr;
+                    }
+                }
+            }
+
+            activeSerialPort = port;
+            savePrinterConfig({
+                connection_type: 'direct_bluetooth',
+                printer_name: printer.name,
+                baud_rate: baudRate,
+                direct_device_vendor_id: printer.vendorId,
+                direct_device_product_id: printer.productId,
+            });
+
+            return { success: true, message: `Connected to ${printer.name}` };
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return { success: false, message: `Could not open serial port: ${msg}` };
+        }
+    }
+
+    if (printer.type === 'webusb') {
+        const dev = printer.rawDevice as WebUSBDevice;
+        if (!dev) {
+            return { success: false, message: 'Invalid USB device handle.' };
+        }
+
+        const res = await connectWebUsbDevice(dev);
+        if (res.success) {
+            savePrinterConfig({
+                connection_type: 'direct_usb',
+                printer_name: printer.name,
+                direct_device_vendor_id: dev.vendorId,
+                direct_device_product_id: dev.productId,
+                direct_device_serial: dev.serialNumber || '',
+            });
+            return { success: true, message: `Connected to ${printer.name}` };
+        }
+        return { success: false, message: res.message || 'Failed to connect to USB printer.' };
+    }
+
+    return { success: true, message: `Selected ${printer.name}` };
+}
+
+/**
  * Attempt to restore paired direct Bluetooth / USB / Serial connection on page startup
  */
 export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter | null> {
@@ -578,14 +773,26 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
             const ports = await serial.getPorts();
             if (ports && ports.length > 0) {
                 const port = ports[0];
-                if (!port.readable) {
-                    await port.open({ baudRate: config.baud_rate || 9600 });
+                let isAlreadyOpen = false;
+                try {
+                    if (port.readable || port.writable) isAlreadyOpen = true;
+                } catch {}
+
+                if (!isAlreadyOpen) {
+                    try {
+                        await port.open({ baudRate: config.baud_rate || 9600 });
+                    } catch (err: unknown) {
+                        if ((err as { name?: string })?.name !== 'InvalidStateError' && !String(err).includes('already open')) {
+                            throw err;
+                        }
+                    }
                 }
+
                 activeSerialPort = port;
                 const info = port.getInfo ? port.getInfo() : {};
                 return {
                     id: `serial_${info.usbVendorId || 'port'}`,
-                    name: config.printer_name || 'Bluetooth SPP / Serial Printer',
+                    name: config.printer_name || 'POS58D Bluetooth Printer',
                     isDefault: true,
                     port: `Serial ${config.baud_rate || 9600} baud`,
                     type: 'webserial',

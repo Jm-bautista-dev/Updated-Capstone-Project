@@ -28,6 +28,8 @@ import {
     sendTestPrint,
     scanAndRequestWebBluetoothPrinter,
     scanAndRequestBluetoothSppPrinter,
+    connectDirectDevice,
+    getAuthorizedDirectPrinters,
     type PrinterConfig, 
     type DetectedPrinter,
     type PrinterConnectionType
@@ -63,6 +65,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 
     const [formConfig, setFormConfig] = useState<PrinterConfig>(config);
     const [isTesting, setIsTesting] = useState(false);
+    const [connectingId, setConnectingId] = useState<string | null>(null);
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [scanMessage, setScanMessage] = useState<string | null>(null);
     const [availableDetectedPrinters, setAvailableDetectedPrinters] = useState<DetectedPrinter[]>([]);
@@ -73,9 +76,25 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
             setTestResult(null);
             setScanMessage(null);
             checkNow();
+
             if (printers.length > 0) {
                 setAvailableDetectedPrinters(printers);
             }
+
+            // Instantly discover any already authorized USB or Bluetooth serial ports
+            getAuthorizedDirectPrinters().then(authPrinters => {
+                if (authPrinters.length > 0) {
+                    setAvailableDetectedPrinters(prev => {
+                        const merged = [...authPrinters];
+                        for (const p of prev) {
+                            if (!merged.some(m => m.id === p.id || m.name === p.name)) {
+                                merged.push(p);
+                            }
+                        }
+                        return merged;
+                    });
+                }
+            });
         }
     }, [isOpen, config, checkNow, printers]);
 
@@ -83,6 +102,39 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
         updateConfig(formConfig);
         toast.success('Thermal printer configuration saved');
         onClose();
+    };
+
+    /**
+     * Connect to a specific detected hardware printer immediately
+     */
+    const handleConnectPrinter = async (p: DetectedPrinter) => {
+        setConnectingId(p.id || p.name);
+        setScanMessage(null);
+        try {
+            const res = await connectDirectDevice(p, formConfig.baud_rate || 9600);
+            if (res.success) {
+                const newConnectionType = p.type === 'webusb' 
+                    ? 'direct_usb' 
+                    : (p.type === 'webserial' || p.type === 'webbluetooth' ? 'direct_bluetooth' : formConfig.connection_type);
+
+                setFormConfig(prev => ({
+                    ...prev,
+                    connection_type: newConnectionType,
+                    printer_name: p.name,
+                }));
+                updateConfig({
+                    connection_type: newConnectionType,
+                    printer_name: p.name,
+                });
+                await checkNow();
+                toast.success(res.message);
+            } else {
+                toast.error(res.message);
+                setScanMessage(res.message);
+            }
+        } finally {
+            setConnectingId(null);
+        }
     };
 
     /**
@@ -102,6 +154,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                 connection_type: mode,
                 printer_name: first.name,
             }));
+            await checkNow();
             toast.success(res.message || `Connected to: ${first.name}`);
         } else {
             setScanMessage(res.message || 'No compatible printers detected.');
@@ -119,8 +172,9 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
             setFormConfig(prev => ({
                 ...prev,
                 connection_type: 'direct_bluetooth',
-                printer_name: res.printer?.name || 'Bluetooth SPP Printer',
+                printer_name: res.printer?.name || 'POS58D Bluetooth Printer',
             }));
+            await checkNow();
             toast.success(`Connected to ${res.printer.name}`);
         } else {
             setScanMessage(res.message || 'Bluetooth SPP connection cancelled.');
@@ -140,6 +194,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                 connection_type: 'direct_bluetooth',
                 printer_name: res.printer?.name || 'BLE Thermal Printer',
             }));
+            await checkNow();
             toast.success(`Connected to ${res.printer.name}`);
         } else {
             setScanMessage(res.message || 'Web Bluetooth scan cancelled.');
@@ -488,25 +543,23 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         <Button
                                             type="button"
                                             size="sm"
-                                            onClick={() => {
-                                                setFormConfig(prev => ({
-                                                    ...prev,
-                                                    printer_name: p.name,
-                                                }));
-                                                updateConfig({
-                                                    printer_name: p.name,
-                                                    connection_type: formConfig.connection_type,
-                                                });
-                                                toast.success(`Selected ${p.name}`);
-                                            }}
+                                            disabled={connectingId !== null}
+                                            onClick={() => handleConnectPrinter(p)}
                                             className={cn(
-                                                "h-7 px-3 rounded-lg text-xs font-bold",
-                                                formConfig.printer_name === p.name
-                                                    ? "bg-emerald-600 text-white"
+                                                "h-7 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-all",
+                                                formConfig.printer_name === p.name && isConnected
+                                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                                     : "bg-[#E75480] text-white hover:bg-[#D43D69]"
                                             )}
                                         >
-                                            {formConfig.printer_name === p.name ? 'Connected' : 'Connect'}
+                                            {connectingId === (p.id || p.name) ? (
+                                                <span className="flex items-center gap-1">
+                                                    <FiRotateCw className="size-3 animate-spin" />
+                                                    Connecting...
+                                                </span>
+                                            ) : (
+                                                formConfig.printer_name === p.name && isConnected ? '✓ Connected' : 'Connect'
+                                            )}
                                         </Button>
                                     </div>
                                 ))}
