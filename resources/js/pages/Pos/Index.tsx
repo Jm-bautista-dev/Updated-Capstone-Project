@@ -42,7 +42,7 @@ import {
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
-import { usePrinterStatus, sendToLocalPrintBridge, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
+import { usePrinterStatus, printReceiptToThermalPrinter, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
 import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
@@ -122,7 +122,7 @@ export default function PosIndex() {
   const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
 
   // --- Real-time Printer Status & Config Hook ---
-  const { isConnected: isPrinterReady, config: printerConfig, checkNow: checkPrinterNow } = usePrinterStatus(branch?.id);
+  const { isConnected: isPrinterReady, config: printerConfig } = usePrinterStatus(branch?.id);
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
 
   // --- Real-time Sync Logic ---
@@ -609,7 +609,7 @@ export default function PosIndex() {
 
           if (printerConfig.auto_print && isPrinterReady) {
             setReceiptPrintStatus('printing');
-            const printResult = await sendToLocalPrintBridge(printJob, printerConfig);
+            const printResult = await printReceiptToThermalPrinter(printJob, printerConfig);
             if (printResult.success) {
               setReceiptPrintStatus('success');
               toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {

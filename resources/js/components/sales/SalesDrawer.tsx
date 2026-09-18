@@ -23,7 +23,7 @@ import {
     Sheet,
     SheetContent,
 } from '@/components/ui/sheet';
-import { sendToLocalPrintBridge, triggerBrowserThermalPrint, getPrinterConfig } from '@/lib/pos-print-bridge';
+import { printReceiptToThermalPrinter, triggerBrowserThermalPrint, getPrinterConfig } from '@/lib/pos-print-bridge';
 import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 
 const safeFormatDate = (dateStr?: string) => {
@@ -105,7 +105,7 @@ export function SalesDrawer({
             });
             if (res.data?.success && res.data?.print_job) {
                 const printJob = res.data.print_job;
-                const result = await sendToLocalPrintBridge(printJob, config);
+                const result = await printReceiptToThermalPrinter(printJob, config);
                 if (result.success) {
                     toast.success(`✓ Thermal receipt sent to printer for #${sale.order_number || sale.id}`);
                 } else {

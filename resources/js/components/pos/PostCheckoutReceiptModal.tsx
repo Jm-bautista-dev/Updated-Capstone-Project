@@ -17,7 +17,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { 
-    sendToLocalPrintBridge, 
+    printReceiptToThermalPrinter, 
     triggerBrowserThermalPrint, 
     getPrinterConfig,
     type LocalPrintJobPayload 
@@ -92,7 +92,7 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
         setStatusMessage('Spooling receipt to thermal printer...');
 
         try {
-            const res = await sendToLocalPrintBridge(printJob, config);
+            const res = await printReceiptToThermalPrinter(printJob, config);
             if (res.success) {
                 setStatus('success');
                 setStatusMessage('Receipt printed successfully to thermal printer.');
