@@ -10,7 +10,10 @@ import {
     FiPower,
     FiRefreshCw,
     FiRadio,
-    FiBluetooth
+    FiBluetooth,
+    FiTerminal,
+    FiChevronDown,
+    FiChevronUp
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -29,9 +32,11 @@ import {
     scanAndRequestBluetoothSppPrinter,
     connectDirectDevice,
     getAuthorizedDirectPrinters,
+    getPrinterDiagnostics,
     type PrinterConfig, 
     type DetectedPrinter,
-    type PrinterConnectionType
+    type PrinterConnectionType,
+    type PrinterDiagnosticsInfo
 } from '@/lib/pos-print-bridge';
 import { cn } from '@/lib/utils';
 
@@ -68,6 +73,8 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [scanMessage, setScanMessage] = useState<string | null>(null);
     const [availableDetectedPrinters, setAvailableDetectedPrinters] = useState<DetectedPrinter[]>([]);
+    const [diagnostics, setDiagnostics] = useState<PrinterDiagnosticsInfo | null>(null);
+    const [showDiagnostics, setShowDiagnostics] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -75,6 +82,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
             setTestResult(null);
             setScanMessage(null);
             checkNow();
+            getPrinterDiagnostics(config).then(setDiagnostics);
 
             if (printers.length > 0) {
                 setAvailableDetectedPrinters(printers);
@@ -458,11 +466,11 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                             size="sm"
                                             onClick={handleScanBluetoothSpp}
                                             disabled={isScanning}
-                                            className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
-                                            title="Scan Bluetooth SPP COM Link (POS58D / Windows paired Bluetooth)"
+                                            className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+                                            title="Scan Bluetooth SPP / RFCOMM Link (Compatible with Android Chrome & Desktop Windows)"
                                         >
                                             <FiBluetooth className="size-3 mr-1" />
-                                            Scan Bluetooth SPP (POS58D)
+                                            Scan Bluetooth (Android & Desktop)
                                         </Button>
                                         {directUsbCapabilities.isWebBluetoothSupported && (
                                             <Button
@@ -672,6 +680,85 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                             <span className="font-semibold">{testResult.message}</span>
                         </div>
                     )}
+
+                    {/* Section 5: Developer & System Diagnostics Panel */}
+                    <div className="pt-2 border-t border-gray-100 dark:border-zinc-800">
+                        <button
+                            type="button"
+                            onClick={() => setShowDiagnostics(prev => !prev)}
+                            className="w-full flex items-center justify-between p-3 rounded-2xl bg-gray-100/70 dark:bg-zinc-800/40 hover:bg-gray-100 dark:hover:bg-zinc-800/70 text-gray-700 dark:text-zinc-300 text-xs font-bold transition-all cursor-pointer"
+                        >
+                            <span className="flex items-center gap-2">
+                                <FiTerminal className="size-4 text-[#E75480]" />
+                                <span>Developer & Hardware Diagnostics</span>
+                                {diagnostics && (
+                                    <span className="text-[10px] font-mono font-normal px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700">
+                                        {diagnostics.platform} • {diagnostics.browser}
+                                    </span>
+                                )}
+                            </span>
+                            {showDiagnostics ? <FiChevronUp className="size-4" /> : <FiChevronDown className="size-4" />}
+                        </button>
+
+                        {showDiagnostics && diagnostics && (
+                            <div className="mt-2.5 p-4 rounded-2xl bg-slate-900 text-slate-100 text-xs font-mono space-y-2.5 shadow-inner">
+                                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                                    <span className="text-slate-400 font-sans font-bold">SYSTEM ENVIRONMENT & TELEMETRY</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 font-bold">LIVE STATUS</span>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60">
+                                        <span className="text-slate-400">Platform:</span>
+                                        <span className="font-bold text-white">{diagnostics.platform}</span>
+                                    </div>
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60">
+                                        <span className="text-slate-400">Browser:</span>
+                                        <span className="font-bold text-white">{diagnostics.browser}</span>
+                                    </div>
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60">
+                                        <span className="text-slate-400">Web Serial API:</span>
+                                        <span className={cn("font-bold", diagnostics.isWebSerialSupported ? "text-emerald-400" : "text-rose-400")}>
+                                            {diagnostics.isWebSerialSupported ? 'Supported (SPP 0x1101)' : 'Not Supported'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60">
+                                        <span className="text-slate-400">Web Bluetooth API:</span>
+                                        <span className={cn("font-bold", diagnostics.isWebBluetoothSupported ? "text-emerald-400" : "text-rose-400")}>
+                                            {diagnostics.isWebBluetoothSupported ? 'Supported (BLE GATT)' : 'Not Supported'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60">
+                                        <span className="text-slate-400">WebUSB API:</span>
+                                        <span className={cn("font-bold", diagnostics.isWebUsbSupported ? "text-emerald-400" : "text-rose-400")}>
+                                            {diagnostics.isWebUsbSupported ? 'Supported' : 'Not Supported'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60">
+                                        <span className="text-slate-400">Flutter / WebView Bridge:</span>
+                                        <span className={cn("font-bold", diagnostics.isFlutterWebView ? "text-emerald-400" : "text-slate-400")}>
+                                            {diagnostics.isFlutterWebView ? 'Active Bridge' : 'None (Browser Mode)'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between p-1.5 rounded bg-slate-800/60 sm:col-span-2">
+                                        <span className="text-slate-400">Active Connection / Port:</span>
+                                        <span className="font-bold text-amber-300 truncate max-w-60">{connectedPrinterName}</span>
+                                    </div>
+                                </div>
+
+                                <div className="text-[10px] text-slate-400 border-t border-slate-700/60 pt-2 flex items-center justify-between">
+                                    <span>Android filter: Serial Port Profile (0x1101 / RFCOMM)</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => getPrinterDiagnostics(formConfig).then(setDiagnostics)}
+                                        className="text-xs text-[#FF4F81] hover:underline font-bold cursor-pointer"
+                                    >
+                                        Refresh Telemetry
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── FOOTER CONTROLS ── */}

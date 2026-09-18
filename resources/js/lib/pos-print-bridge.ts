@@ -163,7 +163,14 @@ export interface WebSerialPort {
             releaseLock(): void;
         };
     } | null;
-    open(options: { baudRate: number }): Promise<void>;
+    open(options: { 
+        baudRate: number; 
+        dataBits?: number; 
+        stopBits?: number; 
+        parity?: 'none' | 'even' | 'odd'; 
+        bufferSize?: number; 
+        flowControl?: 'none' | 'hardware';
+    }): Promise<void>;
     close(): Promise<void>;
     getInfo?(): { usbVendorId?: number; usbProductId?: number };
 }
@@ -206,7 +213,7 @@ let activeSerialPort: WebSerialPort | null = null;
 let activeBluetoothDevice: WebBluetoothDevice | null = null;
 let activeBluetoothCharacteristic: WebBluetoothCharacteristic | null = null;
 
-// ── 1. BROWSER CAPABILITY CHECKS ──
+// ── 1. BROWSER CAPABILITY & ENVIRONMENT CHECKS ──
 export function isWebUsbSupported(): boolean {
     return typeof navigator !== 'undefined' && 'usb' in navigator;
 }
@@ -217,6 +224,83 @@ export function isWebSerialSupported(): boolean {
 
 export function isWebBluetoothSupported(): boolean {
     return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+}
+
+export function isFlutterWebView(): boolean {
+    if (typeof window === 'undefined') return false;
+    const win = window as unknown as {
+        FlutterPrinterChannel?: { postMessage(msg: string): void };
+        flutter_inappwebview?: { callHandler(name: string, ...args: unknown[]): Promise<unknown> };
+        AndroidPrinterBridge?: { printBase64(base64: string): boolean };
+        Android?: { printEscPos?(base64: string): boolean };
+    };
+    return Boolean(win.FlutterPrinterChannel || win.flutter_inappwebview || win.AndroidPrinterBridge || win.Android);
+}
+
+export function detectPlatform(): 'Android' | 'Windows' | 'macOS' | 'iOS' | 'Linux' | 'Other' {
+    if (typeof navigator === 'undefined') return 'Other';
+    const ua = navigator.userAgent || '';
+    if (/android/i.test(ua)) return 'Android';
+    if (/iphone|ipad|ipod/i.test(ua)) return 'iOS';
+    if (/win/i.test(ua)) return 'Windows';
+    if (/mac/i.test(ua)) return 'macOS';
+    if (/linux/i.test(ua)) return 'Linux';
+    return 'Other';
+}
+
+export function detectBrowser(): 'Chrome' | 'Edge' | 'Safari' | 'Firefox' | 'Samsung Internet' | 'Other' {
+    if (typeof navigator === 'undefined') return 'Other';
+    const ua = navigator.userAgent || '';
+    if (/edg/i.test(ua)) return 'Edge';
+    if (/samsungbrowser/i.test(ua)) return 'Samsung Internet';
+    if (/chrome|crios/i.test(ua)) return 'Chrome';
+    if (/firefox|fxios/i.test(ua)) return 'Firefox';
+    if (/safari/i.test(ua) && !/chrome/i.test(ua)) return 'Safari';
+    return 'Other';
+}
+
+export interface PrinterDiagnosticsInfo {
+    platform: string;
+    browser: string;
+    isWebSerialSupported: boolean;
+    isWebBluetoothSupported: boolean;
+    isWebUsbSupported: boolean;
+    isFlutterWebView: boolean;
+    localBridgeStatus: 'ready' | 'offline' | 'checking';
+    activeConnectionType: PrinterConnectionType;
+    activePrinterName: string;
+    baudRate: number;
+    paperWidth: number;
+}
+
+/**
+ * Collect complete developer/admin diagnostics for thermal printing architecture
+ */
+export async function getPrinterDiagnostics(customConfig?: Partial<PrinterConfig>): Promise<PrinterDiagnosticsInfo> {
+    const config = { ...getPrinterConfig(), ...customConfig };
+    const bridgeHealth = await checkPrintBridgeHealth();
+
+    let activeName = config.printer_name;
+    if (!activeName) {
+        if (config.connection_type === 'direct_bluetooth') activeName = 'Bluetooth SPP / Serial Printer';
+        else if (config.connection_type === 'direct_usb') activeName = 'Direct WebUSB Printer';
+        else if (config.connection_type === 'universal_browser') activeName = 'Universal System Print';
+        else activeName = 'Default Printer';
+    }
+
+    return {
+        platform: detectPlatform(),
+        browser: detectBrowser(),
+        isWebSerialSupported: isWebSerialSupported(),
+        isWebBluetoothSupported: isWebBluetoothSupported(),
+        isWebUsbSupported: isWebUsbSupported(),
+        isFlutterWebView: isFlutterWebView(),
+        localBridgeStatus: bridgeHealth.isHealthy ? 'ready' : 'offline',
+        activeConnectionType: config.connection_type,
+        activePrinterName: activeName,
+        baudRate: config.baud_rate || 9600,
+        paperWidth: config.paper_width || 58,
+    };
 }
 
 /**
@@ -296,7 +380,7 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
     if (!isWebBluetoothSupported()) {
         return {
             success: false,
-            message: 'Web Bluetooth is not supported in this browser. Please use Chrome/Edge on HTTPS or the Local Print Bridge.',
+            message: 'Web Bluetooth is not supported in this browser. Please use Chrome/Edge on HTTPS or Universal Web Print.',
         };
     }
 
@@ -312,7 +396,7 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
             return { success: false, message: 'No Bluetooth printer selected.' };
         }
 
-        const printerName = device.name || 'Bluetooth Thermal Printer';
+        const printerName = device.name || 'BLE Thermal Printer';
 
         // Connect GATT Server
         if (device.gatt) {
@@ -406,7 +490,8 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
 }
 
 /**
- * Scan & Request Direct Bluetooth Classic SPP via Web Serial (POS58D / COM Links)
+ * Scan & Request Direct Bluetooth Classic SPP / Serial Port via Web Serial
+ * Explicitly supports both Desktop (Windows COM / Bluetooth SPP) and Android Chrome (Bluetooth RFCOMM SPP 0x1101)
  */
 export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promise<{
     success: boolean;
@@ -421,8 +506,36 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
     }
 
     try {
-        const serial = (navigator as unknown as { serial: { requestPort(): Promise<WebSerialPort> } }).serial;
-        const port = await serial.requestPort();
+        const serial = (navigator as unknown as { 
+            serial: { 
+                requestPort(options?: { 
+                    allowedBluetoothServiceClassIds?: Array<string | number>;
+                    filters?: Array<{ usbVendorId?: number; usbProductId?: number }>;
+                }): Promise<WebSerialPort> 
+            } 
+        }).serial;
+
+        let port: WebSerialPort;
+
+        // Try requestPort with Bluetooth Classic SPP RFCOMM allowed service IDs (Android Chrome + Desktop)
+        try {
+            port = await serial.requestPort({
+                allowedBluetoothServiceClassIds: [
+                    '00001101-0000-1000-8000-00805f9b34fb', // Standard SerialPort / SPP UUID
+                    0x1101, // Short 16-bit SPP ID
+                    '00001102-0000-1000-8000-00805f9b34fb', // LAN Access Using PPP
+                    '00001103-0000-1000-8000-00805f9b34fb', // Dialup Networking
+                ]
+            });
+        } catch (requestErr: unknown) {
+            const errStr = String(requestErr);
+            // If browser throws TypeError on allowedBluetoothServiceClassIds, fallback to standard requestPort
+            if (requestErr instanceof TypeError || errStr.includes('allowedBluetoothServiceClassIds') || errStr.includes('Failed to execute')) {
+                port = await serial.requestPort();
+            } else {
+                throw requestErr;
+            }
+        }
 
         if (!port) {
             return { success: false, message: 'No serial port selected.' };
@@ -439,7 +552,14 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
         }
 
         const info = port.getInfo ? port.getInfo() : {};
-        const printerName = 'POS58D Bluetooth Printer';
+        
+        // Handle printer name gracefully (Never assume name is always available)
+        let printerName = 'Bluetooth Thermal Printer';
+        if (info.usbVendorId) {
+            printerName = `Serial Printer (0x${info.usbVendorId.toString(16).toUpperCase()}:${(info.usbProductId || 0).toString(16).toUpperCase()})`;
+        } else {
+            printerName = 'POS58D Bluetooth Printer';
+        }
 
         // Check if port is already open
         let isAlreadyOpen = false;
@@ -453,12 +573,29 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
 
         if (!isAlreadyOpen) {
             try {
-                await port.open({ baudRate });
+                await port.open({ 
+                    baudRate: baudRate || 9600,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none',
+                    flowControl: 'none',
+                });
             } catch (openErr: unknown) {
                 const errName = (openErr as { name?: string; message?: string })?.name;
                 if (errName !== 'InvalidStateError' && !String(openErr).includes('already open')) {
                     throw openErr;
                 }
+            }
+        }
+
+        // Real Communication Verification: Send ESC @ (ESC/POS Init)
+        if (port.writable) {
+            try {
+                const writer = port.writable.getWriter();
+                await writer.write(new Uint8Array([0x1B, 0x40])); // ESC @
+                writer.releaseLock();
+            } catch (writeErr) {
+                console.warn('[Web Serial] Test init write warning:', writeErr);
             }
         }
 
@@ -484,16 +621,72 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
                 productId: info.usbProductId,
                 rawDevice: port,
             },
+            message: `✓ Connected to ${printerName}`,
         };
     } catch (err: unknown) {
         const errorObj = err as { name?: string; message?: string };
         if (errorObj.name === 'NotFoundError') {
             return { success: false, message: 'Device selection was cancelled.' };
         }
+        if (errorObj.name === 'SecurityError') {
+            return { success: false, message: 'Access to serial/Bluetooth device was denied.' };
+        }
         return {
             success: false,
             message: `Could not open Bluetooth SPP port: ${errorObj.message || 'Unknown error'}`,
         };
+    }
+}
+
+/**
+ * Dispatch raw ESC/POS binary stream to Flutter / Android WebView Native Bridge
+ */
+export async function sendToFlutterNativeBridge(bytes: Uint8Array): Promise<{ success: boolean; message: string }> {
+    if (typeof window === 'undefined') return { success: false, message: 'Window unavailable' };
+    
+    let binaryString = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binaryString += String.fromCharCode(bytes[i]);
+    }
+    const base64Data = btoa(binaryString);
+
+    const win = window as unknown as {
+        FlutterPrinterChannel?: { postMessage(msg: string): void };
+        flutter_inappwebview?: { callHandler(name: string, ...args: unknown[]): Promise<unknown> };
+        AndroidPrinterBridge?: { printBase64(base64: string): boolean };
+        Android?: { printEscPos?(base64: string): boolean };
+    };
+
+    try {
+        if (win.FlutterPrinterChannel?.postMessage) {
+            win.FlutterPrinterChannel.postMessage(JSON.stringify({
+                action: 'print_escpos',
+                base64: base64Data,
+            }));
+            return { success: true, message: 'Receipt dispatched to Flutter native printer channel.' };
+        }
+
+        if (win.flutter_inappwebview?.callHandler) {
+            await win.flutter_inappwebview.callHandler('printReceipt', {
+                base64: base64Data,
+            });
+            return { success: true, message: 'Receipt dispatched to Flutter in-app webview bridge.' };
+        }
+
+        if (win.AndroidPrinterBridge?.printBase64) {
+            const res = win.AndroidPrinterBridge.printBase64(base64Data);
+            return { success: Boolean(res), message: res ? 'Receipt sent to Android printer bridge' : 'Android bridge reported error' };
+        }
+
+        if (win.Android?.printEscPos) {
+            const res = win.Android.printEscPos(base64Data);
+            return { success: Boolean(res), message: res ? 'Receipt sent to Android native service' : 'Android service reported error' };
+        }
+
+        return { success: false, message: 'No active native WebView printer bridge found.' };
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { success: false, message: `Native bridge error: ${msg}` };
     }
 }
 
@@ -869,6 +1062,14 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
  * Send raw binary ESC/POS bytes directly through browser hardware API (WebBluetooth / WebSerial / WebUSB)
  */
 export async function sendRawToDirectHardware(bytes: Uint8Array): Promise<{ success: boolean; message: string }> {
+    // 0. Flutter / Android WebView Native Bridge
+    if (isFlutterWebView()) {
+        const flutterRes = await sendToFlutterNativeBridge(bytes);
+        if (flutterRes.success) {
+            return flutterRes;
+        }
+    }
+
     // 1. Direct Web Bluetooth (BLE GATT)
     if (activeBluetoothCharacteristic) {
         try {
