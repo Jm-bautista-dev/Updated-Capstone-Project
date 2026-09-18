@@ -317,7 +317,11 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
         // Connect GATT Server
         if (device.gatt) {
             if (device.gatt.connected) {
-                try { device.gatt.disconnect(); } catch {}
+                try {
+                    device.gatt.disconnect();
+                } catch (_ignored) {
+                    // Ignore disconnect failure
+                }
             }
 
             const server = await device.gatt.connect();
@@ -337,9 +341,13 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
                                     break;
                                 }
                             }
-                        } catch {}
+                        } catch (_ignored) {
+                            // Continue to next service
+                        }
                     }
-                } catch {}
+                } catch (_ignored) {
+                    // Fallback to known service probe
+                }
             }
 
             // Fallback: probe known service UUIDs
@@ -355,7 +363,7 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
                                 break;
                             }
                         }
-                    } catch {
+                    } catch (_ignored) {
                         // Try next service UUID
                     }
                 }
@@ -422,7 +430,11 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
 
         // Clean up any previously opened port to avoid COM lock conflicts
         if (activeSerialPort && activeSerialPort !== port) {
-            try { await activeSerialPort.close?.(); } catch {}
+            try {
+                await activeSerialPort.close?.();
+            } catch (_ignored) {
+                // Ignore port close errors
+            }
             activeSerialPort = null;
         }
 
@@ -435,7 +447,9 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
             if (port.readable || port.writable) {
                 isAlreadyOpen = true;
             }
-        } catch {}
+        } catch (_ignored) {
+            // Check failed, assume closed
+        }
 
         if (!isAlreadyOpen) {
             try {
@@ -656,7 +670,9 @@ export async function getAuthorizedDirectPrinters(): Promise<DetectedPrinter[]> 
                     rawDevice: p,
                 });
             }
-        } catch {}
+        } catch (_ignored) {
+            // Serial ports query unavailable
+        }
     }
 
     // 2. Check authorized WebUSB devices
@@ -677,7 +693,9 @@ export async function getAuthorizedDirectPrinters(): Promise<DetectedPrinter[]> 
                     rawDevice: d,
                 });
             }
-        } catch {}
+        } catch (_ignored) {
+            // WebUSB devices query unavailable
+        }
     }
 
     return list;
@@ -698,14 +716,20 @@ export async function connectDirectDevice(
 
         try {
             if (activeSerialPort && activeSerialPort !== port) {
-                try { await activeSerialPort.close?.(); } catch {}
+                try {
+                    await activeSerialPort.close?.();
+                } catch (_ignored) {
+                    // Ignore close error on previous port
+                }
                 activeSerialPort = null;
             }
 
             let isOpen = false;
             try {
                 if (port.readable || port.writable) isOpen = true;
-            } catch {}
+            } catch (_ignored) {
+                // Check failed, assume closed
+            }
 
             if (!isOpen) {
                 try {
@@ -776,7 +800,9 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
                 let isAlreadyOpen = false;
                 try {
                     if (port.readable || port.writable) isAlreadyOpen = true;
-                } catch {}
+                } catch (_ignored) {
+                    // Check failed, assume closed
+                }
 
                 if (!isAlreadyOpen) {
                     try {
