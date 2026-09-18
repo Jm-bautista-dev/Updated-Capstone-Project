@@ -242,7 +242,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-zinc-100 font-['Outfit'] shadow-2xl rounded-3xl">
+            <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-white dark:bg-[#121218] border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-zinc-100 font-['Outfit'] shadow-2xl rounded-3xl">
                 
                 {/* ── HEADER ── */}
                 <DialogHeader className="p-5 sm:p-6 bg-linear-to-b from-[#FFF5F7] to-white dark:from-[#181824] dark:to-[#121218] border-b border-[#F8C8DC]/40 dark:border-white/10 shrink-0">
@@ -452,13 +452,13 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 
                     {/* Section 2: Scanning & Discovery Interface */}
                     <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#181824] border border-gray-200 dark:border-zinc-800 space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <label className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-2">
-                                <FiRadio className="size-4 text-[#E75480]" />
+                                <FiRadio className="size-4 text-[#E75480] shrink-0" />
                                 <span>Hardware Setup & Status</span>
                             </label>
                             
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {formConfig.connection_type === 'direct_bluetooth' ? (
                                     <>
                                         <Button
@@ -469,8 +469,8 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                             className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs"
                                             title="Scan Bluetooth SPP / RFCOMM Link (Compatible with Android Chrome & Desktop Windows)"
                                         >
-                                            <FiBluetooth className="size-3 mr-1" />
-                                            Scan Bluetooth (Android & Desktop)
+                                            <FiBluetooth className="size-3 mr-1 shrink-0" />
+                                            <span>Scan Bluetooth (SPP)</span>
                                         </Button>
                                         {directUsbCapabilities.isWebBluetoothSupported && (
                                             <Button
@@ -482,7 +482,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                                 className="h-8 px-3 rounded-xl text-xs font-bold cursor-pointer"
                                                 title="Scan Bluetooth Low Energy (BLE) thermal printers"
                                             >
-                                                Scan BLE GATT
+                                                Scan BLE
                                             </Button>
                                         )}
                                     </>
@@ -492,7 +492,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         size="sm"
                                         onClick={() => handleScan('direct_usb')}
                                         disabled={isScanning}
-                                        className="h-8 px-4 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold cursor-pointer transition-all"
+                                        className="h-8 px-4 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
                                     >
                                         <FiZap className={cn("size-3.5 mr-1.5", isScanning && "animate-spin")} />
                                         {isScanning ? 'Scanning...' : 'Pair USB Printer'}
@@ -555,9 +555,9 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         <div className="space-y-0.5">
                                             <div className="flex items-center gap-2">
                                                 {p.type === 'webbluetooth' || p.type === 'webserial' ? (
-                                                    <FiBluetooth className="size-4 text-blue-500" />
+                                                    <FiBluetooth className="size-4 text-blue-500 shrink-0" />
                                                 ) : (
-                                                    <FiPrinter className="size-4 text-[#E75480]" />
+                                                    <FiPrinter className="size-4 text-[#E75480] shrink-0" />
                                                 )}
                                                 <span className="text-xs font-extrabold text-[#3D2C2E] dark:text-white">{p.name}</span>
                                                 {p.isDefault && (
@@ -611,54 +611,56 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                     </div>
 
                     {/* Section 3: Paper Size & Auto-Print Preferences */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-zinc-800">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-3 border-t border-gray-100 dark:border-zinc-800">
                         {/* Paper Width Selector */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">Paper Width Standard:</label>
-                            <div className="flex gap-2">
-                                <Button
+                        <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-[#181824] border border-gray-200 dark:border-zinc-800 space-y-2.5">
+                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300 block">
+                                Paper Width Standard:
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
                                     type="button"
-                                    variant={formConfig.paper_width === 58 ? 'default' : 'outline'}
-                                    size="sm"
                                     onClick={() => setFormConfig(prev => ({ ...prev, paper_width: 58 }))}
                                     className={cn(
-                                        "flex-1 h-10 rounded-xl text-xs font-bold cursor-pointer",
+                                        "h-10 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
                                         formConfig.paper_width === 58
-                                            ? "bg-[#E75480] text-white hover:bg-[#D43D69]"
-                                            : "border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300"
+                                            ? "bg-[#E75480] text-white shadow-xs"
+                                            : "bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100"
                                     )}
                                 >
-                                    58mm (Standard)
-                                </Button>
-                                <Button
+                                    <span>58mm</span>
+                                    <span className="text-[10px] opacity-80">(Standard)</span>
+                                </button>
+                                <button
                                     type="button"
-                                    variant={formConfig.paper_width === 80 ? 'default' : 'outline'}
-                                    size="sm"
                                     onClick={() => setFormConfig(prev => ({ ...prev, paper_width: 80 }))}
                                     className={cn(
-                                        "flex-1 h-10 rounded-xl text-xs font-bold cursor-pointer",
+                                        "h-10 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
                                         formConfig.paper_width === 80
-                                            ? "bg-[#E75480] text-white hover:bg-[#D43D69]"
-                                            : "border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-zinc-300"
+                                            ? "bg-[#E75480] text-white shadow-xs"
+                                            : "bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100"
                                     )}
                                 >
-                                    80mm (Wide)
-                                </Button>
+                                    <span>80mm</span>
+                                    <span className="text-[10px] opacity-80">(Wide)</span>
+                                </button>
                             </div>
                         </div>
 
                         {/* Auto-Print Toggle */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300">Checkout Behavior:</label>
-                            <label className="flex items-center gap-2.5 p-2 rounded-xl bg-gray-50 dark:bg-[#181824] border border-gray-200 dark:border-zinc-800 cursor-pointer">
+                        <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-[#181824] border border-gray-200 dark:border-zinc-800 flex flex-col justify-between space-y-2.5">
+                            <label className="text-xs font-bold text-gray-700 dark:text-zinc-300 block">
+                                Checkout Behavior:
+                            </label>
+                            <label className="flex items-center gap-2.5 h-10 px-3 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 cursor-pointer select-none">
                                 <input
                                     type="checkbox"
                                     checked={formConfig.auto_print}
                                     onChange={(e) => setFormConfig(prev => ({ ...prev, auto_print: e.target.checked }))}
-                                    className="size-4 rounded accent-[#E75480] cursor-pointer"
+                                    className="size-4 rounded accent-[#E75480] cursor-pointer shrink-0"
                                 />
-                                <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300">
-                                    Auto-print receipt silently upon checkout
+                                <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300 truncate">
+                                    Auto-print silently on checkout
                                 </span>
                             </label>
                         </div>
@@ -762,7 +764,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                 </div>
 
                 {/* ── FOOTER CONTROLS ── */}
-                <DialogFooter className="p-4 sm:p-5 bg-gray-50 dark:bg-[#15151C] border-t border-[#F8C8DC]/40 dark:border-white/10 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                <DialogFooter className="p-4 sm:p-5 bg-gray-50 dark:bg-[#15151C] border-t border-[#F8C8DC]/40 dark:border-white/10 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     
                     {/* Test Print Diagnostic Button */}
                     <Button
@@ -770,26 +772,26 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                         variant="outline"
                         onClick={handleRunTestPrint}
                         disabled={isTesting}
-                        className="h-11 px-5 rounded-2xl border-purple-300 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 text-xs font-bold gap-2 cursor-pointer transition-all"
+                        className="w-full sm:w-auto h-11 px-5 rounded-2xl border-purple-300 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 text-xs font-bold gap-2 cursor-pointer transition-all"
                         title="Send a sample 58mm test receipt directly to verify printer output"
                     >
                         <FiPrinter className={cn("size-4", isTesting && "animate-pulse text-purple-600")} />
                         <span>{isTesting ? 'Printing Test...' : 'Test Print (58mm)'}</span>
                     </Button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5 w-full sm:w-auto">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
-                            className="h-11 px-5 rounded-2xl border-gray-200 dark:border-zinc-800 text-xs font-bold cursor-pointer"
+                            className="flex-1 sm:flex-initial h-11 px-5 rounded-2xl border-gray-200 dark:border-zinc-800 text-xs font-bold cursor-pointer"
                         >
                             Cancel
                         </Button>
                         <Button
                             type="button"
                             onClick={handleSave}
-                            className="h-11 px-6 rounded-2xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-extrabold shadow-md shadow-[#E75480]/20 cursor-pointer"
+                            className="flex-1 sm:flex-initial h-11 px-6 rounded-2xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-extrabold shadow-md shadow-[#E75480]/20 cursor-pointer"
                         >
                             Save Settings
                         </Button>
