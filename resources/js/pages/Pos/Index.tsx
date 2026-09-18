@@ -42,7 +42,7 @@ import {
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
-import { usePrinterStatus, printReceiptToThermalPrinter, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
+import { usePrinterStatus, printReceiptToThermalPrinter, triggerBrowserThermalPrint, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
 import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
@@ -603,11 +603,21 @@ export default function PosIndex() {
         setKioskStep('browse');
         setOrderType('dine-in');
 
-        // 2. Dispatch silent print to local thermal bridge if connected, or offer browser fallback
+        // 2. Dispatch thermal printing (Universal Zero-Install or Direct Hardware)
         if (printJob) {
           setActivePrintJob(printJob);
 
-          if (printerConfig.auto_print && isPrinterReady) {
+          if (printerConfig.connection_type === 'universal_browser') {
+            if (printerConfig.auto_print) {
+              triggerBrowserThermalPrint();
+            }
+            setReceiptPrintStatus('success');
+            setIsReceiptModalOpen(true);
+            toast.success(`✓ Order #${orderNum} Completed`, {
+              description: printerConfig.auto_print ? 'Receipt sent to print dialog.' : 'Order saved. Click below to print.',
+              duration: 3500,
+            });
+          } else if (printerConfig.auto_print && isPrinterReady) {
             setReceiptPrintStatus('printing');
             const printResult = await printReceiptToThermalPrinter(printJob, printerConfig);
             if (printResult.success) {
@@ -618,8 +628,8 @@ export default function PosIndex() {
             } else {
               setReceiptPrintStatus('failed');
               setIsReceiptModalOpen(true);
-              toast.warning(`⚠️ Order #${orderNum} Completed (Printer unavailable)`, {
-                description: 'Order saved successfully. Check thermal printer or retry print.',
+              toast.warning(`⚠️ Order #${orderNum} Completed`, {
+                description: 'Direct printer offline. Click below to print via browser.',
                 duration: 4500,
               });
             }
@@ -632,11 +642,10 @@ export default function PosIndex() {
               duration: 3500,
             });
           } else {
-            // Local print bridge is offline or not installed
-            setReceiptPrintStatus('bridge_offline');
+            setReceiptPrintStatus('idle');
             setIsReceiptModalOpen(true);
-            toast.info(`✓ Order #${orderNum} Completed`, {
-              description: 'Order saved. Print bridge offline — select print option below.',
+            toast.success(`✓ Order #${orderNum} Completed`, {
+              description: 'Order saved. Click below to print receipt.',
               duration: 3500,
             });
           }

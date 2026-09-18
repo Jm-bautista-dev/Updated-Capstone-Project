@@ -5,7 +5,6 @@ import {
     FiAlertTriangle, 
     FiRotateCw, 
     FiCpu, 
-    FiSmartphone, 
     FiCheck,
     FiZap,
     FiPower,
@@ -227,9 +226,11 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
         }
     };
 
-    const connectedPrinterName = formConfig.connection_type === 'direct_bluetooth' || formConfig.connection_type === 'direct_usb'
-        ? (activeDirectPrinter?.name || formConfig.printer_name || (formConfig.connection_type === 'direct_bluetooth' ? 'Direct Bluetooth Printer' : 'Direct USB Printer'))
-        : (formConfig.printer_name || 'Default System Thermal Printer');
+    const connectedPrinterName = formConfig.connection_type === 'universal_browser'
+        ? (formConfig.printer_name || 'Universal 58mm Web Thermal Printer')
+        : (formConfig.connection_type === 'direct_bluetooth' || formConfig.connection_type === 'direct_usb'
+            ? (activeDirectPrinter?.name || formConfig.printer_name || (formConfig.connection_type === 'direct_bluetooth' ? 'Direct Bluetooth Printer' : 'Direct USB Printer'))
+            : (formConfig.printer_name || 'Default System Thermal Printer'));
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -250,7 +251,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                     </span>
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-                                    Direct hardware printing & discovery for branch: <strong className="text-gray-800 dark:text-zinc-200">{branchName}</strong>
+                                    Universal zero-install printing for branch: <strong className="text-gray-800 dark:text-zinc-200">{branchName}</strong>
                                 </DialogDescription>
                             </div>
                         </div>
@@ -277,7 +278,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-400"
                                     )} />
                                     <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">
-                                        Connected Printer
+                                        Current Mode
                                     </span>
                                     <span className={cn(
                                         "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase",
@@ -285,11 +286,16 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                                             : "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"
                                     )}>
-                                        {isConnected ? 'Ready' : 'Disconnected'}
+                                        {isConnected ? 'Ready to Print' : 'Disconnected'}
                                     </span>
                                 </div>
                                 <div className="text-sm font-extrabold text-[#3D2C2E] dark:text-white flex items-center gap-2">
-                                    <span>{isConnected ? connectedPrinterName : 'No printer connected'}</span>
+                                    <span>{isConnected ? connectedPrinterName : 'No printer configured'}</span>
+                                    {isConnected && formConfig.connection_type === 'universal_browser' && (
+                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1">
+                                            <FiCheck className="size-3" /> Zero Install • Universal
+                                        </span>
+                                    )}
                                     {isConnected && formConfig.connection_type === 'direct_bluetooth' && (
                                         <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-1.5 py-0.2 rounded font-mono font-bold flex items-center gap-1">
                                             <FiBluetooth className="size-3" /> Direct Bluetooth
@@ -305,7 +311,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-2 shrink-0">
-                                {isConnected ? (
+                                {isConnected && formConfig.connection_type !== 'universal_browser' ? (
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -325,7 +331,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         className="h-8 px-3.5 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-extrabold cursor-pointer shadow-xs"
                                     >
                                         <FiRadio className={cn("size-3 mr-1.5", isScanning && "animate-spin")} />
-                                        {isScanning ? 'Scanning...' : 'Scan for Printers'}
+                                        {isScanning ? 'Checking...' : 'Refresh Status'}
                                     </Button>
                                 )}
                             </div>
@@ -340,11 +346,49 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                     <div className="space-y-3">
                         <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-zinc-400 flex items-center gap-1.5">
                             <FiCpu className="size-3.5 text-[#E75480]" />
-                            <span>Select Connection Type</span>
+                            <span>Select Connection Mode</span>
                         </label>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                            {/* Option 1: Direct Bluetooth (SPP & BLE) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                            {/* Option 1: Universal Web Print (Zero Install) */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFormConfig(prev => ({ 
+                                        ...prev, 
+                                        connection_type: 'universal_browser',
+                                        printer_name: 'Universal 58mm Web Thermal Printer'
+                                    }));
+                                    setScanMessage(null);
+                                }}
+                                className={cn(
+                                    "p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2",
+                                    formConfig.connection_type === 'universal_browser'
+                                        ? "border-[#E75480] bg-[#FFF5F7] dark:bg-[#FF4F81]/10 text-[#3D2C2E] dark:text-white shadow-xs ring-1 ring-[#E75480]/30"
+                                        : "border-gray-200 dark:border-zinc-800 hover:border-gray-300 text-gray-600 dark:text-zinc-400"
+                                )}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black flex items-center gap-1.5 text-[#E75480] dark:text-[#FF4F81]">
+                                        <FiPrinter className="size-4" />
+                                        Universal Web Print
+                                    </span>
+                                    {formConfig.connection_type === 'universal_browser' ? (
+                                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                            Recommended
+                                        </span>
+                                    ) : (
+                                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400">
+                                            Zero Install
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-[11px] text-gray-600 dark:text-zinc-300 leading-snug">
+                                    Zero install! Works on 100% of Android phones, iPhones, tablets, laptops, and PCs.
+                                </span>
+                            </button>
+
+                            {/* Option 2: Direct Bluetooth (SPP & BLE) */}
                             <button
                                 type="button"
                                 onClick={() => {
@@ -352,25 +396,25 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                     setScanMessage(null);
                                 }}
                                 className={cn(
-                                    "p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5",
+                                    "p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2",
                                     formConfig.connection_type === 'direct_bluetooth'
                                         ? "border-[#E75480] bg-[#FFF5F7] dark:bg-[#FF4F81]/10 text-[#3D2C2E] dark:text-white shadow-xs ring-1 ring-[#E75480]/30"
                                         : "border-gray-200 dark:border-zinc-800 hover:border-gray-300 text-gray-600 dark:text-zinc-400"
                                 )}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                                        <FiBluetooth className="size-3.5" />
+                                    <span className="text-xs font-black flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                                        <FiBluetooth className="size-4" />
                                         Direct Bluetooth
                                     </span>
                                     {formConfig.connection_type === 'direct_bluetooth' && <FiCheck className="size-3.5 text-[#E75480]" />}
                                 </div>
-                                <span className="text-[10px] text-gray-500 dark:text-zinc-400 leading-tight">
-                                    Bluetooth SPP (POS58D COM link) or BLE GATT in browser.
+                                <span className="text-[11px] text-gray-600 dark:text-zinc-300 leading-snug">
+                                    In-browser Bluetooth SPP (POS58D) or BLE GATT without software.
                                 </span>
                             </button>
 
-                            {/* Option 2: Direct USB (WebUSB) */}
+                            {/* Option 3: Direct USB (WebUSB) */}
                             <button
                                 type="button"
                                 onClick={() => {
@@ -378,73 +422,21 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                     setScanMessage(null);
                                 }}
                                 className={cn(
-                                    "p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5",
+                                    "p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2",
                                     formConfig.connection_type === 'direct_usb'
                                         ? "border-[#E75480] bg-[#FFF5F7] dark:bg-[#FF4F81]/10 text-[#3D2C2E] dark:text-white shadow-xs ring-1 ring-[#E75480]/30"
                                         : "border-gray-200 dark:border-zinc-800 hover:border-gray-300 text-gray-600 dark:text-zinc-400"
                                 )}
                             >
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
-                                        <FiZap className="size-3.5" />
-                                        Direct USB
+                                    <span className="text-xs font-black flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                                        <FiZap className="size-4" />
+                                        Direct WebUSB
                                     </span>
                                     {formConfig.connection_type === 'direct_usb' && <FiCheck className="size-3.5 text-[#E75480]" />}
                                 </div>
-                                <span className="text-[10px] text-gray-500 dark:text-zinc-400 leading-tight">
-                                    WebUSB hardware access. Zero print dialog or install.
-                                </span>
-                            </button>
-
-                            {/* Option 3: Local Windows Print Bridge */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setFormConfig(prev => ({ ...prev, connection_type: 'usb' }));
-                                    setScanMessage(null);
-                                }}
-                                className={cn(
-                                    "p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5",
-                                    formConfig.connection_type === 'usb'
-                                        ? "border-[#E75480] bg-[#FFF5F7] dark:bg-[#FF4F81]/10 text-[#3D2C2E] dark:text-white shadow-xs ring-1 ring-[#E75480]/30"
-                                        : "border-gray-200 dark:border-zinc-800 hover:border-gray-300 text-gray-600 dark:text-zinc-400"
-                                )}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold flex items-center gap-1.5">
-                                        <FiPrinter className="size-3.5 text-amber-600" />
-                                        Desktop Bridge
-                                    </span>
-                                    {formConfig.connection_type === 'usb' && <FiCheck className="size-3.5 text-[#E75480]" />}
-                                </div>
-                                <span className="text-[10px] text-gray-500 dark:text-zinc-400 leading-tight">
-                                    Windows spooler agent (127.0.0.1:18181) for locked drivers.
-                                </span>
-                            </button>
-
-                            {/* Option 4: Android Companion Bridge */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setFormConfig(prev => ({ ...prev, connection_type: 'android_bridge' }));
-                                    setScanMessage(null);
-                                }}
-                                className={cn(
-                                    "p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5",
-                                    formConfig.connection_type === 'android_bridge'
-                                        ? "border-[#E75480] bg-[#FFF5F7] dark:bg-[#FF4F81]/10 text-[#3D2C2E] dark:text-white shadow-xs ring-1 ring-[#E75480]/30"
-                                        : "border-gray-200 dark:border-zinc-800 hover:border-gray-300 text-gray-600 dark:text-zinc-400"
-                                )}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold flex items-center gap-1.5 text-emerald-600">
-                                        <FiSmartphone className="size-3.5" />
-                                        Android Bridge
-                                    </span>
-                                    {formConfig.connection_type === 'android_bridge' && <FiCheck className="size-3.5 text-[#E75480]" />}
-                                </div>
-                                <span className="text-[10px] text-gray-500 dark:text-zinc-400 leading-tight">
-                                    Bluetooth companion app on Android branch tablet.
+                                <span className="text-[11px] text-gray-600 dark:text-zinc-300 leading-snug">
+                                    WebUSB hardware link on supported desktop browsers.
                                 </span>
                             </button>
                         </div>
@@ -455,7 +447,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-2">
                                 <FiRadio className="size-4 text-[#E75480]" />
-                                <span>Hardware Discovery</span>
+                                <span>Hardware Setup & Status</span>
                             </label>
                             
                             <div className="flex items-center gap-2">
@@ -486,20 +478,49 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                             </Button>
                                         )}
                                     </>
+                                ) : formConfig.connection_type === 'direct_usb' ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => handleScan('direct_usb')}
+                                        disabled={isScanning}
+                                        className="h-8 px-4 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold cursor-pointer transition-all"
+                                    >
+                                        <FiZap className={cn("size-3.5 mr-1.5", isScanning && "animate-spin")} />
+                                        {isScanning ? 'Scanning...' : 'Pair USB Printer'}
+                                    </Button>
                                 ) : (
                                     <Button
                                         type="button"
                                         size="sm"
-                                        onClick={() => handleScan()}
-                                        disabled={isScanning}
-                                        className="h-8 px-4 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold cursor-pointer transition-all"
+                                        onClick={handleRunTestPrint}
+                                        disabled={isTesting}
+                                        className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
                                     >
-                                        <FiRadio className={cn("size-3.5 mr-1.5", isScanning && "animate-spin")} />
-                                        {isScanning ? 'Scanning...' : 'Scan for Printers'}
+                                        <FiPrinter className={cn("size-3.5 mr-1.5", isTesting && "animate-pulse")} />
+                                        {isTesting ? 'Testing...' : 'Test Universal Print'}
                                     </Button>
                                 )}
                             </div>
                         </div>
+
+                        {/* Universal Web Mode Info Banner */}
+                        {formConfig.connection_type === 'universal_browser' && (
+                            <div className="p-4 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 text-xs space-y-2">
+                                <div className="flex items-center gap-2 font-black text-emerald-800 dark:text-emerald-300">
+                                    <FiCheckCircle className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Universal Zero-Install Printing Active</span>
+                                </div>
+                                <p className="text-[11.5px] leading-relaxed text-emerald-800/90 dark:text-emerald-300/90">
+                                    No app or print bridge software is required! When you complete an order or tap Test Print:
+                                </p>
+                                <ul className="list-disc list-inside text-[11px] text-emerald-800/90 dark:text-emerald-300/80 space-y-1 pl-1">
+                                    <li><strong>1. Pair Thermal Printer:</strong> Ensure your 58mm printer (Bluetooth or USB) is paired in your phone or PC settings.</li>
+                                    <li><strong>2. Auto-Formatted:</strong> Receipts are pre-sized to 58mm with zero margins and sanitized branch headers.</li>
+                                    <li><strong>3. 1-Tap Print:</strong> The print popup appears seamlessly with no background errors.</li>
+                                </ul>
+                            </div>
+                        )}
 
                         {/* Scanning Active Banner */}
                         {isScanning && (
@@ -515,7 +536,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                         )}
 
                         {/* Available Printers List */}
-                        {!isScanning && availableDetectedPrinters.length > 0 && (
+                        {!isScanning && availableDetectedPrinters.length > 0 && formConfig.connection_type !== 'universal_browser' && (
                             <div className="space-y-2">
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Available Printers:</p>
                                 {availableDetectedPrinters.map((p, idx) => (
@@ -574,9 +595,8 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                     <span>{scanMessage}</span>
                                 </div>
                                 <ul className="list-disc list-inside text-[11px] text-amber-800/90 dark:text-amber-300/80 space-y-1 pl-1">
-                                    <li>Ensure your thermal printer is turned on and paired in Windows Settings → Bluetooth.</li>
-                                    <li>Click <strong>Scan Bluetooth SPP (POS58D)</strong> to select the paired serial link.</li>
-                                    <li>If using an Android tablet, start the <strong>MAKI DESU Print Bridge</strong> app.</li>
+                                    <li>Ensure your thermal printer is turned on and paired in your device's Bluetooth settings.</li>
+                                    <li>Or select <strong>Universal Web Print</strong> above for 100% universal zero-install printing.</li>
                                 </ul>
                             </div>
                         )}

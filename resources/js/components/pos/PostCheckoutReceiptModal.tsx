@@ -60,16 +60,21 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
     const [isRetrying, setIsRetrying] = useState<boolean>(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
+    const config = getPrinterConfig();
+    const isUniversalMode = config.connection_type === 'universal_browser';
+
     useEffect(() => {
         setStatus(initialStatus);
         if (initialStatus === 'failed') {
-            setStatusMessage('Receipt printing failed. Please check the thermal printer connection.');
-        } else if (initialStatus === 'bridge_offline' || (!isBridgeConnected && initialStatus === 'idle')) {
-            setStatusMessage('Local print bridge service is offline. You can print via the browser.');
+            setStatusMessage('Direct printer link unavailable. You can print via Universal 58mm Web Print.');
+        } else if (initialStatus === 'bridge_offline') {
+            setStatusMessage(isUniversalMode ? 'Receipt ready for universal 58mm thermal printing.' : 'Print bridge service is offline. You can print via Universal Web Print.');
         } else if (initialStatus === 'success') {
-            setStatusMessage('Receipt printed successfully to thermal printer.');
+            setStatusMessage('Receipt prepared for 58mm thermal printer.');
+        } else if (initialStatus === 'idle') {
+            setStatusMessage('Receipt ready for printing.');
         }
-    }, [initialStatus, isOpen, isBridgeConnected]);
+    }, [initialStatus, isOpen, isBridgeConnected, isUniversalMode]);
 
     const orderNum = printJob?.order_number || saleSummary?.orderNumber || 'POS-ORDER';
     const totalAmount = printJob?.receipt_data?.total ?? saleSummary?.total ?? 0;
@@ -77,7 +82,7 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
 
     /**
      * Safe Retry Silent Print:
-     * Dispatches ONLY to the local bridge spooler.
+     * Dispatches to direct hardware or print bridge.
      * Guaranteed zero effect on sales, inventory, or payments.
      */
     const handleRetrySilentPrint = async () => {
@@ -86,27 +91,27 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
             return;
         }
 
-        const config = getPrinterConfig();
+        const currentConfig = getPrinterConfig();
         setIsRetrying(true);
         setStatus('printing');
-        setStatusMessage('Spooling receipt to thermal printer...');
+        setStatusMessage('Sending receipt to thermal printer...');
 
         try {
-            const res = await printReceiptToThermalPrinter(printJob, config);
+            const res = await printReceiptToThermalPrinter(printJob, currentConfig);
             if (res.success) {
                 setStatus('success');
-                setStatusMessage('Receipt printed successfully to thermal printer.');
-                toast.success(`✓ Thermal receipt sent to printer for #${orderNum}`);
+                setStatusMessage('Receipt sent to printer.');
+                toast.success(`✓ Thermal receipt ready for #${orderNum}`);
             } else {
                 setStatus('failed');
-                setStatusMessage(res.message || 'Receipt printing failed. Please check the printer connection.');
-                toast.warning(`Printer spooling failed: ${res.message}`);
+                setStatusMessage(res.message || 'Direct hardware unavailable. Tap Print via Browser below.');
+                toast.warning(`Direct print failed: ${res.message}`);
             }
         } catch (err: unknown) {
             setStatus('failed');
-            const msg = err instanceof Error ? err.message : 'Communication error with printer bridge.';
-            setStatusMessage(`Receipt printing failed: ${msg}`);
-            toast.error('Failed to communicate with printer bridge.');
+            const msg = err instanceof Error ? err.message : 'Error sending receipt to printer.';
+            setStatusMessage(`Printing failed: ${msg}`);
+            toast.error('Failed to communicate with printer.');
         } finally {
             setIsRetrying(false);
         }
@@ -114,8 +119,8 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
 
     /**
      * Native Browser 58mm Thermal Print:
-     * Triggers the OS print dialog for the installed USB thermal printer
-     * using the 58mm layout rules.
+     * Triggers the OS print dialog for the paired Bluetooth/USB thermal printer
+     * using the exact 58mm layout rules.
      */
     const handleBrowserPrint = () => {
         triggerBrowserThermalPrint();
@@ -149,69 +154,60 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
                                     </DialogDescription>
                                 </div>
                             </div>
+
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsSettingsModalOpen(true)}
+                                className="h-8 px-2.5 rounded-xl border-[#F8C8DC]/60 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-700 dark:text-zinc-300 text-xs font-bold gap-1.5 cursor-pointer hover:bg-[#FFF5F7]"
+                                title="Open thermal printer settings"
+                            >
+                                <FiSettings className="size-3.5 text-[#E75480]" />
+                                <span className="hidden sm:inline">Settings</span>
+                            </Button>
                         </div>
 
                         {/* Printer Status Banner */}
                         <div className="mt-4">
-                            {status === 'success' && (
+                            {(status === 'success' || status === 'idle' || (status === 'bridge_offline' && isUniversalMode)) && (
                                 <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
                                     <FiCheckCircle className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                                    <span>{statusMessage || 'Receipt printed successfully to thermal printer.'}</span>
+                                    <span>{statusMessage || '✓ Receipt ready for 58mm thermal print.'}</span>
                                 </div>
                             )}
 
                             {status === 'failed' && (
-                                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
-                                    <div className="flex items-center justify-between font-bold text-amber-800 dark:text-amber-300">
-                                        <div className="flex items-center gap-2">
-                                            <FiAlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                                            <span>Thermal printer unavailable</span>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setIsSettingsModalOpen(true)}
-                                            className="h-6 px-2 text-[10px] font-extrabold rounded-lg border-amber-300 bg-amber-100/60 text-amber-900 hover:bg-amber-200"
-                                        >
-                                            <FiSettings className="size-3 mr-1" />
-                                            Printer Settings
-                                        </Button>
+                                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <FiAlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>Direct print unavailable. Tap <strong>Print 58mm Receipt</strong> below.</span>
                                     </div>
-                                    <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300/90 pl-6">
-                                        Please check the thermal printer connection. Ensure the printer is powered on, has 58mm paper loaded, and the local bridge is running.
-                                    </p>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={handleBrowserPrint}
+                                        className="h-7 px-3 text-[11px] font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                                    >
+                                        <FiPrinter className="size-3 mr-1" />
+                                        Print Now
+                                    </Button>
                                 </div>
                             )}
 
-                            {status === 'bridge_offline' && (
-                                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
-                                    <div className="flex items-center justify-between font-bold text-amber-800 dark:text-amber-300">
-                                        <div className="flex items-center gap-2">
-                                            <FiAlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                                            <span>Local Print Bridge Offline</span>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setIsSettingsModalOpen(true)}
-                                            className="h-6 px-2 text-[10px] font-extrabold rounded-lg border-amber-300 bg-amber-100/60 text-amber-900 hover:bg-amber-200"
-                                        >
-                                            <FiSettings className="size-3 mr-1" />
-                                            Setup Bridge
-                                        </Button>
+                            {status === 'bridge_offline' && !isUniversalMode && (
+                                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <FiAlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                        <span>Print bridge offline. Tap <strong>Print 58mm Receipt</strong> for zero-install print.</span>
                                     </div>
-                                    <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300/90 pl-6">
-                                        The local printing service is not running on this computer. Click <strong>Print via Browser</strong> or start the print bridge to enable direct silent printing.
-                                    </p>
                                 </div>
                             )}
 
                             {status === 'printing' && (
                                 <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/40 text-blue-800 dark:text-blue-300 text-xs font-semibold">
                                     <FiRotateCw className="size-4 shrink-0 text-blue-600 dark:text-blue-400 animate-spin" />
-                                    <span>{statusMessage || 'Spooling receipt to thermal printer...'}</span>
+                                    <span>{statusMessage || 'Preparing receipt for thermal printer...'}</span>
                                 </div>
                             )}
                         </div>
@@ -234,30 +230,31 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
                     {/* Footer Controls */}
                     <DialogFooter className="p-4 sm:p-5 bg-white dark:bg-[#171719] border-t border-[#F8C8DC]/40 dark:border-white/10 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                         <div className="flex items-center gap-2 flex-1">
-                            {/* Retry Silent Print Button */}
+                            {/* Primary Universal 58mm Print Button */}
                             <Button
                                 type="button"
-                                variant="outline"
-                                onClick={handleRetrySilentPrint}
-                                disabled={isRetrying || !printJob}
-                                className="flex-1 h-11 rounded-xl border-[#F8C8DC]/60 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[#3D2C2E] dark:text-zinc-200 hover:bg-[#FFF5F7] dark:hover:bg-zinc-800 text-xs font-bold gap-2 cursor-pointer transition-all"
-                                title="Retry sending receipt silently through the local thermal print bridge"
+                                onClick={handleBrowserPrint}
+                                className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold gap-2 cursor-pointer transition-all shadow-md shadow-emerald-600/20"
+                                title="Print using the device's paired thermal printer (Zero Install)"
                             >
-                                <FiRotateCw className={cn("size-3.5", isRetrying && "animate-spin text-[#E75480]")} />
-                                <span>{isRetrying ? 'Retrying...' : 'Retry Silent Print'}</span>
+                                <FiPrinter className="size-4" />
+                                <span>Print 58mm Receipt</span>
                             </Button>
 
-                            {/* Browser 58mm Print Button */}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleBrowserPrint}
-                                className="flex-1 h-11 rounded-xl border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-bold gap-2 cursor-pointer transition-all"
-                                title="Print using the browser's native print dialog to your installed thermal printer"
-                            >
-                                <FiPrinter className="size-3.5" />
-                                <span>Print via Browser</span>
-                            </Button>
+                            {/* Optional Direct Retry Button if in hardware mode */}
+                            {!isUniversalMode && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleRetrySilentPrint}
+                                    disabled={isRetrying || !printJob}
+                                    className="h-11 px-4 rounded-xl border-[#F8C8DC]/60 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[#3D2C2E] dark:text-zinc-200 hover:bg-[#FFF5F7] dark:hover:bg-zinc-800 text-xs font-bold gap-1.5 cursor-pointer transition-all"
+                                    title="Retry sending receipt silently through the hardware port"
+                                >
+                                    <FiRotateCw className={cn("size-3.5", isRetrying && "animate-spin text-[#E75480]")} />
+                                    <span>Silent Retry</span>
+                                </Button>
+                            )}
                         </div>
 
                         {/* New Order / Dismiss Button */}

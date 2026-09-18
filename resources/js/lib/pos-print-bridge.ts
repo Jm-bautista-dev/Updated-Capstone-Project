@@ -6,7 +6,7 @@ export const LOCAL_BRIDGE_URL = 'http://127.0.0.1:18181';
 export const STORAGE_KEY_PRINTER_CONFIG = 'makidesu_pos_printer_config';
 export const STORAGE_KEY_SAVED_DIRECT_DEVICE = 'makidesu_saved_direct_usb_device';
 
-export type PrinterConnectionType = 'direct_bluetooth' | 'direct_usb' | 'usb' | 'android_bridge' | 'network' | 'serial';
+export type PrinterConnectionType = 'universal_browser' | 'direct_bluetooth' | 'direct_usb' | 'usb' | 'android_bridge' | 'network' | 'serial';
 
 export interface PrinterConfig {
     printer_name: string;
@@ -27,8 +27,8 @@ export interface PrinterConfig {
 }
 
 export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {
-    printer_name: '',
-    connection_type: 'direct_bluetooth',
+    printer_name: 'Universal Thermal Printer',
+    connection_type: 'universal_browser',
     tcp_host: '192.168.1.100',
     tcp_port: 9100,
     com_port: 'COM1',
@@ -1155,7 +1155,22 @@ export async function printReceiptToThermalPrinter(
 ): Promise<{ success: boolean; message: string }> {
     const config = { ...getPrinterConfig(), ...customConfig };
 
-    // Direct WebBluetooth / WebSerial / WebUSB Mode
+    // Mode 1: Universal Web Thermal Printing (Zero Install - Works on all Phones, Tablets & PCs)
+    if (config.connection_type === 'universal_browser') {
+        triggerBrowserThermalPrint();
+        if (job.job_uuid) {
+            axios.post(`/api/v1/pos/print-jobs/${job.job_uuid}/status`, {
+                status: 'printed',
+                error: null,
+            }).catch(() => {});
+        }
+        return {
+            success: true,
+            message: 'Receipt formatted for universal 58mm thermal printing.',
+        };
+    }
+
+    // Mode 2: Direct In-Browser Hardware (WebBluetooth / WebSerial / WebUSB - Zero external software)
     if (config.connection_type === 'direct_bluetooth' || config.connection_type === 'direct_usb') {
         let escposBytes: Uint8Array;
 
@@ -1187,17 +1202,16 @@ export async function printReceiptToThermalPrinter(
             return directResult;
         }
 
-        // Silent fallback to local desktop bridge if running
-        const bridgeHealth = await checkPrintBridgeHealth();
-        if (bridgeHealth.isHealthy) {
-            console.log('[Print Service] Falling back from Direct mode to Local Desktop Bridge...');
-            return await sendToLocalPrintBridge(job, { ...config, connection_type: 'usb' });
-        }
-
-        return directResult;
+        // Graceful automatic fallback to universal browser print
+        console.log('[Print Service] Direct hardware not active, falling back to Universal Browser Print...');
+        triggerBrowserThermalPrint();
+        return {
+            success: true,
+            message: 'Direct hardware unlinked — receipt opened in Universal Print dialog.',
+        };
     }
 
-    // Local Desktop Print Bridge or Network Mode
+    // Mode 3: Local Desktop Print Bridge or Network Mode
     return await sendToLocalPrintBridge(job, config);
 }
 
@@ -1211,11 +1225,28 @@ export async function sendTestPrint(
 ): Promise<{ success: boolean; message: string }> {
     const config = { ...getPrinterConfig(), ...customConfig };
 
+    // Universal Web Browser Test Print (Zero Install)
+    if (config.connection_type === 'universal_browser') {
+        triggerBrowserThermalPrint();
+        return {
+            success: true,
+            message: '✓ Universal 58mm test receipt opened in print dialog',
+        };
+    }
+
     // Direct Bluetooth / USB Test Print
     if (config.connection_type === 'direct_bluetooth' || config.connection_type === 'direct_usb') {
         const interfaceLabel = config.connection_type === 'direct_bluetooth' ? 'Direct Bluetooth' : 'Direct USB';
         const testBytes = buildTestReceiptEscPos(branchName, config.paper_width, interfaceLabel);
-        return await sendRawToDirectHardware(testBytes);
+        const res = await sendRawToDirectHardware(testBytes);
+        if (res.success) {
+            return res;
+        }
+        triggerBrowserThermalPrint();
+        return {
+            success: true,
+            message: 'Direct hardware unlinked — test receipt opened in Universal Print dialog.',
+        };
     }
 
     // Android Companion Bridge Test Print
@@ -1278,6 +1309,11 @@ export function usePrinterStatus(branchId?: number) {
     const checkNow = useCallback(async () => {
         const currentConfig = getPrinterConfig();
 
+        if (currentConfig.connection_type === 'universal_browser') {
+            setStatus('ready');
+            return true;
+        }
+
         if (currentConfig.connection_type === 'direct_bluetooth' || currentConfig.connection_type === 'direct_usb') {
             if (activeBluetoothCharacteristic || activeUsbDevice || activeSerialPort) {
                 setStatus('ready');
@@ -1314,7 +1350,27 @@ export function usePrinterStatus(branchId?: number) {
         const targetMode = mode || config.connection_type;
 
         try {
-            // A. Direct Bluetooth Scanner (Bluetooth SPP via Web Serial or BLE via Web Bluetooth)
+            // A. Universal Browser Mode (Always Ready, Zero-Install)
+            if (targetMode === 'universal_browser') {
+                setIsScanning(false);
+                setStatus('ready');
+                const universalPrinter: DetectedPrinter = {
+                    id: 'universal_browser_printer',
+                    name: 'Universal 58mm System Printer',
+                    isDefault: true,
+                    port: 'Browser / Device System Print',
+                    type: 'network',
+                };
+                setPrinters([universalPrinter]);
+                return {
+                    success: true,
+                    foundCount: 1,
+                    printers: [universalPrinter],
+                    message: 'Universal Web Thermal Printing is ready on this device.',
+                };
+            }
+
+            // B. Direct Bluetooth Scanner (Bluetooth SPP via Web Serial or BLE via Web Bluetooth)
             if (targetMode === 'direct_bluetooth') {
                 // Try Bluetooth SPP / Serial first (Standard for POS58D on Windows)
                 if (isWebSerialSupported()) {
@@ -1368,7 +1424,7 @@ export function usePrinterStatus(branchId?: number) {
                 };
             }
 
-            // B. Direct WebUSB Scanner
+            // C. Direct WebUSB Scanner
             if (targetMode === 'direct_usb') {
                 const res = await scanAndRequestWebUsbPrinter();
                 setIsScanning(false);
@@ -1398,7 +1454,7 @@ export function usePrinterStatus(branchId?: number) {
                 };
             }
 
-            // C. Local Desktop Print Bridge Scanner
+            // D. Local Desktop Print Bridge Scanner
             if (targetMode === 'usb') {
                 const health = await checkPrintBridgeHealth();
                 if (!health.isHealthy) {
@@ -1427,7 +1483,7 @@ export function usePrinterStatus(branchId?: number) {
                 };
             }
 
-            // D. Android Companion Scanner
+            // E. Android Companion Scanner
             if (targetMode === 'android_bridge') {
                 const bridgeRes = await fetchRegisteredBridges(branchId);
                 setIsScanning(false);
@@ -1470,7 +1526,11 @@ export function usePrinterStatus(branchId?: number) {
         isMountedRef.current = true;
 
         const initStatus = async () => {
-            if (config.connection_type === 'direct_bluetooth' || config.connection_type === 'direct_usb') {
+            if (config.connection_type === 'universal_browser') {
+                if (isMountedRef.current) {
+                    setStatus('ready');
+                }
+            } else if (config.connection_type === 'direct_bluetooth' || config.connection_type === 'direct_usb') {
                 const restored = await restoreDirectDeviceConnection();
                 if (isMountedRef.current) {
                     if (restored) {
