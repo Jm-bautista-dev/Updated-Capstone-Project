@@ -28,6 +28,8 @@ class PrintJob extends Model
         'order_number',
         'branch_id',
         'terminal_id',
+        'claimed_by_bridge_id',
+        'claimed_at',
         'job_type',
         'paper_width',
         'status',
@@ -47,6 +49,7 @@ class PrintJob extends Model
         'paper_width'  => 'integer',
         'attempts'     => 'integer',
         'printed_at'   => 'datetime',
+        'claimed_at'   => 'datetime',
     ];
 
     protected static function boot(): void
@@ -73,6 +76,11 @@ class PrintJob extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function claimedByBridge(): BelongsTo
+    {
+        return $this->belongsTo(PrintBridge::class, 'claimed_by_bridge_id');
     }
 
     public function reprintedByUser(): BelongsTo

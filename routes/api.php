@@ -67,6 +67,23 @@ Route::prefix('v1')->group(function () {
     Route::get('pickup-branches',          [App\Http\Controllers\Api\ApiPickupController::class, 'branches']);
     Route::get('pickup-slots',             [App\Http\Controllers\Api\ApiPickupController::class, 'slots']);
 
+    // ── POS Thermal Print Jobs & Reprints (Universal Bridge & Web POS) ──
+    Route::prefix('pos/print-jobs')->group(function () {
+        Route::get('pending',        [App\Http\Controllers\Api\PrintJobController::class, 'pending']);
+        Route::get('{uuid}',         [App\Http\Controllers\Api\PrintJobController::class, 'show']);
+        Route::post('{uuid}/claim',  [App\Http\Controllers\Api\PrintJobController::class, 'claim']);
+        Route::post('{uuid}/status', [App\Http\Controllers\Api\PrintJobController::class, 'updateStatus']);
+        Route::post('reprint',       [App\Http\Controllers\Api\PrintJobController::class, 'reprint']);
+        Route::post('test',          [App\Http\Controllers\Api\PrintJobController::class, 'testJob']);
+    });
+
+    // ── POS Print Bridges (Android & Desktop Companions) ──
+    Route::prefix('pos/print-bridges')->group(function () {
+        Route::get('',               [App\Http\Controllers\Api\PrintJobController::class, 'listBridges']);
+        Route::post('register',      [App\Http\Controllers\Api\PrintJobController::class, 'registerBridge']);
+        Route::post('heartbeat',     [App\Http\Controllers\Api\PrintJobController::class, 'heartbeat']);
+    });
+
     // Protected Routes (Multi-Auth Support: Sanctum tokens & Web session cookies)
     Route::middleware(['auth:sanctum,web'])->group(function () {
         
@@ -265,13 +282,6 @@ Route::prefix('v1')->group(function () {
         Route::get('customer/notifications',                     [App\Http\Controllers\Api\CustomerNotificationController::class, 'index']);
         Route::get('customer/notifications/unread-count',        [App\Http\Controllers\Api\CustomerNotificationController::class, 'unreadCount']);
         Route::post('customer/notifications/read-all',           [App\Http\Controllers\Api\CustomerNotificationController::class, 'markAllAsRead']);
-        // ── POS Thermal Print Jobs & Reprints ──
-        Route::prefix('pos/print-jobs')->group(function () {
-            Route::get('pending',        [App\Http\Controllers\Api\PrintJobController::class, 'pending']);
-            Route::get('{uuid}',         [App\Http\Controllers\Api\PrintJobController::class, 'show']);
-            Route::post('{uuid}/status', [App\Http\Controllers\Api\PrintJobController::class, 'updateStatus']);
-            Route::post('reprint',       [App\Http\Controllers\Api\PrintJobController::class, 'reprint']);
-        });
     });
 });
 

@@ -23,7 +23,7 @@ import {
     Sheet,
     SheetContent,
 } from '@/components/ui/sheet';
-import { sendToLocalPrintBridge, triggerBrowserThermalPrint } from '@/lib/pos-print-bridge';
+import { sendToLocalPrintBridge, triggerBrowserThermalPrint, getPrinterConfig } from '@/lib/pos-print-bridge';
 import { cn, formatReceiptBranchHeading } from '@/lib/utils';
 
 const safeFormatDate = (dateStr?: string) => {
@@ -98,17 +98,18 @@ export function SalesDrawer({
         if (!sale?.id) return;
         setReprinting(true);
         try {
+            const config = getPrinterConfig();
             const res = await axios.post('/api/v1/pos/print-jobs/reprint', {
                 sale_id: sale.id,
                 reason: 'Reprinted from Sales History Drawer',
             });
             if (res.data?.success && res.data?.print_job) {
                 const printJob = res.data.print_job;
-                const result = await sendToLocalPrintBridge(printJob);
+                const result = await sendToLocalPrintBridge(printJob, config);
                 if (result.success) {
                     toast.success(`✓ Thermal receipt sent to printer for #${sale.order_number || sale.id}`);
                 } else {
-                    toast.warning(`Receipt queued for printing (Printer bridge offline)`);
+                    toast.warning(`Receipt print failed: ${result.message}`);
                 }
             } else {
                 toast.error('Failed to create reprint job');

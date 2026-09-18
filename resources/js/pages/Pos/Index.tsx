@@ -25,6 +25,7 @@ import { NotificationBell } from '@/components/notification-bell';
 import { ApplyDiscountModal, type PosDiscount } from '@/components/pos/ApplyDiscountModal';
 import { PosDeliverySection, type PosDeliveryInfo } from '@/components/pos/PosDeliverySection';
 import { PostCheckoutReceiptModal, type PrintStatus } from '@/components/pos/PostCheckoutReceiptModal';
+import { PrinterSettingsModal } from '@/components/pos/PrinterSettingsModal';
 import { ProductModifierModal, type ModifierGroup, type ProductForModifier, type SelectedModifier } from '@/components/pos/ProductModifierModal';
 import { ThermalReceipt58mm } from '@/components/pos/ThermalReceipt58mm';
 import { ResultModal } from '@/components/result-modal';
@@ -120,8 +121,9 @@ function generateOfflineId(): string {
 export default function PosIndex() {
   const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
 
-  // --- Real-time Printer Status Hook ---
-  const { isConnected: isPrinterReady, checkNow: checkPrinterNow } = usePrinterStatus();
+  // --- Real-time Printer Status & Config Hook ---
+  const { isConnected: isPrinterReady, config: printerConfig, checkNow: checkPrinterNow } = usePrinterStatus(branch?.id);
+  const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -605,9 +607,9 @@ export default function PosIndex() {
         if (printJob) {
           setActivePrintJob(printJob);
 
-          if (printJob.raw_escpos_base64 && isPrinterReady) {
+          if (printerConfig.auto_print && isPrinterReady) {
             setReceiptPrintStatus('printing');
-            const printResult = await sendToLocalPrintBridge(printJob);
+            const printResult = await sendToLocalPrintBridge(printJob, printerConfig);
             if (printResult.success) {
               setReceiptPrintStatus('success');
               toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {
@@ -616,17 +618,25 @@ export default function PosIndex() {
             } else {
               setReceiptPrintStatus('failed');
               setIsReceiptModalOpen(true);
-              toast.warning(`⚠️ Order #${orderNum} Completed (Printer offline)`, {
-                description: 'Order saved successfully. Check USB printer connection or retry.',
+              toast.warning(`⚠️ Order #${orderNum} Completed (Printer unavailable)`, {
+                description: 'Order saved successfully. Check thermal printer or retry print.',
                 duration: 4500,
               });
             }
+          } else if (!printerConfig.auto_print) {
+            // Auto-print is disabled in settings — open modal for manual review/print
+            setReceiptPrintStatus('idle');
+            setIsReceiptModalOpen(true);
+            toast.success(`✓ Order #${orderNum} Completed`, {
+              description: 'Click below to print receipt.',
+              duration: 3500,
+            });
           } else {
             // Local print bridge is offline or not installed
             setReceiptPrintStatus('bridge_offline');
             setIsReceiptModalOpen(true);
             toast.info(`✓ Order #${orderNum} Completed`, {
-              description: 'Order saved. Select print option below.',
+              description: 'Order saved. Print bridge offline — select print option below.',
               duration: 3500,
             });
           }
@@ -711,25 +721,20 @@ export default function PosIndex() {
                 </Button>
               </div>
             )}
-            {/* Printer Bridge Status Indicator */}
+            {/* Printer Bridge Status Indicator / Settings Trigger */}
             <button
               type="button"
-              onClick={() => {
-                checkPrinterNow();
-                if (activePrintJob) {
-                  setIsReceiptModalOpen(true);
-                }
-              }}
+              onClick={() => setIsPrinterSettingsOpen(true)}
               title={
                 isPrinterReady 
-                  ? (activePrintJob ? "Thermal Printer Ready (Click to view/reprint last receipt)" : "Thermal Printer Ready")
-                  : (activePrintJob ? "Thermal Print Bridge Offline (Click to view/print last receipt)" : "Thermal Print Bridge Offline - Click to re-check")
+                  ? `Thermal Printer Ready (${printerConfig.printer_name || 'Default'}) — Click to configure / test print`
+                  : "Thermal Print Bridge Offline — Click to configure / troubleshoot"
               }
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shadow-2xs",
                 isPrinterReady
-                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100"
-                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 animate-pulse"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 animate-pulse"
               )}
             >
               <span className={cn("size-2 rounded-full", isPrinterReady ? "bg-emerald-500" : "bg-amber-500")} />
@@ -1645,14 +1650,24 @@ export default function PosIndex() {
           onConfirm={handleConfirmModifierProduct}
         />
 
-        {/* Post-Checkout Thermal Receipt & USB Print Retry Modal */}
+        {/* Post-Checkout Thermal Receipt & Print Retry Modal */}
         <PostCheckoutReceiptModal
           isOpen={isReceiptModalOpen}
           onClose={() => setIsReceiptModalOpen(false)}
           printJob={activePrintJob}
           initialStatus={receiptPrintStatus}
           isBridgeConnected={isPrinterReady}
+          branchName={branch?.name || 'VICTORIA'}
+          branchId={branch?.id}
           saleSummary={lastSaleSummary}
+        />
+
+        {/* Dedicated Thermal Printer Configuration & Test Diagnostic Modal */}
+        <PrinterSettingsModal
+          isOpen={isPrinterSettingsOpen}
+          onClose={() => setIsPrinterSettingsOpen(false)}
+          branchName={branch?.name || 'VICTORIA'}
+          branchId={branch?.id}
         />
 
         {/* Global Print Container for 58mm Thermal Receipt (Print Only) */}

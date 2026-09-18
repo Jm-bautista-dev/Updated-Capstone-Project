@@ -292,4 +292,189 @@ class PrintJobSystemTest extends TestCase
         $this->assertEquals(PrintJob::STATUS_PRINTED, $printJob->status);
         $this->assertNotNull($printJob->printed_at);
     }
+
+    public function test_print_bridge_registration_and_heartbeat()
+    {
+        $this->actingAs($this->cashier);
+
+        // 1. Register Android Print Bridge
+        $response = $this->postJson('/api/v1/pos/print-bridges/register', [
+            'bridge_uuid'            => 'VICTORIA-ANDROID-POS-01',
+            'name'                   => 'Victoria Android Counter Bridge',
+            'branch_id'              => $this->victoriaBranch->id,
+            'terminal_id'            => 'POS-01',
+            'device_type'            => 'android',
+            'paired_printer_name'    => 'PT-210 Bluetooth Thermal',
+            'paired_printer_address' => '66:22:33:44:55:66',
+            'connection_type'        => 'bluetooth_spp',
+            'battery_level'          => 85,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'bridge'  => [
+                    'bridge_uuid'         => 'VICTORIA-ANDROID-POS-01',
+                    'paired_printer_name' => 'PT-210 Bluetooth Thermal',
+                ],
+            ]);
+
+        // 2. Send Heartbeat
+        $hbResponse = $this->postJson('/api/v1/pos/print-bridges/heartbeat', [
+            'bridge_uuid'   => 'VICTORIA-ANDROID-POS-01',
+            'battery_level' => 84,
+            'status'        => 'online',
+        ]);
+
+        $hbResponse->assertStatus(200)
+            ->assertJson([
+                'success'   => true,
+                'is_online' => true,
+            ]);
+
+        // 3. List Bridges for branch
+        $listResponse = $this->getJson('/api/v1/pos/print-bridges');
+        $listResponse->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'count',
+                'bridges' => [
+                    ['id', 'bridge_uuid', 'name', 'status', 'is_online']
+                ],
+            ]);
+    }
+
+    public function test_print_bridge_atomic_claiming_prevents_duplicate_processing()
+    {
+        $this->actingAs($this->cashier);
+
+        /** @var PrintJobService $printJobService */
+        $printJobService = app(PrintJobService::class);
+
+        $bridge = $printJobService->registerBridge([
+            'bridge_uuid' => 'VICTORIA-ANDROID-POS-01',
+            'name'        => 'Victoria Bridge',
+            'branch_id'   => $this->victoriaBranch->id,
+            'terminal_id' => 'POS-01',
+        ]);
+
+        /** @var SaleService $saleService */
+        $saleService = app(SaleService::class);
+
+        $sale = $saleService->processSale([
+            'type'           => 'dine-in',
+            'items'          => [['id' => $this->ramenProduct->id, 'quantity' => 1]],
+            'total'          => 350.00,
+            'paid_amount'    => 500.00,
+            'change_amount'  => 150.00,
+            'payment_method' => 'cash',
+        ]);
+
+        $job = PrintJob::where('sale_id', $sale->id)->first();
+
+        // First bridge claims the job
+        $claimResponse1 = $this->withHeader('X-Bridge-UUID', 'VICTORIA-ANDROID-POS-01')
+            ->postJson("/api/v1/pos/print-jobs/{$job->job_uuid}/claim");
+
+        $claimResponse1->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $job->refresh();
+        $this->assertEquals(PrintJob::STATUS_PRINTING, $job->status);
+        $this->assertEquals($bridge->id, $job->claimed_by_bridge_id);
+
+        // A second bridge attempts to claim the same job -> fails with 409 Conflict
+        $bridge2 = $printJobService->registerBridge([
+            'bridge_uuid' => 'VICTORIA-ANDROID-POS-02',
+            'name'        => 'Victoria Bridge 2',
+            'branch_id'   => $this->victoriaBranch->id,
+            'terminal_id' => 'POS-02',
+        ]);
+
+        $claimResponse2 = $this->withHeader('X-Bridge-UUID', 'VICTORIA-ANDROID-POS-02')
+            ->postJson("/api/v1/pos/print-jobs/{$job->job_uuid}/claim");
+
+        $claimResponse2->assertStatus(409)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
+    public function test_branch_isolation_victoria_bridge_never_receives_sta_cruz_jobs()
+    {
+        $this->actingAs($this->cashier);
+
+        /** @var PrintJobService $printJobService */
+        $printJobService = app(PrintJobService::class);
+
+        $victoriaBridge = $printJobService->registerBridge([
+            'bridge_uuid' => 'VICTORIA-BRIDGE',
+            'name'        => 'Victoria Bridge',
+            'branch_id'   => $this->victoriaBranch->id,
+        ]);
+
+        $staCruzBridge = $printJobService->registerBridge([
+            'bridge_uuid' => 'STA-CRUZ-BRIDGE',
+            'name'        => 'Sta Cruz Bridge',
+            'branch_id'   => $this->staCruzBranch->id,
+        ]);
+
+        // Create a job for Sta Cruz
+        $staCruzJob = PrintJob::create([
+            'job_uuid'          => (string) \Illuminate\Support\Str::uuid(),
+            'order_number'      => 'STA-CRUZ-001',
+            'branch_id'         => $this->staCruzBranch->id,
+            'job_type'          => PrintJob::TYPE_RECEIPT,
+            'paper_width'       => 58,
+            'status'            => PrintJob::STATUS_PENDING,
+            'receipt_data'      => ['branch_name' => 'STA. CRUZ', 'total' => 100],
+            'formatted_text'    => 'STA CRUZ RECEIPT',
+            'raw_escpos_base64' => base64_encode('ESC/POS'),
+        ]);
+
+        // Query pending jobs as Victoria Bridge -> should be 0
+        $pendingVic = $this->withHeader('X-Bridge-UUID', 'VICTORIA-BRIDGE')
+            ->getJson('/api/v1/pos/print-jobs/pending');
+
+        $pendingVic->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'count'   => 0,
+            ]);
+
+        // Query pending jobs as Sta Cruz Bridge -> should find 1 job
+        $pendingSC = $this->withHeader('X-Bridge-UUID', 'STA-CRUZ-BRIDGE')
+            ->getJson('/api/v1/pos/print-jobs/pending');
+
+        $pendingSC->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'count'   => 1,
+            ]);
+    }
+
+    public function test_diagnostic_test_job_generation()
+    {
+        $this->actingAs($this->cashier);
+
+        $response = $this->postJson('/api/v1/pos/print-jobs/test', [
+            'branch_id' => $this->victoriaBranch->id,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $testJob = PrintJob::where('job_type', 'test')
+            ->where('branch_id', $this->victoriaBranch->id)
+            ->first();
+
+        $this->assertNotNull($testJob);
+        $this->assertEquals('TEST-PRINT', $testJob->order_number);
+        $this->assertStringContainsString('Hardware Diagnostic Test', $testJob->formatted_text);
+    }
 }
+

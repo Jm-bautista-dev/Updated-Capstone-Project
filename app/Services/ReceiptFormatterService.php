@@ -153,7 +153,7 @@ class ReceiptFormatterService
         $divider = str_repeat('-', $cols);
         $lines = [];
 
-        // Reprint Banner
+        // Reprint or Test Banner
         if (!empty($data['is_reprint'])) {
             $lines[] = $this->centerText('*** REPRINT ***', $cols);
             if (!empty($data['reprint_reason'])) {
@@ -161,6 +161,12 @@ class ReceiptFormatterService
             }
             if (!empty($data['reprinted_at'])) {
                 $lines[] = $this->centerText("Time: {$data['reprinted_at']}", $cols);
+            }
+            $lines[] = $divider;
+        } elseif (($data['job_type'] ?? '') === 'test') {
+            $lines[] = $this->centerText('*** TEST PRINT ***', $cols);
+            if (!empty($data['reprint_reason'])) {
+                $lines[] = $this->centerText($data['reprint_reason'], $cols);
             }
             $lines[] = $divider;
         }
@@ -273,7 +279,7 @@ class ReceiptFormatterService
         // 2. Set Code Page to CP437
         $out .= "{$ESC}t\x00";
 
-        // 3. Reprint Warning
+        // 3. Reprint or Test Warning
         if (!empty($data['is_reprint'])) {
             $out .= "{$ESC}a\x01"; // Center align
             $out .= "{$ESC}E\x01"; // Bold on
@@ -283,6 +289,15 @@ class ReceiptFormatterService
             }
             if (!empty($data['reprinted_at'])) {
                 $out .= "Time: {$data['reprinted_at']}\n";
+            }
+            $out .= "{$ESC}E\x00"; // Bold off
+            $out .= str_repeat('-', $cols) . "\n";
+        } elseif (($data['job_type'] ?? '') === 'test') {
+            $out .= "{$ESC}a\x01"; // Center align
+            $out .= "{$ESC}E\x01"; // Bold on
+            $out .= "*** TEST PRINT ***\n";
+            if (!empty($data['reprint_reason'])) {
+                $out .= "{$data['reprint_reason']}\n";
             }
             $out .= "{$ESC}E\x00"; // Bold off
             $out .= str_repeat('-', $cols) . "\n";

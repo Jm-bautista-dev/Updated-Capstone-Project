@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">MAKI DESU Print Bridge</string>
+    <string name="branch_title">Branch</string>
+    <string name="device_title">Device Identifier</string>
+    <string name="printer_title">Bluetooth Thermal Printer</string>
+    <string name="btn_test_print">TEST PRINT (58mm)</string>
+    <string name="btn_start_service">START AUTO-PRINT SERVICE</string>
+    <string name="btn_stop_service">STOP SERVICE</string>
+    <string name="status_connected">Printer: Connected</string>
+    <string name="status_disconnected">Printer: Disconnected</string>
+    <string name="status_connecting">Printer: Connecting...</string>
+    <string name="service_running_notification">MAKI DESU Print Bridge is active and listening for POS print jobs</string>
+</resources>
