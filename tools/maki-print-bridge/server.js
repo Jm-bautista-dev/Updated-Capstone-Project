@@ -250,9 +250,14 @@ function generateTestReceiptEscPos(branchName = 'VICTORIA', paperWidth = 58) {
   out += `${ESC}a\x01`; // Center
   out += `${GS}!\x11`; // Double width & height
   out += `${ESC}E\x01`; // Bold
-  out += 'MAKI DESU\n';
+  let cleanBranch = (branchName || 'VICTORIA').trim().replace(/^MAKI\s*DESU\s*[-–—:]*\s*/i, '').replace(/\s*[-–—:]*\s*MAKI\s*DESU$/i, '').trim();
+  if (/^sta\.?\s*cruz$/i.test(cleanBranch) || /^santa\s*cruz$/i.test(cleanBranch)) {
+    cleanBranch = 'STA. CRUZ';
+  } else if (/^victoria$/i.test(cleanBranch)) {
+    cleanBranch = 'VICTORIA';
+  }
+  out += `${(cleanBranch || 'VICTORIA').toUpperCase()}\n`;
   out += `${GS}!\x00`; // Normal size
-  out += `${branchName.toUpperCase()}\n`;
   out += `${ESC}E\x00`; // Bold off
   out += '-'.repeat(cols) + '\n';
 

@@ -8,6 +8,7 @@
  */
 
 import type { ReceiptDataPayload, ReceiptItemPayload } from './pos-print-bridge';
+import { formatReceiptBranchHeading } from './utils';
 
 // ESC/POS Command Byte Constants
 const ESC = 0x1B;
@@ -199,18 +200,14 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     const builder = new EscPosBuilder(paperWidth);
 
     // ── 1. HEADER ──
+    const branchHeading = formatReceiptBranchHeading(data.branch_name);
     builder.align('center');
     builder.size('double_height');
     builder.bold(true);
-    builder.line('MAKI DESU');
+    builder.line(branchHeading);
     builder.size('normal');
     builder.bold(false);
 
-    if (data.branch_name) {
-        builder.bold(true);
-        builder.line(data.branch_name.toUpperCase());
-        builder.bold(false);
-    }
     if (data.branch_address) {
         builder.line(data.branch_address);
     }
@@ -314,7 +311,6 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     builder.line('Thank you for dining with us!');
     builder.line('Please come again.');
     builder.feed(1);
-    builder.line('MAKI DESU POS SYSTEM');
 
     // Cut paper
     builder.cut(false);
@@ -331,14 +327,14 @@ export function buildTestReceiptEscPos(
     connectionType = 'Direct USB'
 ): Uint8Array {
     const builder = new EscPosBuilder(paperWidth);
+    const branchHeading = formatReceiptBranchHeading(branchName);
 
     builder.align('center');
     builder.size('double_height');
     builder.bold(true);
-    builder.line('MAKI DESU');
+    builder.line(branchHeading);
     builder.size('normal');
     builder.bold(false);
-    builder.line(branchName.toUpperCase());
     builder.separator('=');
 
     builder.bold(true);

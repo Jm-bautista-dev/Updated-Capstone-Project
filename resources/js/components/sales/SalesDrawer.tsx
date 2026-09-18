@@ -68,7 +68,7 @@ export function SalesDrawer({
         }
 
         return {
-            branch_name: sale.branch?.name || sale.order?.branch?.name || 'Maki Desu',
+            branch_name: sale.branch?.name || sale.order?.branch?.name || 'Victoria',
             branch_address: sale.branch?.address || sale.order?.branch?.address,
             order_number: sale.order_number || `POS-${sale.id}`,
             date_time: safeFormatDate(sale.created_at),
