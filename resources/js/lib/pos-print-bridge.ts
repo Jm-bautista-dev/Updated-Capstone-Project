@@ -319,8 +319,8 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
             if (device.gatt.connected) {
                 try {
                     device.gatt.disconnect();
-                } catch (_ignored) {
-                    // Ignore disconnect failure
+                } catch {
+                    void 0;
                 }
             }
 
@@ -341,12 +341,12 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
                                     break;
                                 }
                             }
-                        } catch (_ignored) {
-                            // Continue to next service
+                        } catch {
+                            void 0;
                         }
                     }
-                } catch (_ignored) {
-                    // Fallback to known service probe
+                } catch {
+                    void 0;
                 }
             }
 
@@ -363,8 +363,8 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
                                 break;
                             }
                         }
-                    } catch (_ignored) {
-                        // Try next service UUID
+                    } catch {
+                        void 0;
                     }
                 }
             }
@@ -432,8 +432,8 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
         if (activeSerialPort && activeSerialPort !== port) {
             try {
                 await activeSerialPort.close?.();
-            } catch (_ignored) {
-                // Ignore port close errors
+            } catch {
+                void 0;
             }
             activeSerialPort = null;
         }
@@ -447,8 +447,8 @@ export async function scanAndRequestBluetoothSppPrinter(baudRate = 9600): Promis
             if (port.readable || port.writable) {
                 isAlreadyOpen = true;
             }
-        } catch (_ignored) {
-            // Check failed, assume closed
+        } catch {
+            void 0;
         }
 
         if (!isAlreadyOpen) {
@@ -670,8 +670,8 @@ export async function getAuthorizedDirectPrinters(): Promise<DetectedPrinter[]> 
                     rawDevice: p,
                 });
             }
-        } catch (_ignored) {
-            // Serial ports query unavailable
+        } catch {
+            void 0;
         }
     }
 
@@ -693,8 +693,8 @@ export async function getAuthorizedDirectPrinters(): Promise<DetectedPrinter[]> 
                     rawDevice: d,
                 });
             }
-        } catch (_ignored) {
-            // WebUSB devices query unavailable
+        } catch {
+            void 0;
         }
     }
 
@@ -718,8 +718,8 @@ export async function connectDirectDevice(
             if (activeSerialPort && activeSerialPort !== port) {
                 try {
                     await activeSerialPort.close?.();
-                } catch (_ignored) {
-                    // Ignore close error on previous port
+                } catch {
+                    void 0;
                 }
                 activeSerialPort = null;
             }
@@ -727,8 +727,8 @@ export async function connectDirectDevice(
             let isOpen = false;
             try {
                 if (port.readable || port.writable) isOpen = true;
-            } catch (_ignored) {
-                // Check failed, assume closed
+            } catch {
+                void 0;
             }
 
             if (!isOpen) {
@@ -800,8 +800,8 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
                 let isAlreadyOpen = false;
                 try {
                     if (port.readable || port.writable) isAlreadyOpen = true;
-                } catch (_ignored) {
-                    // Check failed, assume closed
+                } catch {
+                    void 0;
                 }
 
                 if (!isAlreadyOpen) {
