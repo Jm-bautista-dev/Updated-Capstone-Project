@@ -49,7 +49,7 @@ class SalesDataManagementController extends Controller
         $importsHistory = SalesImport::with('user')->latest()->get();
         $auditLogs = SalesImportAudit::with('user')->latest()->take(50)->get();
         $backups = SalesBackup::latest()->get();
-        $branches = Branch::orderBy('name')->get(['id', 'name', 'code']);
+        $branches = Branch::orderBy('name')->get(['id', 'name']);
         $products = Product::orderBy('name')->get(['id', 'name', 'sku']);
 
         return Inertia::render('Admin/SalesDataManagement/Index', [

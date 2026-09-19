@@ -650,4 +650,20 @@ class LoyverseHistoricalSalesImportTest extends TestCase
         $this->assertStringStartsWith("Branch,Product,Quantity,Total Price,Date", $content);
         $this->assertStringContainsString("Sta Cruz,Student Meal,18,1782,September 9 2026", $content);
     }
+
+    /**
+     * Sales data management index page renders successfully with branches and products
+     */
+    public function test_admin_sales_data_index_renders_successfully(): void
+    {
+        $res = $this->actingAs($this->testAdmin)->get('/admin/sales-data');
+
+        $res->assertStatus(200);
+        $res->assertInertia(fn ($page) => $page
+            ->component('Admin/SalesDataManagement/Index')
+            ->has('branches')
+            ->has('products')
+            ->has('stats')
+        );
+    }
 }
