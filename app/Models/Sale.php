@@ -32,6 +32,9 @@ class Sale extends Model
         'change_amount',
         'payment_method',
         'status',
+        'source',
+        'source_system',
+        'sales_import_id',
         'created_at',
         'updated_at',
     ];
@@ -242,5 +245,10 @@ class Sale extends Model
     public function delivery()
     {
         return $this->hasOne(Delivery::class);
+    }
+
+    public function salesImport()
+    {
+        return $this->belongsTo(SalesImport::class, 'sales_import_id');
     }
 }

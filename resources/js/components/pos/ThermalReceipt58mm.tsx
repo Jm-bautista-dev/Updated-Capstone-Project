@@ -186,7 +186,7 @@ export const ThermalReceipt58mm: React.FC<ThermalReceipt58mmProps> = ({
 
                         {/* Totals Section */}
                         <div className="space-y-0.5 text-[10.5px]">
-                            {discount > 0 && (
+                            {(discount > 0 || deliveryFee > 0) && (
                                 <div className="flex justify-between">
                                     <span>Subtotal</span>
                                     <span>{formatCurrency(subtotal)}</span>
@@ -195,7 +195,7 @@ export const ThermalReceipt58mm: React.FC<ThermalReceipt58mmProps> = ({
 
                             {discount > 0 && (
                                 <div className="flex justify-between font-bold">
-                                    <span>Discount {discountType ? `(${discountType.replace('_', ' ').toUpperCase()})` : ''}</span>
+                                    <span>Discount {discountType ? `(${discountType.replace(/_/g, ' ').toUpperCase()})` : ''}</span>
                                     <span>-{formatCurrency(discount)}</span>
                                 </div>
                             )}

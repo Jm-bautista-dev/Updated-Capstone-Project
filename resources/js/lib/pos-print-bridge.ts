@@ -370,6 +370,90 @@ const KNOWN_BLE_PRINTER_SERVICES = [
 ];
 
 /**
+ * Connect to a WebBluetooth device GATT server and resolve write characteristic
+ */
+export async function connectWebBluetoothDevice(device: WebBluetoothDevice): Promise<{
+    success: boolean;
+    characteristic?: WebBluetoothCharacteristic;
+    message?: string;
+}> {
+    if (!device || !device.gatt) {
+        return { success: false, message: 'Invalid Bluetooth GATT device.' };
+    }
+
+    try {
+        let server: WebBluetoothRemoteGATTServer;
+        if (!device.gatt.connected) {
+            server = await device.gatt.connect();
+        } else {
+            server = device.gatt;
+        }
+
+        let matchedCharacteristic: WebBluetoothCharacteristic | null = null;
+
+        // Probe available primary services first
+        if (server.getPrimaryServices) {
+            try {
+                const services = await server.getPrimaryServices();
+                for (const s of services) {
+                    try {
+                        if (s.getCharacteristics) {
+                            const chars = await s.getCharacteristics();
+                            const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
+                            if (writeChar) {
+                                matchedCharacteristic = writeChar;
+                                break;
+                            }
+                        }
+                    } catch {
+                        void 0;
+                    }
+                }
+            } catch {
+                void 0;
+            }
+        }
+
+        // Fallback: probe known service UUIDs
+        if (!matchedCharacteristic) {
+            for (const serviceUuid of KNOWN_BLE_PRINTER_SERVICES) {
+                try {
+                    const service = await server.getPrimaryService(serviceUuid);
+                    if (service && service.getCharacteristics) {
+                        const chars = await service.getCharacteristics();
+                        const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
+                        if (writeChar) {
+                            matchedCharacteristic = writeChar;
+                            break;
+                        }
+                    }
+                } catch {
+                    void 0;
+                }
+            }
+        }
+
+        if (!matchedCharacteristic) {
+            return { success: false, message: 'Could not find a writable ESC/POS characteristic on this Bluetooth printer.' };
+        }
+
+        activeBluetoothDevice = device;
+        activeBluetoothCharacteristic = matchedCharacteristic;
+
+        return {
+            success: true,
+            characteristic: matchedCharacteristic,
+        };
+    } catch (err: unknown) {
+        const errorObj = err as { message?: string };
+        return {
+            success: false,
+            message: `Failed to connect GATT server: ${errorObj.message || 'Unknown error'}`,
+        };
+    }
+}
+
+/**
  * Scan & Connect to Direct BLE Thermal Printer via Web Bluetooth
  */
 export async function scanAndRequestWebBluetoothPrinter(): Promise<{
@@ -398,63 +482,10 @@ export async function scanAndRequestWebBluetoothPrinter(): Promise<{
 
         const printerName = device.name || 'BLE Thermal Printer';
 
-        // Connect GATT Server
-        if (device.gatt) {
-            if (device.gatt.connected) {
-                try {
-                    device.gatt.disconnect();
-                } catch {
-                    void 0;
-                }
-            }
-
-            const server = await device.gatt.connect();
-            let matchedCharacteristic: WebBluetoothCharacteristic | null = null;
-
-            // Probe available primary services first
-            if (server.getPrimaryServices) {
-                try {
-                    const services = await server.getPrimaryServices();
-                    for (const s of services) {
-                        try {
-                            if (s.getCharacteristics) {
-                                const chars = await s.getCharacteristics();
-                                const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
-                                if (writeChar) {
-                                    matchedCharacteristic = writeChar;
-                                    break;
-                                }
-                            }
-                        } catch {
-                            void 0;
-                        }
-                    }
-                } catch {
-                    void 0;
-                }
-            }
-
-            // Fallback: probe known service UUIDs
-            if (!matchedCharacteristic) {
-                for (const serviceUuid of KNOWN_BLE_PRINTER_SERVICES) {
-                    try {
-                        const service = await server.getPrimaryService(serviceUuid);
-                        if (service && service.getCharacteristics) {
-                            const chars = await service.getCharacteristics();
-                            const writeChar = chars.find((c: WebBluetoothCharacteristic) => c.properties?.write || c.properties?.writeWithoutResponse);
-                            if (writeChar) {
-                                matchedCharacteristic = writeChar;
-                                break;
-                            }
-                        }
-                    } catch {
-                        void 0;
-                    }
-                }
-            }
-
-            activeBluetoothDevice = device;
-            activeBluetoothCharacteristic = matchedCharacteristic;
+        // Connect GATT Server & discover write characteristic
+        const connRes = await connectWebBluetoothDevice(device);
+        if (!connRes.success) {
+            return { success: false, message: connRes.message || 'Failed to connect to Bluetooth printer.' };
         }
 
         savePrinterConfig({
@@ -1055,6 +1086,33 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
         }
     }
 
+    // 3. Try Web Bluetooth paired devices
+    if (isWebBluetoothSupported() && typeof (navigator as unknown as { bluetooth?: { getDevices?: () => Promise<WebBluetoothDevice[]> } }).bluetooth?.getDevices === 'function') {
+        try {
+            const bt = (navigator as unknown as { bluetooth: { getDevices(): Promise<WebBluetoothDevice[]> } }).bluetooth;
+            const devices = await bt.getDevices();
+            if (devices && devices.length > 0) {
+                const matched = config.bluetooth_device_id
+                    ? devices.find((d: WebBluetoothDevice) => d.id === config.bluetooth_device_id)
+                    : devices[0];
+                const dev = matched || devices[0];
+                const res = await connectWebBluetoothDevice(dev);
+                if (res.success) {
+                    return {
+                        id: `ble_${dev.id}`,
+                        name: dev.name || config.printer_name || 'BLE Thermal Printer',
+                        isDefault: true,
+                        port: 'Direct Web Bluetooth (BLE)',
+                        type: 'webbluetooth',
+                        rawDevice: dev,
+                    };
+                }
+            }
+        } catch {
+            // Ignore BLE auto-reconnect failure
+        }
+    }
+
     return null;
 }
 
@@ -1071,27 +1129,27 @@ export async function sendRawToDirectHardware(bytes: Uint8Array): Promise<{ succ
     }
 
     // 1. Direct Web Bluetooth (BLE GATT)
-    if (activeBluetoothCharacteristic) {
+    if (activeBluetoothDevice) {
         try {
-            // Chunk transmission into 512-byte MTU blocks for BLE stability
-            const CHUNK_SIZE = 512;
-            for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
-                const chunk = bytes.subarray(offset, Math.min(bytes.length, offset + CHUNK_SIZE));
-                const copy = new Uint8Array(chunk);
-                if (activeBluetoothCharacteristic.writeValueWithoutResponse) {
-                    await activeBluetoothCharacteristic.writeValueWithoutResponse(copy);
-                } else {
-                    await activeBluetoothCharacteristic.writeValue(copy);
-                }
+            if (!activeBluetoothDevice.gatt?.connected || !activeBluetoothCharacteristic) {
+                await connectWebBluetoothDevice(activeBluetoothDevice);
             }
-            return { success: true, message: 'Receipt printed directly via Web Bluetooth.' };
+            if (activeBluetoothCharacteristic) {
+                // Chunk transmission into 512-byte MTU blocks for BLE stability
+                const CHUNK_SIZE = 512;
+                for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
+                    const chunk = bytes.subarray(offset, Math.min(bytes.length, offset + CHUNK_SIZE));
+                    const copy = new Uint8Array(chunk);
+                    if (activeBluetoothCharacteristic.writeValueWithoutResponse) {
+                        await activeBluetoothCharacteristic.writeValueWithoutResponse(copy);
+                    } else {
+                        await activeBluetoothCharacteristic.writeValue(copy);
+                    }
+                }
+                return { success: true, message: 'Receipt printed directly via Web Bluetooth.' };
+            }
         } catch (err: unknown) {
-            const errorObj = err as { message?: string };
             console.warn('[Direct WebBluetooth Print Error]:', err);
-            return {
-                success: false,
-                message: `Bluetooth communication error: ${errorObj.message || 'Device disconnected'}.`,
-            };
         }
     }
 
@@ -1399,17 +1457,7 @@ export async function printReceiptToThermalPrinter(
             }).catch(() => {});
         }
 
-        if (directResult.success) {
-            return directResult;
-        }
-
-        // Graceful automatic fallback to universal browser print
-        console.log('[Print Service] Direct hardware not active, falling back to Universal Browser Print...');
-        triggerBrowserThermalPrint();
-        return {
-            success: true,
-            message: 'Direct hardware unlinked — receipt opened in Universal Print dialog.',
-        };
+        return directResult;
     }
 
     // Mode 3: Local Desktop Print Bridge or Network Mode

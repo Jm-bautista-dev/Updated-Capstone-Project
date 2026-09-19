@@ -617,7 +617,7 @@ export default function PosIndex() {
               description: printerConfig.auto_print ? 'Receipt sent to print dialog.' : 'Order saved. Click below to print.',
               duration: 3500,
             });
-          } else if (printerConfig.auto_print && isPrinterReady) {
+          } else if (printerConfig.auto_print) {
             setReceiptPrintStatus('printing');
             const printResult = await printReceiptToThermalPrinter(printJob, printerConfig);
             if (printResult.success) {
@@ -633,19 +633,12 @@ export default function PosIndex() {
                 duration: 4500,
               });
             }
-          } else if (!printerConfig.auto_print) {
+          } else {
             // Auto-print is disabled in settings — open modal for manual review/print
             setReceiptPrintStatus('idle');
             setIsReceiptModalOpen(true);
             toast.success(`✓ Order #${orderNum} Completed`, {
               description: 'Click below to print receipt.',
-              duration: 3500,
-            });
-          } else {
-            setReceiptPrintStatus('idle');
-            setIsReceiptModalOpen(true);
-            toast.success(`✓ Order #${orderNum} Completed`, {
-              description: 'Order saved. Click below to print receipt.',
               duration: 3500,
             });
           }

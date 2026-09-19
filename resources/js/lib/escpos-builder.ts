@@ -226,12 +226,11 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     }
 
     builder.align('left');
-    builder.leftRight('ORDER #:', String(data.order_number || 'N/A'));
-    builder.leftRight('TYPE:', (data.fulfillment_type || 'Dine-In').toUpperCase());
-    builder.leftRight('DATE:', data.date_time || new Date().toLocaleString('en-PH'));
+    builder.leftRight(`Order #: ${data.order_number || 'N/A'}`, (data.fulfillment_type || 'Dine-In').toUpperCase());
+    builder.line(`Date: ${data.date_time || new Date().toLocaleString('en-PH')}`);
 
     if (data.cashier_name) {
-        builder.leftRight('CASHIER:', data.cashier_name);
+        builder.line(`Cashier: ${data.cashier_name}`);
     }
 
     // Customer delivery details if present
@@ -246,7 +245,7 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
 
     // ── 3. ITEMS TABLE ──
     builder.bold(true);
-    builder.leftRight('ITEM (QTY)', 'SUBTOTAL');
+    builder.leftRight('Item (Qty)', 'Price');
     builder.bold(false);
     builder.separator('-');
 
@@ -258,8 +257,8 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
             // Print item add-ons / modifiers if any
             if (Array.isArray(item.addons) && item.addons.length > 0) {
                 item.addons.forEach(addon => {
-                    const addonPrice = addon.price > 0 ? ` +${formatPhp(addon.price)}` : '';
-                    builder.line(`  + ${addon.name}${addonPrice}`);
+                    const addonPrice = addon.price > 0 ? `+${formatPhp(addon.price)}` : '';
+                    builder.leftRight(`  + ${addon.name}`, addonPrice);
                 });
             }
         });
@@ -277,30 +276,31 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     const paid = data.paid_amount ?? total;
     const change = data.change_amount ?? 0;
 
-    builder.leftRight('Subtotal:', formatPhp(subtotal));
+    if (discount > 0 || deliveryFee > 0) {
+        builder.leftRight('Subtotal', formatPhp(subtotal));
+    }
 
     if (discount > 0) {
-        const discountLabel = data.discount_type ? `Discount (${data.discount_type}):` : 'Discount:';
+        const discountLabel = data.discount_type ? `Discount (${data.discount_type.replace(/_/g, ' ').toUpperCase()})` : 'Discount';
         builder.leftRight(discountLabel, `-${formatPhp(discount)}`);
     }
 
     if (deliveryFee > 0) {
-        builder.leftRight('Delivery Fee:', formatPhp(deliveryFee));
+        builder.leftRight('Delivery Fee', `+${formatPhp(deliveryFee)}`);
     }
 
     builder.separator('-');
     builder.bold(true);
     builder.size('double_height');
-    builder.leftRight('TOTAL:', formatPhp(total));
+    builder.leftRight('TOTAL', formatPhp(total));
     builder.size('normal');
     builder.bold(false);
     builder.separator('-');
 
-    builder.leftRight('Payment Method:', (data.payment_method || 'CASH').toUpperCase());
-    builder.leftRight('Amount Tendered:', formatPhp(paid));
-    if (change > 0) {
+    builder.leftRight(`${(data.payment_method || 'CASH').toUpperCase()} Paid`, formatPhp(paid));
+    if (change > 0 || (data.payment_method || 'CASH').toUpperCase() === 'CASH') {
         builder.bold(true);
-        builder.leftRight('Change Due:', formatPhp(change));
+        builder.leftRight('Change', formatPhp(change));
         builder.bold(false);
     }
 
@@ -310,6 +310,9 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     builder.align('center');
     builder.line('Thank you for dining with us!');
     builder.line('Please come again.');
+    if (data.is_reprint) {
+        builder.line('*** END OF REPRINT ***');
+    }
     builder.feed(1);
 
     // Cut paper

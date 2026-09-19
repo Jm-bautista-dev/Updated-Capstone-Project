@@ -1,4 +1,3 @@
-import type { Page } from '@inertiajs/core';
 import { Head, usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import React, { useState } from 'react';
@@ -9,6 +8,18 @@ import { ImportWizardCard, type ValidationReport, type ImportSummaryFlash } from
 import { SafetyBackupsCard, type BackupItem } from '@/components/sales-data/SafetyBackupsCard';
 import { SalesDataHero } from '@/components/sales-data/SalesDataHero';
 import AppLayout from '@/layouts/app-layout';
+
+export type ProductOption = {
+    id: number;
+    name: string;
+    sku?: string | null;
+};
+
+export type BranchOption = {
+    id: number;
+    name: string;
+    code?: string | null;
+};
 
 type PageProps = {
     stats: {
@@ -21,11 +32,13 @@ type PageProps = {
     importsHistory: ImportHistoryItem[];
     auditLogs: AuditLogItem[];
     backups: BackupItem[];
+    branches?: BranchOption[];
+    products?: ProductOption[];
     flash?: { importResult?: ImportSummaryFlash };
 };
 
 export default function SalesDataManagementIndex() {
-    const { stats, importsHistory, auditLogs, backups } = usePage<PageProps>().props;
+    const { stats, importsHistory, auditLogs, backups, branches = [], products = [] } = usePage<PageProps>().props;
 
     // Wizard state
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Upload, 2: Validate/Configure, 3: Preview, 4: Summary
@@ -38,6 +51,7 @@ export default function SalesDataManagementIndex() {
 
     // Validation report state
     const [validationReport, setValidationReport] = useState<ValidationReport | null>(null);
+    const [productMappings, setProductMappings] = useState<Record<string, number>>({});
 
     // Import configuration parameters
     const [importMode, setImportMode] = useState<'add_new' | 'update' | 'replace_range' | 'replace_all'>('add_new');
@@ -84,15 +98,18 @@ export default function SalesDataManagementIndex() {
             return;
         }
         setFile(selectedFile);
-        triggerValidation(selectedFile);
+        triggerValidation(selectedFile, {});
     };
 
-    const triggerValidation = (uploadFile: File) => {
+    const triggerValidation = (uploadFile: File, mappingsToUse: Record<string, number> = productMappings) => {
         setIsValidating(true);
         setStep(2);
 
         const formData = new FormData();
         formData.append('file', uploadFile);
+        if (Object.keys(mappingsToUse).length > 0) {
+            formData.append('productMappings', JSON.stringify(mappingsToUse));
+        }
 
         // Call validation endpoint via AJAX
         axios
@@ -113,6 +130,19 @@ export default function SalesDataManagementIndex() {
             });
     };
 
+    const handleProductMappingChange = (unmatchedName: string, productId: number) => {
+        setProductMappings((prev) => ({
+            ...prev,
+            [unmatchedName]: productId,
+        }));
+    };
+
+    const handleRevalidateWithMappings = () => {
+        if (file) {
+            triggerValidation(file, productMappings);
+        }
+    };
+
     const executeImport = () => {
         if (!validationReport?.tempKey) return;
 
@@ -123,37 +153,35 @@ export default function SalesDataManagementIndex() {
 
         setIsImporting(true);
 
-        router.post(
-            '/admin/sales-data/import',
-            {
+        axios
+            .post('/admin/sales-data/import', {
                 tempKey: validationReport.tempKey,
                 importMode,
                 duplicateMode,
                 dateRangeStart,
                 dateRangeEnd,
                 confirmText: confirmDeleteText,
-            },
-            {
-                onSuccess: (page: Page) => {
-                    setIsImporting(false);
-
-                    // Grab import result details from response (passed back on completion)
-                    const summary: ImportSummaryFlash = (page.props.flash as PageProps['flash'])?.importResult ?? {
-                        imported: validationReport?.validRowsCount ?? 0,
-                        updated: importMode === 'update' ? (validationReport?.duplicateCount ?? 0) : 0,
-                        skipped: importMode === 'add_new' ? (validationReport?.duplicateCount ?? 0) : 0,
-                        duration: 1.2,
-                    };
-
-                    setImportSummary(summary);
-                    setStep(4);
-                },
-                onError: (errors: Record<string, string>) => {
-                    setIsImporting(false);
-                    alert(errors.error || 'Import failed. Check logs for details.');
-                },
-            }
-        );
+                productMappings,
+            })
+            .then((response: { data: Record<string, any> }) => {
+                setIsImporting(false);
+                const data = response.data;
+                const summary: ImportSummaryFlash = {
+                    imported: data.imported ?? 0,
+                    updated: data.updated ?? 0,
+                    skipped: data.skipped ?? 0,
+                    duration: data.duration ?? 1.2,
+                    backupCreated: data.backupCreated,
+                    source: data.source ?? 'Loyverse',
+                    dateRange: data.dateRange,
+                };
+                setImportSummary(summary);
+                setStep(4);
+            })
+            .catch((err: { response?: { data?: { error?: string } } }) => {
+                setIsImporting(false);
+                alert(err.response?.data?.error || 'Import failed. Check logs for details.');
+            });
     };
 
     const restoreSnapshot = (backupId: number) => {
@@ -193,6 +221,7 @@ export default function SalesDataManagementIndex() {
         setValidationReport(null);
         setImportSummary(null);
         setConfirmDeleteText('');
+        setProductMappings({});
         setStep(1);
     };
 
@@ -262,6 +291,10 @@ export default function SalesDataManagementIndex() {
                         router.reload();
                         cancelWizard();
                     }}
+                    products={products}
+                    productMappings={productMappings}
+                    onProductMappingChange={handleProductMappingChange}
+                    onRevalidateWithMappings={handleRevalidateWithMappings}
                 />
 
                 {/* Backups & History Section */}

@@ -1,6 +1,6 @@
 import { 
     AlertTriangle, CheckCircle2, Database, Download, Eye, FileText, 
-    Maximize2, Minimize2, RefreshCw, Shield, UploadCloud, X 
+    Maximize2, Minimize2, RefreshCw, Shield, UploadCloud, X, Layers, Link as LinkIcon
 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ export type ValidationReport = {
     invalidRowsCount: number;
     duplicateCount: number;
     errors: { row: number; errors: string[] }[];
+    unmatchedProducts?: string[];
     preview: {
         row: number;
         is_valid: boolean;
@@ -38,6 +39,8 @@ export type ImportSummaryFlash = {
     skipped: number;
     duration: number;
     backupCreated?: string;
+    source?: string;
+    dateRange?: string;
 };
 
 interface ImportWizardCardProps {
@@ -66,6 +69,10 @@ interface ImportWizardCardProps {
     cancelWizard: () => void;
     downloadErrorReport: () => void;
     onResetReturn: () => void;
+    products?: { id: number; name: string; sku?: string | null }[];
+    productMappings?: Record<string, number>;
+    onProductMappingChange?: (importedName: string, productId: number) => void;
+    onRevalidateWithMappings?: () => void;
 }
 
 export function ImportWizardCard({
@@ -94,6 +101,10 @@ export function ImportWizardCard({
     cancelWizard,
     downloadErrorReport,
     onResetReturn,
+    products = [],
+    productMappings = {},
+    onProductMappingChange,
+    onRevalidateWithMappings,
 }: ImportWizardCardProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
@@ -106,7 +117,7 @@ export function ImportWizardCard({
                         Import Sales Wizard
                     </CardTitle>
                     <CardDescription className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium mt-1">
-                        Multi-step dataset verification and database pipeline
+                        Loyverse-compatible historical sales dataset verification and migration pipeline
                     </CardDescription>
                 </div>
 
@@ -180,16 +191,32 @@ export function ImportWizardCard({
                             </p>
                         </div>
 
-                        <Button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                fileInputRef.current?.click();
-                            }}
-                            className="h-11 px-6 bg-white dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider shadow-xs cursor-pointer"
-                        >
-                            Browse Files
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                            <Button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    fileInputRef.current?.click();
+                                }}
+                                className="h-11 px-6 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] text-white rounded-2xl font-bold text-xs uppercase tracking-wider shadow-md shadow-[#E75480]/20 cursor-pointer"
+                            >
+                                Browse Files
+                            </Button>
+                            <a
+                                href="/admin/sales-data/template"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center justify-center h-11 px-6 bg-white dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider shadow-xs cursor-pointer gap-1.5 transition-colors"
+                            >
+                                <Download className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                                <span>Download Loyverse Template (.csv)</span>
+                            </a>
+                        </div>
+
+                        <div className="pt-3">
+                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FADADD]/30 dark:bg-[#E1062C]/10 border border-[#F8C8DC]/60 dark:border-white/10 text-[11px] font-bold text-[#E75480] dark:text-[#FF4F81]">
+                                ✨ Standard 5 Columns: Branch, Product, Quantity, Total Price, Date
+                            </span>
+                        </div>
                     </div>
                 )}
 
@@ -204,7 +231,7 @@ export function ImportWizardCard({
                                         Validating Uploaded File...
                                     </h4>
                                     <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-medium mt-1">
-                                        Running column checks, numeric conversions, and data integrity scans
+                                        Running column checks, currency formatting, date normalization, and data integrity scans
                                     </p>
                                 </div>
                             </div>
@@ -219,12 +246,12 @@ export function ImportWizardCard({
                                         <div>
                                             <p className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{file?.name}</p>
                                             <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B] font-mono mt-0.5">
-                                                {((file?.size || 0) / 1024).toFixed(1)} KB — CSV / Excel format
+                                                {((file?.size || 0) / 1024).toFixed(1)} KB — Loyverse historical dataset
                                             </p>
                                         </div>
                                     </div>
                                     <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold text-[10px] uppercase px-3 py-1 rounded-full">
-                                        Uploaded
+                                        Validated
                                     </Badge>
                                 </div>
 
@@ -244,15 +271,66 @@ export function ImportWizardCard({
                                             <h4 className={cn('text-3xl font-black font-mono mt-1', validationReport.invalidRowsCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-[#3D2C2E] dark:text-[#F8FAFC]')}>
                                                 {validationReport.invalidRowsCount.toLocaleString()}
                                             </h4>
-                                            <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B] mt-1 font-medium">Format issues detected</p>
+                                            <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B] mt-1 font-medium">Format or lookup issues</p>
                                         </div>
 
                                         <div className="p-5 bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl text-center shadow-2xs">
-                                            <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">File Duplicates</p>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Existing Database Matches</p>
                                             <h4 className={cn('text-3xl font-black font-mono mt-1', validationReport.duplicateCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-[#3D2C2E] dark:text-[#F8FAFC]')}>
                                                 {validationReport.duplicateCount.toLocaleString()}
                                             </h4>
-                                            <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B] mt-1 font-medium">Matching transaction IDs</p>
+                                            <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B] mt-1 font-medium">Rows matching prior imports</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Interactive Unmatched Product Resolver */}
+                                {validationReport?.unmatchedProducts && validationReport.unmatchedProducts.length > 0 && (
+                                    <div className="p-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wider">
+                                                <Layers className="size-4 text-amber-600" />
+                                                <span>Resolve Unmatched Loyverse Products ({validationReport.unmatchedProducts.length})</span>
+                                            </div>
+                                            {onRevalidateWithMappings && (
+                                                <Button
+                                                    type="button"
+                                                    onClick={onRevalidateWithMappings}
+                                                    size="sm"
+                                                    className="h-8 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold uppercase tracking-wider gap-1.5 cursor-pointer shadow-xs"
+                                                >
+                                                    <RefreshCw className="size-3" /> Apply Mappings & Re-verify
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-amber-800 dark:text-amber-300/80 font-medium">
+                                            These products from the Loyverse file did not match any current MAKI DESU product name. Map them to an existing product below:
+                                        </p>
+
+                                        <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                                            {validationReport.unmatchedProducts.map((unmatchedName, idx) => (
+                                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white/80 dark:bg-[#181820]/80 rounded-xl border border-amber-200 dark:border-amber-900/40 text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC] font-mono">{unmatchedName}</span>
+                                                        <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/40">Unmatched</Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[11px] text-[#7D6B6E] dark:text-[#94A3B8] font-bold">Map to:</span>
+                                                        <select
+                                                            value={productMappings[unmatchedName] || ''}
+                                                            onChange={(e) => onProductMappingChange && onProductMappingChange(unmatchedName, Number(e.target.value))}
+                                                            className="h-9 px-3 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC] cursor-pointer"
+                                                        >
+                                                            <option value="">-- Select MAKI DESU Product --</option>
+                                                            {products.map((p) => (
+                                                                <option key={p.id} value={p.id}>
+                                                                    {p.name} {p.sku ? `(${p.sku})` : ''}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -275,7 +353,7 @@ export function ImportWizardCard({
                                             </Button>
                                         </div>
                                         <p className="text-xs text-rose-800 dark:text-rose-300/80 font-medium">
-                                            Please resolve invalid formatting (unassigned branches, missing products, invalid quantities) in your spreadsheet.
+                                            Please resolve invalid formatting (unassigned branches, missing products, invalid quantities) in your spreadsheet or map products above.
                                         </p>
 
                                         <div className="max-h-36 overflow-y-auto divide-y divide-rose-200 dark:divide-rose-900/30 text-xs font-mono space-y-1 pt-1">
@@ -500,14 +578,14 @@ export function ImportWizardCard({
                                 <thead className="bg-[#FFF9FA]/60 dark:bg-[#181820]/60 border-b border-[#F8C8DC]/40 dark:border-white/10 text-[11px] font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] sticky top-0 z-10 backdrop-blur-md">
                                     <tr>
                                         <th className="py-3.5 px-5">Row</th>
-                                        <th className="py-3.5 px-5">Transaction #</th>
+                                        <th className="py-3.5 px-5">Transaction ID</th>
                                         <th className="py-3.5 px-5">Date</th>
                                         <th className="py-3.5 px-5">Branch</th>
                                         <th className="py-3.5 px-5">Product</th>
                                         <th className="py-3.5 px-5 text-right">Qty</th>
                                         <th className="py-3.5 px-5 text-right">Unit Price</th>
-                                        <th className="py-3.5 px-5 text-right">Total</th>
-                                        <th className="py-3.5 px-5 text-center">Cashier</th>
+                                        <th className="py-3.5 px-5 text-right">Total Price</th>
+                                        <th className="py-3.5 px-5 text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5 text-xs">
@@ -523,13 +601,17 @@ export function ImportWizardCard({
                                             <td className="py-3 px-5 font-bold font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">
                                                 {pRow.order_number}
                                             </td>
-                                            <td className="py-3 px-5 text-[#7D6B6E] dark:text-[#94A3B8]">{pRow.date}</td>
+                                            <td className="py-3 px-5 text-[#7D6B6E] dark:text-[#94A3B8] font-mono">{pRow.date}</td>
                                             <td className="py-3 px-5 font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">{pRow.branch}</td>
                                             <td className="py-3 px-5 font-bold text-[#3D2C2E] dark:text-[#F8FAFC] uppercase">{pRow.product}</td>
                                             <td className="py-3 px-5 text-right font-mono font-bold">{pRow.quantity}</td>
-                                            <td className="py-3 px-5 text-right font-mono font-bold">{pRow.unit_price}</td>
-                                            <td className="py-3 px-5 text-right font-mono font-black text-[#E75480] dark:text-[#FF4F81]">{pRow.total}</td>
-                                            <td className="py-3 px-5 text-center text-[#9E8B8E] dark:text-[#64748B] italic">{pRow.cashier || 'System'}</td>
+                                            <td className="py-3 px-5 text-right font-mono font-bold">₱{pRow.unit_price}</td>
+                                            <td className="py-3 px-5 text-right font-mono font-black text-[#E75480] dark:text-[#FF4F81]">₱{pRow.total}</td>
+                                            <td className="py-3 px-5 text-center">
+                                                <Badge className={cn('text-[10px] font-bold uppercase rounded-full', pRow.is_valid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20')}>
+                                                    {pRow.is_valid ? 'Valid' : 'Error'}
+                                                </Badge>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -559,7 +641,7 @@ export function ImportWizardCard({
                                     {isImporting ? (
                                         <>Importing... <RefreshCw className="size-4 animate-spin" /></>
                                     ) : (
-                                        <>Execute Dataset Import <Database className="size-4" /></>
+                                        <>Execute Historical Import <Database className="size-4" /></>
                                     )}
                                 </Button>
                             </div>
@@ -576,17 +658,31 @@ export function ImportWizardCard({
 
                         <div className="space-y-1">
                             <h3 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                Import Complete!
+                                Historical Sales Import Complete!
                             </h3>
                             <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-bold uppercase tracking-wider">
                                 Processed in {importSummary.duration} seconds
                             </p>
                         </div>
 
+                        <div className="flex items-center justify-center gap-2 text-xs text-[#7D6B6E] dark:text-[#94A3B8]">
+                            <span className="font-bold">Source:</span>
+                            <Badge variant="outline" className="text-[10px] uppercase font-bold text-[#E75480] border-[#F8C8DC]/80 bg-pink-50/50 dark:bg-pink-950/20">
+                                {importSummary.source || 'Loyverse'}
+                            </Badge>
+                            {importSummary.dateRange && importSummary.dateRange !== 'N/A' && (
+                                <>
+                                    <span className="text-[#9E8B8E]">•</span>
+                                    <span className="font-bold">Date Range:</span>
+                                    <span className="font-mono text-[11px] font-semibold text-[#3D2C2E] dark:text-[#F8FAFC]">{importSummary.dateRange}</span>
+                                </>
+                            )}
+                        </div>
+
                         <div className="grid grid-cols-3 gap-3 border border-[#F8C8DC]/60 dark:border-white/10 p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 shadow-2xs font-mono">
                             <div className="text-center">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">Imported</span>
-                                <p className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] mt-1">{importSummary.imported.toLocaleString()}</p>
+                                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{importSummary.imported.toLocaleString()}</p>
                             </div>
                             <div className="text-center border-x border-[#F8C8DC]/40 dark:border-white/10">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">Updated</span>

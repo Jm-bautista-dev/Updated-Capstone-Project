@@ -147,6 +147,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Sales Data Management (Admin only)
             Route::get('admin/sales-data', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'index'])->name('admin.sales-data.index');
+            Route::get('admin/sales-data/template', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'downloadTemplate'])->name('admin.sales-data.template');
             Route::post('admin/sales-data/validate', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'validateFile'])->name('admin.sales-data.validate');
             Route::post('admin/sales-data/import', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'import'])->name('admin.sales-data.import');
             Route::post('admin/sales-data/restore/{backup}', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'restore'])->name('admin.sales-data.restore');

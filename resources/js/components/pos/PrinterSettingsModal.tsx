@@ -451,66 +451,72 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                     </div>
 
                     {/* Section 2: Scanning & Discovery Interface */}
-                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#181824] border border-gray-200 dark:border-zinc-800 space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#181824] border border-gray-200 dark:border-zinc-800 space-y-3.5">
+                        <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-2">
                                 <FiRadio className="size-4 text-[#E75480] shrink-0" />
-                                <span>Hardware Setup & Status</span>
+                                <span>Hardware Setup & Discovery</span>
                             </label>
-                            
-                            <div className="flex flex-wrap items-center gap-2">
-                                {formConfig.connection_type === 'direct_bluetooth' ? (
-                                    <>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            onClick={handleScanBluetoothSpp}
-                                            disabled={isScanning}
-                                            className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs"
-                                            title="Scan Bluetooth SPP / RFCOMM Link (Compatible with Android Chrome & Desktop Windows)"
-                                        >
-                                            <FiBluetooth className="size-3 mr-1 shrink-0" />
-                                            <span>Scan Bluetooth (SPP)</span>
-                                        </Button>
-                                        {directUsbCapabilities.isWebBluetoothSupported && (
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={handleScanWebBluetooth}
-                                                disabled={isScanning}
-                                                className="h-8 px-3 rounded-xl text-xs font-bold cursor-pointer"
-                                                title="Scan Bluetooth Low Energy (BLE) thermal printers"
-                                            >
-                                                Scan BLE
-                                            </Button>
-                                        )}
-                                    </>
-                                ) : formConfig.connection_type === 'direct_usb' ? (
+                            {isScanning && (
+                                <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                                    <FiRotateCw className="size-3 animate-spin" />
+                                    <span>Scanning...</span>
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Scanner Action Buttons (Full-Width Responsive Grid) */}
+                        {formConfig.connection_type === 'direct_bluetooth' ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <Button
+                                    type="button"
+                                    onClick={handleScanBluetoothSpp}
+                                    disabled={isScanning}
+                                    className="h-10 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs flex items-center justify-center gap-2"
+                                    title="Scan Bluetooth SPP / RFCOMM Link (Compatible with Android Chrome & Desktop Windows)"
+                                >
+                                    <FiBluetooth className="size-4 shrink-0" />
+                                    <span className="truncate">Scan Bluetooth (SPP)</span>
+                                </Button>
+                                {directUsbCapabilities.isWebBluetoothSupported ? (
                                     <Button
                                         type="button"
-                                        size="sm"
-                                        onClick={() => handleScan('direct_usb')}
+                                        variant="outline"
+                                        onClick={handleScanWebBluetooth}
                                         disabled={isScanning}
-                                        className="h-8 px-4 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
+                                        className="h-10 px-3.5 rounded-xl border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 text-xs font-bold cursor-pointer flex items-center justify-center gap-2"
+                                        title="Scan Bluetooth Low Energy (BLE) thermal printers"
                                     >
-                                        <FiZap className={cn("size-3.5 mr-1.5", isScanning && "animate-spin")} />
-                                        {isScanning ? 'Scanning...' : 'Pair USB Printer'}
+                                        <FiBluetooth className="size-4 shrink-0 text-blue-500" />
+                                        <span className="truncate">Scan BLE GATT</span>
                                     </Button>
                                 ) : (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={handleRunTestPrint}
-                                        disabled={isTesting}
-                                        className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
-                                    >
-                                        <FiPrinter className={cn("size-3.5 mr-1.5", isTesting && "animate-pulse")} />
-                                        {isTesting ? 'Testing...' : 'Test Universal Print'}
-                                    </Button>
+                                    <div className="flex items-center justify-center px-3 py-2 rounded-xl bg-gray-100 dark:bg-zinc-800/60 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+                                        Android & PC Serial Compatible
+                                    </div>
                                 )}
                             </div>
-                        </div>
+                        ) : formConfig.connection_type === 'direct_usb' ? (
+                            <Button
+                                type="button"
+                                onClick={() => handleScan('direct_usb')}
+                                disabled={isScanning}
+                                className="w-full h-10 px-4 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold cursor-pointer transition-all shadow-xs flex items-center justify-center gap-2"
+                            >
+                                <FiZap className={cn("size-4", isScanning && "animate-spin")} />
+                                <span>{isScanning ? 'Scanning for USB Printers...' : 'Pair USB Thermal Printer'}</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                onClick={handleRunTestPrint}
+                                disabled={isTesting}
+                                className="w-full h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs flex items-center justify-center gap-2"
+                            >
+                                <FiPrinter className={cn("size-4", isTesting && "animate-pulse")} />
+                                <span>{isTesting ? 'Testing Universal Print...' : 'Test Universal Print'}</span>
+                            </Button>
+                        )}
 
                         {/* Universal Web Mode Info Banner */}
                         {formConfig.connection_type === 'universal_browser' && (
@@ -550,23 +556,23 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                 {availableDetectedPrinters.map((p, idx) => (
                                     <div
                                         key={p.id || idx}
-                                        className="p-3 rounded-xl bg-white dark:bg-[#20202C] border border-gray-200 dark:border-zinc-700/60 flex items-center justify-between shadow-2xs"
+                                        className="p-3 rounded-xl bg-white dark:bg-[#20202C] border border-gray-200 dark:border-zinc-700/60 flex items-center justify-between gap-3 shadow-2xs"
                                     >
-                                        <div className="space-y-0.5">
-                                            <div className="flex items-center gap-2">
+                                        <div className="space-y-0.5 min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 {p.type === 'webbluetooth' || p.type === 'webserial' ? (
                                                     <FiBluetooth className="size-4 text-blue-500 shrink-0" />
                                                 ) : (
                                                     <FiPrinter className="size-4 text-[#E75480] shrink-0" />
                                                 )}
-                                                <span className="text-xs font-extrabold text-[#3D2C2E] dark:text-white">{p.name}</span>
+                                                <span className="text-xs font-extrabold text-[#3D2C2E] dark:text-white truncate">{p.name}</span>
                                                 {p.isDefault && (
-                                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded">
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded shrink-0">
                                                         Default
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-[10px] text-gray-500 dark:text-zinc-400 pl-6">{p.port || 'Bluetooth / USB'}</p>
+                                            <p className="text-[10px] text-gray-500 dark:text-zinc-400 pl-6 truncate">{p.port || 'Bluetooth / USB'}</p>
                                         </div>
 
                                         <Button
@@ -575,7 +581,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                             disabled={connectingId !== null}
                                             onClick={() => handleConnectPrinter(p)}
                                             className={cn(
-                                                "h-7 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-all",
+                                                "h-8 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-all shrink-0",
                                                 formConfig.printer_name === p.name && isConnected
                                                     ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                                     : "bg-[#E75480] text-white hover:bg-[#D43D69]"
