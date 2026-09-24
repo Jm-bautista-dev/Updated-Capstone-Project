@@ -666,4 +666,29 @@ class LoyverseHistoricalSalesImportTest extends TestCase
             ->has('stats')
         );
     }
+
+    /**
+     * Sales data management index page renders when a previous SalesImport exists
+     */
+    public function test_admin_sales_data_index_renders_with_existing_import(): void
+    {
+        \App\Models\SalesImport::create([
+            'uploaded_by' => $this->testAdmin->id,
+            'file_name' => 'loyverse_test.csv',
+            'import_mode' => 'add_new',
+            'records_imported' => 10,
+            'records_updated' => 0,
+            'records_skipped' => 0,
+            'status' => 'success',
+        ]);
+
+        $res = $this->actingAs($this->testAdmin)->get('/admin/sales-data');
+
+        $res->assertStatus(200);
+        $res->assertInertia(fn ($page) => $page
+            ->component('Admin/SalesDataManagement/Index')
+            ->where('stats.last_imported_by', $this->testAdmin->name)
+            ->whereNot('stats.last_import_date', null)
+        );
+    }
 }

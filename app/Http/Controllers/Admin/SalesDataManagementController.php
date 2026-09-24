@@ -55,7 +55,7 @@ class SalesDataManagementController extends Controller
         return Inertia::render('Admin/SalesDataManagement/Index', [
             'stats' => [
                 'total_sales_records' => $totalSales,
-                'last_import_date' => $lastImport ? $lastImport->created_at->toIso8String() : null,
+                'last_import_date' => $lastImport ? $lastImport->created_at?->toIso8601String() : null,
                 'last_imported_by' => $lastImport ? ($lastImport->user->name ?? 'Unknown') : null,
                 'duplicate_records_detected' => $duplicatesCount,
                 'data_integrity_status' => $integrityStatus,
