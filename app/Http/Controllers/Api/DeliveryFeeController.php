@@ -23,7 +23,7 @@ class DeliveryFeeController extends Controller
 
         $branchId = $validated['branch_id'] ?? 1;
         
-        /** @var \App\Models\Branch|null $branch */
+        /** @var Branch|null $branch */
         $branch = Branch::find($branchId);
 
         if (!$branch || !$branch->latitude || !$branch->longitude) {
