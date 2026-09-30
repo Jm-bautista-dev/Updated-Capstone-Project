@@ -177,122 +177,35 @@ class SalesDataManagementController extends Controller
         $fingerprintOccurrences = [];
 
         foreach ($rows as $index => $row) {
-            $rowNum = $index + 2; // 1-based, account for header row
-            $rowErrors = [];
+            $rowNum = $index + 2;
+            $res = $this->validateSingleRow(
+                $row,
+                $rowNum,
+                $mapping,
+                $branches,
+                $branchesById,
+                $products,
+                $productsById,
+                $productsBySku,
+                $explicitProductMappings,
+                $seenOrderNumbersInFile,
+                $fingerprintOccurrences,
+                $seenDuplicatesInFileCount,
+                $unmatchedProducts
+            );
 
-            // Extract row values based on header mapping
-            $branchVal = trim((string)($row[$mapping['branch']] ?? ''));
-            $productVal = trim((string)($row[$mapping['product']] ?? ''));
-            $qtyVal = trim((string)($row[$mapping['quantity']] ?? ''));
-            $totalVal = trim((string)($row[$mapping['total']] ?? ''));
-            $dateStr = trim((string)($row[$mapping['date']] ?? ''));
-            $orderNumFromRow = isset($mapping['order_number']) ? trim((string)($row[$mapping['order_number']] ?? '')) : '';
-            $unitPriceFromRow = isset($mapping['unit_price']) ? trim((string)($row[$mapping['unit_price']] ?? '')) : '';
-            $cashierVal = isset($mapping['cashier']) ? trim((string)($row[$mapping['cashier']] ?? '')) : '';
-
-            // 1. Validate Branch Reference
-            $resolvedBranch = null;
-            if (empty($branchVal)) {
-                $rowErrors[] = 'Branch is empty.';
-            } else {
-                $resolvedBranch = $this->resolveBranch($branchVal, $branches, $branchesById);
-                if (!$resolvedBranch) {
-                    $rowErrors[] = "Unknown branch: '{$branchVal}'.";
-                }
-            }
-
-            // 2. Validate Product Reference
-            $resolvedProduct = null;
-            if (empty($productVal)) {
-                $rowErrors[] = 'Product is empty.';
-            } else {
-                $resolvedProduct = $this->resolveProduct($productVal, $products, $productsById, $productsBySku, $explicitProductMappings);
-                if (!$resolvedProduct) {
-                    $rowErrors[] = "Product not found: '{$productVal}'.";
-                    $unmatchedProducts[strtolower(trim($productVal))] = $productVal;
-                }
-            }
-
-            // 3. Validate Quantity
-            $qty = null;
-            if ($qtyVal === '' || !is_numeric($qtyVal)) {
-                $rowErrors[] = "Invalid quantity '{$qtyVal}'. Must be a positive number.";
-            } else {
-                $qty = (float) $qtyVal;
-                if ($qty <= 0) {
-                    $rowErrors[] = "Invalid quantity '{$qtyVal}'. Must be greater than zero.";
-                }
-            }
-
-            // 4. Validate Total Price (Loyverse currency formats: ₱1782, ₱1,782.00, 1782, 1782.00)
-            $total = $this->parseCurrency($totalVal);
-            if ($total === null || $total < 0) {
-                $rowErrors[] = "Invalid Total Price on row {$rowNum}.";
-            }
-
-            // 5. Validate Date (Loyverse dates: "September 9 2026", Excel serial dates, etc.)
-            $parsedDate = $this->parseDate($dateStr);
-            if (!$parsedDate) {
-                $rowErrors[] = "Invalid date format '{$dateStr}'. Expected YYYY-MM-DD or Month Day Year.";
-            }
-
-            // 6. Resolve Order Number / Transaction Identity
-            $orderNum = '';
-            if (!empty($orderNumFromRow)) {
-                $orderNum = $orderNumFromRow;
-                if (isset($seenOrderNumbersInFile[$orderNum])) {
-                    $rowErrors[] = "Duplicate transaction ID '{$orderNum}' within this file.";
-                    $seenDuplicatesInFileCount++;
-                }
-                $seenOrderNumbersInFile[$orderNum] = $rowNum;
-            } elseif ($resolvedBranch && $resolvedProduct && $qty !== null && $total !== null && $parsedDate) {
-                // Determine occurrence index for repeated identical records in file
-                $fingerprint = $resolvedBranch->id . '_' . $resolvedProduct->id . '_' . $qty . '_' . $total . '_' . $parsedDate;
-                $occurrence = ($fingerprintOccurrences[$fingerprint] ?? 0) + 1;
-                $fingerprintOccurrences[$fingerprint] = $occurrence;
-
-                $orderNum = $this->generateCanonicalOrderNumber($resolvedBranch->id, $parsedDate, $resolvedProduct->id, $qty, $occurrence);
-
-                // Check if this canonical historical record already exists in database
-                if (Sale::where('order_number', $orderNum)->exists()) {
-                    $seenDuplicatesInFileCount++;
-                }
-            }
-
-            // 7. Unit Price calculation / preservation
-            $unitPrice = 0.00;
-            if (!empty($unitPriceFromRow)) {
-                $parsedUnitPrice = $this->parseCurrency($unitPriceFromRow);
-                $unitPrice = $parsedUnitPrice !== null ? $parsedUnitPrice : ($qty && $qty > 0 && $total !== null ? round($total / $qty, 2) : 0.00);
-            } elseif ($qty && $qty > 0 && $total !== null) {
-                $unitPrice = round($total / $qty, 2);
-            }
-
-            $isValid = count($rowErrors) === 0;
-            if ($isValid) {
+            if ($res['is_valid']) {
                 $validRows++;
             } else {
                 $invalidRows++;
                 $validationErrors[] = [
                     'row' => $rowNum,
-                    'errors' => $rowErrors
+                    'errors' => $res['errors']
                 ];
             }
 
             if ($index < 100) {
-                $previewRows[] = [
-                    'row' => $rowNum,
-                    'order_number' => $orderNum ?: "Row {$rowNum}",
-                    'date' => $parsedDate ?: $dateStr,
-                    'branch' => $branchVal,
-                    'product' => $productVal,
-                    'quantity' => $qtyVal,
-                    'unit_price' => number_format($unitPrice, 2, '.', ''),
-                    'total' => $total !== null ? number_format($total, 2, '.', '') : $totalVal,
-                    'cashier' => $cashierVal ?: 'Loyverse Historical',
-                    'is_valid' => $isValid,
-                    'errors' => $rowErrors
-                ];
+                $previewRows[] = $res['preview'];
             }
         }
 
@@ -416,158 +329,29 @@ class SalesDataManagementController extends Controller
                 $fingerprintOccurrences = [];
 
                 foreach ($rows as $row) {
-                    $branchVal = trim((string)($row[$mapping['branch']] ?? ''));
-                    $productVal = trim((string)($row[$mapping['product']] ?? ''));
-                    $qtyVal = trim((string)($row[$mapping['quantity']] ?? ''));
-                    $totalVal = trim((string)($row[$mapping['total']] ?? ''));
-                    $dateStr = trim((string)($row[$mapping['date']] ?? ''));
-                    $orderNumFromRow = isset($mapping['order_number']) ? trim((string)($row[$mapping['order_number']] ?? '')) : '';
-                    $unitPriceFromRow = isset($mapping['unit_price']) ? trim((string)($row[$mapping['unit_price']] ?? '')) : '';
-                    $cashierVal = isset($mapping['cashier']) ? trim((string)($row[$mapping['cashier']] ?? '')) : '';
-
-                    // Lookup branch & product
-                    $branch = $this->resolveBranch($branchVal, $branches, $branchesById);
-                    $product = $this->resolveProduct($productVal, $products, $productsById, $productsBySku, $mergedMappings);
-                    $parsedDate = $this->parseDate($dateStr);
-                    $total = $this->parseCurrency($totalVal);
-                    $qty = is_numeric($qtyVal) ? (float)$qtyVal : null;
-
-                    if (!$branch || !$product || $qty === null || $qty <= 0 || $total === null || $total < 0 || !$parsedDate) {
-                        $skippedCount++;
-                        continue;
-                    }
-
-                    // Track date range for summary report
-                    if ($minDate === null || $parsedDate < $minDate) $minDate = $parsedDate;
-                    if ($maxDate === null || $parsedDate > $maxDate) $maxDate = $parsedDate;
-
-                    // Cashier lookup: fallback to current admin
-                    $cleanCashier = strtolower(trim($cashierVal));
-                    $cashierId = $users->has($cleanCashier) ? $users->get($cleanCashier)->id : $currentUserId;
-
-                    // Resolve order number
-                    $isGeneratedOrderNumber = false;
-                    if (!empty($orderNumFromRow)) {
-                        $orderNum = $orderNumFromRow;
-                    } else {
-                        $isGeneratedOrderNumber = true;
-                        $fingerprint = $branch->id . '_' . $product->id . '_' . $qty . '_' . $total . '_' . $parsedDate;
-                        $occurrence = ($fingerprintOccurrences[$fingerprint] ?? 0) + 1;
-                        $fingerprintOccurrences[$fingerprint] = $occurrence;
-
-                        $orderNum = $this->generateCanonicalOrderNumber($branch->id, $parsedDate, $product->id, $qty, $occurrence);
-                    }
-
-                    // Check intra-upload duplicate when order_number was provided in file
-                    if (!$isGeneratedOrderNumber) {
-                        if (isset($seenOrderNumbersInUpload[$orderNum])) {
-                            $skippedCount++;
-                            $duplicatesSkippedCount++;
-                            continue;
-                        }
-                        $seenOrderNumbersInUpload[$orderNum] = true;
-                    }
-
-                    // Unit price calculation
-                    $unitPrice = 0.00;
-                    if (!empty($unitPriceFromRow)) {
-                        $parsedUnitPrice = $this->parseCurrency($unitPriceFromRow);
-                        $unitPrice = $parsedUnitPrice !== null ? $parsedUnitPrice : round($total / $qty, 2);
-                    } else {
-                        $unitPrice = round($total / $qty, 2);
-                    }
-
-                    // Historical timestamp: preserve exact historical calendar date at midnight
-                    $createdAt = Carbon::parse($parsedDate)->startOfDay();
-
-                    // Check existing database duplicate
-                    /** @var Sale|null $existingSale */
-                    $existingSale = Sale::where('order_number', $orderNum)->first();
-
-                    if ($existingSale) {
-                        if ($importMode === 'add_new' || $duplicateMode === 'skip') {
-                            $skippedCount++;
-                            $duplicatesSkippedCount++;
-                            continue;
-                        }
-
-                        // Duplicate mode: update existing historical sale
-                        // Note: historical cost remains 0.00 to prevent rewriting history with today's ingredient costs
-                        $existingSale->update([
-                            'branch_id' => $branch->id,
-                            'user_id' => $cashierId,
-                            'total' => $total,
-                            'subtotal' => $total,
-                            'paid_amount' => $total,
-                            'cost_total' => 0.00,
-                            'profit' => $total,
-                            'status' => 'completed',
-                            'source' => 'historical_import',
-                            'source_system' => 'Loyverse',
-                            'sales_import_id' => $salesImport->id,
-                            'updated_at' => now(),
-                        ]);
-
-                        $existingSale->items()->delete();
-                        SaleItem::create([
-                            'sale_id' => $existingSale->id,
-                            'product_id' => $product->id,
-                            'quantity' => $qty,
-                            'unit_price' => $unitPrice,
-                            'cost_price' => 0.00,
-                            'subtotal' => $total,
-                            'profit' => $total,
-                            'created_at' => $createdAt,
-                            'updated_at' => now(),
-                        ]);
-
-                        $updatedCount++;
-                    } else {
-                        // Create new historical Sale and SaleItem directly via Eloquent
-                        // Inventory and product stock are NOT deducted (historical migration data)
-                        try {
-                            $newSale = Sale::create([
-                                'order_number' => $orderNum,
-                                'user_id' => $cashierId,
-                                'branch_id' => $branch->id,
-                                'type' => 'dine-in',
-                                'total' => $total,
-                                'subtotal' => $total,
-                                'paid_amount' => $total,
-                                'change_amount' => 0,
-                                'payment_method' => 'cash',
-                                'status' => 'completed',
-                                'source' => 'historical_import',
-                                'source_system' => 'Loyverse',
-                                'sales_import_id' => $salesImport->id,
-                                'cost_total' => 0.00,
-                                'profit' => $total,
-                            ]);
-
-                            // Manually set historical timestamps
-                            $newSale->created_at = $createdAt;
-                            $newSale->updated_at = $createdAt;
-                            $newSale->save();
-
-                            SaleItem::create([
-                                'sale_id' => $newSale->id,
-                                'product_id' => $product->id,
-                                'quantity' => $qty,
-                                'unit_price' => $unitPrice,
-                                'cost_price' => 0.00,
-                                'subtotal' => $total,
-                                'profit' => $total,
-                                'created_at' => $createdAt,
-                                'updated_at' => $createdAt,
-                            ]);
-
-                            $importedCount++;
-                        } catch (\Illuminate\Database\UniqueConstraintViolationException | \Illuminate\Database\QueryException $e) {
-                            $skippedCount++;
-                            $duplicatesSkippedCount++;
-                            continue;
-                        }
-                    }
+                    $this->importSingleRow(
+                        $row,
+                        $mapping,
+                        $branches,
+                        $branchesById,
+                        $products,
+                        $productsById,
+                        $productsBySku,
+                        $mergedMappings,
+                        $users,
+                        $currentUserId,
+                        $salesImport,
+                        $importMode,
+                        $duplicateMode,
+                        $seenOrderNumbersInUpload,
+                        $fingerprintOccurrences,
+                        $minDate,
+                        $maxDate,
+                        $importedCount,
+                        $updatedCount,
+                        $skippedCount,
+                        $duplicatesSkippedCount
+                    );
                 }
 
                 // Finalize import header record
@@ -936,4 +720,302 @@ class SalesDataManagementController extends Controller
         $dateSlug = str_replace('-', '', $date);
         return "HIST-LOY-B{$branchId}-{$dateSlug}-P{$productId}-Q" . (int)$qty . "-OCC{$occurrence}";
     }
+
+    private function validateSingleRow(
+        array $row,
+        int $rowNum,
+        array $mapping,
+        $branches,
+        $branchesById,
+        $products,
+        $productsById,
+        $productsBySku,
+        array $explicitProductMappings,
+        array &$seenOrderNumbersInFile,
+        array &$fingerprintOccurrences,
+        int &$seenDuplicatesInFileCount,
+        array &$unmatchedProducts
+    ): array {
+        $rowErrors = [];
+
+        $branchVal = trim((string)($row[$mapping['branch']] ?? ''));
+        $productVal = trim((string)($row[$mapping['product']] ?? ''));
+        $qtyVal = trim((string)($row[$mapping['quantity']] ?? ''));
+        $totalVal = trim((string)($row[$mapping['total']] ?? ''));
+        $dateStr = trim((string)($row[$mapping['date']] ?? ''));
+        $orderNumFromRow = isset($mapping['order_number']) ? trim((string)($row[$mapping['order_number']] ?? '')) : '';
+        $unitPriceFromRow = isset($mapping['unit_price']) ? trim((string)($row[$mapping['unit_price']] ?? '')) : '';
+        $cashierVal = isset($mapping['cashier']) ? trim((string)($row[$mapping['cashier']] ?? '')) : '';
+
+        // 1. Validate Branch Reference
+        $resolvedBranch = null;
+        if (empty($branchVal)) {
+            $rowErrors[] = 'Branch is empty.';
+        } else {
+            $resolvedBranch = $this->resolveBranch($branchVal, $branches, $branchesById);
+            if (!$resolvedBranch) {
+                $rowErrors[] = "Unknown branch: '{$branchVal}'.";
+            }
+        }
+
+        // 2. Validate Product Reference
+        $resolvedProduct = null;
+        if (empty($productVal)) {
+            $rowErrors[] = 'Product is empty.';
+        } else {
+            $resolvedProduct = $this->resolveProduct($productVal, $products, $productsById, $productsBySku, $explicitProductMappings);
+            if (!$resolvedProduct) {
+                $rowErrors[] = "Product not found: '{$productVal}'.";
+                $unmatchedProducts[strtolower(trim($productVal))] = $productVal;
+            }
+        }
+
+        // 3. Validate Quantity
+        $qty = null;
+        if ($qtyVal === '' || !is_numeric($qtyVal)) {
+            $rowErrors[] = "Invalid quantity '{$qtyVal}'. Must be a positive number.";
+        } else {
+            $qty = (float) $qtyVal;
+            if ($qty <= 0) {
+                $rowErrors[] = "Invalid quantity '{$qtyVal}'. Must be greater than zero.";
+            }
+        }
+
+        // 4. Validate Total Price
+        $total = $this->parseCurrency($totalVal);
+        if ($total === null || $total < 0) {
+            $rowErrors[] = "Invalid Total Price on row {$rowNum}.";
+        }
+
+        // 5. Validate Date
+        $parsedDate = $this->parseDate($dateStr);
+        if (!$parsedDate) {
+            $rowErrors[] = "Invalid date format '{$dateStr}'. Expected YYYY-MM-DD or Month Day Year.";
+        }
+
+        // 6. Resolve Order Number / Transaction Identity
+        $orderNum = '';
+        if (!empty($orderNumFromRow)) {
+            $orderNum = $orderNumFromRow;
+            if (isset($seenOrderNumbersInFile[$orderNum])) {
+                $rowErrors[] = "Duplicate transaction ID '{$orderNum}' within this file.";
+                $seenDuplicatesInFileCount++;
+            }
+            $seenOrderNumbersInFile[$orderNum] = $rowNum;
+        } elseif ($resolvedBranch && $resolvedProduct && $qty !== null && $total !== null && $parsedDate) {
+            $fingerprint = $resolvedBranch->id . '_' . $resolvedProduct->id . '_' . $qty . '_' . $total . '_' . $parsedDate;
+            $occurrence = ($fingerprintOccurrences[$fingerprint] ?? 0) + 1;
+            $fingerprintOccurrences[$fingerprint] = $occurrence;
+
+            $orderNum = $this->generateCanonicalOrderNumber($resolvedBranch->id, $parsedDate, $resolvedProduct->id, $qty, $occurrence);
+
+            if (Sale::where('order_number', $orderNum)->exists()) {
+                $seenDuplicatesInFileCount++;
+            }
+        }
+
+        // 7. Unit Price calculation
+        $unitPrice = 0.00;
+        if (!empty($unitPriceFromRow)) {
+            $parsedUnitPrice = $this->parseCurrency($unitPriceFromRow);
+            $unitPrice = $parsedUnitPrice !== null ? $parsedUnitPrice : ($qty && $qty > 0 && $total !== null ? round($total / $qty, 2) : 0.00);
+        } elseif ($qty && $qty > 0 && $total !== null) {
+            $unitPrice = round($total / $qty, 2);
+        }
+
+        $isValid = count($rowErrors) === 0;
+
+        return [
+            'is_valid' => $isValid,
+            'errors' => $rowErrors,
+            'preview' => [
+                'row' => $rowNum,
+                'order_number' => $orderNum ?: "Row {$rowNum}",
+                'date' => $parsedDate ?: $dateStr,
+                'branch' => $branchVal,
+                'product' => $productVal,
+                'quantity' => $qtyVal,
+                'unit_price' => number_format($unitPrice, 2, '.', ''),
+                'total' => $total !== null ? number_format($total, 2, '.', '') : $totalVal,
+                'cashier' => $cashierVal ?: 'Loyverse Historical',
+                'is_valid' => $isValid,
+                'errors' => $rowErrors
+            ]
+        ];
+    }
+
+    private function importSingleRow(
+        array $row,
+        array $mapping,
+        $branches,
+        $branchesById,
+        $products,
+        $productsById,
+        $productsBySku,
+        array $mergedMappings,
+        $users,
+        int $currentUserId,
+        SalesImport $salesImport,
+        string $importMode,
+        string $duplicateMode,
+        array &$seenOrderNumbersInUpload,
+        array &$fingerprintOccurrences,
+        ?string &$minDate,
+        ?string &$maxDate,
+        int &$importedCount,
+        int &$updatedCount,
+        int &$skippedCount,
+        int &$duplicatesSkippedCount
+    ): void {
+        $branchVal = trim((string)($row[$mapping['branch']] ?? ''));
+        $productVal = trim((string)($row[$mapping['product']] ?? ''));
+        $qtyVal = trim((string)($row[$mapping['quantity']] ?? ''));
+        $totalVal = trim((string)($row[$mapping['total']] ?? ''));
+        $dateStr = trim((string)($row[$mapping['date']] ?? ''));
+        $orderNumFromRow = isset($mapping['order_number']) ? trim((string)($row[$mapping['order_number']] ?? '')) : '';
+        $unitPriceFromRow = isset($mapping['unit_price']) ? trim((string)($row[$mapping['unit_price']] ?? '')) : '';
+        $cashierVal = isset($mapping['cashier']) ? trim((string)($row[$mapping['cashier']] ?? '')) : '';
+
+        // Lookup branch & product
+        $branch = $this->resolveBranch($branchVal, $branches, $branchesById);
+        $product = $this->resolveProduct($productVal, $products, $productsById, $productsBySku, $mergedMappings);
+        $parsedDate = $this->parseDate($dateStr);
+        $total = $this->parseCurrency($totalVal);
+        $qty = is_numeric($qtyVal) ? (float)$qtyVal : null;
+
+        if (!$branch || !$product || $qty === null || $qty <= 0 || $total === null || $total < 0 || !$parsedDate) {
+            $skippedCount++;
+            return;
+        }
+
+        // Track date range for summary report
+        if ($minDate === null || $parsedDate < $minDate) $minDate = $parsedDate;
+        if ($maxDate === null || $parsedDate > $maxDate) $maxDate = $parsedDate;
+
+        // Cashier lookup: fallback to current admin
+        $cleanCashier = strtolower(trim($cashierVal));
+        $cashierId = $users->has($cleanCashier) ? $users->get($cleanCashier)->id : $currentUserId;
+
+        // Resolve order number
+        $isGeneratedOrderNumber = false;
+        if (!empty($orderNumFromRow)) {
+            $orderNum = $orderNumFromRow;
+        } else {
+            $isGeneratedOrderNumber = true;
+            $fingerprint = $branch->id . '_' . $product->id . '_' . $qty . '_' . $total . '_' . $parsedDate;
+            $occurrence = ($fingerprintOccurrences[$fingerprint] ?? 0) + 1;
+            $fingerprintOccurrences[$fingerprint] = $occurrence;
+
+            $orderNum = $this->generateCanonicalOrderNumber($branch->id, $parsedDate, $product->id, $qty, $occurrence);
+        }
+
+        // Check intra-upload duplicate when order_number was provided in file
+        if (!$isGeneratedOrderNumber) {
+            if (isset($seenOrderNumbersInUpload[$orderNum])) {
+                $skippedCount++;
+                $duplicatesSkippedCount++;
+                return;
+            }
+            $seenOrderNumbersInUpload[$orderNum] = true;
+        }
+
+        // Unit price calculation
+        $unitPrice = 0.00;
+        if (!empty($unitPriceFromRow)) {
+            $parsedUnitPrice = $this->parseCurrency($unitPriceFromRow);
+            $unitPrice = $parsedUnitPrice !== null ? $parsedUnitPrice : round($total / $qty, 2);
+        } else {
+            $unitPrice = round($total / $qty, 2);
+        }
+
+        // Historical timestamp: preserve exact historical calendar date at midnight
+        $createdAt = Carbon::parse($parsedDate)->startOfDay();
+
+        // Check existing database duplicate
+        /** @var Sale|null $existingSale */
+        $existingSale = Sale::where('order_number', $orderNum)->first();
+
+        if ($existingSale) {
+            if ($importMode === 'add_new' || $duplicateMode === 'skip') {
+                $skippedCount++;
+                $duplicatesSkippedCount++;
+                return;
+            }
+
+            // Duplicate mode: update existing historical sale
+            $existingSale->update([
+                'branch_id' => $branch->id,
+                'user_id' => $cashierId,
+                'total' => $total,
+                'subtotal' => $total,
+                'paid_amount' => $total,
+                'cost_total' => 0.00,
+                'profit' => $total,
+                'status' => 'completed',
+                'source' => 'historical_import',
+                'source_system' => 'Loyverse',
+                'sales_import_id' => $salesImport->id,
+                'updated_at' => now(),
+            ]);
+
+            $existingSale->items()->delete();
+            SaleItem::create([
+                'sale_id' => $existingSale->id,
+                'product_id' => $product->id,
+                'quantity' => $qty,
+                'unit_price' => $unitPrice,
+                'cost_price' => 0.00,
+                'subtotal' => $total,
+                'profit' => $total,
+                'created_at' => $createdAt,
+                'updated_at' => now(),
+            ]);
+
+            $updatedCount++;
+        } else {
+            // Create new historical Sale and SaleItem directly via Eloquent
+            try {
+                $newSale = Sale::create([
+                    'order_number' => $orderNum,
+                    'user_id' => $cashierId,
+                    'branch_id' => $branch->id,
+                    'type' => 'dine-in',
+                    'total' => $total,
+                    'subtotal' => $total,
+                    'paid_amount' => $total,
+                    'change_amount' => 0,
+                    'payment_method' => 'cash',
+                    'status' => 'completed',
+                    'source' => 'historical_import',
+                    'source_system' => 'Loyverse',
+                    'sales_import_id' => $salesImport->id,
+                    'cost_total' => 0.00,
+                    'profit' => $total,
+                ]);
+
+                $newSale->created_at = $createdAt;
+                $newSale->updated_at = $createdAt;
+                $newSale->save();
+
+                SaleItem::create([
+                    'sale_id' => $newSale->id,
+                    'product_id' => $product->id,
+                    'quantity' => $qty,
+                    'unit_price' => $unitPrice,
+                    'cost_price' => 0.00,
+                    'subtotal' => $total,
+                    'profit' => $total,
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                ]);
+
+                $importedCount++;
+            } catch (\Illuminate\Database\UniqueConstraintViolationException | \Illuminate\Database\QueryException $e) {
+                $skippedCount++;
+                $duplicatesSkippedCount++;
+                return;
+            }
+        }
+    }
 }
+

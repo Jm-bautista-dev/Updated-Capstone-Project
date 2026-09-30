@@ -15,9 +15,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
-$adminUser = User::where('role', 'admin')->first() ?: User::first();
-Auth::login($adminUser);
-
 function makeRequest(array $params = []): Request {
     $req = Request::create('/products', 'GET', $params, [], [], [
         'REMOTE_ADDR' => '127.0.0.1',
@@ -29,24 +26,29 @@ function makeRequest(array $params = []): Request {
     return $req;
 }
 
-// Test with current implementation
-DB::flushQueryLog();
-DB::enableQueryLog();
+function runBenchmark(): void {
+    $adminUser = User::where('role', 'admin')->first() ?: User::first();
+    Auth::login($adminUser);
 
-$startTime = microtime(true);
-$productsController = app(\App\Http\Controllers\ProductsController::class);
-$response = $productsController->index(makeRequest());
-$httpResponse = $response->toResponse(makeRequest());
-$content = $httpResponse->getContent();
-$endTime = microtime(true);
+    // Test with current implementation
+    DB::flushQueryLog();
+    DB::enableQueryLog();
 
-$queriesBefore = DB::getQueryLog();
-DB::disableQueryLog();
+    $startTime = microtime(true);
+    $productsController = app(\App\Http\Controllers\ProductsController::class);
+    $response = $productsController->index(makeRequest());
+    $httpResponse = $response->toResponse(makeRequest());
+    $content = $httpResponse->getContent();
+    $endTime = microtime(true);
 
-echo "BEFORE OPTIMIZATION:\n";
-echo "Queries: " . count($queriesBefore) . "\n";
-echo "Time: " . round(($endTime - $startTime) * 1000, 2) . " ms\n";
-echo "Response Size: " . round(strlen($content) / 1024, 2) . " KB\n\n";
+    $queriesBefore = DB::getQueryLog();
+    DB::disableQueryLog();
+
+    echo "BEFORE OPTIMIZATION:\n";
+    echo "Queries: " . count($queriesBefore) . "\n";
+    echo "Time: " . round(($endTime - $startTime) * 1000, 2) . " ms\n";
+    echo "Response Size: " . round(strlen($content) / 1024, 2) . " KB\n\n";
+}
 
 class OptimizedProduct extends Product {
     protected $table = 'products';
@@ -411,75 +413,72 @@ class OptimizedProduct extends Product {
     }
 }
 
-// Run test with simulated controller logic using OptimizedProduct
-DB::flushQueryLog();
-DB::enableQueryLog();
-$startOptTime = microtime(true);
+function runOptimizedBenchmark(int $queriesBeforeCount, float $startTime): void {
+    $adminUser = User::where('role', 'admin')->first() ?: User::first();
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $startOptTime = microtime(true);
 
-$branches = Branch::orderBy('name')->get();
-$branchId = null;
+    $branches = Branch::orderBy('name')->get();
+    $branchId = null;
 
-$query = OptimizedProduct::query()->with(['category', 'ingredients.stocks', 'branch', 'branches', 'addons']);
-$products = $query->orderBy('name')->get()->map(function ($product) use ($branchId, $branches, $adminUser) {
-    $availability = $product->dynamicAvailability($branchId, $branches);
-    $product->stock = (float) $availability['available'];
-    $product->is_available = (bool) $availability['is_available'];
-    $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
-    $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
-    $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
-    $product->max_servings = $availability['max_servings'] ?? $product->stock;
-    $product->is_low_stock = (bool) $availability['is_low_stock'];
-    $product->status = $availability['status_label'] ?? ($product->is_available ? ($product->stock <= 5 ? 'Low Stock' : 'In Stock') : 'Out of Stock');
-    $product->availability_status = $availability['status'] ?? (!$product->is_available ? 'OUT_OF_STOCK' : ($product->stock <= 5 ? 'LOW_STOCK' : 'IN_STOCK'));
-    $product->branch_breakdown = $availability['branch_breakdown'] ?? [];
+    $query = OptimizedProduct::query()->with(['category', 'ingredients.stocks', 'branch', 'branches', 'addons']);
+    $products = $query->orderBy('name')->get()->map(function ($product) use ($branchId, $branches) {
+        $availability = $product->dynamicAvailability($branchId, $branches);
+        $product->stock = (float) $availability['available'];
+        $product->is_available = (bool) $availability['is_available'];
+        $product->limiting_ingredient = $availability['limiting_ingredient'] ?? null;
+        $product->blocking_ingredients = $availability['blocking_ingredients'] ?? [];
+        $product->insufficient_ingredients = $availability['insufficient_ingredients'] ?? [];
+        $product->max_servings = $availability['max_servings'] ?? $product->stock;
+        $product->is_low_stock = (bool) $availability['is_low_stock'];
+        $product->status = $availability['status_label'] ?? ($product->is_available ? ($product->stock <= 5 ? 'Low Stock' : 'In Stock') : 'Out of Stock');
+        $product->availability_status = $availability['status'] ?? (!$product->is_available ? 'OUT_OF_STOCK' : ($product->stock <= 5 ? 'LOW_STOCK' : 'IN_STOCK'));
+        $product->branch_breakdown = $availability['branch_breakdown'] ?? [];
 
-    $automaticCost = $product->getAutomaticCost($branchId);
-    $costPrice = ($product->isManualCosting() && $product->manual_cost !== null) ? round((float)$product->manual_cost, 4) : $automaticCost;
-    $product->cost_price = $costPrice;
-    $product->cost = $costPrice;
-    $product->has_cost = $costPrice > 0;
-    $product->costing_method = $product->costing_method ?? 'automatic';
-    $product->manual_cost = $product->manual_cost !== null ? (float) $product->manual_cost : null;
-    $product->automatic_cost = $automaticCost;
+        $automaticCost = $product->getAutomaticCost($branchId);
+        $costPrice = ($product->isManualCosting() && $product->manual_cost !== null) ? round((float)$product->manual_cost, 4) : $automaticCost;
+        $product->cost_price = $costPrice;
+        $product->cost = $costPrice;
+        $product->has_cost = $costPrice > 0;
+        $product->costing_method = $product->costing_method ?? 'automatic';
+        $product->manual_cost = $product->manual_cost !== null ? (float) $product->manual_cost : null;
+        $product->automatic_cost = $automaticCost;
 
-    $product->is_direct = !$product->hasRecipe();
-    return $product;
-});
+        $product->is_direct = !$product->hasRecipe();
+        return $product;
+    });
 
-$summary = [
-    'total_products' => $products->count(),
-    'low_stock'      => $products->filter(fn($p) => $p->stock > 0 && $p->stock <= 5)->count(),
-    'out_of_stock'   => $products->filter(fn($p) => $p->stock <= 0)->count(),
-];
+    $summary = [
+        'total_products' => $products->count(),
+        'low_stock'      => $products->filter(fn($p) => $p->stock > 0 && $p->stock <= 5)->count(),
+        'out_of_stock'   => $products->filter(fn($p) => $p->stock <= 0)->count(),
+    ];
 
-$categoriesQuery = Category::query()->orderBy('name');
-$ingredientsQuery = Ingredient::orderBy('name')->with('stocks');
+    $categoriesQuery = Category::query()->orderBy('name');
+    $ingredientsQuery = Ingredient::orderBy('name')->with('stocks');
 
-$inertiaResponse = inertia('Products/Index', [
-    'products'        => $products,
-    'categories'      => $categoriesQuery->get(),
-    'ingredients'     => $ingredientsQuery->get(),
-    'globalAddons'    => \App\Models\AddOn::active()->orderBy('name')->get(['id', 'name', 'price', 'cost_price', 'is_active', 'stock_linked']),
-    'summary'         => $summary,
-    'branches'        => $branches,
-    'allowedUnits'    => \App\Utils\UnitConverter::getAllowedUnits(),
-    'currentBranchId' => $branchId,
-    'isAdmin'         => true,
-    'filters'         => [],
-])->toResponse(makeRequest());
+    $inertiaResponse = inertia('Products/Index', [
+        'products'        => $products,
+        'categories'      => $categoriesQuery->get(),
+        'ingredients'     => $ingredientsQuery->get(),
+        'globalAddons'    => \App\Models\AddOn::active()->orderBy('name')->get(['id', 'name', 'price', 'cost_price', 'is_active', 'stock_linked']),
+        'summary'         => $summary,
+        'branches'        => $branches,
+        'allowedUnits'    => \App\Utils\UnitConverter::getAllowedUnits(),
+        'currentBranchId' => $branchId,
+        'isAdmin'         => true,
+        'filters'         => [],
+    ])->toResponse(makeRequest());
 
-$optContent = $inertiaResponse->getContent();
-$endOptTime = microtime(true);
+    $optContent = $inertiaResponse->getContent();
+    $endOptTime = microtime(true);
 
-$queriesAfter = DB::getQueryLog();
-DB::disableQueryLog();
+    $queriesAfter = DB::getQueryLog();
+    DB::disableQueryLog();
 
-echo "AFTER OPTIMIZATION (SIMULATED):\n";
-echo "Queries: " . count($queriesAfter) . " (Reduced from " . count($queriesBefore) . " — " . round((1 - count($queriesAfter)/count($queriesBefore)) * 100, 1) . "% reduction!)\n";
-echo "Time: " . round(($endOptTime - $startOptTime) * 1000, 2) . " ms (Reduced from " . round(($endTime - $startTime) * 1000, 2) . " ms)\n";
-echo "Response Size: " . round(strlen($optContent) / 1024, 2) . " KB (Reduced from " . round(strlen($content) / 1024, 2) . " KB)\n";
-
-echo "\nRemaining queries:\n";
-foreach ($queriesAfter as $i => $q) {
-    echo "[" . ($i + 1) . "] " . substr($q['query'], 0, 100) . "...\n";
+    echo "AFTER OPTIMIZATION (SIMULATED):\n";
+    echo "Queries: " . count($queriesAfter) . " (Reduced from " . $queriesBeforeCount . ")\n";
+    echo "Time: " . round(($endOptTime - $startOptTime) * 1000, 2) . " ms\n";
+    echo "Response Size: " . round(strlen($optContent) / 1024, 2) . " KB\n\n";
 }
