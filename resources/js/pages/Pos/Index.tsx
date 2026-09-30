@@ -581,9 +581,45 @@ export default function PosIndex() {
           changeAmount: Number(paymentMethod === 'cash' ? changeDue : 0),
           paymentMethod: paymentMethod,
         };
+        // 1. Build immutable receipt data from the completed transaction
+        const effectiveReceiptItems = cart.map(item => ({
+          name: item.name,
+          quantity: Number(item.quantity || 1),
+          unit_price: Number(item.selling_price || item.price || 0),
+          subtotal: Number(item.selling_price || item.price || 0) * Number(item.quantity || 1),
+          addons: item.selected_addons?.map(a => ({ name: a.name, price: Number(a.price || 0) })) || []
+        }));
+
+        const effectivePrintJob: LocalPrintJobPayload = printJob || {
+          job_uuid: `pos-local-${Date.now()}`,
+          order_number: orderNum,
+          paper_width: 58,
+          receipt_data: {
+            branch_name: branch?.name || 'VICTORIA',
+            branch_address: branch?.address || '',
+            order_number: orderNum,
+            date_time: new Date().toLocaleString('en-PH'),
+            fulfillment_type: (orderType || 'DINE-IN').toUpperCase(),
+            cashier_name: cashier?.name || 'Staff',
+            customer_name: deliveryInfo.customer_name || activeDiscount?.customer_name,
+            customer_phone: deliveryInfo.customer_phone,
+            items: effectiveReceiptItems,
+            subtotal: Number(cartSubtotal),
+            discount: Number(discountAmount),
+            discount_type: activeDiscount?.type,
+            delivery_fee: Number(orderType === 'delivery' ? deliveryFee : 0),
+            total: Number(cartTotal),
+            payment_method: paymentMethod.toUpperCase(),
+            paid_amount: Number(paid),
+            change_amount: Number(paymentMethod === 'cash' ? changeDue : 0),
+            paper_width: 58,
+          }
+        };
+
+        setActivePrintJob(effectivePrintJob);
         setLastSaleSummary(summary);
 
-        // 1. Immediately reset cart and kiosk view to ready state
+        // 2. Safely reset cart and kiosk input state now that transaction & receipt data is preserved
         setCart([]);
         setActiveDiscount(null);
         setCashReceived('');
@@ -603,23 +639,22 @@ export default function PosIndex() {
         setKioskStep('browse');
         setOrderType('dine-in');
 
-        // 2. Dispatch thermal printing (Universal Zero-Install or Direct Hardware)
-        if (printJob) {
-          setActivePrintJob(printJob);
-
-          if (printerConfig.connection_type === 'universal_browser') {
-            if (printerConfig.auto_print) {
-              triggerBrowserThermalPrint();
-            }
-            setReceiptPrintStatus('success');
-            setIsReceiptModalOpen(true);
-            toast.success(`✓ Order #${orderNum} Completed`, {
-              description: printerConfig.auto_print ? 'Receipt sent to print dialog.' : 'Order saved. Click below to print.',
-              duration: 3500,
-            });
-          } else if (printerConfig.auto_print) {
-            setReceiptPrintStatus('printing');
-            const printResult = await printReceiptToThermalPrinter(printJob, printerConfig);
+        // 3. Dispatch thermal printing (Universal Zero-Install or Direct Hardware)
+        if (printerConfig.connection_type === 'universal_browser') {
+          if (printerConfig.auto_print) {
+            triggerBrowserThermalPrint();
+          }
+          setReceiptPrintStatus('success');
+          setIsReceiptModalOpen(true);
+          toast.success(`✓ Order #${orderNum} Completed`, {
+            description: printerConfig.auto_print ? 'Receipt sent to print dialog.' : 'Order saved. Click below to print.',
+            duration: 3500,
+          });
+        } else if (printerConfig.auto_print) {
+          setReceiptPrintStatus('printing');
+          setIsReceiptModalOpen(true);
+          try {
+            const printResult = await printReceiptToThermalPrinter(effectivePrintJob, printerConfig);
             if (printResult.success) {
               setReceiptPrintStatus('success');
               toast.success(`✓ Order #${orderNum} Completed (Receipt printed)`, {
@@ -627,23 +662,24 @@ export default function PosIndex() {
               });
             } else {
               setReceiptPrintStatus('failed');
-              setIsReceiptModalOpen(true);
               toast.warning(`⚠️ Order #${orderNum} Completed`, {
-                description: 'Direct printer offline. Click below to print via browser.',
+                description: 'Direct printer offline or unavailable. Tap Print 58mm Receipt.',
                 duration: 4500,
               });
             }
-          } else {
-            // Auto-print is disabled in settings — open modal for manual review/print
-            setReceiptPrintStatus('idle');
-            setIsReceiptModalOpen(true);
-            toast.success(`✓ Order #${orderNum} Completed`, {
-              description: 'Click below to print receipt.',
-              duration: 3500,
+          } catch {
+            setReceiptPrintStatus('failed');
+            toast.warning(`⚠️ Order #${orderNum} Completed`, {
+              description: 'Direct printer error. Tap Print 58mm Receipt.',
+              duration: 4500,
             });
           }
         } else {
+          // Auto-print is disabled in settings — open modal for manual review/print
+          setReceiptPrintStatus('idle');
+          setIsReceiptModalOpen(true);
           toast.success(`✓ Order #${orderNum} Completed`, {
+            description: 'Order saved. Click below to print receipt.',
             duration: 3500,
           });
         }

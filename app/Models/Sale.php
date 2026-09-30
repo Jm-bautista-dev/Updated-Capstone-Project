@@ -242,6 +242,11 @@ class Sale extends Model
         return $this->hasMany(PrintJob::class);
     }
 
+    public function printJob()
+    {
+        return $this->hasOne(PrintJob::class)->latestOfMany();
+    }
+
     public function delivery()
     {
         return $this->hasOne(Delivery::class);

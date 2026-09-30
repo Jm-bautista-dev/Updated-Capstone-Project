@@ -237,7 +237,22 @@ class PosController extends Controller
                 'terminal_id'     => $request->input('terminal_id', 'POS-1'),
             ]));
 
-            $printJob = $sale->printJob ?? null;
+            $printJob = ($sale->relationLoaded('printJob') ? $sale->printJob : null) 
+                ?: $sale->printJobs()->latest()->first();
+
+            if (!$printJob) {
+                try {
+                    /** @var \App\Services\PrintJobService $printJobService */
+                    $printJobService = app(\App\Services\PrintJobService::class);
+                    $printJob = $printJobService->createForSale(
+                        $sale,
+                        $request->input('idempotency_key'),
+                        $request->input('terminal_id', 'POS-1')
+                    );
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('PosController print job fallback failed: ' . $e->getMessage());
+                }
+            }
 
             // 1. Inertia requests MUST receive a valid Inertia response (redirect back with session flash)
             if ($request->header('X-Inertia')) {

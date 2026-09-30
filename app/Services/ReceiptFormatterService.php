@@ -51,6 +51,18 @@ class ReceiptFormatterService
      */
     public function buildReceiptData(Sale|Order $record, ?string $jobType = 'receipt', ?string $reprintReason = null, ?int $paperWidthOverride = null): array
     {
+        if ($record instanceof Sale) {
+            $record->loadMissing(['delivery', 'order', 'branch', 'user']);
+            if (!$record->delivery) {
+                $record->load('delivery');
+            }
+        } elseif ($record instanceof Order) {
+            $record->loadMissing(['delivery', 'branch', 'user']);
+            if (!$record->delivery) {
+                $record->load('delivery');
+            }
+        }
+
         $isSale = $record instanceof Sale;
         $branch = $record->branch ?? ($record->branch_id ? Branch::find($record->branch_id) : null);
         $branchHeading = self::formatBranchHeading($branch?->name);
@@ -104,9 +116,11 @@ class ReceiptFormatterService
         $changeAmount = (float) ($record->change_amount ?? max(0, $paidAmount - $total));
         $paymentMethod = strtoupper((string) ($record->payment_method ?? 'CASH'));
 
-        $customerName = $record->customer_name ?? $record->delivery?->customer_name ?? null;
-        $customerPhone = $record->contact_number ?? $record->delivery?->customer_phone ?? null;
-        $customerAddress = $record->address ?? $record->delivery?->customer_address ?? null;
+        $customerName = $record->delivery?->customer_name
+            ?? $record->order?->customer_name
+            ?? ($record->customer_name && $record->customer_name !== 'Walk-in Customer' ? $record->customer_name : null)
+            ?? ($record instanceof Sale ? null : $record->customer_name);
+        $customerPhone = $record->contact_number ?? $record->delivery?->customer_phone ?? $record->order?->contact_number ?? null;
         $cashierName = $record->user?->name ?? $record->cashier?->name ?? 'Staff';
 
         $scheduledPickupAt = $record->scheduled_pickup_at 
@@ -129,7 +143,6 @@ class ReceiptFormatterService
             'pickup_verification_code' => $pickupVerificationCode,
             'customer_name'            => $customerName,
             'customer_phone'           => $customerPhone,
-            'customer_address'         => $customerAddress,
             'cashier_name'             => $cashierName,
             'items'                    => $items,
             'subtotal'                 => $subtotal,
@@ -193,9 +206,6 @@ class ReceiptFormatterService
 
         if (!empty($data['customer_name'])) {
             $lines[] = mb_strimwidth("Customer: {$data['customer_name']}", 0, $cols, '..');
-        }
-        if (!empty($data['customer_address'])) {
-            $lines[] = mb_strimwidth("Address: {$data['customer_address']}", 0, $cols, '..');
         }
 
         $lines[] = $divider;
@@ -325,9 +335,6 @@ class ReceiptFormatterService
         }
         if (!empty($data['customer_name'])) {
             $out .= mb_strimwidth("Customer: {$data['customer_name']}", 0, $cols, '..') . "\n";
-        }
-        if (!empty($data['customer_address'])) {
-            $out .= mb_strimwidth("Address: {$data['customer_address']}", 0, $cols, '..') . "\n";
         }
         $out .= str_repeat('-', $cols) . "\n";
 

@@ -16,7 +16,14 @@ export const ThermalReceipt58mm: React.FC<ThermalReceipt58mmProps> = ({
     isPrintOnly = false,
 }) => {
     if (!receiptData && !formattedText) {
-        return null;
+        if (isPrintOnly) {
+            return null;
+        }
+        return (
+            <div className={`w-[58mm] max-w-[58mm] p-4 bg-white text-gray-500 font-mono text-xs text-center border border-dashed border-gray-300 rounded-lg ${className}`}>
+                Receipt details unavailable.
+            </div>
+        );
     }
 
     const branchName = formatReceiptBranchHeading(receiptData?.branch_name);
@@ -128,11 +135,6 @@ export const ThermalReceipt58mm: React.FC<ThermalReceipt58mmProps> = ({
                     )}
                     {receiptData?.customer_phone && (
                         <div>Phone: {receiptData.customer_phone}</div>
-                    )}
-                    {receiptData?.customer_address && (
-                        <div className="text-[9.5px] leading-tight">
-                            Addr: {receiptData.customer_address}
-                        </div>
                     )}
                 </div>
 

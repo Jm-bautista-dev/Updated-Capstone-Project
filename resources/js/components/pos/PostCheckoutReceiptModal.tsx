@@ -80,16 +80,38 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
     const totalAmount = printJob?.receipt_data?.total ?? saleSummary?.total ?? 0;
     const changeAmount = printJob?.receipt_data?.change_amount ?? saleSummary?.changeAmount ?? 0;
 
+    const effectiveReceiptData: ReceiptDataPayload = React.useMemo(() => {
+        if (printJob?.receipt_data) {
+            return printJob.receipt_data;
+        }
+        return {
+            branch_name: branchName || 'VICTORIA',
+            order_number: orderNum,
+            date_time: new Date().toLocaleString('en-PH'),
+            fulfillment_type: 'IN-STORE',
+            cashier_name: 'Staff',
+            items: [],
+            subtotal: Number(totalAmount),
+            total: Number(totalAmount),
+            payment_method: (saleSummary?.paymentMethod || 'CASH').toUpperCase(),
+            paid_amount: Number(saleSummary?.paidAmount ?? totalAmount),
+            change_amount: Number(changeAmount),
+            paper_width: 58,
+        };
+    }, [printJob, branchName, orderNum, totalAmount, saleSummary, changeAmount]);
+
     /**
      * Safe Retry Silent Print:
      * Dispatches to direct hardware or print bridge.
      * Guaranteed zero effect on sales, inventory, or payments.
      */
     const handleRetrySilentPrint = async () => {
-        if (!printJob) {
-            toast.error('No receipt payload available for reprinting.');
-            return;
-        }
+        const effectiveJob: LocalPrintJobPayload = printJob || {
+            job_uuid: `local-retry-${Date.now()}`,
+            order_number: orderNum,
+            paper_width: 58,
+            receipt_data: effectiveReceiptData,
+        };
 
         const currentConfig = getPrinterConfig();
         setIsRetrying(true);
@@ -97,7 +119,7 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
         setStatusMessage('Sending receipt to thermal printer...');
 
         try {
-            const res = await printReceiptToThermalPrinter(printJob, currentConfig);
+            const res = await printReceiptToThermalPrinter(effectiveJob, currentConfig);
             if (res.success) {
                 setStatus('success');
                 setStatusMessage('Receipt sent to printer.');
@@ -220,7 +242,7 @@ export const PostCheckoutReceiptModal: React.FC<PostCheckoutReceiptModalProps> =
                                 58mm Thermal Receipt Preview
                             </div>
                             <ThermalReceipt58mm
-                                receiptData={printJob?.receipt_data}
+                                receiptData={effectiveReceiptData}
                                 formattedText={printJob?.formatted_text}
                                 className="shadow-none border-0"
                             />

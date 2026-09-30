@@ -55,15 +55,15 @@ export function SalesDrawer({
 
     const mappedReceiptData = useMemo(() => {
         if (!sale) return null;
-        let customerName: string | undefined = undefined;
-        if (typeof sale.discount_details === 'string') {
+        let customerName: string | undefined = sale.customer_name || sale.delivery?.customer_name || sale.order?.customer_name;
+        if (!customerName && typeof sale.discount_details === 'string') {
             try {
                 const parsed = JSON.parse(sale.discount_details);
                 customerName = parsed?.customer_name;
             } catch {
                 customerName = undefined;
             }
-        } else if (typeof sale.discount_details === 'object' && sale.discount_details) {
+        } else if (!customerName && typeof sale.discount_details === 'object' && sale.discount_details) {
             customerName = (sale.discount_details as Record<string, unknown>)?.customer_name as string | undefined;
         }
 

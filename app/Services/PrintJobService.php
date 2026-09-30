@@ -40,7 +40,7 @@ class PrintJobService
         }
 
         // 2. Build receipt data and payloads
-        $sale->loadMissing(['items.product', 'branch', 'user']);
+        $sale->loadMissing(['items.product', 'branch', 'user', 'delivery']);
         $receiptData = $this->formatter->buildReceiptData($sale, PrintJob::TYPE_RECEIPT);
         $paperWidth = (int) ($receiptData['paper_width'] ?? 80);
         $plainText = $this->formatter->formatPlainText($receiptData, $paperWidth);
@@ -97,8 +97,8 @@ class PrintJobService
         ?string $reason = 'Customer requested duplicate receipt'
     ): PrintJob {
         $record = ($recordType === 'order')
-            ? Order::with(['items.product', 'branch', 'user'])->findOrFail($recordId)
-            : Sale::with(['items.product', 'branch', 'user'])->findOrFail($recordId);
+            ? Order::with(['items.product', 'branch', 'user', 'delivery'])->findOrFail($recordId)
+            : Sale::with(['items.product', 'branch', 'user', 'delivery'])->findOrFail($recordId);
 
         $receiptData = $this->formatter->buildReceiptData($record, PrintJob::TYPE_REPRINT, $reason);
         $paperWidth = (int) ($receiptData['paper_width'] ?? 80);

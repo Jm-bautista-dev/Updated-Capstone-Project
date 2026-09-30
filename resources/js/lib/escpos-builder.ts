@@ -238,7 +238,6 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
         builder.separator('-');
         builder.line(`Customer: ${data.customer_name}`);
         if (data.customer_phone) builder.line(`Phone: ${data.customer_phone}`);
-        if (data.customer_address) builder.line(`Address: ${data.customer_address}`);
     }
 
     builder.separator('=');
