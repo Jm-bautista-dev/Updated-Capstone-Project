@@ -1,6 +1,6 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { BookOpen, Folder, LayoutGrid, Menu, Search, Database } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
 import {
     Sheet,
     SheetContent,
+    SheetDescription,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
@@ -85,9 +86,26 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const { auth } = page.props;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
+    const [mobileOpen, setMobileOpen] = useState(false);
 
-    const filteredNavItems = React.useMemo(() => {
-        if (auth.user.role === 'admin') {
+    // Automatically close mobile menu on page navigation to avoid getting stuck or locking scroll
+    useEffect(() => {
+        const removeStartListener = router.on('start', () => {
+            setMobileOpen(false);
+            document.body.style.removeProperty('pointer-events');
+        });
+        const removeNavigateListener = router.on('navigate', () => {
+            setMobileOpen(false);
+            document.body.style.removeProperty('pointer-events');
+        });
+        return () => {
+            removeStartListener();
+            removeNavigateListener();
+        };
+    }, []);
+
+    const filteredNavItems = useMemo(() => {
+        if (auth.user.role === 'admin' || auth.user.role === 'super_admin') {
             return mainNavItems.filter(item => item.title !== 'Pos');
         }
 
@@ -102,54 +120,69 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                 <div className="mx-auto flex h-16 items-center px-4 md:max-w-7xl">
                     {/* Mobile Menu */}
                     <div className="lg:hidden">
-                        <Sheet>
+                        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                             <SheetTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="mr-2 h-[34px] w-[34px]"
+                                    className="mr-2 h-8.5 w-8.5"
+                                    aria-label="Toggle Navigation Menu"
+                                    aria-expanded={mobileOpen}
                                 >
                                     <Menu className="h-5 w-5" />
                                 </Button>
                             </SheetTrigger>
                             <SheetContent
                                 side="left"
-                                className="flex h-full w-64 flex-col items-stretch justify-between bg-sidebar"
+                                className="flex h-full w-64 flex-col items-stretch justify-between bg-sidebar p-0"
                             >
-                                <SheetTitle className="sr-only">
-                                    Navigation Menu
-                                </SheetTitle>
-                                <SheetHeader className="flex justify-start text-left">
-                                    <AppLogoIcon className="h-6 w-6 fill-current text-black dark:text-white" />
+                                <SheetHeader className="p-4 border-b border-sidebar-border/60">
+                                    <SheetTitle className="text-left font-black tracking-tight text-sm uppercase flex items-center gap-2">
+                                        <AppLogoIcon className="h-6 w-6 fill-current text-black dark:text-white" />
+                                        <span>Maki Desu</span>
+                                    </SheetTitle>
+                                    <SheetDescription className="sr-only">
+                                        Navigation Menu
+                                    </SheetDescription>
                                 </SheetHeader>
-                                <div className="flex h-full flex-1 flex-col space-y-4 p-4">
+                                <div className="flex h-full flex-1 flex-col space-y-4 p-4 overflow-y-auto">
                                     <div className="flex h-full flex-col justify-between text-sm">
-                                        <div className="flex flex-col space-y-4">
-                                            {filteredNavItems.map((item) => (
-                                                <Link
-                                                    key={item.title}
-                                                    href={item.href}
-                                                    className="flex items-center space-x-2 font-medium"
-                                                >
-                                                    {item.icon && (
-                                                        <item.icon className="h-5 w-5" />
-                                                    )}
-                                                    <span>{item.title}</span>
-                                                </Link>
-                                            ))}
+                                        <div className="flex flex-col space-y-1">
+                                            {filteredNavItems.map((item) => {
+                                                const active = isCurrentUrl(item.href);
+                                                return (
+                                                    <Link
+                                                        key={item.title}
+                                                        href={item.href}
+                                                        onClick={() => setMobileOpen(false)}
+                                                        className={cn(
+                                                            "flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors",
+                                                            active
+                                                                ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                                                                : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground"
+                                                        )}
+                                                    >
+                                                        {item.icon && (
+                                                            <item.icon className="h-4.5 w-4.5" />
+                                                        )}
+                                                        <span>{item.title}</span>
+                                                    </Link>
+                                                );
+                                            })}
                                         </div>
 
-                                        <div className="flex flex-col space-y-4">
+                                        <div className="flex flex-col space-y-1 pt-4 border-t border-sidebar-border/60">
                                             {rightNavItems.map((item) => (
                                                 <a
                                                     key={item.title}
                                                     href={toUrl(item.href)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="flex items-center space-x-2 font-medium"
+                                                    onClick={() => setMobileOpen(false)}
+                                                    className="flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
                                                 >
                                                     {item.icon && (
-                                                        <item.icon className="h-5 w-5" />
+                                                        <item.icon className="h-4 w-4" />
                                                     )}
                                                     <span>{item.title}</span>
                                                 </a>
@@ -162,7 +195,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     </div>
 
                     <Link
-                        href={auth.user.role === 'admin' ? '/dashboard' : '/pos'}
+                        href={auth.user.role === 'admin' || auth.user.role === 'super_admin' ? '/dashboard' : '/pos'}
                         className="flex items-center space-x-2"
                     >
                         <AppLogo />
@@ -209,7 +242,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                 size="icon"
                                 className="group h-9 w-9 cursor-pointer"
                             >
-                                <Search className="!size-5 opacity-80 group-hover:opacity-100" />
+                                <Search className="size-5! opacity-80 group-hover:opacity-100" />
                             </Button>
                             <div className="ml-1 hidden gap-1 lg:flex">
                                 {rightNavItems.map((item) => (

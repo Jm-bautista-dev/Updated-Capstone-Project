@@ -5,6 +5,7 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,14 @@ import type { NavItem } from '@/types';
 
 export function NavMain({ items = [], label }: { items: NavItem[]; label?: string }) {
     const { isCurrentUrl } = useCurrentUrl();
+    const { isMobile, setOpenMobile } = useSidebar();
+
+    const handleItemClick = () => {
+        if (isMobile) {
+            setOpenMobile(false);
+            document.body.style.removeProperty('pointer-events');
+        }
+    };
 
     return (
         <SidebarGroup className="px-4 py-2">
@@ -35,7 +44,11 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
                                     active && "bg-accent/80 text-primary font-bold shadow-sm shadow-primary/5 hover:translate-x-0"
                                 )}
                             >
-                                <Link href={item.href} className="flex items-center gap-4 w-full">
+                                <Link 
+                                    href={item.href} 
+                                    onClick={handleItemClick}
+                                    className="flex items-center gap-4 w-full"
+                                >
                                     {item.icon && (
                                         <item.icon 
                                             className={cn(

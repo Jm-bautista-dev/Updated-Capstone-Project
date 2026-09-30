@@ -61,23 +61,24 @@ class RiderController extends Controller
     {
         // Normalize name, email & phone input before validation
         if ($request->has('name')) {
-            $request->merge(['name' => trim($request->input('name'))]);
+            $request->merge(['name' => trim((string) $request->input('name'))]);
         }
         if ($request->has('email')) {
-            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+            $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         }
         if ($request->has('phone')) {
             $request->merge(['phone' => Rider::normalizePhone($request->input('phone'))]);
         }
 
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'max:255'],
+            'name'      => ['required', 'string', 'min:2', 'max:255'],
             'email'     => ['required', 'email', 'max:255', Rule::unique('riders', 'email')->whereNull('deleted_at')],
             'phone'     => ['nullable', 'string', 'max:20', Rule::unique('riders', 'phone')->whereNull('deleted_at')],
             'branch_id' => 'required|exists:branches,id',
             'password'  => 'nullable|string|min:6',
         ], [
             'name.required' => 'The rider name is required.',
+            'name.min'      => 'The rider name must be at least 2 characters.',
             'name.max'      => 'The rider name may not be greater than 255 characters.',
             'email.unique'  => 'The email is already associated with an active rider account.',
             'phone.unique'  => 'This mobile number is already registered to another rider.',
@@ -128,17 +129,17 @@ class RiderController extends Controller
     {
         // Normalize name, email & phone input before validation
         if ($request->has('name')) {
-            $request->merge(['name' => trim($request->input('name'))]);
+            $request->merge(['name' => trim((string) $request->input('name'))]);
         }
         if ($request->has('email')) {
-            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+            $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         }
         if ($request->has('phone')) {
             $request->merge(['phone' => Rider::normalizePhone($request->input('phone'))]);
         }
 
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'max:255'],
+            'name'      => ['required', 'string', 'min:2', 'max:255'],
             'email'     => ['required', 'email', 'max:255', Rule::unique('riders', 'email')->ignore($rider->id)->whereNull('deleted_at')],
             'phone'     => ['nullable', 'string', 'max:20', Rule::unique('riders', 'phone')->ignore($rider->id)->whereNull('deleted_at')],
             'branch_id' => 'required|exists:branches,id',
@@ -146,6 +147,7 @@ class RiderController extends Controller
             'is_active' => 'required|boolean',
         ], [
             'name.required' => 'The rider name is required.',
+            'name.min'      => 'The rider name must be at least 2 characters.',
             'name.max'      => 'The rider name may not be greater than 255 characters.',
             'email.unique'  => 'The email is already associated with an active rider account.',
             'phone.unique'  => 'This mobile number is already registered to another rider.',

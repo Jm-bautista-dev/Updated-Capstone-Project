@@ -98,10 +98,10 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.04 }}
-                        className="p-4 rounded-3xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 transition-colors duration-300 flex flex-col justify-between space-y-3 shadow-2xs"
+                        className="p-4.5 rounded-3xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 flex flex-col justify-between space-y-3.5 shadow-2xs h-full min-h-35"
                     >
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
+                        <div className="flex items-start justify-between gap-3 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <div className={cn(
                                     'size-10 rounded-2xl flex items-center justify-center border shrink-0 font-bold text-xs shadow-2xs',
                                     rep.fileType === 'pdf' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200 dark:border-rose-900/50' :
@@ -110,14 +110,14 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                                 )}>
                                     {rep.fileType === 'xlsx' ? <FileSpreadsheet className="size-5" /> : <FileText className="size-5" />}
                                 </div>
-                                <div className="space-y-0.5">
-                                    <h3 className="font-extrabold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] line-clamp-1">
+                                <div className="space-y-0.5 min-w-0 flex-1">
+                                    <h3 className="font-extrabold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={rep.name}>
                                         {rep.name}
                                     </h3>
-                                    <div className="flex items-center gap-2 text-[11px] font-mono text-[#7D6B6E] dark:text-[#94A3B8]">
-                                        <span>{rep.category}</span>
-                                        <span>•</span>
-                                        <span>{rep.fileSize}</span>
+                                    <div className="flex items-center gap-2 text-[11px] font-mono text-[#7D6B6E] dark:text-[#94A3B8] truncate" title={`${rep.category} • ${rep.fileSize}`}>
+                                        <span className="truncate">{rep.category}</span>
+                                        <span className="shrink-0">•</span>
+                                        <span className="shrink-0">{rep.fileSize}</span>
                                     </div>
                                 </div>
                             </div>
@@ -128,10 +128,12 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                         </div>
 
                         {/* Footer Meta & Actions */}
-                        <div className="flex items-center justify-between pt-2 border-t border-[#F8C8DC]/30 dark:border-white/5 text-[11px] font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
-                            <span className="font-mono">By {rep.generatedBy} • {rep.generatedAt}</span>
+                        <div className="flex items-center justify-between pt-2.5 border-t border-[#F8C8DC]/30 dark:border-white/5 text-[11px] font-medium text-[#7D6B6E] dark:text-[#94A3B8] gap-2 mt-auto">
+                            <span className="font-mono truncate" title={`By ${rep.generatedBy} • ${rep.generatedAt}`}>
+                                By {rep.generatedBy} • {rep.generatedAt}
+                            </span>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
                                 <Button
                                     size="sm"
                                     variant="outline"

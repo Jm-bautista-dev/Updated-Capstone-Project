@@ -9,13 +9,13 @@ import {
     PackageCheck,
     ChevronRight
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { renderCardIcon, type CardIconType } from '@/components/dashboard/KPICard';
 
 interface ActionItem {
     title: string;
     description: string;
     href: string;
-    icon: LucideIcon;
+    icon: CardIconType;
 }
 
 const defaultActions: ActionItem[] = [
@@ -81,17 +81,16 @@ export function QuickActionCard() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                            whileHover={{ y: -3, transition: { duration: 0.2 } }}
                         >
                             <Link
                                 href={action.href}
-                                className="group flex flex-col justify-between h-full p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 shadow-xs hover:shadow-md hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-all duration-300 backdrop-blur-sm"
+                                className="group flex flex-col justify-between h-full p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 shadow-xs hover:shadow-md hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-colors duration-300 backdrop-blur-sm"
                             >
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="p-2.5 rounded-xl bg-[#FADADD]/40 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white transition-all duration-300">
-                                        <Icon className="size-4" />
+                                    <div className="size-9 rounded-xl bg-[#FADADD]/40 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white transition-colors duration-300 flex items-center justify-center shrink-0">
+                                        {renderCardIcon(action.icon, "size-4")}
                                     </div>
-                                    <ChevronRight className="size-4 text-[#C5B8BA] dark:text-[#64748B] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] group-hover:translate-x-0.5 transition-all" />
+                                    <ChevronRight className="size-4 text-[#C5B8BA] dark:text-[#64748B] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors" />
                                 </div>
 
                                 <div>

@@ -29,6 +29,7 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import type { NavItem, User } from '@/types';
 
@@ -135,9 +136,17 @@ const mainNavItems: NavItem[] = [
 export function AppSidebar() {
     const { auth } = usePage().props as { auth: { user: User } };
     const user = auth.user;
+    const { isMobile, setOpenMobile } = useSidebar();
+
+    const handleLogoClick = () => {
+        if (isMobile) {
+            setOpenMobile(false);
+            document.body.style.removeProperty('pointer-events');
+        }
+    };
 
     const filteredNavItems = useMemo(() => {
-        if (user.role === 'admin') {
+        if (user.role === 'admin' || user.role === 'super_admin') {
             return mainNavItems.filter(item => item.title !== 'Pos');
         }
 
@@ -161,7 +170,11 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild className="hover:bg-transparent h-auto p-0">
-                        <Link href={user.role === 'admin' ? '/dashboard' : '/pos'} className="flex flex-col items-center w-full gap-1.5">
+                        <Link 
+                            href={user.role === 'admin' || user.role === 'super_admin' ? '/dashboard' : '/pos'} 
+                            onClick={handleLogoClick}
+                            className="flex flex-col items-center w-full gap-1.5"
+                        >
                                 <div className="relative group">
                                     <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-0 group-hover:scale-125 transition-transform duration-500" />
                                     <img 

@@ -75,24 +75,41 @@ class ReceiptFormatterService
         $fulfillmentType = strtoupper($record->type ?? $record->fulfillment_type ?? 'DINE-IN');
         $paperWidth = $paperWidthOverride ?: (int) ($branch?->receipt_paper_width ?? 80);
 
-        // Extract items
+        // Extract items - reliably load from relation or database
         $items = [];
-        $itemsCollection = $record->relationLoaded('items') ? $record->items : $record->items()->with('product')->get();
+        if ($record->relationLoaded('items') && $record->items->isNotEmpty()) {
+            if (method_exists($record->items, 'loadMissing')) {
+                try {
+                    $record->items->loadMissing('product');
+                } catch (\Throwable) {
+                    // Ignore for in-memory / dummy collections
+                }
+            }
+            $itemsCollection = $record->items;
+        } else {
+            $itemsCollection = $record->items()->with('product')->get();
+        }
 
         foreach ($itemsCollection as $item) {
-            $productName = $item->product?->name ?? $item->name ?? 'Menu Item';
+            $productName = $item->product?->name ?? $item->product_name ?? $item->name ?? 'Menu Item';
             $qty = (float) $item->quantity;
             $unitPrice = (float) ($item->unit_price ?? $item->price ?? 0);
-            $subtotal = (float) ($item->subtotal ?? ($qty * $unitPrice));
+            $subtotal = (float) ($item->subtotal ?? $item->line_total ?? ($qty * $unitPrice));
 
             $addons = [];
             if (!empty($item->selected_addons)) {
                 $rawAddons = is_string($item->selected_addons) ? json_decode($item->selected_addons, true) : $item->selected_addons;
                 if (is_array($rawAddons)) {
                     foreach ($rawAddons as $ad) {
+                        $adQty = max(1, (float) ($ad['quantity'] ?? 1));
+                        $adPrice = (float) ($ad['price'] ?? $ad['unit_price'] ?? 0);
+                        $adSubtotal = (float) ($ad['subtotal'] ?? ($adPrice * $adQty));
                         $addons[] = [
-                            'name'  => $ad['name'] ?? 'Add-on',
-                            'price' => (float) ($ad['price'] ?? 0),
+                            'name'       => $ad['name'] ?? 'Add-on',
+                            'quantity'   => $adQty,
+                            'unit_price' => $adPrice,
+                            'price'      => $adPrice,
+                            'subtotal'   => $adSubtotal,
                         ];
                     }
                 }
@@ -235,8 +252,10 @@ class ReceiptFormatterService
             // Print Add-ons under item if present
             if (!empty($item['addons'])) {
                 foreach ($item['addons'] as $ad) {
-                    $adPrice = $ad['price'] > 0 ? ('PHP ' . number_format($ad['price'], 2)) : '';
-                    $lines[] = $this->twoColumn("  + " . mb_strimwidth($ad['name'], 0, $cols - 14, '..'), $adPrice, $cols);
+                    $adQtyPrefix = !empty($ad['quantity']) && (float)$ad['quantity'] > 1 ? ((int)$ad['quantity'] . 'x ') : '';
+                    $adPriceVal = (float) ($ad['subtotal'] ?? ($ad['price'] ?? 0));
+                    $adPrice = $adPriceVal > 0 ? ('PHP ' . number_format($adPriceVal, 2)) : '';
+                    $lines[] = $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPrice, $cols);
                 }
             }
         }
@@ -364,8 +383,10 @@ class ReceiptFormatterService
             // Print Add-ons under item in ESC/POS
             if (!empty($item['addons'])) {
                 foreach ($item['addons'] as $ad) {
-                    $adPrice = $ad['price'] > 0 ? ('PHP ' . number_format($ad['price'], 2)) : '';
-                    $out .= $this->twoColumn("  + " . mb_strimwidth($ad['name'], 0, $cols - 14, '..'), $adPrice, $cols) . "\n";
+                    $adQtyPrefix = !empty($ad['quantity']) && (float)$ad['quantity'] > 1 ? ((int)$ad['quantity'] . 'x ') : '';
+                    $adPriceVal = (float) ($ad['subtotal'] ?? ($ad['price'] ?? 0));
+                    $adPrice = $adPriceVal > 0 ? ('PHP ' . number_format($adPriceVal, 2)) : '';
+                    $out .= $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPrice, $cols) . "\n";
                 }
             }
         }

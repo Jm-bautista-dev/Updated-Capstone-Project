@@ -50,7 +50,7 @@ export function RidersHero({ stats, onOpenAddModal }: RidersHeroProps) {
                 <div className="flex items-center gap-3 self-start sm:self-center">
                     <Button
                         onClick={onOpenAddModal}
-                        className="h-12 px-6 bg-linear-to-r from-[#E75480] via-[#F472B6] to-[#E75480] dark:from-[#E1062C] dark:via-[#FF4F81] dark:to-[#E1062C] bg-size-[200%_auto] hover:bg-right text-white rounded-2xl font-bold text-xs uppercase tracking-wider shadow-[0_10px_25px_-5px_rgba(231,84,128,0.35)] dark:shadow-[0_10px_25px_-5px_rgba(225,6,44,0.4)] hover:-translate-y-0.5 active:scale-[0.985] transition-all duration-300 flex items-center gap-2 cursor-pointer shrink-0"
+                        className="h-12 px-6 bg-linear-to-r from-[#E75480] via-[#F472B6] to-[#E75480] dark:from-[#E1062C] dark:via-[#FF4F81] dark:to-[#E1062C] bg-size-[200%_auto] hover:bg-right text-white rounded-2xl font-bold text-xs uppercase tracking-wider shadow-[0_10px_25px_-5px_rgba(231,84,128,0.35)] dark:shadow-[0_10px_25px_-5px_rgba(225,6,44,0.4)] transition-all duration-300 flex items-center gap-2 cursor-pointer shrink-0"
                     >
                         <Plus className="size-4" />
                         <span>Add Rider</span>
@@ -61,9 +61,8 @@ export function RidersHero({ stats, onOpenAddModal }: RidersHeroProps) {
             {/* KPI Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 pt-2">
                 {/* Total Riders */}
-                <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                <div
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors hover:border-[#E75480]/30 dark:hover:border-white/20"
                 >
                     <div className="p-3 rounded-2xl bg-[#FADADD]/40 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] shrink-0">
                         <Users className="size-5" />
@@ -73,12 +72,11 @@ export function RidersHero({ stats, onOpenAddModal }: RidersHeroProps) {
                         <h3 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-0.5">{stats.total}</h3>
                         <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Active fleet size</p>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* Available Riders */}
-                <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                <div
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors hover:border-[#E75480]/30 dark:hover:border-white/20"
                 >
                     <div className="p-3 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
                         <CheckCircle2 className="size-5" />
@@ -88,12 +86,11 @@ export function RidersHero({ stats, onOpenAddModal }: RidersHeroProps) {
                         <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">{stats.available}</h3>
                         <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Ready for assignment</p>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* On Delivery / Busy */}
-                <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                <div
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors hover:border-[#E75480]/30 dark:hover:border-white/20"
                 >
                     <div className="p-3 rounded-2xl bg-amber-100/60 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 shrink-0">
                         <Clock className="size-5" />
@@ -103,12 +100,11 @@ export function RidersHero({ stats, onOpenAddModal }: RidersHeroProps) {
                         <h3 className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono mt-0.5">{stats.busy}</h3>
                         <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Fulfilling orders</p>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* Offline Riders */}
-                <motion.div
-                    whileHover={{ y: -3 }}
-                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
+                <div
+                    className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-colors hover:border-[#E75480]/30 dark:hover:border-white/20"
                 >
                     <div className="p-3 rounded-2xl bg-slate-100/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 shrink-0">
                         <EyeOff className="size-5" />
@@ -118,7 +114,7 @@ export function RidersHero({ stats, onOpenAddModal }: RidersHeroProps) {
                         <h3 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] font-mono mt-0.5">{stats.offline}</h3>
                         <p className="text-[11px] text-[#9E8B8E] dark:text-[#64748B]">Off schedule</p>
                     </div>
-                </motion.div>
+                </div>
             </div>
         </motion.div>
     );

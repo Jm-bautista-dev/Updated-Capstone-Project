@@ -67,33 +67,33 @@ export function InsightCard() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: index * 0.05 }}
-                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4"
+                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:border-[#E75480]/30 dark:hover:border-white/20 backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 h-full min-h-55"
                         >
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[11px] font-black uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                                         {item.category}
                                     </span>
-                                    <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border', item.color)}>
+                                    <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border shrink-0', item.color)}>
                                         {item.metric}
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-2.5">
-                                    <div className={cn('size-9 rounded-2xl flex items-center justify-center shrink-0 border', item.color)}>
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className={cn('size-9 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs', item.color)}>
                                         <Icon className="size-4.5" />
                                     </div>
-                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] leading-snug line-clamp-1 min-w-0 flex-1" title={item.title}>
                                         {item.title}
                                     </h3>
                                 </div>
 
-                                <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] leading-relaxed">
+                                <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] line-clamp-2 leading-relaxed">
                                     {item.description}
                                 </p>
                             </div>
 
-                            <div className="pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-end">
+                            <div className="pt-2.5 border-t border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-end mt-auto">
                                 <Button
                                     variant="ghost"
                                     size="sm"

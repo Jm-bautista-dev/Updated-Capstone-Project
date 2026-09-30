@@ -55,7 +55,9 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 }) => {
     const {
         status,
+        statusDetails,
         isConnected,
+        isChecking: isPrinterChecking,
         config,
         printers,
         isScanning,
@@ -64,6 +66,7 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
         updateConfig,
         checkNow,
         scanForPrinters,
+        reconnectPrinter,
         disconnectCurrentPrinter,
     } = usePrinterStatus(branchId);
 
@@ -75,6 +78,23 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
     const [availableDetectedPrinters, setAvailableDetectedPrinters] = useState<DetectedPrinter[]>([]);
     const [diagnostics, setDiagnostics] = useState<PrinterDiagnosticsInfo | null>(null);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+    const handleQuickReconnect = async () => {
+        setScanMessage(null);
+        setConnectingId('reconnect');
+        try {
+            const res = await reconnectPrinter();
+            if (res.success) {
+                toast.success(res.message || 'Thermal printer connected!');
+                await checkNow();
+            } else {
+                setScanMessage(res.message || 'Could not connect to printer.');
+                toast.warning(res.message || 'Could not connect.');
+            }
+        } finally {
+            setConnectingId(null);
+        }
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -268,11 +288,11 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                         <button
                             type="button"
                             onClick={() => checkNow()}
-                            disabled={isScanning}
+                            disabled={isScanning || isPrinterChecking}
                             title="Recheck hardware connection"
                             className="p-2.5 rounded-xl bg-white dark:bg-[#1E1E28] border border-[#F8C8DC]/60 dark:border-white/10 hover:bg-[#FFF5F7] text-gray-600 dark:text-zinc-300 transition-all cursor-pointer shadow-2xs"
                         >
-                            <FiRefreshCw className={cn("size-4", (status === 'checking' || isScanning) && "animate-spin text-[#E75480]")} />
+                            <FiRefreshCw className={cn("size-4", (isPrinterChecking || isScanning) && "animate-spin text-[#E75480]")} />
                         </button>
                     </div>
 
@@ -283,22 +303,28 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                 <div className="flex items-center gap-2">
                                     <span className={cn(
                                         "size-2.5 rounded-full",
-                                        isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-400"
+                                        statusDetails?.variant === 'success' && "bg-emerald-500 animate-pulse",
+                                        statusDetails?.isChecking && "bg-blue-500 animate-ping",
+                                        statusDetails?.variant === 'neutral' && "bg-slate-400",
+                                        statusDetails?.variant === 'warning' && "bg-amber-500",
+                                        statusDetails?.variant === 'error' && "bg-rose-500",
                                     )} />
                                     <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">
-                                        Current Mode
+                                        Hardware Status
                                     </span>
                                     <span className={cn(
                                         "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase",
-                                        isConnected
-                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                                            : "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                        statusDetails?.variant === 'success' && "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+                                        statusDetails?.variant === 'info' && "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+                                        statusDetails?.variant === 'neutral' && "bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-300",
+                                        statusDetails?.variant === 'warning' && "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+                                        statusDetails?.variant === 'error' && "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
                                     )}>
-                                        {isConnected ? 'Ready to Print' : 'Disconnected'}
+                                        {statusDetails?.label || (isConnected ? 'Ready to Print' : 'Disconnected')}
                                     </span>
                                 </div>
                                 <div className="text-sm font-extrabold text-[#3D2C2E] dark:text-white flex items-center gap-2">
-                                    <span>{isConnected ? connectedPrinterName : 'No printer configured'}</span>
+                                    <span>{connectedPrinterName}</span>
                                     {isConnected && formConfig.connection_type === 'universal_browser' && (
                                         <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1">
                                             <FiCheck className="size-3" /> Zero Install • Universal
@@ -315,6 +341,9 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         </span>
                                     )}
                                 </div>
+                                <p className="text-xs text-gray-500 dark:text-zinc-400">
+                                    {statusDetails?.description}
+                                </p>
                             </div>
 
                             {/* Action Buttons */}
@@ -331,16 +360,31 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         Disconnect
                                     </Button>
                                 ) : (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() => handleScan()}
-                                        disabled={isScanning}
-                                        className="h-8 px-3.5 rounded-xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-extrabold cursor-pointer shadow-xs"
-                                    >
-                                        <FiRadio className={cn("size-3 mr-1.5", isScanning && "animate-spin")} />
-                                        {isScanning ? 'Checking...' : 'Refresh Status'}
-                                    </Button>
+                                    <>
+                                        {(formConfig.connection_type === 'direct_bluetooth' || formConfig.connection_type === 'direct_usb') && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={handleQuickReconnect}
+                                                disabled={connectingId === 'reconnect' || isPrinterChecking}
+                                                className="h-8 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold cursor-pointer shadow-xs disabled:opacity-60"
+                                            >
+                                                <FiRefreshCw className={cn("size-3 mr-1.5", (connectingId === 'reconnect' || isPrinterChecking) && "animate-spin")} />
+                                                {connectingId === 'reconnect' ? 'Connecting...' : 'Reconnect'}
+                                            </Button>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleScan()}
+                                            disabled={isScanning || isPrinterChecking}
+                                            className="h-8 px-3.5 rounded-xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#1E1E28] hover:bg-[#FFF5F7] text-gray-700 dark:text-zinc-300 text-xs font-bold cursor-pointer shadow-xs"
+                                        >
+                                            <FiRadio className={cn("size-3 mr-1.5", (isScanning || isPrinterChecking) && "animate-spin")} />
+                                            {isScanning ? 'Checking...' : 'Refresh'}
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </div>

@@ -184,12 +184,17 @@ export function InventoryDrawer({
                                     </div>
                                 )}
 
-                                <div className="flex items-center justify-between text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 pt-2.5">
-                                    <span className="flex items-center gap-2 font-bold text-[#5D4A4D] dark:text-[#94A3B8]">
-                                        <MapPin className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
+                                <div className="flex items-center justify-between text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 pt-2.5 gap-2">
+                                    <span className="flex items-center gap-2 font-bold text-[#5D4A4D] dark:text-[#94A3B8] shrink-0">
+                                        <MapPin className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
                                         <span>Branch Location</span>
                                     </span>
-                                    <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{row.branch_name || 'Global'}</span>
+                                    <span
+                                        className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC] truncate text-right max-w-[55%]"
+                                        title={row.branch_name || 'Global'}
+                                    >
+                                        {row.branch_name || 'Global'}
+                                    </span>
                                 </div>
                             </div>
 

@@ -112,8 +112,9 @@ class ProductsController extends Controller
         ];
 
         // ── Ingredients for the recipe builder ──────────────────────────────
-        $ingredientsQuery = Ingredient::orderBy('name');
+        $ingredientsQuery = Ingredient::whereNull('deleted_at')->orderBy('name');
         if (!$user->isAdmin() && $user->branch_id) {
+            $ingredientsQuery->whereHas('stocks', fn($q) => $q->where('branch_id', $user->branch_id));
             $ingredientsQuery->with(['stocks' => fn($q) => $q->where('branch_id', $user->branch_id)]);
         } else {
             $ingredientsQuery->with('stocks');
@@ -196,7 +197,10 @@ class ProductsController extends Controller
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'description'                => 'nullable|string',
                 'recipe'                     => 'nullable|array',
-                'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
+                'recipe.*.ingredient_id'     => [
+                    'required',
+                    Rule::exists('ingredients', 'id')->whereNull('deleted_at'),
+                ],
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
                 'recipe.*.unit'              => 'required|string',
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
@@ -208,10 +212,11 @@ class ProductsController extends Controller
                 'addon_ids.*'                => 'exists:add_ons,id',
                 'stock'                      => 'nullable|numeric|min:0',
             ], [
-                'branch_option.required' => 'Please select at least one branch for this product.',
-                'branch_id.required_if'  => 'Please select a valid branch for this product.',
-                'manual_cost.required_if' => 'Manual product cost is required when Manual Costing is selected.',
-                'manual_cost.min'         => 'Manual product cost must be at least 0.',
+                'branch_option.required'        => 'Please select at least one branch for this product.',
+                'branch_id.required_if'         => 'Please select a valid branch for this product.',
+                'manual_cost.required_if'        => 'Manual product cost is required when Manual Costing is selected.',
+                'manual_cost.min'                => 'Manual product cost must be at least 0.',
+                'recipe.*.ingredient_id.exists' => 'The selected ingredient is invalid, deleted, or inactive.',
             ]);
 
             // Strip manual cost_price if sent in request; strip stock if recipe is present
@@ -238,8 +243,13 @@ class ProductsController extends Controller
                     }
 
                     /** @var Ingredient $ing */
-                    $ing = Ingredient::find($item['ingredient_id']);
-                    if (!$ing) continue;
+                    $ing = Ingredient::where('id', $item['ingredient_id'])->whereNull('deleted_at')->first();
+                    if (!$ing) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe.{$idx}.ingredient_id" => "The selected ingredient is deleted or inactive and cannot be assigned to a new product.",
+                            'recipe' => "One or more selected ingredients are deleted or inactive and cannot be assigned."
+                        ]);
+                    }
 
                     $usedUnit = strtolower(trim($item['unit']));
                     $baseUnit = strtolower(trim($ing->unit));
@@ -298,16 +308,17 @@ class ProductsController extends Controller
 
                 if (!empty($validated['recipe'])) {
                     foreach ($targetBranches as $branch) {
-                        foreach ($validated['recipe'] as $item) {
+                        foreach ($validated['recipe'] as $idx => $item) {
                             $exists = IngredientStock::where('ingredient_id', $item['ingredient_id'])
                                 ->where('branch_id', $branch->id)
                                 ->exists();
 
                             if (!$exists) {
                                 /** @var Ingredient $ing */
-                                $ing = Ingredient::find($item['ingredient_id']);
+                                $ing = Ingredient::where('id', $item['ingredient_id'])->whereNull('deleted_at')->first();
                                 $ingName = $ing ? $ing->name : "ID #{$item['ingredient_id']}";
                                 throw \Illuminate\Validation\ValidationException::withMessages([
+                                    "recipe.{$idx}.ingredient_id" => "Ingredient '{$ingName}' is not available in branch: {$branch->name}",
                                     'recipe' => "Ingredient '{$ingName}' is not available in branch: {$branch->name}"
                                 ]);
                             }
@@ -361,15 +372,28 @@ class ProductsController extends Controller
                 'image'                      => 'nullable|image|mimes:jpeg,png,webp,jpg|max:2048',
                 'remove_image'               => 'nullable|boolean',
                 'recipe'                     => 'nullable|array',
-                'recipe.*.ingredient_id'     => 'required|exists:ingredients,id',
+                'recipe.*.ingredient_id'     => [
+                    'required',
+                    Rule::exists('ingredients', 'id')->where(function ($query) use ($product) {
+                        $existingIds = $product->ingredients()->pluck('ingredients.id')->toArray();
+                        if (!empty($existingIds)) {
+                            return $query->where(function ($q) use ($existingIds) {
+                                $q->whereNull('deleted_at')
+                                  ->orWhereIn('id', $existingIds);
+                            });
+                        }
+                        return $query->whereNull('deleted_at');
+                    }),
+                ],
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
                 'recipe.*.unit'              => 'nullable|string',
                 'unit'                       => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
                 'addon_ids'                  => 'nullable|array',
                 'addon_ids.*'                => 'exists:add_ons,id',
             ], [
-                'manual_cost.required_if'    => 'Manual product cost is required when Manual Costing is selected.',
-                'manual_cost.min'            => 'Manual product cost must be at least 0.',
+                'manual_cost.required_if'        => 'Manual product cost is required when Manual Costing is selected.',
+                'manual_cost.min'                => 'Manual product cost must be at least 0.',
+                'recipe.*.ingredient_id.exists' => 'The selected ingredient is invalid, deleted, or inactive.',
             ]);
 
             // Strip manual cost_price/stock if sent in request
@@ -379,7 +403,7 @@ class ProductsController extends Controller
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $idx => &$item) {
                     if (empty($item['unit'])) {
-                        $ing = Ingredient::find($item['ingredient_id']);
+                        $ing = Ingredient::withTrashed()->find($item['ingredient_id']);
                         $item['unit'] = $ing ? $ing->unit : 'pcs';
                     }
                 }
@@ -404,7 +428,7 @@ class ProductsController extends Controller
                     }
 
                     /** @var Ingredient $ing */
-                    $ing = Ingredient::find($item['ingredient_id']);
+                    $ing = Ingredient::withTrashed()->find($item['ingredient_id']);
                     if (!$ing) continue;
 
                     $usedUnit = strtolower(trim($item['unit']));
@@ -452,7 +476,7 @@ class ProductsController extends Controller
 
                     if (!$exists) {
                         /** @var Ingredient $ing */
-                        $ing = Ingredient::find($item['ingredient_id']);
+                        $ing = Ingredient::withTrashed()->find($item['ingredient_id']);
                         $ingName = $ing ? $ing->name : "ID #{$item['ingredient_id']}";
                         throw \Illuminate\Validation\ValidationException::withMessages([
                             'recipe' => "Ingredient '{$ingName}' is not available in branch: {$branchName}"

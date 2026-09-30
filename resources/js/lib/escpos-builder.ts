@@ -256,8 +256,10 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
             // Print item add-ons / modifiers if any
             if (Array.isArray(item.addons) && item.addons.length > 0) {
                 item.addons.forEach(addon => {
-                    const addonPrice = addon.price > 0 ? `+${formatPhp(addon.price)}` : '';
-                    builder.leftRight(`  + ${addon.name}`, addonPrice);
+                    const adQty = (addon.quantity && addon.quantity > 1) ? `${addon.quantity}x ` : '';
+                    const adPriceVal = addon.subtotal ?? (addon.price ? addon.price * (addon.quantity || 1) : 0);
+                    const addonPrice = adPriceVal > 0 ? `+${formatPhp(adPriceVal)}` : '';
+                    builder.leftRight(`  + ${adQty}${addon.name}`, addonPrice);
                 });
             }
         });

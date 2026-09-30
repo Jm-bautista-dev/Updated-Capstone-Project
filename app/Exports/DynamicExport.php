@@ -92,14 +92,42 @@ class DynamicExport implements FromArray, WithStyles, WithTitle, ShouldAutoSize
                 ],
             ],
         ];
-        $sheet->getStyle("A{$headerRow}:{$highestColumn}{$highestRow}")->applyFromArray($styleArray);
+        // Auto-filter on the header and data range so users can filter protected rows
+        if ($highestRow >= $headerRow) {
+            $sheet->setAutoFilter("A{$headerRow}:{$highestColumn}{$highestRow}");
+        }
 
-        // Only apply worksheet protection if explicitly requested by payload configuration
-        if (!empty($this->payload['protect_sheet'])) {
-            $sheet->getProtection()->setSheet(true);
-            if (!empty($this->payload['protection_password'])) {
-                $sheet->getProtection()->setPassword((string) $this->payload['protection_password']);
+        // Worksheet Protection against accidental editing
+        $protection = $sheet->getProtection();
+        $protection->setSheet(true);
+        $protection->setSelectLockedCells(true);
+        $protection->setSelectUnlockedCells(true);
+        $protection->setAutoFilter(true);
+        $protection->setSort(true);
+        $protection->setFormatCells(false);
+        $protection->setInsertRows(false);
+        $protection->setInsertColumns(false);
+        $protection->setDeleteRows(false);
+        $protection->setDeleteColumns(false);
+        $protection->setObjects(true);
+        $protection->setScenarios(true);
+
+        // Set protection password
+        $password = $this->payload['protection_password'] ?? config('app.excel_export_password', 'MakiDesuSales');
+        if (!empty($password)) {
+            $protection->setPassword((string) $password);
+        }
+
+        // Also protect workbook structure where appropriate
+        try {
+            if ($sheet->getParent() && $sheet->getParent()->getSecurity()) {
+                $sheet->getParent()->getSecurity()->setLockStructure(true);
+                if (!empty($password)) {
+                    $sheet->getParent()->getSecurity()->setWorkbookPassword((string) $password);
+                }
             }
+        } catch (\Throwable $e) {
+            // Ignore if workbook security is not supported in current context
         }
     }
 

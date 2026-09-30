@@ -80,9 +80,11 @@ export function InventoryCard({
                     {row.name}
                 </h3>
 
-                <div className="flex items-center gap-1.5 text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-semibold mb-3">
-                    <MapPin className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                    <span>{row.branch_name || 'Global'}</span>
+                <div className="flex items-center gap-1.5 text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-semibold mb-3 min-w-0">
+                    <MapPin className="size-3.5 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
+                    <span className="truncate" title={row.branch_name || 'Global'}>
+                        {row.branch_name || 'Global'}
+                    </span>
                 </div>
             </div>
 

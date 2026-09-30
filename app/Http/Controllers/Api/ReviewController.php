@@ -23,11 +23,58 @@ class ReviewController extends Controller
         try {
             $product = Product::findOrFail($productId);
 
-            $reviews = ProductReview::with('user:id,name')
+            $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
+            $page = max(1, (int) $request->input('page', 1));
+            $rating = $request->input('rating');
+
+            $reviewsQuery = ProductReview::with('user:id,name')
                 ->where('product_id', $product->id)
-                ->published()
-                ->latest()
-                ->paginate(15);
+                ->published();
+
+            if ($rating !== null && $rating !== '' && $rating !== 'all') {
+                $ratingVal = (int) $rating;
+                if ($ratingVal >= 1 && $ratingVal <= 5) {
+                    $reviewsQuery->where('rating', $ratingVal);
+                }
+            }
+
+            // Support cursor pagination or standard page pagination seamlessly
+            $cursor = $request->input('cursor');
+            if ($cursor) {
+                $cursorPaginator = $reviewsQuery->latest('id')->cursorPaginate($perPage, ['*'], 'cursor', $cursor);
+                $hasMore = $cursorPaginator->hasMorePages();
+                $nextCursor = $cursorPaginator->nextCursor()?->encode();
+                $prevCursor = $cursorPaginator->previousCursor()?->encode();
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'product_id'          => $product->id,
+                        'product_name'        => $product->name,
+                        'average_rating'      => $product->average_rating,
+                        'review_count'        => $product->review_count,
+                        'rating_distribution' => $product->rating_distribution,
+                        'reviews'             => collect($cursorPaginator->items())->map(fn($r) => [
+                            'id'             => $r->id,
+                            'customer_name'  => $r->user?->name ?? 'Verified Customer',
+                            'rating'         => $r->rating,
+                            'comment'        => $r->comment,
+                            'admin_response' => $r->admin_response,
+                            'created_at'     => $r->created_at?->toIso8601String(),
+                        ]),
+                        'pagination' => [
+                            'mode'         => 'cursor',
+                            'per_page'     => $perPage,
+                            'has_more'     => $hasMore,
+                            'next_cursor'  => $nextCursor,
+                            'prev_cursor'  => $prevCursor,
+                            'total'        => $product->review_count,
+                        ],
+                    ]
+                ]);
+            }
+
+            $reviews = $reviewsQuery->latest('id')->paginate($perPage, ['*'], 'page', $page);
 
             return response()->json([
                 'success' => true,
@@ -48,7 +95,11 @@ class ReviewController extends Controller
                     'pagination' => [
                         'current_page' => $reviews->currentPage(),
                         'last_page'    => $reviews->lastPage(),
+                        'per_page'     => $reviews->perPage(),
                         'total'        => $reviews->total(),
+                        'has_more'     => $reviews->hasMorePages(),
+                        'next_page'    => $reviews->hasMorePages() ? $reviews->currentPage() + 1 : null,
+                        'prev_page'    => $reviews->currentPage() > 1 ? $reviews->currentPage() - 1 : null,
                     ],
                 ]
             ]);
@@ -267,10 +318,13 @@ class ReviewController extends Controller
         try {
             $user = $request->user();
 
+            $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
+            $page = max(1, (int) $request->input('page', 1));
+
             $reviews = ProductReview::with(['product:id,name,selling_price,image_path', 'order:id,created_at'])
                 ->where('user_id', $user->id)
-                ->latest()
-                ->paginate(15);
+                ->latest('id')
+                ->paginate($perPage, ['*'], 'page', $page);
 
             return response()->json([
                 'success' => true,
@@ -289,7 +343,11 @@ class ReviewController extends Controller
                 'pagination' => [
                     'current_page' => $reviews->currentPage(),
                     'last_page'    => $reviews->lastPage(),
+                    'per_page'     => $reviews->perPage(),
                     'total'        => $reviews->total(),
+                    'has_more'     => $reviews->hasMorePages(),
+                    'next_page'    => $reviews->hasMorePages() ? $reviews->currentPage() + 1 : null,
+                    'prev_page'    => $reviews->currentPage() > 1 ? $reviews->currentPage() - 1 : null,
                 ]
             ]);
         } catch (\Throwable $e) {

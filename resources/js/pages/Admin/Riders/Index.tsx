@@ -271,15 +271,21 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                         <div className="p-8 space-y-5">
                             {/* Full Name */}
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
-                                    Full Name *
-                                </label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                        Full Name *
+                                    </label>
+                                    <span className="text-[10px] font-mono font-medium text-[#9E8B8E] dark:text-[#64748B]">
+                                        {(data.name || '').length}/255
+                                    </span>
+                                </div>
                                 <Input
                                     placeholder="Ex. Mario Dela Cruz"
                                     className="h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]"
                                     value={data.name}
                                     onChange={(e) => setData('name', e.target.value)}
                                     maxLength={255}
+                                    minLength={2}
                                     required
                                 />
                                 {errors.name && <p className="text-xs text-rose-500 font-bold ml-1">{errors.name}</p>}

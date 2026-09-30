@@ -6,8 +6,13 @@ use App\Models\Sale;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
-class SalesExport implements FromCollection, WithHeadings, WithMapping
+class SalesExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize
 {
     protected $filters;
 
@@ -124,5 +129,67 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping
             number_format((float) $sale->total, 2, '.', ''),
             ucfirst($sale->status ?? ''),
         ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        $highestColumn = $sheet->getHighestColumn();
+        $highestRow = $sheet->getHighestRow();
+
+        // Freeze panes under header row
+        $sheet->freezePane('A2');
+
+        // Style the header row
+        $sheet->getStyle("A1:{$highestColumn}1")->getFont()->setBold(true);
+        $sheet->getStyle("A1:{$highestColumn}1")->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFF1F5F9'); // Slate bg
+
+        // Clean grid borders
+        $sheet->getStyle("A1:{$highestColumn}{$highestRow}")->applyFromArray([
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['argb' => 'FFE2E8F0'],
+                ],
+            ],
+        ]);
+
+        // Auto-filter on header range so users can filter
+        if ($highestRow >= 1) {
+            $sheet->setAutoFilter("A1:{$highestColumn}{$highestRow}");
+        }
+
+        // Worksheet Protection against accidental editing
+        $protection = $sheet->getProtection();
+        $protection->setSheet(true);
+        $protection->setSelectLockedCells(true);
+        $protection->setSelectUnlockedCells(true);
+        $protection->setAutoFilter(true);
+        $protection->setSort(true);
+        $protection->setFormatCells(false);
+        $protection->setInsertRows(false);
+        $protection->setInsertColumns(false);
+        $protection->setDeleteRows(false);
+        $protection->setDeleteColumns(false);
+        $protection->setObjects(true);
+        $protection->setScenarios(true);
+
+        $password = config('app.excel_export_password', 'MakiDesuSales');
+        if (!empty($password)) {
+            $protection->setPassword((string) $password);
+        }
+
+        // Also protect workbook structure where appropriate
+        try {
+            if ($sheet->getParent() && $sheet->getParent()->getSecurity()) {
+                $sheet->getParent()->getSecurity()->setLockStructure(true);
+                if (!empty($password)) {
+                    $sheet->getParent()->getSecurity()->setWorkbookPassword((string) $password);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignore if workbook security is not supported in current context
+        }
     }
 }

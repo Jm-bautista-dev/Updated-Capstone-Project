@@ -170,14 +170,18 @@ export const ThermalReceipt58mm: React.FC<ThermalReceipt58mmProps> = ({
                                     {/* Addons / Modifiers */}
                                     {item.addons && item.addons.length > 0 && (
                                         <div className="pl-2 space-y-0.5 text-[9.5px] text-gray-700">
-                                            {item.addons.map((ad, adIdx) => (
-                                                <div key={adIdx} className="flex justify-between">
-                                                    <span>+ {ad.name}</span>
-                                                    {ad.price > 0 && (
-                                                        <span>+{formatCurrency(ad.price)}</span>
-                                                    )}
-                                                </div>
-                                            ))}
+                                            {item.addons.map((ad, adIdx) => {
+                                                const adQty = ad.quantity ?? 1;
+                                                const adPrice = ad.subtotal ?? (ad.price ? ad.price * adQty : 0);
+                                                return (
+                                                    <div key={adIdx} className="flex justify-between">
+                                                        <span>+ {adQty > 1 ? `${adQty}x ` : ''}{ad.name}</span>
+                                                        {adPrice > 0 && (
+                                                            <span>+{formatCurrency(adPrice)}</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

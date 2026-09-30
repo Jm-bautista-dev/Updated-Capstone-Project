@@ -174,10 +174,25 @@ class PosController extends Controller
             }
         }
 
-        if ($request->has('items') && is_string($request->input('items'))) {
-            $decoded = json_decode($request->input('items'), true);
-            if (is_array($decoded)) {
-                $request->merge(['items' => $decoded]);
+        if ($request->has('items')) {
+            $items = $request->input('items');
+            if (is_string($items)) {
+                $decoded = json_decode($items, true);
+                if (is_array($decoded)) {
+                    $items = $decoded;
+                }
+            }
+            if (is_array($items)) {
+                foreach ($items as &$it) {
+                    if (isset($it['selected_addons']) && is_string($it['selected_addons'])) {
+                        $decodedAddons = json_decode($it['selected_addons'], true);
+                        if (is_array($decodedAddons)) {
+                            $it['selected_addons'] = $decodedAddons;
+                        }
+                    }
+                }
+                unset($it);
+                $request->merge(['items' => $items]);
             }
         }
 
@@ -193,11 +208,19 @@ class PosController extends Controller
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
-            'total' => 'nullable|numeric',
+            'items.*.selected_addons' => 'nullable|array',
+            'items.*.selected_addons.*' => 'nullable',
+            'total' => 'nullable|numeric|min:0|max:99999999.99',
             'payment_method' => 'required|string',
-            'paid_amount' => 'required|numeric|min:0',
-            'change_amount' => 'nullable|numeric',
-            'discount' => 'nullable|numeric|min:0',
+            'paid_amount' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:99999999.99',
+                'regex:/^\d+(\.\d{1,2})?$/',
+            ],
+            'change_amount' => 'nullable|numeric|min:0|max:99999999.99',
+            'discount' => 'nullable|numeric|min:0|max:99999999.99',
             'discount_type' => 'nullable|string|max:100',
             'discount_details' => 'nullable|array',
             'delivery_info' => 'nullable|array',
@@ -209,9 +232,17 @@ class PosController extends Controller
             'delivery_info.external_service' => 'nullable|in:grab,lalamove',
             'delivery_info.tracking_number' => 'nullable|string',
             'delivery_info.distance_km' => ['nullable', 'numeric', 'gt:0', 'max:' . config('delivery.max_distance_km', 50)],
-            'delivery_info.delivery_fee' => 'nullable|numeric',
+            'delivery_info.delivery_fee' => 'nullable|numeric|min:0|max:99999999.99',
             'delivery_info.external_notes' => 'nullable|string|max:1000',
             'delivery_info.proof_of_delivery' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:4096',
+        ], [
+            'paid_amount.required' => 'Checkout failed. Please enter a valid cash amount.',
+            'paid_amount.numeric'  => 'Checkout failed. Please enter a valid cash amount.',
+            'paid_amount.min'      => 'Checkout failed. Cash amount cannot be negative.',
+            'paid_amount.max'      => 'Checkout failed. Cash amount cannot exceed ₱99,999,999.99.',
+            'paid_amount.regex'    => 'Checkout failed. Please enter a valid monetary amount with up to 2 decimal places.',
+            'total.max'            => 'Checkout failed. Total amount exceeds allowable limit.',
+            'change_amount.max'    => 'Checkout failed. Change amount exceeds allowable limit.',
         ]);
 
         if (in_array($request->input('discount_type'), ['twenty_percent', 'senior_citizen', 'pwd', 'solo_parent', 'national_athlete'], true)) {
@@ -297,16 +328,26 @@ class PosController extends Controller
                 'trace'   => $e->getTraceAsString(),
             ]);
 
-            if ($request->header('X-Inertia')) {
-                return redirect()->back()->withErrors([
-                    'error' => $e->getMessage() ?: 'Checkout failed. Please try again.',
-                ]);
+            $userMessage = $e->getMessage();
+            if ($e instanceof \Illuminate\Database\QueryException || 
+                $e instanceof \PDOException || 
+                str_contains($userMessage, 'SQLSTATE') || 
+                str_contains($userMessage, 'Connection') ||
+                str_contains($userMessage, 'SQL') ||
+                str_contains($userMessage, 'Integrity constraint violation')) {
+                $userMessage = 'Checkout failed. Please enter a valid cash amount.';
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage() ?: 'Checkout failed. Please try again.',
-            ], 422);
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $userMessage ?: 'Checkout failed. Please enter a valid cash amount.',
+                ], 422);
+            }
+
+            return redirect()->back()->withErrors([
+                'error' => $userMessage ?: 'Checkout failed. Please enter a valid cash amount.',
+            ]);
         }
     }
 }

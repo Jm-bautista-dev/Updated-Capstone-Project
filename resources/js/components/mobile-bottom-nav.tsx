@@ -74,6 +74,22 @@ export function MobileBottomNav() {
     const { resolvedAppearance, updateAppearance } = useAppearance();
     const [moreOpen, setMoreOpen] = useState(false);
 
+    // Automatically close more drawer on page navigation to prevent stuck sheets or scroll locks
+    React.useEffect(() => {
+        const removeStartListener = router.on('start', () => {
+            setMoreOpen(false);
+            document.body.style.removeProperty('pointer-events');
+        });
+        const removeNavigateListener = router.on('navigate', () => {
+            setMoreOpen(false);
+            document.body.style.removeProperty('pointer-events');
+        });
+        return () => {
+            removeStartListener();
+            removeNavigateListener();
+        };
+    }, []);
+
     // Role-based navigation filtering matching AppSidebar
     const filteredNavItems = useMemo(() => {
         if (!user) return [];
@@ -242,6 +258,8 @@ export function MobileBottomNav() {
                     <button
                         type="button"
                         onClick={() => setMoreOpen(true)}
+                        aria-expanded={moreOpen}
+                        aria-label="Toggle more navigation options"
                         className={`flex flex-col items-center justify-center h-full w-full py-1 rounded-2xl transition-all duration-200 relative group ${
                             isSecondaryActive || moreOpen
                                 ? 'text-[#E75480] dark:text-[#FF4F81] font-black'

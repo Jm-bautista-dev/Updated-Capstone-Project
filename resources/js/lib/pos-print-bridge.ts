@@ -67,12 +67,20 @@ export interface DetectedPrinter {
     rawDevice?: unknown;
 }
 
+export interface ReceiptAddonPayload {
+    name: string;
+    quantity?: number;
+    unit_price?: number;
+    price: number;
+    subtotal?: number;
+}
+
 export interface ReceiptItemPayload {
     name: string;
     quantity: number;
     unit_price: number;
     subtotal: number;
-    addons?: Array<{ name: string; price: number }>;
+    addons?: ReceiptAddonPayload[];
 }
 
 export interface ReceiptDataPayload {
@@ -115,7 +123,121 @@ export interface LocalPrintJobPayload {
     receipt_data?: ReceiptDataPayload;
 }
 
-export type PrinterBridgeStatus = 'ready' | 'offline' | 'checking' | 'scanning' | 'permission_required' | 'disconnected';
+export type PrinterBridgeStatus = 
+    | 'ready' 
+    | 'connected' 
+    | 'connecting' 
+    | 'checking' 
+    | 'scanning' 
+    | 'disconnected' 
+    | 'offline' 
+    | 'error' 
+    | 'permission_required' 
+    | 'unknown';
+
+export interface PrinterStatusDetails {
+    label: string;
+    description: string;
+    variant: 'success' | 'warning' | 'error' | 'info' | 'neutral';
+    isReady: boolean;
+    isChecking: boolean;
+}
+
+export function getPrinterStatusDetails(
+    status: PrinterBridgeStatus, 
+    config?: Partial<PrinterConfig>, 
+    activePrinterName?: string
+): PrinterStatusDetails {
+    const printerName = activePrinterName || config?.printer_name || 'Thermal Printer';
+    const isUniversal = config?.connection_type === 'universal_browser';
+
+    if (isUniversal) {
+        return {
+            label: 'Universal Print Ready',
+            description: 'Universal 58mm zero-install print is ready on this device.',
+            variant: 'success',
+            isReady: true,
+            isChecking: false,
+        };
+    }
+
+    switch (status) {
+        case 'ready':
+        case 'connected':
+            return {
+                label: 'Printer Connected',
+                description: `${printerName} is connected and ready to print.`,
+                variant: 'success',
+                isReady: true,
+                isChecking: false,
+            };
+        case 'connecting':
+            return {
+                label: 'Connecting...',
+                description: `Establishing connection with ${printerName}...`,
+                variant: 'info',
+                isReady: false,
+                isChecking: true,
+            };
+        case 'checking':
+            return {
+                label: 'Checking Connection',
+                description: 'Verifying thermal printer connection state...',
+                variant: 'info',
+                isReady: false,
+                isChecking: true,
+            };
+        case 'scanning':
+            return {
+                label: 'Scanning Devices',
+                description: 'Searching for available thermal printers...',
+                variant: 'info',
+                isReady: false,
+                isChecking: true,
+            };
+        case 'disconnected':
+            return {
+                label: 'Printer Disconnected',
+                description: `${printerName} is disconnected. Turn on printer and tap Reconnect.`,
+                variant: 'neutral',
+                isReady: false,
+                isChecking: false,
+            };
+        case 'offline':
+            return {
+                label: 'Bridge Offline',
+                description: 'Local printer bridge service is offline. Please start print bridge or use Universal Web Print.',
+                variant: 'warning',
+                isReady: false,
+                isChecking: false,
+            };
+        case 'permission_required':
+            return {
+                label: 'Permission Required',
+                description: 'Browser permission required to access printer hardware.',
+                variant: 'warning',
+                isReady: false,
+                isChecking: false,
+            };
+        case 'error':
+            return {
+                label: 'Printer Error',
+                description: 'Bluetooth/USB communication error. Please check power and cable/pairing.',
+                variant: 'error',
+                isReady: false,
+                isChecking: false,
+            };
+        case 'unknown':
+        default:
+            return {
+                label: 'Checking Connection',
+                description: 'Printer connection status is being determined...',
+                variant: 'neutral',
+                isReady: false,
+                isChecking: true,
+            };
+    }
+}
 
 // ── WebUSB, WebSerial & WebBluetooth Interfaces ──
 export interface WebUSBEndpoint {
@@ -204,6 +326,8 @@ export interface WebBluetoothDevice {
     id: string;
     name?: string;
     gatt?: WebBluetoothRemoteGATTServer;
+    addEventListener?(type: string, listener: (event: Event) => void): void;
+    removeEventListener?(type: string, listener: (event: Event) => void): void;
 }
 
 // ── Singleton Hardware Handles ──
@@ -212,6 +336,119 @@ let activeUsbEndpoint: number | null = null;
 let activeSerialPort: WebSerialPort | null = null;
 let activeBluetoothDevice: WebBluetoothDevice | null = null;
 let activeBluetoothCharacteristic: WebBluetoothCharacteristic | null = null;
+
+// ── Hardware Live State Subscriber & Event Broadcast ──
+type PrinterStateChangeListener = (status: PrinterBridgeStatus, activePrinter: DetectedPrinter | null) => void;
+const stateChangeListeners: Set<PrinterStateChangeListener> = new Set();
+
+export function subscribePrinterState(listener: PrinterStateChangeListener): () => void {
+    stateChangeListeners.add(listener);
+    return () => {
+        stateChangeListeners.delete(listener);
+    };
+}
+
+export function notifyPrinterStateChange(status: PrinterBridgeStatus, printer: DetectedPrinter | null = null): void {
+    for (const listener of stateChangeListeners) {
+        try {
+            listener(status, printer);
+        } catch {
+            // Ignore subscriber errors
+        }
+    }
+}
+
+let isHardwareEventsInitialized = false;
+
+export function initializeHardwareListeners(): void {
+    if (typeof window === 'undefined' || isHardwareEventsInitialized) return;
+    isHardwareEventsInitialized = true;
+
+    // Listen for Web Serial device plug/unplug or Bluetooth SPP disconnects
+    if (typeof navigator !== 'undefined' && 'serial' in navigator) {
+        try {
+            const serialNav = (navigator as unknown as { serial: EventTarget }).serial;
+            if (serialNav && typeof serialNav.addEventListener === 'function') {
+                serialNav.addEventListener('disconnect', (event: Event) => {
+                    const targetPort = (event as unknown as { port?: WebSerialPort }).port;
+                    if (!targetPort || targetPort === activeSerialPort) {
+                        activeSerialPort = null;
+                        notifyPrinterStateChange('disconnected', null);
+                    }
+                });
+                serialNav.addEventListener('connect', () => {
+                    const config = getPrinterConfig();
+                    if (config.connection_type === 'direct_bluetooth') {
+                        restoreDirectDeviceConnection().then(printer => {
+                            if (printer) {
+                                notifyPrinterStateChange('ready', printer);
+                            }
+                        });
+                    }
+                });
+            }
+        } catch {
+            // Browser serial listener ignore
+        }
+    }
+
+    // Listen for WebUSB device plug/unplug
+    if (typeof navigator !== 'undefined' && 'usb' in navigator) {
+        try {
+            const usbNav = (navigator as unknown as { usb: EventTarget }).usb;
+            if (usbNav && typeof usbNav.addEventListener === 'function') {
+                usbNav.addEventListener('disconnect', (event: Event) => {
+                    const targetDev = (event as unknown as { device?: WebUSBDevice }).device;
+                    if (!targetDev || targetDev === activeUsbDevice) {
+                        activeUsbDevice = null;
+                        activeUsbEndpoint = null;
+                        notifyPrinterStateChange('disconnected', null);
+                    }
+                });
+                usbNav.addEventListener('connect', () => {
+                    const config = getPrinterConfig();
+                    if (config.connection_type === 'direct_usb') {
+                        restoreDirectDeviceConnection().then(printer => {
+                            if (printer) {
+                                notifyPrinterStateChange('ready', printer);
+                            }
+                        });
+                    }
+                });
+            }
+        } catch {
+            // Browser USB listener ignore
+        }
+    }
+
+    // Window focus & Visibility change: auto-reverify connection state when returning to the POS tab/window
+    const onWindowActive = () => {
+        const currentConfig = getPrinterConfig();
+        if (currentConfig.connection_type === 'direct_bluetooth' || currentConfig.connection_type === 'direct_usb') {
+            if (currentConfig.connection_type === 'direct_bluetooth') {
+                if (activeBluetoothDevice && (!activeBluetoothDevice.gatt?.connected || !activeBluetoothCharacteristic)) {
+                    activeBluetoothDevice = null;
+                    activeBluetoothCharacteristic = null;
+                    notifyPrinterStateChange('disconnected', null);
+                }
+            }
+            if (currentConfig.connection_type === 'direct_usb') {
+                if (activeUsbDevice && !activeUsbDevice.opened) {
+                    activeUsbDevice = null;
+                    activeUsbEndpoint = null;
+                    notifyPrinterStateChange('disconnected', null);
+                }
+            }
+        }
+    };
+
+    window.addEventListener('focus', onWindowActive);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            onWindowActive();
+        }
+    });
+}
 
 // ── 1. BROWSER CAPABILITY & ENVIRONMENT CHECKS ──
 export function isWebUsbSupported(): boolean {
@@ -439,6 +676,25 @@ export async function connectWebBluetoothDevice(device: WebBluetoothDevice): Pro
 
         activeBluetoothDevice = device;
         activeBluetoothCharacteristic = matchedCharacteristic;
+
+        // Register GATT disconnect listener to immediately detect physical disconnects or sleep
+        const onGattDisconnected = () => {
+            console.warn('[Web Bluetooth] GATT server disconnected');
+            if (activeBluetoothDevice === device) {
+                activeBluetoothDevice = null;
+                activeBluetoothCharacteristic = null;
+                notifyPrinterStateChange('disconnected', null);
+            }
+        };
+
+        if (typeof (device as unknown as EventTarget).addEventListener === 'function') {
+            try {
+                (device as unknown as EventTarget).removeEventListener('gattserverdisconnected', onGattDisconnected);
+                (device as unknown as EventTarget).addEventListener('gattserverdisconnected', onGattDisconnected);
+            } catch {
+                // Ignore listener attachment error
+            }
+        }
 
         return {
             success: true,
@@ -1006,7 +1262,7 @@ export async function connectDirectDevice(
 }
 
 /**
- * Attempt to restore paired direct Bluetooth / USB / Serial connection on page startup
+ * Attempt to restore paired direct Bluetooth / USB / Serial connection on page startup or route change
  */
 export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter | null> {
     const config = getPrinterConfig();
@@ -1014,50 +1270,155 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
         return null;
     }
 
-    // 1. Try Web Serial (Bluetooth SPP / Virtual COM)
-    if (isWebSerialSupported()) {
+    // 0. Check if active hardware session is already alive in memory (e.g. client-side SPA route transition)
+    if (config.connection_type === 'direct_bluetooth') {
+        if (activeBluetoothDevice && activeBluetoothDevice.gatt?.connected && activeBluetoothCharacteristic) {
+            const blePrinter: DetectedPrinter = {
+                id: `ble_${activeBluetoothDevice.id}`,
+                name: activeBluetoothDevice.name || config.printer_name || 'BLE Thermal Printer',
+                isDefault: true,
+                port: 'Direct Web Bluetooth (BLE)',
+                type: 'webbluetooth',
+                rawDevice: activeBluetoothDevice,
+            };
+            notifyPrinterStateChange('ready', blePrinter);
+            return blePrinter;
+        }
+
+        if (activeSerialPort) {
+            let isAlive = false;
+            try {
+                if (activeSerialPort.writable) isAlive = true;
+            } catch {
+                isAlive = false;
+            }
+            if (isAlive) {
+                const info = activeSerialPort.getInfo ? activeSerialPort.getInfo() : {};
+                const sppPrinter: DetectedPrinter = {
+                    id: `serial_${info.usbVendorId || 'port'}`,
+                    name: config.printer_name || 'POS58D Bluetooth Printer',
+                    isDefault: true,
+                    port: `Bluetooth SPP Link (${config.baud_rate || 9600} baud)`,
+                    type: 'webserial',
+                    vendorId: info.usbVendorId,
+                    productId: info.usbProductId,
+                    rawDevice: activeSerialPort,
+                };
+                notifyPrinterStateChange('ready', sppPrinter);
+                return sppPrinter;
+            }
+        }
+    }
+
+    if (config.connection_type === 'direct_usb') {
+        if (activeUsbDevice && activeUsbDevice.opened && activeUsbEndpoint !== null) {
+            const usbPrinter: DetectedPrinter = {
+                id: `usb_${activeUsbDevice.vendorId}_${activeUsbDevice.productId}`,
+                name: activeUsbDevice.productName || config.printer_name || 'USB Thermal Printer',
+                isDefault: true,
+                port: `USB VID:0x${activeUsbDevice.vendorId.toString(16).toUpperCase()} PID:0x${activeUsbDevice.productId.toString(16).toUpperCase()}`,
+                type: 'webusb',
+                vendorId: activeUsbDevice.vendorId,
+                productId: activeUsbDevice.productId,
+                rawDevice: activeUsbDevice,
+            };
+            notifyPrinterStateChange('ready', usbPrinter);
+            return usbPrinter;
+        }
+    }
+
+    // 1. Try Web Bluetooth paired devices (Supported in Chromium browsers)
+    if (config.connection_type === 'direct_bluetooth' && isWebBluetoothSupported()) {
+        try {
+            const bt = (navigator as unknown as { bluetooth?: { getDevices?: () => Promise<WebBluetoothDevice[]> } }).bluetooth;
+            if (typeof bt?.getDevices === 'function') {
+                const devices = await bt.getDevices();
+                if (devices && devices.length > 0) {
+                    const matched = config.bluetooth_device_id
+                        ? devices.find((d: WebBluetoothDevice) => d.id === config.bluetooth_device_id)
+                        : devices[0];
+                    const dev = matched || devices[0];
+                    const res = await connectWebBluetoothDevice(dev);
+                    if (res.success) {
+                        const printer: DetectedPrinter = {
+                            id: `ble_${dev.id}`,
+                            name: dev.name || config.printer_name || 'BLE Thermal Printer',
+                            isDefault: true,
+                            port: 'Direct Web Bluetooth (BLE)',
+                            type: 'webbluetooth',
+                            rawDevice: dev,
+                        };
+                        notifyPrinterStateChange('ready', printer);
+                        return printer;
+                    }
+                }
+            }
+        } catch (bleErr) {
+            console.warn('[Web Bluetooth] Silent restore warning:', bleErr);
+        }
+    }
+
+    // 2. Try Web Serial (Bluetooth Classic SPP / Virtual COM)
+    if (config.connection_type === 'direct_bluetooth' && isWebSerialSupported()) {
         try {
             const serial = (navigator as unknown as { serial: { getPorts(): Promise<WebSerialPort[]> } }).serial;
             const ports = await serial.getPorts();
             if (ports && ports.length > 0) {
-                const port = ports[0];
+                // Find matching port by vendor ID if saved, or first valid port
+                let targetPort: WebSerialPort | null = null;
+                if (config.direct_device_vendor_id) {
+                    targetPort = ports.find(p => p.getInfo && p.getInfo().usbVendorId === config.direct_device_vendor_id) || null;
+                }
+                if (!targetPort) targetPort = ports[0];
+
                 let isAlreadyOpen = false;
                 try {
-                    if (port.readable || port.writable) isAlreadyOpen = true;
+                    if (targetPort.readable || targetPort.writable) isAlreadyOpen = true;
                 } catch {
-                    void 0;
+                    isAlreadyOpen = false;
                 }
 
                 if (!isAlreadyOpen) {
                     try {
-                        await port.open({ baudRate: config.baud_rate || 9600 });
+                        await targetPort.open({ 
+                            baudRate: config.baud_rate || 9600,
+                            dataBits: 8,
+                            stopBits: 1,
+                            parity: 'none',
+                            flowControl: 'none',
+                        });
+                        isAlreadyOpen = true;
                     } catch (err: unknown) {
-                        if ((err as { name?: string })?.name !== 'InvalidStateError' && !String(err).includes('already open')) {
-                            throw err;
+                        if (String(err).includes('already open') || (err as { name?: string })?.name === 'InvalidStateError') {
+                            isAlreadyOpen = true;
                         }
                     }
                 }
 
-                activeSerialPort = port;
-                const info = port.getInfo ? port.getInfo() : {};
-                return {
-                    id: `serial_${info.usbVendorId || 'port'}`,
-                    name: config.printer_name || 'POS58D Bluetooth Printer',
-                    isDefault: true,
-                    port: `Serial ${config.baud_rate || 9600} baud`,
-                    type: 'webserial',
-                    vendorId: info.usbVendorId,
-                    productId: info.usbProductId,
-                    rawDevice: port,
-                };
+                if (isAlreadyOpen) {
+                    activeSerialPort = targetPort;
+                    const info = targetPort.getInfo ? targetPort.getInfo() : {};
+                    const printer: DetectedPrinter = {
+                        id: `serial_${info.usbVendorId || 'port'}`,
+                        name: config.printer_name || (info.usbVendorId ? `Serial Printer (0x${info.usbVendorId.toString(16).toUpperCase()})` : 'POS58D Bluetooth Printer'),
+                        isDefault: true,
+                        port: `Bluetooth SPP Link (${config.baud_rate || 9600} baud)`,
+                        type: 'webserial',
+                        vendorId: info.usbVendorId,
+                        productId: info.usbProductId,
+                        rawDevice: targetPort,
+                    };
+                    notifyPrinterStateChange('ready', printer);
+                    return printer;
+                }
             }
-        } catch {
-            // Ignore serial auto-connect failure
+        } catch (serialErr) {
+            console.warn('[Web Serial] Silent restore warning:', serialErr);
         }
     }
 
-    // 2. Try WebUSB paired devices
-    if (isWebUsbSupported()) {
+    // 3. Try WebUSB paired devices
+    if (config.connection_type === 'direct_usb' && isWebUsbSupported()) {
         try {
             const usb = (navigator as unknown as { usb: { getDevices(): Promise<WebUSBDevice[]> } }).usb;
             const devices = await usb.getDevices();
@@ -1069,7 +1430,7 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
                 const dev = matched || devices[0];
                 const res = await connectWebUsbDevice(dev);
                 if (res.success) {
-                    return {
+                    const printer: DetectedPrinter = {
                         id: `usb_${dev.vendorId}_${dev.productId}`,
                         name: dev.productName || config.printer_name || 'USB Thermal Printer',
                         isDefault: true,
@@ -1079,41 +1440,80 @@ export async function restoreDirectDeviceConnection(): Promise<DetectedPrinter |
                         productId: dev.productId,
                         rawDevice: dev,
                     };
+                    notifyPrinterStateChange('ready', printer);
+                    return printer;
                 }
             }
-        } catch {
-            // Ignore auto-connect failure
+        } catch (usbErr) {
+            console.warn('[WebUSB] Silent restore warning:', usbErr);
         }
     }
 
-    // 3. Try Web Bluetooth paired devices
-    if (isWebBluetoothSupported() && typeof (navigator as unknown as { bluetooth?: { getDevices?: () => Promise<WebBluetoothDevice[]> } }).bluetooth?.getDevices === 'function') {
-        try {
-            const bt = (navigator as unknown as { bluetooth: { getDevices(): Promise<WebBluetoothDevice[]> } }).bluetooth;
-            const devices = await bt.getDevices();
-            if (devices && devices.length > 0) {
-                const matched = config.bluetooth_device_id
-                    ? devices.find((d: WebBluetoothDevice) => d.id === config.bluetooth_device_id)
-                    : devices[0];
-                const dev = matched || devices[0];
-                const res = await connectWebBluetoothDevice(dev);
-                if (res.success) {
-                    return {
-                        id: `ble_${dev.id}`,
-                        name: dev.name || config.printer_name || 'BLE Thermal Printer',
-                        isDefault: true,
-                        port: 'Direct Web Bluetooth (BLE)',
-                        type: 'webbluetooth',
-                        rawDevice: dev,
-                    };
-                }
-            }
-        } catch {
-            // Ignore BLE auto-reconnect failure
-        }
-    }
-
+    // If unable to automatically reconnect, report disconnected accurately (NEVER falsely state connected)
+    notifyPrinterStateChange('disconnected', null);
     return null;
+}
+
+/**
+ * 1-Click Quick Reconnect for saved Bluetooth / USB Thermal Printer
+ */
+export async function quickReconnectPrinter(): Promise<{
+    success: boolean;
+    printer?: DetectedPrinter;
+    message?: string;
+}> {
+    const config = getPrinterConfig();
+
+    if (config.connection_type === 'universal_browser') {
+        notifyPrinterStateChange('ready', null);
+        return {
+            success: true,
+            message: 'Universal Web Thermal Printing is ready.',
+        };
+    }
+
+    // 1. Attempt silent hardware restoration first
+    const silent = await restoreDirectDeviceConnection();
+    if (silent) {
+        return {
+            success: true,
+            printer: silent,
+            message: `✓ Reconnected to ${silent.name}`,
+        };
+    }
+
+    // 2. If silent restoration failed, trigger scan request with user gesture
+    if (config.connection_type === 'direct_bluetooth') {
+        if (isWebSerialSupported()) {
+            const sppRes = await scanAndRequestBluetoothSppPrinter(config.baud_rate || 9600);
+            if (sppRes.success && sppRes.printer) {
+                notifyPrinterStateChange('ready', sppRes.printer);
+                return sppRes;
+            }
+        }
+
+        if (isWebBluetoothSupported()) {
+            const bleRes = await scanAndRequestWebBluetoothPrinter();
+            if (bleRes.success && bleRes.printer) {
+                notifyPrinterStateChange('ready', bleRes.printer);
+                return bleRes;
+            }
+        }
+    } else if (config.connection_type === 'direct_usb') {
+        if (isWebUsbSupported()) {
+            const usbRes = await scanAndRequestWebUsbPrinter();
+            if (usbRes.success && usbRes.printer) {
+                notifyPrinterStateChange('ready', usbRes.printer);
+                return usbRes;
+            }
+        }
+    }
+
+    notifyPrinterStateChange('disconnected', null);
+    return {
+        success: false,
+        message: 'Could not connect to printer. Please ensure the printer is turned on and within range.',
+    };
 }
 
 /**
@@ -1150,19 +1550,26 @@ export async function sendRawToDirectHardware(bytes: Uint8Array): Promise<{ succ
             }
         } catch (err: unknown) {
             console.warn('[Direct WebBluetooth Print Error]:', err);
+            activeBluetoothDevice = null;
+            activeBluetoothCharacteristic = null;
+            notifyPrinterStateChange('disconnected', null);
         }
     }
 
     // 2. Direct Web Serial (Bluetooth Classic SPP / COM Links)
-    if (activeSerialPort && activeSerialPort.writable) {
+    if (activeSerialPort) {
         try {
-            const writer = activeSerialPort.writable.getWriter();
-            await writer.write(bytes);
-            writer.releaseLock();
-            return { success: true, message: 'Receipt printed directly via Bluetooth SPP.' };
+            if (activeSerialPort.writable) {
+                const writer = activeSerialPort.writable.getWriter();
+                await writer.write(bytes);
+                writer.releaseLock();
+                return { success: true, message: 'Receipt printed directly via Bluetooth SPP.' };
+            }
         } catch (err: unknown) {
             const errorObj = err as { message?: string };
             console.warn('[Direct WebSerial Print Error]:', err);
+            activeSerialPort = null;
+            notifyPrinterStateChange('disconnected', null);
             return {
                 success: false,
                 message: `Direct Serial communication error: ${errorObj.message || 'Port unavailable'}.`,
@@ -1184,6 +1591,9 @@ export async function sendRawToDirectHardware(bytes: Uint8Array): Promise<{ succ
         } catch (err: unknown) {
             const errorObj = err as { message?: string };
             console.warn('[Direct WebUSB Print Error]:', err);
+            activeUsbDevice = null;
+            activeUsbEndpoint = null;
+            notifyPrinterStateChange('disconnected', null);
             return {
                 success: false,
                 message: `Direct USB communication error: ${errorObj.message || 'Printer unavailable'}. Please verify USB cable.`,
@@ -1191,7 +1601,7 @@ export async function sendRawToDirectHardware(bytes: Uint8Array): Promise<{ succ
         }
     }
 
-    // Attempt auto-reconnect before giving up
+    // Attempt auto-reconnect once before giving up
     const restored = await restoreDirectDeviceConnection();
     if (restored) {
         return await sendRawToDirectHardware(bytes);
@@ -1199,7 +1609,7 @@ export async function sendRawToDirectHardware(bytes: Uint8Array): Promise<{ succ
 
     return {
         success: false,
-        message: 'No direct Bluetooth or USB thermal printer is currently connected. Please click "Scan for Printers" to pair.',
+        message: 'Bluetooth or USB thermal printer is disconnected. Tap "Reconnect" in the header to reconnect or use Universal Print.',
     };
 }
 
@@ -1237,6 +1647,8 @@ export async function disconnectDirectHardware(): Promise<void> {
         }
         activeSerialPort = null;
     }
+
+    notifyPrinterStateChange('disconnected', null);
 }
 
 // ── 3. LOCAL DESKTOP PRINT BRIDGE ADAPTER (127.0.0.1:18181) ──
@@ -1563,8 +1975,10 @@ export function usePrinterStatus(branchId?: number) {
             return true;
         }
 
+        setStatus('checking');
+
         if (currentConfig.connection_type === 'direct_bluetooth' || currentConfig.connection_type === 'direct_usb') {
-            if (activeBluetoothCharacteristic || activeUsbDevice || activeSerialPort) {
+            if (activeBluetoothCharacteristic || (activeUsbDevice && activeUsbDevice.opened) || (activeSerialPort && (activeSerialPort.readable || activeSerialPort.writable))) {
                 setStatus('ready');
                 return true;
             }
@@ -1771,10 +2185,35 @@ export function usePrinterStatus(branchId?: number) {
         setStatus('disconnected');
     }, []);
 
+    const isConnected = status === 'ready' || (config.connection_type === 'android_bridge' && bridges.some(b => b.is_online));
+    const statusDetails = getPrinterStatusDetails(status, config, activeDirectPrinter?.name);
+
     useEffect(() => {
         isMountedRef.current = true;
+        initializeHardwareListeners();
+
+        // Subscribe to global hardware live state changes (disconnect events, background auto-reconnects)
+        const unsubscribe = subscribePrinterState((newStatus, printer) => {
+            if (isMountedRef.current) {
+                setStatus(newStatus);
+                if (printer) {
+                    setActiveDirectPrinter(printer);
+                    setPrinters(prev => {
+                        if (!prev.some(p => p.id === printer.id || p.name === printer.name)) {
+                            return [printer, ...prev];
+                        }
+                        return prev;
+                    });
+                } else if (newStatus === 'disconnected') {
+                    setActiveDirectPrinter(null);
+                }
+            }
+        });
 
         const initStatus = async () => {
+            if (!isMountedRef.current) return;
+            setStatus('checking');
+
             if (config.connection_type === 'universal_browser') {
                 if (isMountedRef.current) {
                     setStatus('ready');
@@ -1813,14 +2252,15 @@ export function usePrinterStatus(branchId?: number) {
 
         return () => {
             isMountedRef.current = false;
+            unsubscribe();
         };
     }, [branchId, config.connection_type]);
 
-    const isConnected = status === 'ready' || (config.connection_type === 'android_bridge' && bridges.some(b => b.is_online));
-
     return {
         status,
+        statusDetails,
         isConnected,
+        isChecking: status === 'checking' || status === 'connecting' || status === 'scanning',
         config,
         printers,
         bridges,
@@ -1834,6 +2274,7 @@ export function usePrinterStatus(branchId?: number) {
         updateConfig,
         checkNow,
         scanForPrinters,
+        reconnectPrinter: quickReconnectPrinter,
         disconnectCurrentPrinter,
     };
 }

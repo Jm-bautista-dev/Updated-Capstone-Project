@@ -81,13 +81,15 @@ export function FilterToolbar({
                             value={currentBranchId ? String(currentBranchId) : 'all'}
                             onValueChange={onBranchFilter}
                         >
-                            <SelectTrigger className="w-44 h-12 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-white/20 transition-all">
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                    <SelectValue placeholder="All Branches" />
+                            <SelectTrigger className="w-full sm:w-auto sm:min-w-52 sm:max-w-[18rem] h-12 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-white/20 transition-all">
+                                <div className="flex items-center gap-2 min-w-0 flex-1 mr-1">
+                                    <MapPin className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
+                                    <span className="truncate">
+                                        <SelectValue placeholder="All Branches" />
+                                    </span>
                                 </div>
                             </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] min-w-52">
                                 <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10">
                                     All Branches
                                 </SelectItem>

@@ -86,29 +86,29 @@ export function ExportCenter() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: index * 0.04 }}
-                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4"
+                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:border-[#E75480]/30 dark:hover:border-white/20 backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 h-full min-h-55"
                         >
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs', opt.color)}>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs shrink-0', opt.color)}>
                                         <Icon className="size-5.5" />
                                     </div>
-                                    <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border', opt.color)}>
+                                    <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border shrink-0', opt.color)}>
                                         {opt.badge}
                                     </span>
                                 </div>
 
-                                <div>
-                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                <div className="space-y-1 min-w-0">
+                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] leading-snug line-clamp-1" title={opt.title}>
                                         {opt.title}
                                     </h3>
-                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] mt-1 line-clamp-2 leading-relaxed">
+                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] line-clamp-2 leading-relaxed">
                                         {opt.description}
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="pt-3 border-t border-[#F8C8DC]/40 dark:border-white/10">
+                            <div className="pt-3 border-t border-[#F8C8DC]/40 dark:border-white/10 mt-auto">
                                 <Button
                                     type="button"
                                     onClick={() => handleTriggerExport(opt.id, opt.title)}

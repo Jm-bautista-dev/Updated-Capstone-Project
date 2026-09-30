@@ -432,47 +432,47 @@ export default function PickupDashboard({
 
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
+                    <Card className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs">
                         <CardContent className="p-4">
-                            <p className="text-xs font-medium text-gray-500">Today Total</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.today_total}</p>
+                            <p className="text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8]">Today Total</p>
+                            <p className="text-2xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] mt-1">{stats.today_total}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
+                    <Card className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs">
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
-                                <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Prepare Now</p>
+                                <p className="text-xs font-bold text-amber-600 dark:text-amber-400">Prepare Now</p>
                                 {(stats.overdue_prep ?? 0) > 0 && (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 rounded-full">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400 rounded-full">
                                         {stats.overdue_prep} overdue
                                     </span>
                                 )}
                             </div>
-                            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.due_prep ?? stats.pending_prep}</p>
+                            <p className="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 mt-1">{stats.due_prep ?? stats.pending_prep}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
+                    <Card className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs">
                         <CardContent className="p-4">
-                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Scheduled (Future)</p>
-                            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.scheduled_future ?? 0}</p>
+                            <p className="text-xs font-bold text-blue-600 dark:text-blue-400">Scheduled (Future)</p>
+                            <p className="text-2xl font-black font-mono text-blue-600 dark:text-blue-400 mt-1">{stats.scheduled_future ?? 0}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
+                    <Card className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs">
                         <CardContent className="p-4">
-                            <p className="text-xs font-medium text-orange-600 dark:text-orange-400">In Kitchen</p>
-                            <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{stats.preparing}</p>
+                            <p className="text-xs font-bold text-orange-600 dark:text-orange-400">In Kitchen</p>
+                            <p className="text-2xl font-black font-mono text-orange-600 dark:text-orange-400 mt-1">{stats.preparing}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
+                    <Card className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs">
                         <CardContent className="p-4">
-                            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Ready for Pickup</p>
-                            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{stats.ready}</p>
+                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Ready for Pickup</p>
+                            <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">{stats.ready}</p>
                         </CardContent>
                     </Card>
-                    <Card className="border-gray-200 dark:border-gray-800 hover:translate-y-0 hover:shadow-none hover:ring-0">
+                    <Card className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs">
                         <CardContent className="p-4">
-                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Completed</p>
-                            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.completed_today}</p>
+                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Completed</p>
+                            <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">{stats.completed_today}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -557,7 +557,7 @@ export default function PickupDashboard({
                             const isUnpaid = order.payment_status === 'unpaid';
 
                             return (
-                                <Card key={order.id} className="border-gray-200 dark:border-gray-800 flex flex-col justify-between hover:translate-y-0 hover:shadow-none hover:ring-0">
+                                <Card key={order.id} className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 shadow-2xs flex flex-col justify-between">
                                     <CardHeader className="pb-3">
                                         <div className="flex items-start justify-between">
                                             <div>

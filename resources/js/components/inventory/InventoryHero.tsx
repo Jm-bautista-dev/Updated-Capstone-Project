@@ -92,9 +92,12 @@ export function InventoryHero({ inventory, stats: serverStats, activeBranchName 
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0] shadow-2xs self-start sm:self-center">
-                    <RefreshCw className="size-3.5 text-[#E75480] dark:text-[#FF4F81] animate-spin-slow" />
-                    <span>Location: {activeBranchName}</span>
+                <div
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 text-xs font-bold text-[#3D2C2E] dark:text-[#E2E8F0] shadow-2xs self-start sm:self-center max-w-full sm:max-w-xs min-w-0"
+                    title={`Active Location: ${activeBranchName}`}
+                >
+                    <RefreshCw className="size-3.5 text-[#E75480] dark:text-[#FF4F81] animate-spin-slow shrink-0" />
+                    <span className="truncate">Location: {activeBranchName}</span>
                 </div>
             </div>
 

@@ -438,9 +438,25 @@ class SaleService
         }
 
         $saleTotal = round($netProductSales + $deliveryFee, 2);
+        if ($saleTotal > 99999999.99) {
+            throw new \Exception("Checkout failed. Order total exceeds allowable limit of ₱99,999,999.99.");
+        }
+
         $saleProfit = round($netProductSales - $costTotal, 2);
 
-        $paidAmount = round((float) ($data['paid_amount'] ?? $saleTotal), 2);
+        $rawPaid = $data['paid_amount'] ?? $saleTotal;
+        if (!is_numeric($rawPaid)) {
+            throw new \Exception("Checkout failed. Please enter a valid cash amount.");
+        }
+
+        $paidAmount = round((float) $rawPaid, 2);
+        if ($paidAmount < 0 || !is_finite($paidAmount)) {
+            throw new \Exception("Checkout failed. Please enter a valid cash amount.");
+        }
+        if ($paidAmount > 99999999.99) {
+            throw new \Exception("Checkout failed. Cash amount cannot exceed ₱99,999,999.99.");
+        }
+
         if ($paymentMethod === 'cash') {
             if ($paidAmount < $saleTotal) {
                 throw new \Exception("Insufficient payment: received ₱" . number_format($paidAmount, 2) . ", but order total is ₱" . number_format($saleTotal, 2) . ".");

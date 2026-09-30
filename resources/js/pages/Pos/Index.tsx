@@ -18,7 +18,9 @@ import {
   FiCreditCard,
   FiDollarSign,
   FiSmartphone,
-  FiChevronRight
+  FiChevronRight,
+  FiRefreshCw,
+  FiX
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notification-bell';
@@ -122,8 +124,34 @@ export default function PosIndex() {
   const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
 
   // --- Real-time Printer Status & Config Hook ---
-  const { isConnected: isPrinterReady, config: printerConfig } = usePrinterStatus(branch?.id);
+  const { 
+    isConnected: isPrinterReady, 
+    status: printerStatus, 
+    statusDetails: printerStatusDetails,
+    isChecking: isPrinterChecking,
+    config: printerConfig, 
+    reconnectPrinter 
+  } = usePrinterStatus(branch?.id);
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
+  const [isReconnectingPrinter, setIsReconnectingPrinter] = useState(false);
+
+  const handleQuickReconnect = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsReconnectingPrinter(true);
+    try {
+      const res = await reconnectPrinter();
+      if (res.success) {
+        toast.success(res.message || 'Thermal printer connected!');
+      } else {
+        toast.warning(res.message || 'Could not connect. Opening printer settings...');
+        setIsPrinterSettingsOpen(true);
+      }
+    } catch {
+      setIsPrinterSettingsOpen(true);
+    } finally {
+      setIsReconnectingPrinter(false);
+    }
+  };
 
   // --- Real-time Sync Logic ---
   useEffect(() => {
@@ -310,11 +338,62 @@ export default function PosIndex() {
     return Math.round(raw * 100) / 100;
   }, [netProductSubtotal, orderType, deliveryFee]);
 
+  const MAX_CASH_AMOUNT = 99999999.99;
+
+  const handleCashReceivedChange = (value: string) => {
+    if (value === '') {
+      setCashReceived('');
+      return;
+    }
+    // Remove all characters except digits and decimal point
+    let clean = value.replace(/[^0-9.]/g, '');
+    const parts = clean.split('.');
+    if (parts.length > 2) {
+      clean = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const finalParts = clean.split('.');
+    if (finalParts[0].length > 8) {
+      finalParts[0] = finalParts[0].slice(0, 8);
+    }
+    if (finalParts.length > 1 && finalParts[1].length > 2) {
+      finalParts[1] = finalParts[1].slice(0, 2);
+    }
+    const formatted = finalParts.join('.');
+    const num = parseFloat(formatted);
+    if (!isNaN(num) && num > MAX_CASH_AMOUNT) {
+      setCashReceived(String(MAX_CASH_AMOUNT));
+      return;
+    }
+    setCashReceived(formatted);
+  };
+
   const changeDue = useMemo(() => {
-    const cash = parseFloat(cashReceived) || 0;
+    const cash = parseFloat(cashReceived);
+    if (isNaN(cash) || !isFinite(cash) || cash < 0) return 0;
     const raw = Math.max(0, cash - cartTotal);
     return Math.round(raw * 100) / 100;
   }, [cashReceived, cartTotal]);
+
+  const cashValidation = useMemo(() => {
+    if (paymentMethod !== 'cash') return { isValid: true, message: null };
+    if (!cashReceived || cashReceived.trim() === '') {
+      return { isValid: false, message: 'Please enter cash amount received.' };
+    }
+    const num = parseFloat(cashReceived);
+    if (isNaN(num) || !isFinite(num)) {
+      return { isValid: false, message: 'Checkout failed. Please enter a valid cash amount.' };
+    }
+    if (num < 0) {
+      return { isValid: false, message: 'Cash amount cannot be negative.' };
+    }
+    if (num > MAX_CASH_AMOUNT) {
+      return { isValid: false, message: `Cash amount cannot exceed ${formatCurrency(MAX_CASH_AMOUNT)}.` };
+    }
+    if (num < cartTotal) {
+      return { isValid: false, message: `Insufficient cash. Minimum required: ${formatCurrency(cartTotal)}.` };
+    }
+    return { isValid: true, message: null };
+  }, [paymentMethod, cashReceived, cartTotal]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p: Product) => {
@@ -414,6 +493,51 @@ export default function PosIndex() {
     setCart(prev => prev.filter((_, idx) => idx !== cartIndex));
   };
 
+  // --- Auto-Return to Default Ordering State When Cart is Empty ---
+  useEffect(() => {
+    if (cart.length === 0 && kioskStep !== 'browse') {
+      setKioskStep('browse');
+      setActiveDiscount(null);
+      setCashReceived('');
+      setCalculatedDeliveryFee(null);
+      setProofFile(null);
+    }
+  }, [cart.length, kioskStep]);
+
+  const handleClearCart = () => {
+    setCart([]);
+    setActiveDiscount(null);
+    setCashReceived('');
+    setCalculatedDeliveryFee(null);
+    setProofFile(null);
+    setKioskStep('browse');
+    toast.info('Cart cleared');
+  };
+
+  const handleResetOrder = () => {
+    setCart([]);
+    setActiveDiscount(null);
+    setCashReceived('');
+    setCalculatedDeliveryFee(null);
+    setProofFile(null);
+    setDeliveryInfo({
+      customer_name: '',
+      customer_phone: '',
+      customer_address: '',
+      delivery_type: 'internal',
+      external_service: 'grab',
+      rider_id: '',
+      tracking_number: '',
+      distance_km: '',
+      external_notes: '',
+      latitude: null,
+      longitude: null,
+    });
+    setOrderType('dine-in');
+    setKioskStep('browse');
+    toast.info('Order reset');
+  };
+
   const handleProceedToCheckout = () => {
     if (!activeShift) {
       setAlertModal({ type: 'warning', title: 'Shift Required', message: 'You must open a shift before processing sales.' });
@@ -450,13 +574,31 @@ export default function PosIndex() {
   const confirmPayment = () => {
     if (isSubmitting) return;
 
-    const paid = paymentMethod === 'cash' ? (parseFloat(cashReceived) || 0) : cartTotal;
-
-    if (paymentMethod === 'cash' && paid < cartTotal) {
-      setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
-      setIsAlertModalOpen(true);
-      return;
+    if (paymentMethod === 'cash') {
+      if (!cashReceived || cashReceived.trim() === '') {
+        setAlertModal({ type: 'warning', title: 'Cash Required', message: 'Checkout failed. Please enter a valid cash amount.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      const paid = parseFloat(cashReceived);
+      if (isNaN(paid) || !isFinite(paid) || paid < 0) {
+        setAlertModal({ type: 'error', title: 'Invalid Amount', message: 'Checkout failed. Please enter a valid cash amount.' });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (paid > MAX_CASH_AMOUNT) {
+        setAlertModal({ type: 'warning', title: 'Amount Exceeds Limit', message: `Cash amount cannot exceed ${formatCurrency(MAX_CASH_AMOUNT)}.` });
+        setIsAlertModalOpen(true);
+        return;
+      }
+      if (paid < cartTotal) {
+        setAlertModal({ type: 'warning', title: 'Insufficient Cash', message: `You need at least ${formatCurrency(cartTotal)} to complete this order.` });
+        setIsAlertModalOpen(true);
+        return;
+      }
     }
+
+    const paid = paymentMethod === 'cash' ? (parseFloat(cashReceived) || 0) : cartTotal;
 
     if (!navigator.onLine) {
       const opId = generateOfflineId();
@@ -582,39 +724,62 @@ export default function PosIndex() {
           paymentMethod: paymentMethod,
         };
         // 1. Build immutable receipt data from the completed transaction
-        const effectiveReceiptItems = cart.map(item => ({
-          name: item.name,
-          quantity: Number(item.quantity || 1),
-          unit_price: Number(item.selling_price || item.price || 0),
-          subtotal: Number(item.selling_price || item.price || 0) * Number(item.quantity || 1),
-          addons: item.selected_addons?.map(a => ({ name: a.name, price: Number(a.price || 0) })) || []
-        }));
+        const effectiveReceiptItems = cart.map(item => {
+          const unitPrice = Number(item.selling_price || item.price || 0);
+          const qty = Number(item.quantity || 1);
+          const itemAddons = item.selected_addons?.map(a => {
+            const adQty = Number(a.quantity || 1);
+            const adUnitPrice = Number(a.price || 0);
+            const adSubtotal = Number(a.subtotal || (adUnitPrice * adQty));
+            return {
+              name: a.name,
+              quantity: adQty,
+              unit_price: adUnitPrice,
+              price: adUnitPrice,
+              subtotal: adSubtotal,
+            };
+          }) || [];
+          const addonSum = itemAddons.reduce((sum, a) => sum + (a.subtotal || 0), 0);
+          const itemLineTotal = (unitPrice * qty) + (addonSum * qty);
+          return {
+            name: item.name,
+            quantity: qty,
+            unit_price: unitPrice,
+            subtotal: itemLineTotal,
+            addons: itemAddons,
+          };
+        });
 
-        const effectivePrintJob: LocalPrintJobPayload = printJob || {
-          job_uuid: `pos-local-${Date.now()}`,
-          order_number: orderNum,
-          paper_width: 58,
-          receipt_data: {
-            branch_name: branch?.name || 'VICTORIA',
-            branch_address: branch?.address || '',
+        const effectivePrintJob: LocalPrintJobPayload = (printJob && Array.isArray(printJob.receipt_data?.items) && printJob.receipt_data.items.length > 0)
+          ? printJob
+          : {
+            job_uuid: printJob?.job_uuid || `pos-local-${Date.now()}`,
             order_number: orderNum,
-            date_time: new Date().toLocaleString('en-PH'),
-            fulfillment_type: (orderType || 'DINE-IN').toUpperCase(),
-            cashier_name: cashier?.name || 'Staff',
-            customer_name: deliveryInfo.customer_name || activeDiscount?.customer_name,
-            customer_phone: deliveryInfo.customer_phone,
-            items: effectiveReceiptItems,
-            subtotal: Number(cartSubtotal),
-            discount: Number(discountAmount),
-            discount_type: activeDiscount?.type,
-            delivery_fee: Number(orderType === 'delivery' ? deliveryFee : 0),
-            total: Number(cartTotal),
-            payment_method: paymentMethod.toUpperCase(),
-            paid_amount: Number(paid),
-            change_amount: Number(paymentMethod === 'cash' ? changeDue : 0),
-            paper_width: 58,
-          }
-        };
+            paper_width: printJob?.paper_width || 58,
+            raw_escpos_base64: printJob?.raw_escpos_base64,
+            formatted_text: printJob?.formatted_text,
+            receipt_data: {
+              ...printJob?.receipt_data,
+              branch_name: branch?.name || 'VICTORIA',
+              branch_address: branch?.address || '',
+              order_number: orderNum,
+              date_time: new Date().toLocaleString('en-PH'),
+              fulfillment_type: (orderType || 'DINE-IN').toUpperCase(),
+              cashier_name: cashier?.name || 'Staff',
+              customer_name: deliveryInfo.customer_name || activeDiscount?.customer_name,
+              customer_phone: deliveryInfo.customer_phone,
+              items: effectiveReceiptItems,
+              subtotal: Number(cartSubtotal),
+              discount: Number(discountAmount),
+              discount_type: activeDiscount?.type,
+              delivery_fee: Number(orderType === 'delivery' ? deliveryFee : 0),
+              total: Number(cartTotal),
+              payment_method: paymentMethod.toUpperCase(),
+              paid_amount: Number(paid),
+              change_amount: Number(paymentMethod === 'cash' ? changeDue : 0),
+              paper_width: 58,
+            }
+          };
 
         setActivePrintJob(effectivePrintJob);
         setLastSaleSummary(summary);
@@ -686,7 +851,7 @@ export default function PosIndex() {
       },
       onError: (err: Record<string, string>) => {
         setIsSubmitting(false);
-        const errMsg = err?.error || Object.values(err)[0] || 'Something went wrong during checkout. Please try again.';
+        const errMsg = err?.error || err?.paid_amount || err?.total || Object.values(err)[0] || 'Checkout failed. Please enter a valid cash amount.';
         setAlertModal({ type: 'error', title: 'Checkout Failed', message: String(errMsg) });
         setIsAlertModalOpen(true);
       },
@@ -760,25 +925,47 @@ export default function PosIndex() {
               </div>
             )}
             {/* Printer Bridge Status Indicator / Settings Trigger */}
-            <button
-              type="button"
-              onClick={() => setIsPrinterSettingsOpen(true)}
-              title={
-                isPrinterReady 
-                  ? `Thermal Printer Ready (${printerConfig.printer_name || 'Default'}) — Click to configure / test print`
-                  : "Thermal Print Bridge Offline — Click to configure / troubleshoot"
-              }
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shadow-2xs",
-                isPrinterReady
-                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 animate-pulse"
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsPrinterSettingsOpen(true)}
+                title={printerStatusDetails?.description || `Thermal Printer (${printerConfig.printer_name || 'Default'})`}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shadow-2xs",
+                  printerStatusDetails?.variant === 'success' && "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
+                  printerStatusDetails?.variant === 'info' && "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/60 hover:bg-blue-100 dark:hover:bg-blue-900/40",
+                  printerStatusDetails?.variant === 'neutral' && "bg-slate-100 dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-800",
+                  printerStatusDetails?.variant === 'warning' && "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/60 hover:bg-amber-100 dark:hover:bg-amber-900/40",
+                  printerStatusDetails?.variant === 'error' && "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/40",
+                )}
+              >
+                <span className={cn(
+                  "size-2 rounded-full",
+                  printerStatusDetails?.variant === 'success' && "bg-emerald-500",
+                  printerStatusDetails?.isChecking && "bg-blue-500 animate-ping",
+                  printerStatusDetails?.variant === 'neutral' && "bg-slate-400",
+                  printerStatusDetails?.variant === 'warning' && "bg-amber-500",
+                  printerStatusDetails?.variant === 'error' && "bg-rose-500",
+                )} />
+                <FiPrinter className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                <span className="hidden md:inline font-extrabold">
+                  {printerStatusDetails?.label || (isPrinterReady ? "Printer Ready" : "Printer Disconnected")}
+                </span>
+              </button>
+
+              {!isPrinterReady && (printerConfig.connection_type === 'direct_bluetooth' || printerConfig.connection_type === 'direct_usb') && (
+                <button
+                  type="button"
+                  onClick={handleQuickReconnect}
+                  disabled={isReconnectingPrinter || isPrinterChecking}
+                  title={`Reconnect to ${printerConfig.printer_name || 'Bluetooth Printer'}`}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-2xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs disabled:opacity-60"
+                >
+                  <FiRefreshCw className={cn("size-3", (isReconnectingPrinter || isPrinterChecking) && "animate-spin")} />
+                  <span className="hidden sm:inline">{isReconnectingPrinter ? 'Connecting...' : 'Reconnect'}</span>
+                </button>
               )}
-            >
-              <span className={cn("size-2 rounded-full", isPrinterReady ? "bg-emerald-500" : "bg-amber-500")} />
-              <FiPrinter className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-              <span className="hidden md:inline font-extrabold">{isPrinterReady ? "Printer Ready" : "Printer Offline"}</span>
-            </button>
+            </div>
 
             <NotificationBell />
           </div>
@@ -886,12 +1073,9 @@ export default function PosIndex() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            whileHover={!isOutOfStock ? { y: -4 } : {}}
-                            whileTap={!isOutOfStock ? { scale: 0.98 } : {}}
-                            onClick={() => addToCart(p)}
                             className={cn(
-                              "group flex flex-col bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl cursor-pointer shadow-[0_4px_20px_-4px_rgba(231,84,128,0.08)] dark:shadow-md hover:shadow-lg hover:border-[#E75480]/60 transition-all duration-200 overflow-hidden relative",
-                              isOutOfStock && "opacity-50 grayscale pointer-events-none"
+                              "group flex flex-col bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl shadow-[0_4px_20px_-4px_rgba(231,84,128,0.08)] dark:shadow-md hover:border-[#E75480]/60 transition-all duration-200 overflow-hidden relative select-none",
+                              isOutOfStock && "opacity-50 grayscale"
                             )}
                           >
                             {/* Product Image Area (Aspect 4/3, fixed) */}
@@ -899,7 +1083,7 @@ export default function PosIndex() {
                               <ImageWithFallback
                                 src={p.image_url}
                                 alt={p.name}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10 pointer-events-none"
                                 fallbackIcon={<FiPackage className="size-8 text-zinc-400 opacity-40" />}
                               />
 
@@ -954,9 +1138,16 @@ export default function PosIndex() {
                                 </span>
 
                                 <Button
+                                  type="button"
                                   size="icon"
-                                  className="size-9 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-md active:scale-95 transition-all"
+                                  aria-label={isOutOfStock ? `${p.name} is sold out` : `Add ${p.name} to order`}
+                                  title={isOutOfStock ? 'Sold out' : `Add ${p.name}`}
+                                  className="size-9 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                                   disabled={isOutOfStock}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addToCart(p);
+                                  }}
                                 >
                                   <FiPlus className="size-4" />
                                 </Button>
@@ -1040,8 +1231,8 @@ export default function PosIndex() {
                 </div>
                 <Button 
                   variant="ghost" 
-                  className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl text-xs gap-1 font-bold"
-                  onClick={() => setCart([])}
+                  className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl text-xs gap-1 font-bold cursor-pointer"
+                  onClick={handleClearCart}
                 >
                   <FiTrash2 className="size-4" /> Clear Cart
                 </Button>
@@ -1291,7 +1482,7 @@ export default function PosIndex() {
               <div className="p-4 sm:px-6 py-4 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#171719] flex items-center justify-between shrink-0">
                 <Button 
                   variant="outline" 
-                  className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-2 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A]"
+                  className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-2 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A] cursor-pointer"
                   onClick={() => setKioskStep('review')}
                 >
                   <FiArrowLeft className="size-4 text-[#E75480]" />
@@ -1301,7 +1492,13 @@ export default function PosIndex() {
                   <h2 className="text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white">CHECKOUT</h2>
                   <p className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase">Select payment method below</p>
                 </div>
-                <div className="w-24" />
+                <Button
+                  variant="ghost"
+                  className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl text-xs gap-1 font-bold cursor-pointer"
+                  onClick={handleResetOrder}
+                >
+                  <FiX className="size-4" /> Cancel Order
+                </Button>
               </div>
 
               {/* Checkout Body */}
@@ -1371,18 +1568,39 @@ export default function PosIndex() {
                 {paymentMethod === 'cash' && (
                   <div className="p-5 rounded-2xl bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] space-y-5 shadow-2xs">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-300">Amount Received</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-300">Amount Received</label>
+                        <span className="text-[11px] font-semibold text-[#7D6B6E] dark:text-zinc-400">Max: ₱99,999,999.99</span>
+                      </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-xl text-[#7D6B6E] dark:text-zinc-400">₱</span>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="0.00"
-                          className="pl-10 h-14 text-2xl font-black rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-emerald-600 dark:text-emerald-400 placeholder:text-[#7D6B6E]/50 focus-visible:ring-2 focus-visible:ring-[#E75480]/30"
+                          className={cn(
+                            "pl-10 h-14 text-2xl font-black rounded-xl bg-[#FFF5F7] dark:bg-[#1E1E21] border-[#F8C8DC]/60 dark:border-[#26262A] text-emerald-600 dark:text-emerald-400 placeholder:text-[#7D6B6E]/50 focus-visible:ring-2 focus-visible:ring-[#E75480]/30",
+                            cashValidation.message && cashReceived && !cashValidation.isValid ? "border-rose-400 focus-visible:ring-rose-400/30" : ""
+                          )}
                           value={cashReceived}
-                          onChange={(e) => setCashReceived(e.target.value)}
+                          onChange={(e) => handleCashReceivedChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (['e', 'E', '+', '-'].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
                           autoFocus
                         />
                       </div>
+                      {cashValidation.message && (
+                        <p className={cn(
+                          "text-xs font-semibold flex items-center gap-1 mt-1",
+                          cashValidation.isValid ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"
+                        )}>
+                          <span>{cashValidation.isValid ? '✓' : '⚠️'}</span>
+                          <span>{cashValidation.message}</span>
+                        </p>
+                      )}
                     </div>
 
                     {/* Quick Tender Presets */}
@@ -1399,7 +1617,7 @@ export default function PosIndex() {
                             key={idx}
                             variant="outline"
                             className="h-11 rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] bg-[#FFF5F7] dark:bg-[#1E1E21] text-xs font-bold text-[#3D2C2E] dark:text-white hover:bg-[#E75480] hover:text-white transition-all"
-                            onClick={() => setCashReceived(String(preset.val))}
+                            onClick={() => handleCashReceivedChange(String(preset.val))}
                           >
                             {preset.label}
                           </Button>
@@ -1437,7 +1655,7 @@ export default function PosIndex() {
                   </Button>
                   <Button
                     className="h-13 flex-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-md disabled:opacity-50 cursor-pointer"
-                    disabled={isSubmitting || (paymentMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < cartTotal))}
+                    disabled={isSubmitting || (paymentMethod === 'cash' && !cashValidation.isValid)}
                     onClick={confirmPayment}
                   >
                     {isSubmitting ? 'Processing...' : 'COMPLETE ORDER'}

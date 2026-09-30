@@ -38,8 +38,7 @@ export function DeliveryQuickActions() {
                 return (
                     <Link key={idx} href={act.href}>
                         <motion.div
-                            whileHover={{ y: -3 }}
-                            className="p-5 rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.05)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-300 hover:border-[#E75480]/40 dark:hover:border-white/20 cursor-pointer flex items-center gap-4"
+                            className="p-5 rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_30px_-10px_rgba(231,84,128,0.05)] dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 hover:border-[#E75480]/40 dark:hover:border-white/20 cursor-pointer flex items-center gap-4"
                         >
                             <div className={`p-3 rounded-2xl ${act.bg} ${act.color} shrink-0`}>
                                 <Icon className="size-5" />

@@ -35,7 +35,7 @@ export function RecentActivity({ recentActivity = [] }: RecentActivityProps) {
             <div className="space-y-4 relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#F8C8DC]/50 dark:before:bg-white/10">
                 {recentActivity.map((item, idx) => (
                     <div key={idx} className="flex items-start gap-4 relative pl-7 group">
-                        <div className="absolute left-1 top-1 size-3 rounded-full bg-white dark:bg-[#121218] border-2 border-[#E75480] dark:border-[#E1062C] shadow-xs shrink-0 group-hover:scale-125 group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] transition-all" />
+                        <div className="absolute left-1 top-1 size-3 rounded-full bg-white dark:bg-[#121218] border-2 border-[#E75480] dark:border-[#E1062C] shadow-xs shrink-0 group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] transition-colors" />
                         
                         <div className="flex-1">
                             <div className="flex items-center justify-between">

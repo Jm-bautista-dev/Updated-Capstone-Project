@@ -53,7 +53,7 @@ export function ReportsNavigation({
                                 key={tab.id}
                                 onClick={() => onTabChange(tab.id)}
                                 className={cn(
-                                    'px-4 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 cursor-pointer flex items-center gap-2 shrink-0 border',
+                                    'px-4 py-2.5 rounded-2xl text-xs font-bold transition-colors duration-200 cursor-pointer flex items-center gap-2 shrink-0 border',
                                     isActive
                                         ? 'bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs'
                                         : 'bg-white dark:bg-[#181820] text-[#7D6B6E] dark:text-[#94A3B8] border-[#F8C8DC]/60 dark:border-white/10 hover:border-[#E75480]/40 dark:hover:border-white/20'

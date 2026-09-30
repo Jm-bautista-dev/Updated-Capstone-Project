@@ -101,6 +101,7 @@ class Product extends Model
     public function ingredients()
     {
         return $this->belongsToMany(Ingredient::class, 'menu_item_ingredients', 'menu_item_id', 'ingredient_id')
+                    ->withTrashed()
                     ->withPivot('quantity_required', 'unit')
                     ->withTimestamps();
     }

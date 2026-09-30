@@ -40,7 +40,7 @@ class PrintJobService
         }
 
         // 2. Build receipt data and payloads
-        $sale->loadMissing(['items.product', 'branch', 'user', 'delivery']);
+        $sale->load(['items.product', 'branch', 'user', 'delivery']);
         $receiptData = $this->formatter->buildReceiptData($sale, PrintJob::TYPE_RECEIPT);
         $paperWidth = (int) ($receiptData['paper_width'] ?? 80);
         $plainText = $this->formatter->formatPlainText($receiptData, $paperWidth);

@@ -1,5 +1,35 @@
+import React, { isValidElement } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import {
+    ArrowUpRight,
+    ArrowDownRight,
+    DollarSign,
+    Receipt,
+    TrendingUp,
+    ShoppingBag,
+    AlertTriangle,
+    BarChart2,
+    BarChart3,
+    Award,
+    Zap,
+    Cpu,
+    PackageCheck,
+    ShoppingCart,
+    ClipboardList,
+    Building2,
+    Activity,
+    Clock,
+    Calendar,
+    Sparkles,
+    Package,
+    Tag,
+    Percent,
+    CreditCard,
+    CheckCircle,
+    Boxes,
+    FileText,
+    Users,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
@@ -10,10 +40,94 @@ export interface SparklineItem {
     value: number;
 }
 
+const DYNAMIC_ICON_MAP: Record<string, LucideIcon> = {
+    dollarsign: DollarSign,
+    dollar: DollarSign,
+    revenue: DollarSign,
+    sales: DollarSign,
+    gross: DollarSign,
+    price: DollarSign,
+    receipt: Receipt,
+    expenses: Receipt,
+    cogs: Receipt,
+    cost: Receipt,
+    trendingup: TrendingUp,
+    profit: TrendingUp,
+    margin: TrendingUp,
+    growth: TrendingUp,
+    shoppingbag: ShoppingBag,
+    orders: ShoppingBag,
+    volume: ShoppingBag,
+    traffic: ShoppingBag,
+    fulfillment: ShoppingBag,
+    alerttriangle: AlertTriangle,
+    alert: AlertTriangle,
+    stock: AlertTriangle,
+    lowstock: AlertTriangle,
+    warning: AlertTriangle,
+    danger: AlertTriangle,
+    barchart2: BarChart2,
+    barchart: BarChart2,
+    barchart3: BarChart3,
+    analytics: BarChart3,
+    chart: BarChart3,
+    award: Award,
+    leader: Award,
+    top: Award,
+    representative: Award,
+    cashier: Award,
+    zap: Zap,
+    flash: Zap,
+    live: Zap,
+    cpu: Cpu,
+    model: Cpu,
+    ai: Cpu,
+    intel: Cpu,
+    forecast: Cpu,
+    packagecheck: PackageCheck,
+    replenishment: PackageCheck,
+    restock: PackageCheck,
+    shoppingcart: ShoppingCart,
+    cart: ShoppingCart,
+    transactions: ShoppingCart,
+    clipboardlist: ClipboardList,
+    inventory: ClipboardList,
+    audit: ClipboardList,
+    building2: Building2,
+    branch: Building2,
+    store: Building2,
+    activity: Activity,
+    telemetry: Activity,
+    clock: Clock,
+    time: Clock,
+    calendar: Calendar,
+    date: Calendar,
+    sparkles: Sparkles,
+    package: Package,
+    product: Package,
+    boxes: Boxes,
+    tag: Tag,
+    discount: Tag,
+    percent: Percent,
+    creditcard: CreditCard,
+    checkcircle: CheckCircle,
+    filetext: FileText,
+    report: FileText,
+    users: Users,
+};
+
+export type CardIconType =
+    | LucideIcon
+    | React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+    | React.ReactElement
+    | string
+    | null
+    | undefined;
+
 export interface KPICardProps {
     title: string;
     value: string | number;
-    icon: LucideIcon;
+    icon?: CardIconType;
     trend?: 'up' | 'down' | 'neutral';
     trendValue?: string;
     comparison?: string;
@@ -25,10 +139,33 @@ export interface KPICardProps {
     disableHover?: boolean;
 }
 
+export function renderCardIcon(icon: CardIconType, className: string = 'size-5'): React.ReactNode {
+    if (!icon) {
+        return <Activity className={className} aria-hidden="true" />;
+    }
+
+    if (isValidElement(icon)) {
+        return icon;
+    }
+
+    if (typeof icon === 'string') {
+        const cleanKey = icon.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const ResolvedIcon = DYNAMIC_ICON_MAP[cleanKey] || Activity;
+        return <ResolvedIcon className={className} aria-hidden="true" />;
+    }
+
+    if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null && 'render' in icon)) {
+        const Component = icon as React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+        return <Component className={className} aria-hidden="true" />;
+    }
+
+    return <Activity className={className} aria-hidden="true" />;
+}
+
 export function KPICard({
     title,
     value,
-    icon: Icon,
+    icon,
     trend,
     trendValue,
     comparison,
@@ -47,10 +184,9 @@ export function KPICard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-            whileHover={disableHover ? undefined : { y: -4, transition: { duration: 0.2 } }}
             className={cn(
-                "relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] p-6 backdrop-blur-xl transition-colors duration-300 flex flex-col justify-between overflow-hidden",
-                !disableHover && "group transition-all",
+                "relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:border-[#E75480]/30 dark:hover:border-white/20 p-6 backdrop-blur-xl transition-colors duration-300 flex flex-col justify-between overflow-hidden select-none",
+                !disableHover && "group",
                 className
             )}
         >
@@ -64,10 +200,10 @@ export function KPICard({
                 {/* Header Row: Icon & Trend Badge */}
                 <div className="flex items-center justify-between mb-4">
                     <div className={cn(
-                        "p-3 rounded-2xl bg-[#FADADD]/35 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] transition-all duration-300 shadow-xs",
-                        !disableHover && "group-hover:scale-110 group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white"
+                        "size-11 rounded-2xl bg-[#FADADD]/35 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] transition-colors duration-300 shadow-xs flex items-center justify-center shrink-0",
+                        !disableHover && "group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white"
                     )}>
-                        <Icon className="size-5" />
+                        {renderCardIcon(icon, "size-5")}
                     </div>
 
                     {trendValue && (

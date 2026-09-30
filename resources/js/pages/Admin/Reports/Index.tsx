@@ -8,12 +8,10 @@ import {
     ShoppingBag,
     AlertTriangle,
     Download,
-    Search,
     FileText,
     Database,
     Zap,
     Calendar,
-    RefreshCw,
     Activity,
     Building2,
     Receipt
@@ -589,14 +587,12 @@ function AdminReports({
     total_profit, 
     total_orders, 
     cancelled_count, 
-    today_sales, 
     isAdmin = false,
     profit_margin,
     revenue_delta,
     orders_delta,
     expenses_delta,
-    profit_delta,
-    today_revenue_delta
+    profit_delta
 }: AdminReportsProps) {
     const pageAuth = (usePage().props as unknown as { auth?: { user?: { role?: string } } })?.auth?.user;
     const isAdminUser = isAdmin || pageAuth?.role === 'admin' || pageAuth?.role === 'super_admin';
@@ -1049,17 +1045,17 @@ function AdminReports({
                                 {top_addons.map((addon, index) => (
                                     <div
                                         key={index}
-                                        className="p-4 rounded-2xl bg-[#FFF5F7]/40 dark:bg-[#181824]/60 border border-[#F8C8DC]/50 dark:border-white/5 flex flex-col justify-between"
+                                        className="p-4 rounded-2xl bg-[#FFF5F7]/40 dark:bg-[#181824]/60 border border-[#F8C8DC]/50 dark:border-white/5 flex flex-col justify-between h-full min-h-22 shadow-2xs hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors"
                                     >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                                        <div className="flex items-start justify-between gap-2 min-w-0">
+                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={addon.name}>
                                                 {addon.name}
                                             </span>
-                                            <Badge className="bg-[#E75480]/10 text-[#E75480] dark:text-[#FF4F81] border-none text-[10px] font-bold">
+                                            <Badge className="bg-[#E75480]/10 text-[#E75480] dark:text-[#FF4F81] border-none text-[10px] font-bold shrink-0">
                                                 #{index + 1}
                                             </Badge>
                                         </div>
-                                        <div className="mt-3 flex items-center justify-between text-xs">
+                                        <div className="mt-3 flex items-center justify-between text-xs pt-1 border-t border-[#F8C8DC]/20 dark:border-white/5">
                                             <span className="text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
                                                 {addon.total_qty} ordered
                                             </span>
@@ -1285,13 +1281,11 @@ function CashierReports({
     shifts,
     cashiers = [],
     filters,
-    today_sales,
     total_revenue,
     total_orders,
     cancelled_count = 0,
     revenue_delta,
-    orders_delta,
-    today_revenue_delta
+    orders_delta
 }: CashierReportsProps) {
     const [dateFrom, setDateFrom] = useState(filters.date_from || '');
     const [dateTo, setDateTo] = useState(filters.date_to || '');

@@ -270,6 +270,30 @@ export default function ProductsIndex() {
         return filteredData.slice(start, start + itemsPerPage);
     }, [filteredData, currentPage, itemsPerPage, totalPages]);
 
+    // In edit mode, include active ingredients plus any historical ingredients already present on the selected product
+    const editIngredientOptions = useMemo(() => {
+        const map = new Map<string, Ingredient & { is_archived?: boolean }>();
+        ingredients.forEach((ing) => {
+            map.set(String(ing.id), { ...ing, is_archived: false });
+        });
+        if (selectedProduct && selectedProduct.ingredients) {
+            selectedProduct.ingredients.forEach((ing) => {
+                const idStr = String(ing.id);
+                if (!map.has(idStr)) {
+                    map.set(idStr, {
+                        ...ing,
+                        is_archived: true,
+                    });
+                }
+            });
+        }
+        return Array.from(map.values());
+    }, [ingredients, selectedProduct]);
+
+    const activeOrEditIngredients = useMemo(() => {
+        return isEditModalOpen ? editIngredientOptions : ingredients;
+    }, [isEditModalOpen, editIngredientOptions, ingredients]);
+
     // Live Recipe Calculation Preview
     const liveCalculation = useMemo(() => {
         if (!data.recipe || data.recipe.length === 0) {
@@ -290,7 +314,7 @@ export default function ProductsIndex() {
 
         for (const item of data.recipe) {
             if (!item.ingredient_id) continue;
-            const ing = ingredients.find((i) => String(i.id) === String(item.ingredient_id));
+            const ing = activeOrEditIngredients.find((i) => String(i.id) === String(item.ingredient_id));
             if (!ing) continue;
 
             const qty = parseFloat(item.quantity_required);
@@ -363,7 +387,7 @@ export default function ProductsIndex() {
             missingCostIngredient: missingCostName,
             missingRecordIngredient: missingRecordName,
         };
-    }, [data.recipe, ingredients, data.branch_id, data.branch_ids, currentBranchId]);
+    }, [data.recipe, activeOrEditIngredients, data.branch_id, data.branch_ids, currentBranchId]);
 
     // Modal Handlers
     const openAddModal = () => {
@@ -494,7 +518,7 @@ export default function ProductsIndex() {
         for (let i = 0; i < data.recipe.length; i++) {
             const item = data.recipe[i];
             if (!item.ingredient_id) continue;
-            const ing = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
+            const ing = editIngredientOptions.find((ing) => ing.id.toString() === item.ingredient_id);
             if (!ing) continue;
             const baseFamily = getMeasurementFamily(ing.unit);
             const selectedFamily = getMeasurementFamily(item.unit);
@@ -573,7 +597,7 @@ export default function ProductsIndex() {
     const updateRecipeItem = (index: number, field: string, value: string) => {
         const newRecipe = [...data.recipe];
         if (field === 'ingredient_id') {
-            const selectedIng = ingredients.find(ing => String(ing.id) === value);
+            const selectedIng = activeOrEditIngredients.find(ing => String(ing.id) === value);
             const defaultUnit = selectedIng ? (selectedIng.unit || 'pcs') : 'pcs';
             newRecipe[index] = { ...newRecipe[index], ingredient_id: value, unit: defaultUnit };
         } else {
@@ -1560,7 +1584,7 @@ export default function ProductsIndex() {
 
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                                     {data.recipe.map((item, idx) => {
-                                        const selectedIng = ingredients.find((ing) => ing.id.toString() === item.ingredient_id);
+                                        const selectedIng = editIngredientOptions.find((ing) => ing.id.toString() === item.ingredient_id);
                                         const compatibleUnits = selectedIng ? getCompatibleUnits(selectedIng.unit) : ['g', 'kg', 'mg', 'ml', 'L', 'pcs'];
                                         const baseFamily = selectedIng ? getMeasurementFamily(selectedIng.unit) : null;
                                         const selectedFamily = getMeasurementFamily(item.unit);
@@ -1582,8 +1606,10 @@ export default function ProductsIndex() {
                                                         className="flex-1 h-9 px-2 rounded-lg border border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#121218] text-[#3D2C2E] dark:text-[#F8FAFC] text-xs font-medium"
                                                     >
                                                         <option value="">-- Choose Ingredient --</option>
-                                                        {ingredients.map((ing) => (
-                                                            <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                                                        {editIngredientOptions.map((ing) => (
+                                                            <option key={ing.id} value={ing.id}>
+                                                                {ing.name} ({ing.unit}){ing.is_archived ? ' (Archived/Inactive)' : ''}
+                                                            </option>
                                                         ))}
                                                     </select>
                                                     <Input

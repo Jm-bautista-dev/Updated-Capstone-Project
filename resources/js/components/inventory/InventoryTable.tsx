@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, RefreshCw, Edit2, Trash2, Eye, Layers, PackageSearch, MinusCircle } from 'lucide-react';
+import { Package, RefreshCw, Edit2, Trash2, Eye, Layers, PackageSearch, MinusCircle, MapPin } from 'lucide-react';
 
 import type { InventoryRow } from '@/components/inventory/InventoryHero';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -59,7 +59,7 @@ export function InventoryTable({
                             <th className="py-4 px-6">SKU / Item Specs</th>
                             <th className="py-4 px-6 text-center">Stock Level</th>
                             {isAdmin && <th className="py-4 px-6 hidden sm:table-cell">Cost & Valuation</th>}
-                            <th className="py-4 px-6 hidden md:table-cell">Branch Location</th>
+                            <th className="py-4 px-6 hidden md:table-cell min-w-32.5">Branch Location</th>
                             <th className="py-4 px-6 text-center">Status</th>
                             <th className="py-4 px-6 text-right">Actions</th>
                         </tr>
@@ -119,20 +119,28 @@ export function InventoryTable({
                                                     <div className="size-11 rounded-xl bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#1A1A24] dark:to-[#222230] border border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0">
                                                         <Package className="size-5 text-[#E75480]/60 dark:text-[#FF4F81]/60" />
                                                     </div>
-                                                    <div className="flex flex-col">
+                                                    <div className="flex flex-col min-w-0">
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors leading-snug">
                                                                 {row.name}
                                                             </span>
                                                             {row.is_composite && (
-                                                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
+                                                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 shrink-0">
                                                                     Composite
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <span className="text-[11px] font-mono text-[#9E8B8E] dark:text-[#64748B]">
-                                                            SKU: {skuString}
-                                                        </span>
+                                                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-[#9E8B8E] dark:text-[#64748B]">
+                                                            <span>SKU: {skuString}</span>
+                                                            {/* Mobile / Compact Branch Chip */}
+                                                            <span
+                                                                className="md:hidden inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#FADADD]/35 dark:bg-white/10 text-[10px] font-bold text-[#E75480] dark:text-[#FF4F81] max-w-37.5 truncate"
+                                                                title={row.branch_name || 'Global'}
+                                                            >
+                                                                <MapPin className="size-2.5 shrink-0" />
+                                                                <span className="truncate">{row.branch_name || 'Global'}</span>
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -161,8 +169,12 @@ export function InventoryTable({
 
                                             {/* Branch Location */}
                                             <td className="p-4 px-6 align-middle hidden md:table-cell text-xs font-bold text-[#5D4A4D] dark:text-[#E2E8F0]">
-                                                <span className="bg-[#FADADD]/30 dark:bg-white/5 border border-[#F8C8DC]/50 dark:border-white/10 px-3 py-1 rounded-xl">
-                                                    {row.branch_name || 'Global'}
+                                                <span
+                                                    className="inline-flex items-center gap-1.5 bg-[#FADADD]/30 dark:bg-white/5 border border-[#F8C8DC]/50 dark:border-white/10 px-3 py-1 rounded-xl whitespace-nowrap text-xs max-w-50"
+                                                    title={row.branch_name || 'Global'}
+                                                >
+                                                    <MapPin className="size-3 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
+                                                    <span className="truncate">{row.branch_name || 'Global'}</span>
                                                 </span>
                                             </td>
 

@@ -141,38 +141,38 @@ export function ReportCategoryCard({ onSelectCategory, activeCategory }: ReportC
                             role="button"
                             aria-label={`Select category ${cat.title}`}
                             className={cn(
-                                'rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81]',
+                                'rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:border-[#E75480]/30 dark:hover:border-white/20 backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81] h-full min-h-55',
                                 isActive && 'ring-2 ring-[#E75480] dark:ring-[#FF4F81] bg-[#FFF5F7]/90 dark:bg-[#181824]/90'
                             )}
                         >
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs', cat.accentColor)}>
+                                    <div className={cn('size-11 rounded-2xl flex items-center justify-center border shadow-2xs shrink-0', cat.accentColor)}>
                                         <Icon className="size-5.5" />
                                     </div>
-                                    <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase border', cat.accentColor)}>
+                                    <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase border shrink-0', cat.accentColor)}>
                                         {cat.badgeText}
                                     </span>
                                 </div>
 
                                 <div>
-                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] leading-snug line-clamp-1" title={cat.title}>
                                         {cat.title}
                                     </h3>
-                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] mt-1 line-clamp-2 leading-relaxed">
+                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] mt-1.5 line-clamp-2 leading-relaxed">
                                         {cat.description}
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="pt-3 border-t border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between text-xs font-bold">
-                                <span className="text-[#7D6B6E] dark:text-[#94A3B8] font-mono">
+                            <div className="pt-3 border-t border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between text-xs font-bold mt-auto">
+                                <span className="text-[#7D6B6E] dark:text-[#94A3B8] font-mono text-[11px]">
                                     {cat.count} Available Reports
                                 </span>
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 px-2 text-xs font-bold text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 gap-1 cursor-pointer"
+                                    className="h-8 px-2.5 text-xs font-bold text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 gap-1 cursor-pointer rounded-xl"
                                 >
                                     <span>Explore</span>
                                     <ArrowUpRight className="size-3.5" />

@@ -124,7 +124,7 @@ class ProductService
                 // Create recipe (Optional)
                 if (!empty($validated['recipe'])) {
                     foreach ($validated['recipe'] as $item) {
-                        $ingredient = Ingredient::find($item['ingredient_id']);
+                        $ingredient = Ingredient::where('id', $item['ingredient_id'])->whereNull('deleted_at')->first();
                         if ($ingredient) {
                             $inputUnit = $item['unit'] ?? $ingredient->unit;
 
@@ -244,7 +244,7 @@ class ProductService
             MenuItemIngredient::where('menu_item_id', $product->id)->delete();
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $item) {
-                    $ingredient = Ingredient::find($item['ingredient_id']);
+                    $ingredient = Ingredient::withTrashed()->find($item['ingredient_id']);
                     if ($ingredient) {
                         $inputUnit = $item['unit'] ?? $ingredient->unit;
 

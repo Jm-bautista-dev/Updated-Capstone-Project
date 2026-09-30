@@ -110,6 +110,88 @@ class RiderNameValidationTest extends TestCase
         $this->assertEquals('Original Rider', $rider->fresh()->name);
     }
 
+    public function test_name_with_leading_and_trailing_whitespace_is_trimmed(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/riders', [
+            'name'      => '   Juan Dela Cruz   ',
+            'email'     => 'juan.trimmed@example.com',
+            'phone'     => '09171234590',
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('riders', [
+            'name'  => 'Juan Dela Cruz',
+            'email' => 'juan.trimmed@example.com',
+        ]);
+    }
+
+    public function test_cannot_create_rider_with_empty_or_whitespace_only_name(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/riders', [
+            'name'      => '     ',
+            'email'     => 'emptyname@example.com',
+            'phone'     => '09171234591',
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $response->assertSessionHasErrors(['name']);
+        $this->assertDatabaseMissing('riders', [
+            'email' => 'emptyname@example.com',
+        ]);
+    }
+
+    public function test_cannot_create_rider_with_single_character_name(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/riders', [
+            'name'      => 'A',
+            'email'     => 'singlechar@example.com',
+            'phone'     => '09171234592',
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $response->assertSessionHasErrors(['name']);
+        $this->assertDatabaseMissing('riders', [
+            'email' => 'singlechar@example.com',
+        ]);
+    }
+
+    public function test_can_create_rider_with_unicode_and_accented_name(): void
+    {
+        $unicodeName = 'José María Dela Cruz-Niña';
+
+        $response = $this->actingAs($this->admin)->post('/riders', [
+            'name'      => $unicodeName,
+            'email'     => 'jose.maria@example.com',
+            'phone'     => '09171234593',
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('riders', [
+            'name'  => $unicodeName,
+            'email' => 'jose.maria@example.com',
+        ]);
+    }
+
+    public function test_direct_json_request_exceeding_max_length_is_rejected_with_422(): void
+    {
+        $longName = str_repeat('X', 260);
+
+        $response = $this->actingAs($this->admin)->postJson('/riders', [
+            'name'      => $longName,
+            'email'     => 'directapi@example.com',
+            'phone'     => '09171234594',
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['name']);
+        $this->assertDatabaseMissing('riders', [
+            'email' => 'directapi@example.com',
+        ]);
+    }
+
     public function test_can_remove_rider_without_active_deliveries(): void
     {
         $rider = Rider::create([
