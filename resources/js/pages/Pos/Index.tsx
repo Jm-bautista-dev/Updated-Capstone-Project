@@ -20,7 +20,8 @@ import {
   FiSmartphone,
   FiChevronRight,
   FiRefreshCw,
-  FiX
+  FiX,
+  FiMenu
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notification-bell';
@@ -42,6 +43,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useSidebar } from '@/components/ui/sidebar';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
 import { usePrinterStatus, printReceiptToThermalPrinter, triggerBrowserThermalPrint, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
@@ -122,6 +124,7 @@ function generateOfflineId(): string {
 
 export default function PosIndex() {
   const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
+  const { toggleSidebar, open } = useSidebar();
 
   // --- Real-time Printer Status & Config Hook ---
   const { 
@@ -882,7 +885,20 @@ export default function PosIndex() {
         
         {/* TOP KIOSK HEADER */}
         <header className="h-16 px-4 sm:px-6 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white/90 dark:bg-[#171719]/90 backdrop-blur-xl flex items-center justify-between z-20 shrink-0 gap-4 transition-colors">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Full-screen POS Navigation Drawer Trigger */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              aria-expanded={open}
+              aria-label="Toggle navigation menu"
+              className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-zinc-200 hover:bg-[#FFE4EC] dark:hover:bg-zinc-800 transition-colors shadow-xs shrink-0 cursor-pointer"
+              title="Navigation Menu"
+            >
+              <FiMenu className="size-5 text-[#E75480]" />
+            </Button>
             <div className="size-10 rounded-2xl bg-[#E75480] text-white flex items-center justify-center font-black shadow-md shadow-[#E75480]/20">
               POS
             </div>

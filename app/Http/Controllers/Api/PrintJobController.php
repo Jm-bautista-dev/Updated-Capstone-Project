@@ -304,7 +304,7 @@ class PrintJobController extends Controller
         return response()->json([
             'success' => true,
             'count'   => $bridges->count(),
-            'bridges' => $bridges->map(function ($b) {
+            'bridges' => $bridges->map(function (PrintBridge $b) {
                 return [
                     'id'                     => $b->id,
                     'bridge_uuid'            => $b->bridge_uuid,

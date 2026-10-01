@@ -107,6 +107,8 @@ export interface ReceiptDataPayload {
     is_reprint?: boolean;
     reprint_reason?: string;
     reprinted_at?: string;
+    scheduled_pickup_at?: string;
+    pickup_verification_code?: string;
 }
 
 export interface LocalPrintJobPayload {

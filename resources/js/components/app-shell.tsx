@@ -8,7 +8,9 @@ type Props = {
 };
 
 export function AppShell({ children, variant = 'header' }: Props) {
-    const isOpen = usePage().props.sidebarOpen;
+    const { url, props } = usePage();
+    const isPos = url === '/pos' || url.startsWith('/pos?') || url.startsWith('/pos/');
+    const isOpen = isPos ? false : (props.sidebarOpen ?? true);
 
     if (variant === 'header') {
         return (

@@ -6,11 +6,13 @@ import {
   FiZap,
   FiSearch,
   FiCheckCircle,
-  FiAlertCircle
+  FiAlertCircle,
+  FiMenu
 } from 'react-icons/fi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useSidebar } from '@/components/ui/sidebar';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -36,6 +38,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function WeightPos() {
   const { inventory = [] } = usePage().props as unknown as WeightPosPageProps;
+  const { toggleSidebar, open } = useSidebar();
   const [selectedItem, setSelectedItem] = useState<WeightInventoryItem | null>(null);
   const [search, setSearch] = useState('');
 
@@ -92,7 +95,21 @@ export default function WeightPos() {
         {/* Left Side: Item Selection */}
         <div className="flex-1 flex flex-col p-6 space-y-6 overflow-hidden">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-black tracking-tight">Select Material</h1>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                aria-expanded={open}
+                aria-label="Toggle navigation menu"
+                className="size-10 rounded-2xl bg-background border border-border shadow-xs hover:bg-muted"
+                title="Navigation Menu"
+              >
+                <FiMenu className="size-5 text-primary" />
+              </Button>
+              <h1 className="text-2xl font-black tracking-tight">Select Material</h1>
+            </div>
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input 

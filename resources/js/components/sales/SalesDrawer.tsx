@@ -24,7 +24,7 @@ import {
     SheetContent,
 } from '@/components/ui/sheet';
 import { printReceiptToThermalPrinter, triggerBrowserThermalPrint, getPrinterConfig } from '@/lib/pos-print-bridge';
-import { cn, formatReceiptBranchHeading } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const safeFormatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
@@ -76,11 +76,17 @@ export function SalesDrawer({
             cashier_name: sale.cashier?.name || 'Staff',
             customer_name: customerName,
             items: sale.items?.map(i => ({
-                name: i.product?.name || 'Item',
+                name: i.product?.name || (i as unknown as { product_name?: string }).product_name || 'Item',
                 quantity: Number(i.quantity || 1),
                 unit_price: Number(i.unit_price || (Number(i.subtotal) / Number(i.quantity || 1))),
                 subtotal: Number(i.subtotal || 0),
-                addons: i.selected_addons?.map(a => ({ name: a.name, price: Number(a.price || 0) })) || []
+                addons: i.selected_addons?.map(a => ({
+                    name: a.name,
+                    quantity: Number(a.quantity || 1),
+                    unit_price: Number(a.price || 0),
+                    price: Number(a.price || 0),
+                    subtotal: Number(a.subtotal || (Number(a.price || 0) * Number(a.quantity || 1)))
+                })) || []
             })) || [],
             subtotal: Number(sale.subtotal || sale.total),
             discount: Number(sale.discount || 0),
@@ -383,96 +389,13 @@ export function SalesDrawer({
                             </div>
                         </>
                     ) : (
-                        /* Receipt Thermal View */
-                        <div className="p-6 rounded-3xl bg-amber-50/50 dark:bg-[#181824] border border-amber-200/60 dark:border-white/10 text-slate-800 dark:text-slate-200 font-mono text-xs space-y-4 shadow-inner">
-                            <div className="text-center space-y-1">
-                                <h4 className="font-black text-sm uppercase tracking-widest">
-                                    {formatReceiptBranchHeading(sale.branch?.name || sale.order?.branch?.name)}
-                                </h4>
-                                {(sale.branch?.address || sale.order?.branch?.address) && (
-                                    <p className="text-[10px] text-slate-500">
-                                        {sale.branch?.address || sale.order?.branch?.address}
-                                    </p>
-                                )}
-                                <p className="text-[10px] text-slate-400">================================</p>
-                            </div>
-
-                            <div className="space-y-1 text-[11px]">
-                                <p>Receipt #: {sale.order_number}</p>
-                                <p>Date: {safeFormatDate(sale.created_at)}</p>
-                                <p>Cashier: {sale.cashier?.name || 'Staff'}</p>
-                                <p>Type: {sale.type?.toUpperCase() || 'IN-STORE'}</p>
-                                {(() => {
-                                    const details = typeof sale.discount_details === 'string'
-                                        ? (() => { try { return JSON.parse(sale.discount_details); } catch { return null; } })()
-                                        : sale.discount_details;
-                                    if (details?.customer_name || details?.id_number) {
-                                        return (
-                                            <div className="text-[10px] text-slate-600 dark:text-slate-400 pt-0.5">
-                                                <p>Customer: {details.customer_name || 'N/A'}</p>
-                                                {details.id_number && <p>ID Ref: {details.id_number}</p>}
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-                            </div>
-
-                            <p className="text-[10px] text-slate-400">--------------------------------</p>
-
-                            <div className="space-y-2">
-                                {sale.items?.map((i) => (
-                                    <div key={i.id} className="space-y-0.5 text-[11px]">
-                                        <div className="flex justify-between font-bold">
-                                            <span>{i.product?.name} x{i.quantity}</span>
-                                            <span>₱{Number(i.subtotal).toFixed(2)}</span>
-                                        </div>
-                                        {i.selected_addons && i.selected_addons.length > 0 && (
-                                            <div className="pl-3 space-y-0.5 text-[9.5px] text-slate-500 italic">
-                                                {i.selected_addons.map((ad, idx) => (
-                                                    <p key={idx}>+ {ad.quantity && ad.quantity > 1 ? `${ad.quantity}x ` : ''}{ad.name}</p>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {(() => {
-                                    const disc = Number(sale.discount ?? 0);
-                                    if (disc > 0) {
-                                        return (
-                                            <div className="flex justify-between text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">
-                                                <span>DISCOUNT ({sale.discount_type ? sale.discount_type.replace('_', ' ').toUpperCase() : 'APPLIED'})</span>
-                                                <span>-₱{disc.toFixed(2)}</span>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-                                {(() => {
-                                    const fee = Number(sale.delivery_fee ?? sale.delivery?.delivery_fee ?? 0);
-                                    if (fee > 0) {
-                                        return (
-                                            <div className="flex justify-between text-[11px] text-purple-600 dark:text-purple-400 font-bold">
-                                                <span>Delivery Fee</span>
-                                                <span>₱{fee.toFixed(2)}</span>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-                            </div>
-
-                            <p className="text-[10px] text-slate-400">--------------------------------</p>
-
-                            <div className="space-y-1 text-right text-[11px] font-bold">
-                                <p>TOTAL: ₱{Number(sale.total).toFixed(2)}</p>
-                                <p>PAID ({sale.payment_method?.toUpperCase()}): ₱{Number(sale.paid_amount || 0).toFixed(2)}</p>
-                                <p>CHANGE: ₱{Number(sale.change_amount || 0).toFixed(2)}</p>
-                            </div>
-
-                            <div className="text-center pt-2 space-y-1 text-[10px] text-slate-500">
-                                <p>Thank you for dining with us!</p>
-                                <p>Please come again.</p>
+                        /* Unified 58mm Thermal Receipt Preview */
+                        <div className="flex flex-col items-center justify-center p-1">
+                            <div className="w-full max-w-75 shadow-lg rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-white">
+                                <ThermalReceipt58mm
+                                    receiptData={mappedReceiptData}
+                                    className="w-full max-w-full shadow-none"
+                                />
                             </div>
                         </div>
                     )}

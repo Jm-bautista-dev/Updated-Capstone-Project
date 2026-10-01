@@ -40,6 +40,8 @@ import type { NavItem, User } from '@/types';
 const allNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
     { title: 'POS Kiosk', href: '/pos', icon: Database },
+    { title: 'Delivery Orders', href: '/deliveries', icon: Navigation },
+    { title: 'Pickup Orders', href: '/pickups', icon: ShoppingBag },
     { title: 'Products', href: '/products', icon: Box },
     { title: 'Categories', href: '/categories', icon: Archive },
     { title: 'Add-ons & Modifiers', href: '/admin/addons', icon: Zap },
@@ -51,8 +53,6 @@ const allNavItems: NavItem[] = [
     { title: 'Forecast', href: '/analytics/sales-forecast', icon: Zap },
     { title: 'Forecast Benchmarking', href: '/analytics/forecast-benchmarking', icon: Cpu },
     { title: 'Suggestions', href: '/analytics/restock-suggestions', icon: ShoppingCart },
-    { title: 'Delivery', href: '/deliveries', icon: Navigation },
-    { title: 'Pickup Orders', href: '/pickups', icon: ShoppingBag },
     { title: 'Riders', href: '/riders', icon: Bike },
     { title: 'Employees', href: '/employees', icon: Users },
     { title: 'Branches', href: '/branches', icon: MapPin },
@@ -120,14 +120,14 @@ export function MobileBottomNav() {
                 allNavItems.find((i) => i.title === 'Dashboard')!,
                 allNavItems.find((i) => i.title === 'Products')!,
                 allNavItems.find((i) => i.title === 'Sales')!,
-                allNavItems.find((i) => i.title === 'Delivery')!,
+                allNavItems.find((i) => i.title === 'Delivery Orders')!,
             ].filter(Boolean);
         }
         return [
             allNavItems.find((i) => i.title === 'POS Kiosk')!,
             allNavItems.find((i) => i.title === 'Products')!,
             allNavItems.find((i) => i.title === 'Sales')!,
-            allNavItems.find((i) => i.title === 'Delivery')!,
+            allNavItems.find((i) => i.title === 'Delivery Orders')!,
         ].filter(Boolean);
     }, [user]);
 
@@ -141,20 +141,20 @@ export function MobileBottomNav() {
     const secondarySections = useMemo(() => {
         const sectionDefs = [
             {
-                label: 'Operations & Catalog',
-                titles: ['Categories', 'Add-ons & Modifiers', 'Inventory', 'Reviews & Ratings'],
+                label: 'Core Operations',
+                titles: ['Dashboard', 'POS Kiosk', 'Delivery Orders', 'Pickup Orders'],
             },
             {
-                label: 'Logistics & Fulfillment',
-                titles: ['Pickup Orders', 'Delivery', 'Riders'],
+                label: 'Operations & Catalog',
+                titles: ['Products', 'Categories', 'Add-ons & Modifiers', 'Inventory', 'Reviews & Ratings'],
             },
             {
                 label: 'Sales & Analytics',
-                titles: ['Reports', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'],
+                titles: ['Sales', 'Reports', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'],
             },
             {
                 label: 'Management & Team',
-                titles: ['Employees', 'Branches', 'Sales Data Management'],
+                titles: ['Employees', 'Riders', 'Branches', 'Sales Data Management'],
             },
         ];
 

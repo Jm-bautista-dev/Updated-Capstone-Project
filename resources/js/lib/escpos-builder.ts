@@ -186,6 +186,48 @@ export class EscPosBuilder {
 }
 
 /**
+ * Helper to wrap text into multiple lines for ESC/POS with maximum column width.
+ */
+export function wrapText(text: string, maxLen: number): string[] {
+    const clean = (text || '').trim().replace(/₱/g, 'PHP ');
+    if (clean.length <= maxLen) return [clean];
+
+    const words = clean.split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+        if (!currentLine) {
+            if (word.length <= maxLen) {
+                currentLine = word;
+            } else {
+                for (let i = 0; i < word.length; i += maxLen) {
+                    lines.push(word.substring(i, i + maxLen));
+                }
+            }
+        } else {
+            const testLine = `${currentLine} ${word}`;
+            if (testLine.length <= maxLen) {
+                currentLine = testLine;
+            } else {
+                lines.push(currentLine);
+                if (word.length <= maxLen) {
+                    currentLine = word;
+                } else {
+                    for (let i = 0; i < word.length; i += maxLen) {
+                        lines.push(word.substring(i, i + maxLen));
+                    }
+                }
+            }
+        }
+    }
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    return lines;
+}
+
+/**
  * Format currency value as PHP string
  */
 function formatPhp(amount: number | string | undefined | null): string {
@@ -198,6 +240,7 @@ function formatPhp(amount: number | string | undefined | null): string {
  */
 export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80 = 58): Uint8Array {
     const builder = new EscPosBuilder(paperWidth);
+    const cols = paperWidth === 80 ? 42 : 32;
 
     // ── 1. HEADER ──
     const branchHeading = formatReceiptBranchHeading(data.branch_name);
@@ -233,7 +276,7 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
         builder.line(`Cashier: ${data.cashier_name}`);
     }
 
-    // Customer delivery details if present
+    // Customer delivery/pickup details if present (excluding address)
     if (data.customer_name) {
         builder.separator('-');
         builder.line(`Customer: ${data.customer_name}`);
@@ -244,23 +287,60 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
 
     // ── 3. ITEMS TABLE ──
     builder.bold(true);
-    builder.leftRight('Item (Qty)', 'Price');
+    if (cols === 32) {
+        builder.line('ITEM');
+        builder.leftRight('QTY x PRICE', 'TOTAL');
+    } else {
+        builder.leftRight('Item (Qty)', 'Price');
+    }
     builder.bold(false);
     builder.separator('-');
 
     if (Array.isArray(data.items) && data.items.length > 0) {
         data.items.forEach((item: ReceiptItemPayload) => {
-            const itemSubtotal = item.subtotal ?? (item.quantity * item.unit_price);
-            builder.itemRow(item.name, item.quantity, formatPhp(itemSubtotal));
+            const qty = item.quantity || 1;
+            const unitPrice = item.unit_price ?? (item.subtotal ? item.subtotal / qty : 0);
+            const itemSubtotal = item.subtotal ?? (qty * unitPrice);
 
-            // Print item add-ons / modifiers if any
-            if (Array.isArray(item.addons) && item.addons.length > 0) {
-                item.addons.forEach(addon => {
-                    const adQty = (addon.quantity && addon.quantity > 1) ? `${addon.quantity}x ` : '';
-                    const adPriceVal = addon.subtotal ?? (addon.price ? addon.price * (addon.quantity || 1) : 0);
-                    const addonPrice = adPriceVal > 0 ? `+${formatPhp(adPriceVal)}` : '';
-                    builder.leftRight(`  + ${adQty}${addon.name}`, addonPrice);
-                });
+            if (cols === 32) {
+                // 1. Full product name wrapped without truncation
+                builder.bold(true);
+                const nameLines = wrapText(item.name, cols);
+                nameLines.forEach(l => builder.line(l));
+                builder.bold(false);
+
+                // 2. QTY x Unit Price on left, Line Total on right
+                const qtyPriceStr = `${qty} x ${formatPhp(unitPrice)}`;
+                const lineTotalStr = formatPhp(itemSubtotal);
+                builder.leftRight(qtyPriceStr, lineTotalStr);
+
+                // 3. Print item add-ons / modifiers if any
+                if (Array.isArray(item.addons) && item.addons.length > 0) {
+                    item.addons.forEach(addon => {
+                        const adQty = addon.quantity || 1;
+                        const adQtyPrefix = adQty > 1 ? `${adQty}x ` : '';
+                        const adUnitPrice = addon.unit_price ?? addon.price ?? 0;
+                        const adPriceVal = addon.subtotal ?? (adUnitPrice * adQty);
+                        
+                        const addonNameLines = wrapText(`+ ${adQtyPrefix}${addon.name}`, cols - 2);
+                        addonNameLines.forEach(l => builder.line(`  ${l}`));
+                        
+                        if (adPriceVal > 0) {
+                            const adQtyPriceStr = `  ${adQty} x ${formatPhp(adUnitPrice)}`;
+                            builder.leftRight(adQtyPriceStr, `+${formatPhp(adPriceVal)}`);
+                        }
+                    });
+                }
+            } else {
+                builder.itemRow(item.name, qty, formatPhp(itemSubtotal));
+                if (Array.isArray(item.addons) && item.addons.length > 0) {
+                    item.addons.forEach(addon => {
+                        const adQty = (addon.quantity && addon.quantity > 1) ? `${addon.quantity}x ` : '';
+                        const adPriceVal = addon.subtotal ?? (addon.price ? addon.price * (addon.quantity || 1) : 0);
+                        const addonPrice = adPriceVal > 0 ? `+${formatPhp(adPriceVal)}` : '';
+                        builder.leftRight(`  + ${adQty}${addon.name}`, addonPrice);
+                    });
+                }
             }
         });
     } else {

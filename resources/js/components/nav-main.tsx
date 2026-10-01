@@ -13,9 +13,10 @@ import type { NavItem } from '@/types';
 
 export function NavMain({ items = [], label }: { items: NavItem[]; label?: string }) {
     const { isCurrentUrl } = useCurrentUrl();
-    const { isMobile, setOpenMobile } = useSidebar();
+    const { isMobile, setOpenMobile, setOpen } = useSidebar();
 
     const handleItemClick = () => {
+        setOpen(false);
         if (isMobile) {
             setOpenMobile(false);
             document.body.style.removeProperty('pointer-events');

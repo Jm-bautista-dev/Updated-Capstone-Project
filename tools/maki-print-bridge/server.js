@@ -277,11 +277,26 @@ function generateTestReceiptEscPos(branchName = 'VICTORIA', paperWidth = 58) {
 
   // Sample items
   out += `${ESC}E\x01`;
-  out += cols === 32 ? 'Item (Qty)                 Price\n' : 'Item                   Qty          Price\n';
+  if (cols === 32) {
+    out += 'ITEM\n';
+    out += 'QTY x PRICE                TOTAL\n';
+  } else {
+    out += 'Item                   Qty          Price\n';
+  }
   out += `${ESC}E\x00`;
   out += '-'.repeat(cols) + '\n';
-  out += cols === 32 ? 'Test Sample Item x1       150.00\n' : 'Test Sample Item         1         150.00\n';
-  out += cols === 32 ? 'TOTAL                     150.00\n' : 'TOTAL                              150.00\n';
+  if (cols === 32) {
+    out += `${ESC}E\x01`;
+    out += 'California Maki\n';
+    out += `${ESC}E\x00`;
+    out += '1 x PHP 150.00        PHP 150.00\n';
+    out += `${ESC}E\x01`;
+    out += 'TOTAL                 PHP 150.00\n';
+    out += `${ESC}E\x00`;
+  } else {
+    out += 'Test Sample Item         1     PHP 150.00\n';
+    out += 'TOTAL                          PHP 150.00\n';
+  }
   out += '-'.repeat(cols) + '\n';
 
   // Footer

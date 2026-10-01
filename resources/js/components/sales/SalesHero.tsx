@@ -71,6 +71,7 @@ export type Sale = {
         formula_description?: string;
     };
     branch_id?: number;
+    customer_name?: string;
     cashier: {
         name: string;
     };
@@ -81,6 +82,7 @@ export type Sale = {
     };
     order?: {
         id?: number;
+        customer_name?: string;
         branch?: {
             id?: number;
             name?: string;

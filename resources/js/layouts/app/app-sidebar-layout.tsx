@@ -7,13 +7,14 @@ import { FlashMessages } from '@/components/flash-messages';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 import { NotificationBell } from '@/components/notification-bell';
 import { useRealTime } from '@/hooks/use-real-time';
+import { cn } from '@/lib/utils';
 import type { AppLayoutProps, User } from '@/types';
 
 export default function AppSidebarLayout({
     children,
     hideFloatingBell = false,
 }: AppLayoutProps) {
-    const { props } = usePage<{ auth?: { user?: User } }>();
+    const { url, props } = usePage<{ auth?: { user?: User } }>();
     const user = props.auth?.user;
 
     useEffect(() => {
@@ -28,10 +29,18 @@ export default function AppSidebarLayout({
         return null;
     }
 
+    const isPos = url === '/pos' || url.startsWith('/pos?') || url.startsWith('/pos/');
+
     return (
         <AppShell variant="sidebar">
-            <AppSidebar />
-            <AppContent variant="sidebar" className="w-full max-w-full min-w-0 overflow-x-hidden relative bg-transparent pb-20 md:pb-0">
+            <AppSidebar isPos={isPos} />
+            <AppContent
+                variant="sidebar"
+                className={cn(
+                    "w-full max-w-full min-w-0 overflow-x-hidden relative bg-transparent",
+                    isPos ? "pb-0" : "pb-20 md:pb-0"
+                )}
+            >
                 {/* Minimal Floating Notification Bell in Top-Right of Page Content Area */}
                 {!hideFloatingBell && (
                     <div className="absolute top-4 right-4 z-40">
@@ -41,7 +50,7 @@ export default function AppSidebarLayout({
                 <FlashMessages />
                 {children}
             </AppContent>
-            <MobileBottomNav />
+            {!isPos && <MobileBottomNav />}
         </AppShell>
     );
 }

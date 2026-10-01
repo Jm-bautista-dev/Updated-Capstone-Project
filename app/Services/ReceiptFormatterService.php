@@ -91,9 +91,16 @@ class ReceiptFormatterService
         }
 
         foreach ($itemsCollection as $item) {
-            $productName = $item->product?->name ?? $item->product_name ?? $item->name ?? 'Menu Item';
+            $productName = $item->product?->name 
+                ?? $item->product_name 
+                ?? $item->name 
+                ?? ($item->product_id ? \App\Models\Product::withTrashed()->find($item->product_id)?->name : null)
+                ?? 'Menu Item';
             $qty = (float) $item->quantity;
             $unitPrice = (float) ($item->unit_price ?? $item->price ?? 0);
+            if ($unitPrice <= 0 && $qty > 0 && !empty($item->subtotal)) {
+                $unitPrice = (float) $item->subtotal / $qty;
+            }
             $subtotal = (float) ($item->subtotal ?? $item->line_total ?? ($qty * $unitPrice));
 
             $addons = [];
@@ -175,6 +182,85 @@ class ReceiptFormatterService
     }
 
     /**
+     * Helper to wrap text into multiple lines with maximum column width constraint.
+     */
+    public function wordWrapLines(string $text, int $width): array
+    {
+        $text = trim($text);
+        if ($width <= 0 || mb_strwidth($text) <= $width) {
+            return [$text];
+        }
+
+        $words = preg_split('/\s+/', $text);
+        $lines = [];
+        $currentLine = '';
+
+        foreach ($words as $word) {
+            if ($currentLine === '') {
+                if (mb_strwidth($word) <= $width) {
+                    $currentLine = $word;
+                } else {
+                    $chunks = [];
+                    $len = mb_strlen($word);
+                    $chunk = '';
+                    for ($i = 0; $i < $len; $i++) {
+                        $char = mb_substr($word, $i, 1);
+                        if (mb_strwidth($chunk . $char) > $width) {
+                            $chunks[] = $chunk;
+                            $chunk = $char;
+                        } else {
+                            $chunk .= $char;
+                        }
+                    }
+                    if ($chunk !== '') {
+                        $chunks[] = $chunk;
+                    }
+                    for ($i = 0; $i < count($chunks) - 1; $i++) {
+                        $lines[] = $chunks[$i];
+                    }
+                    $currentLine = end($chunks);
+                }
+            } else {
+                $testLine = $currentLine . ' ' . $word;
+                if (mb_strwidth($testLine) <= $width) {
+                    $currentLine = $testLine;
+                } else {
+                    $lines[] = $currentLine;
+                    if (mb_strwidth($word) <= $width) {
+                        $currentLine = $word;
+                    } else {
+                        $chunks = [];
+                        $len = mb_strlen($word);
+                        $chunk = '';
+                        for ($i = 0; $i < $len; $i++) {
+                            $char = mb_substr($word, $i, 1);
+                            if (mb_strwidth($chunk . $char) > $width) {
+                                $chunks[] = $chunk;
+                                $chunk = $char;
+                            } else {
+                                $chunk .= $char;
+                            }
+                        }
+                        if ($chunk !== '') {
+                            $chunks[] = $chunk;
+                        }
+                        for ($i = 0; $i < count($chunks) - 1; $i++) {
+                            $lines[] = $chunks[$i];
+                        }
+                        $currentLine = end($chunks);
+                    }
+                }
+            }
+        }
+
+        if ($currentLine !== '') {
+            $lines[] = $currentLine;
+        }
+
+        return $lines;
+    }
+
+    /**
      * Generate monospaced plain text ASCII receipt.
      */
     public function formatPlainText(array $data, int $width = 80): string
@@ -229,7 +315,8 @@ class ReceiptFormatterService
 
         // Column Header
         if ($cols === 32) {
-            $lines[] = $this->twoColumn("Item (Qty)", "Price", $cols);
+            $lines[] = "ITEM";
+            $lines[] = $this->twoColumn("QTY x PRICE", "TOTAL", $cols);
         } else {
             $lines[] = sprintf("%-22s %4s %14s", "Item", "Qty", "Price");
         }
@@ -239,11 +326,19 @@ class ReceiptFormatterService
         foreach ($data['items'] as $item) {
             $name = $item['name'];
             $qty = $item['quantity'];
-            $priceStr = 'PHP ' . number_format($item['subtotal'], 2);
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $subtotal = (float) ($item['subtotal'] ?? ($qty * $unitPrice));
+            $priceStr = 'PHP ' . number_format($subtotal, 2);
+            $unitPriceStr = 'PHP ' . number_format($unitPrice, 2);
 
             if ($cols === 32) {
-                $itemLeft = sprintf("%s x%s", mb_strimwidth($name, 0, 18, '..'), $qty);
-                $lines[] = $this->twoColumn($itemLeft, $priceStr, $cols);
+                // Wrap long product names without truncation
+                $nameLines = $this->wordWrapLines($name, $cols);
+                foreach ($nameLines as $nl) {
+                    $lines[] = $nl;
+                }
+                $qtyPriceStr = sprintf("%s x %s", $qty, $unitPriceStr);
+                $lines[] = $this->twoColumn($qtyPriceStr, $priceStr, $cols);
             } else {
                 $truncatedName = mb_strimwidth($name, 0, 22, '..');
                 $lines[] = sprintf("%-22s %4s %14s", $truncatedName, $qty, $priceStr);
@@ -252,10 +347,25 @@ class ReceiptFormatterService
             // Print Add-ons under item if present
             if (!empty($item['addons'])) {
                 foreach ($item['addons'] as $ad) {
-                    $adQtyPrefix = !empty($ad['quantity']) && (float)$ad['quantity'] > 1 ? ((int)$ad['quantity'] . 'x ') : '';
-                    $adPriceVal = (float) ($ad['subtotal'] ?? ($ad['price'] ?? 0));
-                    $adPrice = $adPriceVal > 0 ? ('PHP ' . number_format($adPriceVal, 2)) : '';
-                    $lines[] = $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPrice, $cols);
+                    $adQty = max(1, (float) ($ad['quantity'] ?? 1));
+                    $adUnitPrice = (float) ($ad['unit_price'] ?? ($ad['price'] ?? 0));
+                    $adSubtotal = (float) ($ad['subtotal'] ?? ($adUnitPrice * $adQty));
+                    $adPriceStr = $adSubtotal > 0 ? ('PHP ' . number_format($adSubtotal, 2)) : '';
+                    $adUnitPriceStr = $adUnitPrice > 0 ? ('PHP ' . number_format($adUnitPrice, 2)) : '';
+                    $adQtyPrefix = $adQty > 1 ? ((int)$adQty . 'x ') : '';
+
+                    if ($cols === 32) {
+                        $adNameLines = $this->wordWrapLines("+ " . $adQtyPrefix . $ad['name'], $cols - 2);
+                        foreach ($adNameLines as $adLine) {
+                            $lines[] = "  " . $adLine;
+                        }
+                        if ($adSubtotal > 0) {
+                            $adQtyPriceStr = sprintf("  %s x %s", $adQty, $adUnitPriceStr);
+                            $lines[] = $this->twoColumn($adQtyPriceStr, "+" . $adPriceStr, $cols);
+                        }
+                    } else {
+                        $lines[] = $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPriceStr ? ('+' . $adPriceStr) : '', $cols);
+                    }
                 }
             }
         }
@@ -360,7 +470,8 @@ class ReceiptFormatterService
         // 6. Items Table
         $out .= "{$ESC}E\x01"; // Bold header
         if ($cols === 32) {
-            $out .= $this->twoColumn("Item (Qty)", "Price", $cols) . "\n";
+            $out .= "ITEM\n";
+            $out .= $this->twoColumn("QTY x PRICE", "TOTAL", $cols) . "\n";
         } else {
             $out .= sprintf("%-22s %4s %14s\n", "Item", "Qty", "Price");
         }
@@ -370,11 +481,20 @@ class ReceiptFormatterService
         foreach ($data['items'] as $item) {
             $name = $item['name'];
             $qty = $item['quantity'];
-            $priceStr = 'PHP ' . number_format($item['subtotal'], 2);
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $subtotal = (float) ($item['subtotal'] ?? ($qty * $unitPrice));
+            $priceStr = 'PHP ' . number_format($subtotal, 2);
+            $unitPriceStr = 'PHP ' . number_format($unitPrice, 2);
 
             if ($cols === 32) {
-                $itemLeft = sprintf("%s x%s", mb_strimwidth($name, 0, 18, '..'), $qty);
-                $out .= $this->twoColumn($itemLeft, $priceStr, $cols) . "\n";
+                $out .= "{$ESC}E\x01"; // Bold product name
+                $nameLines = $this->wordWrapLines($name, $cols);
+                foreach ($nameLines as $nl) {
+                    $out .= $nl . "\n";
+                }
+                $out .= "{$ESC}E\x00"; // Bold off
+                $qtyPriceStr = sprintf("%s x %s", $qty, $unitPriceStr);
+                $out .= $this->twoColumn($qtyPriceStr, $priceStr, $cols) . "\n";
             } else {
                 $truncatedName = mb_strimwidth($name, 0, 22, '..');
                 $out .= sprintf("%-22s %4s %14s\n", $truncatedName, $qty, $priceStr);
@@ -383,10 +503,25 @@ class ReceiptFormatterService
             // Print Add-ons under item in ESC/POS
             if (!empty($item['addons'])) {
                 foreach ($item['addons'] as $ad) {
-                    $adQtyPrefix = !empty($ad['quantity']) && (float)$ad['quantity'] > 1 ? ((int)$ad['quantity'] . 'x ') : '';
-                    $adPriceVal = (float) ($ad['subtotal'] ?? ($ad['price'] ?? 0));
-                    $adPrice = $adPriceVal > 0 ? ('PHP ' . number_format($adPriceVal, 2)) : '';
-                    $out .= $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPrice, $cols) . "\n";
+                    $adQty = max(1, (float) ($ad['quantity'] ?? 1));
+                    $adUnitPrice = (float) ($ad['unit_price'] ?? ($ad['price'] ?? 0));
+                    $adSubtotal = (float) ($ad['subtotal'] ?? ($adUnitPrice * $adQty));
+                    $adPriceStr = $adSubtotal > 0 ? ('PHP ' . number_format($adSubtotal, 2)) : '';
+                    $adUnitPriceStr = $adUnitPrice > 0 ? ('PHP ' . number_format($adUnitPrice, 2)) : '';
+                    $adQtyPrefix = $adQty > 1 ? ((int)$adQty . 'x ') : '';
+
+                    if ($cols === 32) {
+                        $adNameLines = $this->wordWrapLines("+ " . $adQtyPrefix . $ad['name'], $cols - 2);
+                        foreach ($adNameLines as $adLine) {
+                            $out .= "  " . $adLine . "\n";
+                        }
+                        if ($adSubtotal > 0) {
+                            $adQtyPriceStr = sprintf("  %s x %s", $adQty, $adUnitPriceStr);
+                            $out .= $this->twoColumn($adQtyPriceStr, "+" . $adPriceStr, $cols) . "\n";
+                        }
+                    } else {
+                        $out .= $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPriceStr ? ('+' . $adPriceStr) : '', $cols) . "\n";
+                    }
                 }
             }
         }

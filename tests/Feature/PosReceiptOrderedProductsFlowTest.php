@@ -248,7 +248,7 @@ class PosReceiptOrderedProductsFlowTest extends TestCase
         $this->assertEquals(250.00, $item['unit_price']);
         $this->assertEquals(1000.00, $item['subtotal']);
 
-        $this->assertStringContainsString('x4', $printJobData['formatted_text']);
+        $this->assertStringContainsString('4 x', $printJobData['formatted_text']);
         $this->assertStringContainsString('PHP 1,000.00', $printJobData['formatted_text']);
     }
 
