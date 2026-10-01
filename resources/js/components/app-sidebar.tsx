@@ -141,6 +141,13 @@ export function AppSidebar({ isPos: isPosProp }: { isPos?: boolean }) {
 
     const isPos = isPosProp ?? (url === '/pos' || url.startsWith('/pos?') || url.startsWith('/pos/'));
 
+    // Automatically restore normal expanded sidebar when navigating to standard non-POS pages
+    useEffect(() => {
+        if (!isPos && !open) {
+            setOpen(true);
+        }
+    }, [isPos, open, setOpen]);
+
     // Automatically close sidebar on POS navigation
     useEffect(() => {
         if (!isPos) return;
@@ -275,7 +282,7 @@ export function AppSidebar({ isPos: isPosProp }: { isPos?: boolean }) {
 
     // STANDARD APP SIDEBAR FOR ALL NON-POS PAGES (Dashboard, Inventory, Products, Reports, Sales, etc.)
     return (
-        <Sidebar collapsible="offcanvas" variant="inset" className="border-none">
+        <Sidebar collapsible="icon" variant="inset" className="border-none">
             <SidebarHeader className="bg-transparent pb-2 pt-4 px-5">
                 <SidebarMenu>
                     <SidebarMenuItem>
