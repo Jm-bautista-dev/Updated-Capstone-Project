@@ -8,9 +8,8 @@ type Props = {
 };
 
 export function AppShell({ children, variant = 'header' }: Props) {
-    const { url, props } = usePage();
+    const { url } = usePage();
     const isPos = url === '/pos' || url.startsWith('/pos?') || url.startsWith('/pos/');
-    const isOpen = isPos ? false : (props.sidebarOpen ?? true);
 
     if (variant === 'header') {
         return (
@@ -18,5 +17,5 @@ export function AppShell({ children, variant = 'header' }: Props) {
         );
     }
 
-    return <SidebarProvider defaultOpen={!isPos && isOpen}>{children}</SidebarProvider>;
+    return <SidebarProvider defaultOpen={!isPos}>{children}</SidebarProvider>;
 }

@@ -275,7 +275,7 @@ export function AppSidebar({ isPos: isPosProp }: { isPos?: boolean }) {
 
     // STANDARD APP SIDEBAR FOR ALL NON-POS PAGES (Dashboard, Inventory, Products, Reports, Sales, etc.)
     return (
-        <Sidebar collapsible="icon" variant="inset" className="border-none">
+        <Sidebar collapsible="offcanvas" variant="inset" className="border-none">
             <SidebarHeader className="bg-transparent pb-2 pt-4 px-5">
                 <SidebarMenu>
                     <SidebarMenuItem>
