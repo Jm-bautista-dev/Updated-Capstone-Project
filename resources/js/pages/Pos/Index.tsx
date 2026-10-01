@@ -60,6 +60,8 @@ export interface SelectedAddon {
   name: string;
   price: number;
   quantity?: number;
+  subtotal?: number;
+  unit_price?: number;
   group_id?: number | string;
   group_name?: string;
 }
@@ -122,14 +124,32 @@ function generateOfflineId(): string {
   return 'local_' + Date.now().toString(36);
 }
 
-export default function PosIndex() {
-  const { products = [], categories = [], branch, activeShift } = usePage().props as unknown as PosPageProps;
+function PosNavTrigger() {
   const { toggleSidebar, open } = useSidebar();
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={toggleSidebar}
+      aria-expanded={open}
+      aria-label="Toggle navigation menu"
+      className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-zinc-200 hover:bg-[#FFE4EC] dark:hover:bg-zinc-800 transition-colors shadow-xs shrink-0 cursor-pointer"
+      title="Navigation Menu"
+    >
+      <FiMenu className="size-5 text-[#E75480]" />
+    </Button>
+  );
+}
+
+export default function PosIndex() {
+  const pageProps = usePage().props as unknown as PosPageProps & { auth?: { user?: { name?: string } } };
+  const { products = [], categories = [], branch, activeShift } = pageProps;
+  const cashierName = pageProps.auth?.user?.name || 'Staff';
 
   // --- Real-time Printer Status & Config Hook ---
   const { 
     isConnected: isPrinterReady, 
-    status: printerStatus, 
     statusDetails: printerStatusDetails,
     isChecking: isPrinterChecking,
     config: printerConfig, 
@@ -728,7 +748,7 @@ export default function PosIndex() {
         };
         // 1. Build immutable receipt data from the completed transaction
         const effectiveReceiptItems = cart.map(item => {
-          const unitPrice = Number(item.selling_price || item.price || 0);
+          const unitPrice = Number(item.selling_price || 0);
           const qty = Number(item.quantity || 1);
           const itemAddons = item.selected_addons?.map(a => {
             const adQty = Number(a.quantity || 1);
@@ -768,8 +788,8 @@ export default function PosIndex() {
               order_number: orderNum,
               date_time: new Date().toLocaleString('en-PH'),
               fulfillment_type: (orderType || 'DINE-IN').toUpperCase(),
-              cashier_name: cashier?.name || 'Staff',
-              customer_name: deliveryInfo.customer_name || activeDiscount?.customer_name,
+              cashier_name: cashierName,
+              customer_name: deliveryInfo.customer_name || activeDiscount?.customerName,
               customer_phone: deliveryInfo.customer_phone,
               items: effectiveReceiptItems,
               subtotal: Number(cartSubtotal),
@@ -887,18 +907,7 @@ export default function PosIndex() {
         <header className="h-16 px-4 sm:px-6 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white/90 dark:bg-[#171719]/90 backdrop-blur-xl flex items-center justify-between z-20 shrink-0 gap-4 transition-colors">
           <div className="flex items-center gap-2.5 sm:gap-3">
             {/* Full-screen POS Navigation Drawer Trigger */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              aria-expanded={open}
-              aria-label="Toggle navigation menu"
-              className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1E1E21] border border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-zinc-200 hover:bg-[#FFE4EC] dark:hover:bg-zinc-800 transition-colors shadow-xs shrink-0 cursor-pointer"
-              title="Navigation Menu"
-            >
-              <FiMenu className="size-5 text-[#E75480]" />
-            </Button>
+            <PosNavTrigger />
             <div className="size-10 rounded-2xl bg-[#E75480] text-white flex items-center justify-center font-black shadow-md shadow-[#E75480]/20">
               POS
             </div>

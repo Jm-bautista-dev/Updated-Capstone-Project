@@ -36,9 +36,26 @@ const breadcrumbs: BreadcrumbItem[] = [
   { title: 'POS - Weight Sales', href: '/pos/weight' },
 ];
 
+function WeightPosNavTrigger() {
+  const { toggleSidebar, open } = useSidebar();
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={toggleSidebar}
+      aria-expanded={open}
+      aria-label="Toggle navigation menu"
+      className="size-10 rounded-2xl bg-background border border-border shadow-xs hover:bg-muted"
+      title="Navigation Menu"
+    >
+      <FiMenu className="size-5 text-primary" />
+    </Button>
+  );
+}
+
 export default function WeightPos() {
   const { inventory = [] } = usePage().props as unknown as WeightPosPageProps;
-  const { toggleSidebar, open } = useSidebar();
   const [selectedItem, setSelectedItem] = useState<WeightInventoryItem | null>(null);
   const [search, setSearch] = useState('');
 
@@ -96,18 +113,7 @@ export default function WeightPos() {
         <div className="flex-1 flex flex-col p-6 space-y-6 overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebar}
-                aria-expanded={open}
-                aria-label="Toggle navigation menu"
-                className="size-10 rounded-2xl bg-background border border-border shadow-xs hover:bg-muted"
-                title="Navigation Menu"
-              >
-                <FiMenu className="size-5 text-primary" />
-              </Button>
+              <WeightPosNavTrigger />
               <h1 className="text-2xl font-black tracking-tight">Select Material</h1>
             </div>
             <div className="relative">
