@@ -13,7 +13,7 @@ import type { NavItem } from '@/types';
 
 export function NavMain({ items = [], label }: { items: NavItem[]; label?: string }) {
     const { isCurrentUrl } = useCurrentUrl();
-    const { isMobile, setOpenMobile, setOpen } = useSidebar();
+    const { isMobile, setOpenMobile } = useSidebar();
 
     const handleItemClick = () => {
         if (isMobile) {
