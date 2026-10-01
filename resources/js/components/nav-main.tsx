@@ -16,7 +16,6 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
     const { isMobile, setOpenMobile, setOpen } = useSidebar();
 
     const handleItemClick = () => {
-        setOpen(false);
         if (isMobile) {
             setOpenMobile(false);
             document.body.style.removeProperty('pointer-events');

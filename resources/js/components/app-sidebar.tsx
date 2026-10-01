@@ -173,7 +173,6 @@ export function AppSidebar({ isPos: isPosProp }: { isPos?: boolean }) {
     }, [isPos, open, openMobile, setOpen, setOpenMobile]);
 
     const handleLogoClick = () => {
-        setOpen(false);
         if (isMobile) {
             setOpenMobile(false);
             document.body.style.removeProperty('pointer-events');
