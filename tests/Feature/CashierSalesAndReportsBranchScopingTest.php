@@ -92,7 +92,7 @@ class CashierSalesAndReportsBranchScopingTest extends TestCase
             'customer_name'    => 'Alice Wonderland',
             'customer_phone'   => '09123456789',
             'customer_address' => '123 Main St, Victoria',
-            'tracking_no'      => 'TRK-ORD-19',
+            'tracking_number'  => 'TRK-ORD-19',
         ]);
 
         // 2. Mark order as delivered via OrderFulfillmentService

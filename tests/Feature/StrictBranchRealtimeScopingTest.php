@@ -129,7 +129,7 @@ class StrictBranchRealtimeScopingTest extends TestCase
             'customer_name'    => 'Customer Victoria',
             'customer_phone'   => '09123456789',
             'customer_address' => 'Victoria',
-            'tracking_no'      => 'TRK-202',
+            'tracking_number'  => 'TRK-202',
         ]);
 
         $event = new OrderStatusUpdated($delivery, 'preparing', 'Kitchen is preparing order');
@@ -167,7 +167,7 @@ class StrictBranchRealtimeScopingTest extends TestCase
             'customer_name'    => 'Customer Victoria',
             'customer_phone'   => '09123456789',
             'customer_address' => 'Victoria',
-            'tracking_no'      => 'TRK-203',
+            'tracking_number'  => 'TRK-203',
         ]);
 
         $rider = \App\Models\Rider::create([

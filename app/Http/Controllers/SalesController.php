@@ -27,14 +27,22 @@ class SalesController extends Controller
                 return $q->where(function ($sub) use ($search) {
                     $sub->where('order_number', 'like', "%{$search}%")
                         ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhere('payment_method', 'like', "%{$search}%")
                         ->orWhereHas('delivery', function ($dq) use ($search) {
                             $dq->where('customer_name', 'like', "%{$search}%")
                                ->orWhere('customer_phone', 'like', "%{$search}%")
-                               ->orWhere('tracking_no', 'like', "%{$search}%");
+                               ->orWhere('tracking_number', 'like', "%{$search}%");
                         })
                         ->orWhereHas('order', function ($oq) use ($search) {
                             $oq->where('customer_name', 'like', "%{$search}%")
-                               ->orWhere('contact_number', 'like', "%{$search}%");
+                               ->orWhere('contact_number', 'like', "%{$search}%")
+                               ->orWhere('order_number', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('cashier', function ($cq) use ($search) {
+                            $cq->where('name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('items.product', function ($pq) use ($search) {
+                            $pq->where('name', 'like', "%{$search}%");
                         });
                 });
             });
