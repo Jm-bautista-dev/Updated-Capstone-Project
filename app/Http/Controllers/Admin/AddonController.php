@@ -23,7 +23,7 @@ class AddonController extends Controller
             ->orderBy('name')
             ->get();
 
-        $addonGroups = AddonGroup::with(['product', 'products', 'items.addon'])
+        $addonGroups = AddonGroup::with(['product', 'products', 'addOns', 'items'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

@@ -70,11 +70,19 @@ interface AddOnItem {
 
 interface AddonGroupItem {
     id: number;
-    addon_group_id: number;
-    add_on_id: number;
-    sort_order: number;
-    is_default: boolean;
+    name?: string;
+    price?: number | string;
+    addon_group_id?: number;
+    add_on_id?: number;
+    sort_order?: number;
+    is_default?: boolean;
     addon?: AddOnItem;
+    pivot?: {
+        addon_group_id?: number;
+        add_on_id?: number;
+        price_override?: number | null;
+        sort_order?: number;
+    };
 }
 
 interface ProductItem {
@@ -94,6 +102,8 @@ interface AddonGroupData {
     is_active: boolean;
     sort_order: number;
     items?: AddonGroupItem[];
+    addOns?: AddonGroupItem[];
+    add_ons?: AddonGroupItem[];
     products?: ProductItem[];
     product?: ProductItem | null;
 }
@@ -275,7 +285,10 @@ export default function AddonsIndex({
 
     const openEditGroup = (group: AddonGroupData) => {
         setEditingGroup(group);
-        const attachedAddonIds = group.items?.map((item) => item.add_on_id) || [];
+        const groupItems = group.items || group.addOns || group.add_ons || [];
+        const attachedAddonIds = groupItems
+            .map((item: AddonGroupItem) => item.add_on_id || item.id)
+            .filter((id): id is number => typeof id === 'number' && id > 0);
         const attachedProductIds = group.products?.map((p) => p.id) || (group.product ? [group.product.id] : []);
 
         groupForm.setData({
@@ -572,7 +585,7 @@ export default function AddonsIndex({
                             </div>
                         ) : (
                             filteredGroups.map((group) => {
-                                const attachedItems = group.items || [];
+                                const attachedItems = group.items || group.addOns || group.add_ons || [];
                                 const attachedProducts = group.products || (group.product ? [group.product] : []);
 
                                 return (
@@ -639,17 +652,21 @@ export default function AddonsIndex({
                                                     {attachedItems.length === 0 ? (
                                                         <span className="text-xs text-slate-400 italic">No add-ons assigned</span>
                                                     ) : (
-                                                        attachedItems.map((item) => (
-                                                            <span
-                                                                key={item.id}
-                                                                className="px-2 py-1 rounded-md text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
-                                                            >
-                                                                {item.addon?.name}{' '}
-                                                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                                                    (+₱{Number(item.addon?.price || 0).toFixed(2)})
+                                                        attachedItems.map((item: AddonGroupItem) => {
+                                                            const addonName = item.addon?.name || item.name || 'Unnamed';
+                                                            const addonPrice = item.addon?.price ?? item.price ?? item.pivot?.price_override ?? 0;
+                                                            return (
+                                                                <span
+                                                                    key={item.id}
+                                                                    className="px-2 py-1 rounded-md text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
+                                                                >
+                                                                    {addonName}{' '}
+                                                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                                                        (+₱{Number(addonPrice).toFixed(2)})
+                                                                    </span>
                                                                 </span>
-                                                            </span>
-                                                        ))
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
