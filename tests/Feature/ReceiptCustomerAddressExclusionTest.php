@@ -153,9 +153,10 @@ class ReceiptCustomerAddressExclusionTest extends TestCase
         $this->assertStringContainsString('Dragon Roll', $plainText);
         $this->assertStringContainsString('Extra Spicy Mayo', $plainText);
         $this->assertStringContainsString('TOTAL', $plainText);
-        $this->assertStringContainsString('CASH Paid', $plainText);
+        $this->assertStringContainsString('Payment: CASH', $plainText);
+        $this->assertStringContainsString('Cash Received', $plainText);
         $this->assertStringContainsString('Change', $plainText);
-        $this->assertStringContainsString('Thank you', $plainText);
+        $this->assertStringContainsString('THANK YOU', $plainText);
         $this->assertStringContainsString($customerName, $plainText);
     }
 

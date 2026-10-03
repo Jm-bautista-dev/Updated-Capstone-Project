@@ -242,97 +242,141 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     const builder = new EscPosBuilder(paperWidth);
     const cols = paperWidth === 80 ? 42 : 32;
 
-    // ── 1. HEADER ──
-    const branchHeading = formatReceiptBranchHeading(data.branch_name);
-    builder.align('center');
-    builder.size('double_height');
-    builder.bold(true);
-    builder.line(branchHeading);
-    builder.size('normal');
-    builder.bold(false);
-
-    if (data.branch_address) {
-        builder.line(data.branch_address);
-    }
-
-    builder.separator('=');
-
-    // ── 2. ORDER META ──
+    // ── 1. REPRINT BANNER IF APPLICABLE ──
     if (data.is_reprint) {
+        builder.align('center');
         builder.bold(true);
-        builder.line('*** OFFICIAL REPRINT ***');
+        builder.line('*** REPRINT ***');
         if (data.reprint_reason) {
             builder.line(`Reason: ${data.reprint_reason}`);
+        }
+        if (data.reprinted_at) {
+            builder.line(`Time: ${data.reprinted_at}`);
         }
         builder.bold(false);
         builder.separator('-');
     }
 
-    builder.align('left');
-    builder.leftRight(`Order #: ${data.order_number || 'N/A'}`, (data.fulfillment_type || 'Dine-In').toUpperCase());
-    builder.line(`Date: ${data.date_time || new Date().toLocaleString('en-PH')}`);
+    // ── 2. BRANCH HEADER ONLY (Never "MAKI DESU") ──
+    const branchHeading = formatReceiptBranchHeading(data.branch_name);
+    builder.align('center');
+    builder.separator('=');
+    builder.size('double_height');
+    builder.bold(true);
+    builder.line(branchHeading);
+    builder.size('normal');
+    builder.bold(false);
+    builder.separator('=');
+    builder.feed(1);
 
+    // ── 3. ORDER METADATA ──
+    builder.align('left');
+    builder.line(`Order #: ${data.order_number || 'N/A'}`);
+    
+    // Parse date and time cleanly
+    let dateStr = data.date || '';
+    let timeStr = data.time || '';
+    if (!dateStr || !timeStr) {
+        const rawDateTime = data.date_time;
+        if (rawDateTime) {
+            const parts = rawDateTime.split(' ');
+            if (parts.length >= 4) {
+                dateStr = `${parts[0]} ${parts[1]} ${parts[2]}`;
+                timeStr = `${parts[3]} ${parts[4] || ''}`.trim();
+            } else {
+                dateStr = rawDateTime;
+            }
+        } else {
+            const now = new Date();
+            dateStr = now.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+            timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+    }
+
+    builder.line(`Date: ${dateStr}`);
+    if (timeStr) {
+        builder.line(`Time: ${timeStr}`);
+    }
+    builder.line(`Type: ${(data.fulfillment_type || 'DINE-IN').toUpperCase()}`);
+
+    if (data.scheduled_pickup_at) {
+        builder.line(`Pickup: ${data.scheduled_pickup_at}`);
+    }
+    if (data.pickup_verification_code) {
+        builder.line(`Pickup Code: ${data.pickup_verification_code}`);
+    }
     if (data.cashier_name) {
         builder.line(`Cashier: ${data.cashier_name}`);
     }
-
-    // Customer delivery/pickup details if present (excluding address)
     if (data.customer_name) {
-        builder.separator('-');
         builder.line(`Customer: ${data.customer_name}`);
-        if (data.customer_phone) builder.line(`Phone: ${data.customer_phone}`);
+    }
+    if (data.customer_phone) {
+        builder.line(`Phone: ${data.customer_phone}`);
     }
 
-    builder.separator('=');
-
-    // ── 3. ITEMS TABLE ──
+    // ── 4. ITEMS SECTION ──
+    builder.feed(1);
+    builder.separator('-');
     builder.bold(true);
-    if (cols === 32) {
-        builder.line('ITEM');
-        builder.leftRight('QTY x PRICE', 'TOTAL');
-    } else {
-        builder.leftRight('Item (Qty)', 'Price');
-    }
+    builder.line('ITEMS');
     builder.bold(false);
     builder.separator('-');
+    builder.feed(1);
 
     if (Array.isArray(data.items) && data.items.length > 0) {
         data.items.forEach((item: ReceiptItemPayload) => {
-            const qty = item.quantity || 1;
-            const unitPrice = item.unit_price ?? (item.subtotal ? item.subtotal / qty : 0);
-            const itemSubtotal = item.subtotal ?? (qty * unitPrice);
+            const rawName = item.name 
+                || (item as unknown as { product_name?: string }).product_name 
+                || (item as unknown as { product?: { name?: string } }).product?.name 
+                || 'Menu Item';
+            const productName = String(rawName).trim() || 'Menu Item';
+            const qty = Number(item.quantity) || 1;
+            const unitPrice = item.unit_price !== undefined && item.unit_price !== null
+                ? Number(item.unit_price)
+                : (item.subtotal ? Number(item.subtotal) / qty : 0);
+            const itemSubtotal = item.subtotal !== undefined && item.subtotal !== null
+                ? Number(item.subtotal)
+                : (qty * unitPrice);
 
             if (cols === 32) {
-                // 1. Full product name wrapped without truncation
+                // 1. Full product name wrapped naturally without truncation
                 builder.bold(true);
-                const nameLines = wrapText(item.name, cols);
+                const nameLines = wrapText(productName, cols);
                 nameLines.forEach(l => builder.line(l));
                 builder.bold(false);
 
                 // 2. QTY x Unit Price on left, Line Total on right
-                const qtyPriceStr = `${qty} x ${formatPhp(unitPrice)}`;
+                const qtyPriceStr = `  ${qty} x ${formatPhp(unitPrice)}`;
                 const lineTotalStr = formatPhp(itemSubtotal);
                 builder.leftRight(qtyPriceStr, lineTotalStr);
 
                 // 3. Print item add-ons / modifiers if any
                 if (Array.isArray(item.addons) && item.addons.length > 0) {
                     item.addons.forEach(addon => {
-                        const adQty = addon.quantity || 1;
+                        const adQty = Number(addon.quantity) || 1;
                         const adQtyPrefix = adQty > 1 ? `${adQty}x ` : '';
-                        const adUnitPrice = addon.unit_price ?? addon.price ?? 0;
-                        const adPriceVal = addon.subtotal ?? (adUnitPrice * adQty);
+                        const adUnitPrice = Number(addon.unit_price ?? addon.price ?? 0);
+                        const adPriceVal = Number(addon.subtotal ?? (adUnitPrice * adQty));
                         
                         const addonNameLines = wrapText(`+ ${adQtyPrefix}${addon.name}`, cols - 2);
-                        addonNameLines.forEach(l => builder.line(`  ${l}`));
-                        
-                        if (adPriceVal > 0) {
-                            const adQtyPriceStr = `  ${adQty} x ${formatPhp(adUnitPrice)}`;
-                            builder.leftRight(adQtyPriceStr, `+${formatPhp(adPriceVal)}`);
-                        }
+                        addonNameLines.forEach((l, lIdx) => {
+                            if (adPriceVal > 0 && lIdx === addonNameLines.length - 1) {
+                                builder.leftRight(`  ${l}`, `+${formatPhp(adPriceVal)}`);
+                            } else {
+                                builder.line(`  ${l}`);
+                            }
+                        });
                     });
                 }
             } else {
-                builder.itemRow(item.name, qty, formatPhp(itemSubtotal));
+                builder.bold(true);
+                const nameLines = wrapText(productName, cols);
+                nameLines.forEach(l => builder.line(l));
+                builder.bold(false);
+                const qtyPriceStr = `  ${qty} x ${formatPhp(unitPrice)}`;
+                builder.leftRight(qtyPriceStr, formatPhp(itemSubtotal));
+
                 if (Array.isArray(item.addons) && item.addons.length > 0) {
                     item.addons.forEach(addon => {
                         const adQty = (addon.quantity && addon.quantity > 1) ? `${addon.quantity}x ` : '';
@@ -342,24 +386,23 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
                     });
                 }
             }
+            builder.feed(1);
         });
     } else {
         builder.line('No items listed');
+        builder.feed(1);
     }
 
-    builder.separator('-');
-
-    // ── 4. TOTALS & PAYMENT ──
+    // ── 5. TOTALS & PAYMENT ──
     const subtotal = data.subtotal ?? 0;
     const discount = data.discount ?? 0;
     const deliveryFee = data.delivery_fee ?? 0;
     const total = data.total ?? subtotal;
     const paid = data.paid_amount ?? total;
-    const change = data.change_amount ?? 0;
+    const change = data.change_amount ?? Math.max(0, paid - total);
 
-    if (discount > 0 || deliveryFee > 0) {
-        builder.leftRight('Subtotal', formatPhp(subtotal));
-    }
+    builder.separator('-');
+    builder.leftRight('Subtotal', formatPhp(subtotal));
 
     if (discount > 0) {
         const discountLabel = data.discount_type ? `Discount (${data.discount_type.replace(/_/g, ' ').toUpperCase()})` : 'Discount';
@@ -377,20 +420,31 @@ export function buildReceiptEscPos(data: ReceiptDataPayload, paperWidth: 58 | 80
     builder.size('normal');
     builder.bold(false);
     builder.separator('-');
+    builder.feed(1);
 
-    builder.leftRight(`${(data.payment_method || 'CASH').toUpperCase()} Paid`, formatPhp(paid));
-    if (change > 0 || (data.payment_method || 'CASH').toUpperCase() === 'CASH') {
+    const payMethod = (data.payment_method || 'CASH').toUpperCase();
+    builder.line(`Payment: ${payMethod}`);
+    if (payMethod === 'CASH') {
+        builder.leftRight('Cash Received', formatPhp(paid));
         builder.bold(true);
         builder.leftRight('Change', formatPhp(change));
         builder.bold(false);
+    } else {
+        builder.bold(true);
+        builder.leftRight('Paid Amount', formatPhp(paid));
+        builder.bold(false);
     }
 
+    builder.feed(1);
     builder.separator('=');
 
-    // ── 5. FOOTER ──
+    // ── 6. FOOTER ──
     builder.align('center');
-    builder.line('Thank you for dining with us!');
-    builder.line('Please come again.');
+    builder.bold(true);
+    builder.line('THANK YOU!');
+    builder.bold(false);
+    builder.separator('=');
+
     if (data.is_reprint) {
         builder.line('*** END OF REPRINT ***');
     }
@@ -414,12 +468,14 @@ export function buildTestReceiptEscPos(
     const branchHeading = formatReceiptBranchHeading(branchName);
 
     builder.align('center');
+    builder.separator('=');
     builder.size('double_height');
     builder.bold(true);
     builder.line(branchHeading);
     builder.size('normal');
     builder.bold(false);
     builder.separator('=');
+    builder.feed(1);
 
     builder.bold(true);
     builder.line('THERMAL PRINTER TEST');
@@ -434,14 +490,25 @@ export function buildTestReceiptEscPos(
     builder.separator('-');
 
     builder.bold(true);
-    builder.leftRight('ITEM', 'PRICE');
+    builder.line('ITEMS');
     builder.bold(false);
     builder.separator('-');
-    builder.leftRight('Sample Roll x1', 'PHP 150.00');
-    builder.leftRight('Green Tea x1', 'PHP 45.00');
-    builder.separator('-');
+
     builder.bold(true);
+    builder.line('Sample Roll');
+    builder.bold(false);
+    builder.leftRight('  1 x PHP 150.00', 'PHP 150.00');
+
+    builder.bold(true);
+    builder.line('Green Tea');
+    builder.bold(false);
+    builder.leftRight('  1 x PHP 45.00', 'PHP 45.00');
+    builder.separator('-');
+
+    builder.bold(true);
+    builder.size('double_height');
     builder.leftRight('SAMPLE TOTAL:', 'PHP 195.00');
+    builder.size('normal');
     builder.bold(false);
 
     builder.separator('=');

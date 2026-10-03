@@ -67,16 +67,31 @@ export function SalesDrawer({
             customerName = (sale.discount_details as Record<string, unknown>)?.customer_name as string | undefined;
         }
 
+        let dateDisplay: string | undefined;
+        let timeDisplay: string | undefined;
+        if (sale.created_at) {
+            try {
+                const parsed = parseISO(sale.created_at);
+                dateDisplay = format(parsed, 'MMM dd, yyyy');
+                timeDisplay = format(parsed, 'hh:mm a');
+            } catch {
+                dateDisplay = undefined;
+                timeDisplay = undefined;
+            }
+        }
+
         return {
-            branch_name: sale.branch?.name || sale.order?.branch?.name || 'Victoria',
+            branch_name: sale.branch?.name || sale.order?.branch?.name || 'VICTORIA',
             branch_address: sale.branch?.address || sale.order?.branch?.address,
             order_number: sale.order_number || `POS-${sale.id}`,
+            date: dateDisplay,
+            time: timeDisplay,
             date_time: safeFormatDate(sale.created_at),
             fulfillment_type: (sale.type || 'DINE-IN').toUpperCase(),
             cashier_name: sale.cashier?.name || 'Staff',
             customer_name: customerName,
             items: sale.items?.map(i => ({
-                name: i.product?.name || (i as unknown as { product_name?: string }).product_name || 'Item',
+                name: i.product?.name || (i as unknown as { product_name?: string }).product_name || (i as unknown as { name?: string }).name || 'Menu Item',
                 quantity: Number(i.quantity || 1),
                 unit_price: Number(i.unit_price || (Number(i.subtotal) / Number(i.quantity || 1))),
                 subtotal: Number(i.subtotal || 0),

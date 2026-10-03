@@ -155,7 +155,8 @@ class UsbThermalPrinterReceiptTest extends TestCase
         // Verify key receipt elements exist in plain text
         $this->assertStringContainsString('VICTORIA', $plainText);
         $this->assertStringContainsString('TOTAL', $plainText);
-        $this->assertStringContainsString('CASH Paid', $plainText);
+        $this->assertStringContainsString('Payment: CASH', $plainText);
+        $this->assertStringContainsString('Cash Received', $plainText);
         $this->assertStringContainsString('Change', $plainText);
         $this->assertStringContainsString('Extra Nori', $plainText);
 

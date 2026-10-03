@@ -49,6 +49,18 @@ class SaleItem extends Model
         return $array;
     }
 
+    protected $appends = [
+        'product_name',
+    ];
+
+    public function getProductNameAttribute(?string $value): string
+    {
+        return $value 
+            ?: $this->product?->name 
+            ?: ($this->product_id ? \App\Models\Product::withTrashed()->find($this->product_id)?->name : null) 
+            ?: 'Menu Item';
+    }
+
     public function sale()
     {
         return $this->belongsTo(Sale::class);
@@ -56,6 +68,6 @@ class SaleItem extends Model
 
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 }

@@ -71,28 +71,30 @@ class ReceiptFormatterService
             ? Carbon::parse($record->created_at)->setTimezone(self::TIMEZONE) 
             : now()->setTimezone(self::TIMEZONE);
 
+        $dateStr = $createdAt->format('M d, Y');
+        $timeStr = $createdAt->format('h:i A');
         $orderNumber = $record->order_number ?: ($isSale ? "POS-{$record->id}" : "ORD-{$record->id}");
-        $fulfillmentType = strtoupper($record->type ?? $record->fulfillment_type ?? 'DINE-IN');
+        $fulfillmentType = strtoupper($record->type ?? $record->fulfillment_type ?? $record->fulfillment_method ?? 'DINE-IN');
         $paperWidth = $paperWidthOverride ?: (int) ($branch?->receipt_paper_width ?? 80);
 
-        // Extract items - reliably load from relation or database
+        // Extract items - reliably load from relation or database with soft-deleted product fallback
         $items = [];
         if ($record->relationLoaded('items') && $record->items->isNotEmpty()) {
             if (method_exists($record->items, 'loadMissing')) {
                 try {
-                    $record->items->loadMissing('product');
+                    $record->items->loadMissing(['product' => fn($q) => $q->withTrashed()]);
                 } catch (\Throwable) {
                     // Ignore for in-memory / dummy collections
                 }
             }
             $itemsCollection = $record->items;
         } else {
-            $itemsCollection = $record->items()->with('product')->get();
+            $itemsCollection = $record->items()->with(['product' => fn($q) => $q->withTrashed()])->get();
         }
 
         foreach ($itemsCollection as $item) {
-            $productName = $item->product?->name 
-                ?? $item->product_name 
+            $productName = $item->product_name 
+                ?? $item->product?->name 
                 ?? $item->name 
                 ?? ($item->product_id ? \App\Models\Product::withTrashed()->find($item->product_id)?->name : null)
                 ?? 'Menu Item';
@@ -123,7 +125,7 @@ class ReceiptFormatterService
             }
 
             $items[] = [
-                'name'       => $productName,
+                'name'       => trim($productName) ?: 'Menu Item',
                 'quantity'   => $qty,
                 'unit_price' => $unitPrice,
                 'subtotal'   => $subtotal,
@@ -161,7 +163,9 @@ class ReceiptFormatterService
             'branch_name'              => $branchHeading,
             'branch_address'           => $branch?->address,
             'order_number'             => $orderNumber,
-            'date_time'                => $createdAt->format('M d, Y h:i A'),
+            'date'                     => $dateStr,
+            'time'                     => $timeStr,
+            'date_time'                => "{$dateStr} {$timeStr}",
             'fulfillment_type'         => $fulfillmentType,
             'scheduled_pickup_at'      => $scheduledPickupAt,
             'pickup_verification_code' => $pickupVerificationCode,
@@ -267,6 +271,7 @@ class ReceiptFormatterService
     {
         $cols = ($width === 58) ? 32 : 42;
         $divider = str_repeat('-', $cols);
+        $doubleDivider = str_repeat('=', $cols);
         $lines = [];
 
         // Reprint or Test Banner
@@ -287,16 +292,22 @@ class ReceiptFormatterService
             $lines[] = $divider;
         }
 
-        // Branch Header
+        // Branch Header ONLY (Never "MAKI DESU")
+        $lines[] = $doubleDivider;
         $lines[] = $this->centerText($data['branch_name'], $cols);
-        if (!empty($data['branch_address'])) {
-            $lines[] = $this->centerText($data['branch_address'], $cols);
-        }
-        $lines[] = $divider;
+        $lines[] = $doubleDivider;
+        $lines[] = "";
 
         // Order Metadata
-        $lines[] = $this->twoColumn("Order #: {$data['order_number']}", $data['fulfillment_type'], $cols);
-        $lines[] = "Date: {$data['date_time']}";
+        $lines[] = "Order #: {$data['order_number']}";
+        if (!empty($data['date'])) {
+            $lines[] = "Date: {$data['date']}";
+            $lines[] = "Time: {$data['time']}";
+        } else {
+            $lines[] = "Date: {$data['date_time']}";
+        }
+        $lines[] = "Type: {$data['fulfillment_type']}";
+
         if (!empty($data['scheduled_pickup_at'])) {
             $lines[] = "Pickup: {$data['scheduled_pickup_at']}";
         }
@@ -306,25 +317,23 @@ class ReceiptFormatterService
         if (!empty($data['cashier_name'])) {
             $lines[] = mb_strimwidth("Cashier: {$data['cashier_name']}", 0, $cols, '..');
         }
-
         if (!empty($data['customer_name'])) {
             $lines[] = mb_strimwidth("Customer: {$data['customer_name']}", 0, $cols, '..');
         }
-
-        $lines[] = $divider;
-
-        // Column Header
-        if ($cols === 32) {
-            $lines[] = "ITEM";
-            $lines[] = $this->twoColumn("QTY x PRICE", "TOTAL", $cols);
-        } else {
-            $lines[] = sprintf("%-22s %4s %14s", "Item", "Qty", "Price");
+        if (!empty($data['customer_phone'])) {
+            $lines[] = "Phone: {$data['customer_phone']}";
         }
+
+        // Items Section
+        $lines[] = "";
         $lines[] = $divider;
+        $lines[] = "ITEMS";
+        $lines[] = $divider;
+        $lines[] = "";
 
         // Items
         foreach ($data['items'] as $item) {
-            $name = $item['name'];
+            $name = trim($item['name']) ?: 'Menu Item';
             $qty = $item['quantity'];
             $unitPrice = (float) ($item['unit_price'] ?? 0);
             $subtotal = (float) ($item['subtotal'] ?? ($qty * $unitPrice));
@@ -332,12 +341,12 @@ class ReceiptFormatterService
             $unitPriceStr = 'PHP ' . number_format($unitPrice, 2);
 
             if ($cols === 32) {
-                // Wrap long product names without truncation
+                // Wrap long product names naturally without truncation
                 $nameLines = $this->wordWrapLines($name, $cols);
                 foreach ($nameLines as $nl) {
                     $lines[] = $nl;
                 }
-                $qtyPriceStr = sprintf("%s x %s", $qty, $unitPriceStr);
+                $qtyPriceStr = sprintf("  %s x %s", $qty, $unitPriceStr);
                 $lines[] = $this->twoColumn($qtyPriceStr, $priceStr, $cols);
             } else {
                 $truncatedName = mb_strimwidth($name, 0, 22, '..');
@@ -351,31 +360,31 @@ class ReceiptFormatterService
                     $adUnitPrice = (float) ($ad['unit_price'] ?? ($ad['price'] ?? 0));
                     $adSubtotal = (float) ($ad['subtotal'] ?? ($adUnitPrice * $adQty));
                     $adPriceStr = $adSubtotal > 0 ? ('PHP ' . number_format($adSubtotal, 2)) : '';
-                    $adUnitPriceStr = $adUnitPrice > 0 ? ('PHP ' . number_format($adUnitPrice, 2)) : '';
                     $adQtyPrefix = $adQty > 1 ? ((int)$adQty . 'x ') : '';
 
                     if ($cols === 32) {
                         $adNameLines = $this->wordWrapLines("+ " . $adQtyPrefix . $ad['name'], $cols - 2);
-                        foreach ($adNameLines as $adLine) {
-                            $lines[] = "  " . $adLine;
-                        }
-                        if ($adSubtotal > 0) {
-                            $adQtyPriceStr = sprintf("  %s x %s", $adQty, $adUnitPriceStr);
-                            $lines[] = $this->twoColumn($adQtyPriceStr, "+" . $adPriceStr, $cols);
+                        foreach ($adNameLines as $adLineIdx => $adLine) {
+                            if ($adPriceStr && $adLineIdx === count($adNameLines) - 1) {
+                                $lines[] = $this->twoColumn("  " . $adLine, $adPriceStr, $cols);
+                            } else {
+                                $lines[] = "  " . $adLine;
+                            }
                         }
                     } else {
                         $lines[] = $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPriceStr ? ('+' . $adPriceStr) : '', $cols);
                     }
                 }
             }
+            $lines[] = "";
         }
 
-        $lines[] = $divider;
-
         // Totals
+        $lines[] = $divider;
+        $lines[] = $this->twoColumn("Subtotal", 'PHP ' . number_format($data['subtotal'], 2), $cols);
+
         if (!empty($data['discount']) && $data['discount'] > 0) {
-            $lines[] = $this->twoColumn("Subtotal", 'PHP ' . number_format($data['subtotal'], 2), $cols);
-            $discLabel = "Discount" . (!empty($data['discount_type']) ? " ({$data['discount_type']})" : '');
+            $discLabel = "Discount" . (!empty($data['discount_type']) ? " (" . strtoupper(str_replace('_', ' ', $data['discount_type'])) . ")" : '');
             $lines[] = $this->twoColumn($discLabel, '-PHP ' . number_format($data['discount'], 2), $cols);
         }
 
@@ -383,16 +392,24 @@ class ReceiptFormatterService
             $lines[] = $this->twoColumn("Delivery Fee", 'PHP ' . number_format($data['delivery_fee'], 2), $cols);
         }
 
-        $lines[] = $this->twoColumn("TOTAL", 'PHP ' . number_format($data['total'], 2), $cols);
         $lines[] = $divider;
+        $lines[] = $this->twoColumn("TOTAL", 'PHP ' . number_format($data['total'], 2), $cols);
+        $lines[] = "";
 
         // Payment Info
-        $payLabel = "{$data['payment_method']} Paid";
-        $lines[] = $this->twoColumn($payLabel, 'PHP ' . number_format($data['paid_amount'], 2), $cols);
-        $lines[] = $this->twoColumn("Change", 'PHP ' . number_format($data['change_amount'], 2), $cols);
+        $payMethod = strtoupper((string) ($data['payment_method'] ?? 'CASH'));
+        $lines[] = "Payment: {$payMethod}";
+        if ($payMethod === 'CASH') {
+            $lines[] = $this->twoColumn("Cash Received", 'PHP ' . number_format($data['paid_amount'], 2), $cols);
+            $lines[] = $this->twoColumn("Change", 'PHP ' . number_format($data['change_amount'], 2), $cols);
+        } else {
+            $lines[] = $this->twoColumn("Paid Amount", 'PHP ' . number_format($data['paid_amount'], 2), $cols);
+        }
 
-        $lines[] = $divider;
-        $lines[] = $this->centerText("Thank you!", $cols);
+        $lines[] = "";
+        $lines[] = $doubleDivider;
+        $lines[] = $this->centerText("THANK YOU!", $cols);
+        $lines[] = $doubleDivider;
 
         if (!empty($data['is_reprint'])) {
             $lines[] = $this->centerText('*** END OF REPRINT ***', $cols);
@@ -442,44 +459,52 @@ class ReceiptFormatterService
             $out .= str_repeat('-', $cols) . "\n";
         }
 
-        // 4. Branch Header (Double height & Double width)
+        // 4. Branch Header ONLY (Double height & Double width, Never "MAKI DESU")
         $out .= "{$ESC}a\x01"; // Center align
+        $out .= str_repeat('=', $cols) . "\n";
         $out .= "{$GS}!\x11";  // Double width & height
         $out .= "{$ESC}E\x01"; // Bold on
         $out .= "{$data['branch_name']}\n";
         $out .= "{$GS}!\x00";  // Normal size
         $out .= "{$ESC}E\x00"; // Bold off
-
-        if (!empty($data['branch_address'])) {
-            $out .= "{$data['branch_address']}\n";
-        }
-        $out .= str_repeat('-', $cols) . "\n";
+        $out .= str_repeat('=', $cols) . "\n\n";
 
         // 5. Order Meta (Left align)
         $out .= "{$ESC}a\x00"; // Left align
-        $out .= $this->twoColumn("Order #: {$data['order_number']}", $data['fulfillment_type'], $cols) . "\n";
-        $out .= "Date: {$data['date_time']}\n";
+        $out .= "Order #: {$data['order_number']}\n";
+        if (!empty($data['date'])) {
+            $out .= "Date: {$data['date']}\n";
+            $out .= "Time: {$data['time']}\n";
+        } else {
+            $out .= "Date: {$data['date_time']}\n";
+        }
+        $out .= "Type: {$data['fulfillment_type']}\n";
+
+        if (!empty($data['scheduled_pickup_at'])) {
+            $out .= "Pickup: {$data['scheduled_pickup_at']}\n";
+        }
+        if (!empty($data['pickup_verification_code'])) {
+            $out .= "Pickup Code: {$data['pickup_verification_code']}\n";
+        }
         if (!empty($data['cashier_name'])) {
             $out .= mb_strimwidth("Cashier: {$data['cashier_name']}", 0, $cols, '..') . "\n";
         }
         if (!empty($data['customer_name'])) {
             $out .= mb_strimwidth("Customer: {$data['customer_name']}", 0, $cols, '..') . "\n";
         }
-        $out .= str_repeat('-', $cols) . "\n";
-
-        // 6. Items Table
-        $out .= "{$ESC}E\x01"; // Bold header
-        if ($cols === 32) {
-            $out .= "ITEM\n";
-            $out .= $this->twoColumn("QTY x PRICE", "TOTAL", $cols) . "\n";
-        } else {
-            $out .= sprintf("%-22s %4s %14s\n", "Item", "Qty", "Price");
+        if (!empty($data['customer_phone'])) {
+            $out .= "Phone: {$data['customer_phone']}\n";
         }
+
+        // 6. Items Section
+        $out .= "\n" . str_repeat('-', $cols) . "\n";
+        $out .= "{$ESC}E\x01"; // Bold header
+        $out .= "ITEMS\n";
         $out .= "{$ESC}E\x00"; // Bold off
-        $out .= str_repeat('-', $cols) . "\n";
+        $out .= str_repeat('-', $cols) . "\n\n";
 
         foreach ($data['items'] as $item) {
-            $name = $item['name'];
+            $name = trim($item['name']) ?: 'Menu Item';
             $qty = $item['quantity'];
             $unitPrice = (float) ($item['unit_price'] ?? 0);
             $subtotal = (float) ($item['subtotal'] ?? ($qty * $unitPrice));
@@ -493,7 +518,7 @@ class ReceiptFormatterService
                     $out .= $nl . "\n";
                 }
                 $out .= "{$ESC}E\x00"; // Bold off
-                $qtyPriceStr = sprintf("%s x %s", $qty, $unitPriceStr);
+                $qtyPriceStr = sprintf("  %s x %s", $qty, $unitPriceStr);
                 $out .= $this->twoColumn($qtyPriceStr, $priceStr, $cols) . "\n";
             } else {
                 $truncatedName = mb_strimwidth($name, 0, 22, '..');
@@ -507,30 +532,31 @@ class ReceiptFormatterService
                     $adUnitPrice = (float) ($ad['unit_price'] ?? ($ad['price'] ?? 0));
                     $adSubtotal = (float) ($ad['subtotal'] ?? ($adUnitPrice * $adQty));
                     $adPriceStr = $adSubtotal > 0 ? ('PHP ' . number_format($adSubtotal, 2)) : '';
-                    $adUnitPriceStr = $adUnitPrice > 0 ? ('PHP ' . number_format($adUnitPrice, 2)) : '';
                     $adQtyPrefix = $adQty > 1 ? ((int)$adQty . 'x ') : '';
 
                     if ($cols === 32) {
                         $adNameLines = $this->wordWrapLines("+ " . $adQtyPrefix . $ad['name'], $cols - 2);
-                        foreach ($adNameLines as $adLine) {
-                            $out .= "  " . $adLine . "\n";
-                        }
-                        if ($adSubtotal > 0) {
-                            $adQtyPriceStr = sprintf("  %s x %s", $adQty, $adUnitPriceStr);
-                            $out .= $this->twoColumn($adQtyPriceStr, "+" . $adPriceStr, $cols) . "\n";
+                        foreach ($adNameLines as $adLineIdx => $adLine) {
+                            if ($adPriceStr && $adLineIdx === count($adNameLines) - 1) {
+                                $out .= $this->twoColumn("  " . $adLine, $adPriceStr, $cols) . "\n";
+                            } else {
+                                $out .= "  " . $adLine . "\n";
+                            }
                         }
                     } else {
                         $out .= $this->twoColumn("  + " . mb_strimwidth($adQtyPrefix . $ad['name'], 0, $cols - 14, '..'), $adPriceStr ? ('+' . $adPriceStr) : '', $cols) . "\n";
                     }
                 }
             }
+            $out .= "\n";
         }
-        $out .= str_repeat('-', $cols) . "\n";
 
         // 7. Totals & Discounts
+        $out .= str_repeat('-', $cols) . "\n";
+        $out .= $this->twoColumn("Subtotal", 'PHP ' . number_format($data['subtotal'], 2), $cols) . "\n";
+
         if (!empty($data['discount']) && $data['discount'] > 0) {
-            $out .= $this->twoColumn("Subtotal", 'PHP ' . number_format($data['subtotal'], 2), $cols) . "\n";
-            $discLabel = "Discount" . (!empty($data['discount_type']) ? " ({$data['discount_type']})" : '');
+            $discLabel = "Discount" . (!empty($data['discount_type']) ? " (" . strtoupper(str_replace('_', ' ', $data['discount_type'])) . ")" : '');
             $out .= $this->twoColumn($discLabel, '-PHP ' . number_format($data['discount'], 2), $cols) . "\n";
         }
 
@@ -539,25 +565,32 @@ class ReceiptFormatterService
         }
 
         // GRAND TOTAL (Double Height + Bold)
+        $out .= str_repeat('-', $cols) . "\n";
         $out .= "{$ESC}E\x01"; // Bold on
         $out .= "{$GS}!\x01";  // Double height
         $out .= $this->twoColumn("TOTAL", 'PHP ' . number_format($data['total'], 2), ($cols === 32 ? 32 : 42)) . "\n";
         $out .= "{$GS}!\x00";  // Normal size
         $out .= "{$ESC}E\x00"; // Bold off
-        $out .= str_repeat('-', $cols) . "\n";
+        $out .= str_repeat('-', $cols) . "\n\n";
 
         // 8. Payment & Change
-        $payLabel = "{$data['payment_method']} Paid";
-        $out .= $this->twoColumn($payLabel, 'PHP ' . number_format($data['paid_amount'], 2), $cols) . "\n";
-        $out .= "{$ESC}E\x01";
-        $out .= $this->twoColumn("Change", 'PHP ' . number_format($data['change_amount'], 2), $cols) . "\n";
-        $out .= "{$ESC}E\x00";
+        $payMethod = strtoupper((string) ($data['payment_method'] ?? 'CASH'));
+        $out .= "Payment: {$payMethod}\n";
+        if ($payMethod === 'CASH') {
+            $out .= $this->twoColumn("Cash Received", 'PHP ' . number_format($data['paid_amount'], 2), $cols) . "\n";
+            $out .= $this->twoColumn("Change", 'PHP ' . number_format($data['change_amount'], 2), $cols) . "\n";
+        } else {
+            $out .= $this->twoColumn("Paid Amount", 'PHP ' . number_format($data['paid_amount'], 2), $cols) . "\n";
+        }
 
-        $out .= str_repeat('-', $cols) . "\n";
+        $out .= "\n" . str_repeat('=', $cols) . "\n";
 
         // 9. Footer
         $out .= "{$ESC}a\x01"; // Center align
-        $out .= "Thank you!\n";
+        $out .= "{$ESC}E\x01"; // Bold on
+        $out .= "THANK YOU!\n";
+        $out .= "{$ESC}E\x00"; // Bold off
+        $out .= str_repeat('=', $cols) . "\n";
 
         if (!empty($data['is_reprint'])) {
             $out .= "*** END OF REPRINT ***\n";

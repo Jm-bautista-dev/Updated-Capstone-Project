@@ -88,6 +88,8 @@ export interface ReceiptDataPayload {
     branch_name?: string;
     branch_address?: string;
     order_number?: string;
+    date?: string;
+    time?: string;
     date_time?: string;
     fulfillment_type?: string;
     cashier_name?: string;

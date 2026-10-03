@@ -30,13 +30,13 @@ object EscPosUtils {
 
         // 3. Center Align & Bold Title
         out.write(byteArrayOf(ESC, 'a'.code.toByte(), 0x01)) // Center
+        out.write("================================\n".toByteArray(CP437))
         out.write(byteArrayOf(GS, '!'.code.toByte(), 0x11))  // Double width & height
         out.write(byteArrayOf(ESC, 'E'.code.toByte(), 0x01)) // Bold on
-        out.write("MAKI DESU\n".toByteArray(CP437))
-        out.write(byteArrayOf(GS, '!'.code.toByte(), 0x00))  // Normal size
         out.write("${branchName.uppercase()}\n".toByteArray(CP437))
+        out.write(byteArrayOf(GS, '!'.code.toByte(), 0x00))  // Normal size
         out.write(byteArrayOf(ESC, 'E'.code.toByte(), 0x00)) // Bold off
-        out.write("--------------------------------\n".toByteArray(CP437))
+        out.write("================================\n".toByteArray(CP437))
 
         // 4. Test Banner
         out.write(byteArrayOf(ESC, 'E'.code.toByte(), 0x01))
@@ -90,7 +90,7 @@ object EscPosUtils {
             return Base64.decode(job.rawEscposBase64, Base64.DEFAULT)
         }
 
-        val text = job.formattedText ?: "MAKI DESU RECEIPT\nOrder: ${job.orderNumber}\n\n\n\n"
+        val text = job.formattedText ?: "RECEIPT\nOrder: ${job.orderNumber}\n\n\n\n"
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(ESC, '@'.code.toByte()))
         out.write(byteArrayOf(ESC, 't'.code.toByte(), 0x00))

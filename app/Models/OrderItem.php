@@ -55,6 +55,15 @@ class OrderItem extends Model
         return $price * $qty;
     }
 
+    public function getProductNameAttribute(?string $value): string
+    {
+        return $value 
+            ?: $this->attributes['product_name'] ?? null
+            ?: $this->product?->name 
+            ?: ($this->product_id ? \App\Models\Product::withTrashed()->find($this->product_id)?->name : null) 
+            ?: 'Menu Item';
+    }
+
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
@@ -62,7 +71,7 @@ class OrderItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 
     public function review(): \Illuminate\Database\Eloquent\Relations\HasOne
