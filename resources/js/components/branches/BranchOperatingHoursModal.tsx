@@ -71,9 +71,9 @@ export interface ExtendedBranchData {
     id: number;
     name: string;
     address: string | null;
-    operating_mode: 'automatic' | 'force_open' | 'force_closed';
-    mode_override_reason: string | null;
-    mode_override_until: string | null;
+    operating_mode?: 'automatic' | 'force_open' | 'force_closed';
+    mode_override_reason?: string | null;
+    mode_override_until?: string | null;
     operating_status?: BranchOperatingStatus;
     schedules?: BranchScheduleItem[];
     special_schedules?: BranchSpecialScheduleItem[];

@@ -68,4 +68,7 @@ export interface PaginatedReviews {
     total: number;
     from?: number | null;
     to?: number | null;
+    has_more?: boolean;
+    next_page?: number | null;
+    prev_page?: number | null;
 }

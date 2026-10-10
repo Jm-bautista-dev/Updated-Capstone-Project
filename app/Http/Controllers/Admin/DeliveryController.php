@@ -36,7 +36,14 @@ class DeliveryController extends Controller
         $user = Auth::user();
         $view = $request->input('view', 'today');
         $filterType = $request->input('type', 'all'); // 'all' | 'internal' | 'external'
-        $branchIdFilter = ($request->filled('branch_id') && $request->branch_id !== 'all') ? $request->branch_id : null;
+        
+        // Strict branch resolution: Cashiers are strictly locked to their assigned branch
+        if (!$user->isAdmin()) {
+            $branchIdFilter = $user->branch_id ? (string) $user->branch_id : null;
+        } else {
+            $branchIdFilter = ($request->filled('branch_id') && $request->branch_id !== 'all') ? (string) $request->branch_id : null;
+        }
+
         $statusFilter = ($request->filled('status') && $request->status !== 'all') ? $request->status : null;
         $riderIdFilter = ($request->filled('rider_id') && $request->rider_id !== 'all') ? $request->rider_id : null;
         $search = $request->filled('search') ? trim($request->search) : null;
@@ -63,27 +70,47 @@ class DeliveryController extends Controller
         $deliveries = $this->paginateDeliveriesCollection($deliveriesCollection, $view, $request);
 
         // 3. Fleet & Delivery Statistics
-        $availableRiders = $this->getAvailableRidersData($user);
-        $allRiders = Rider::orderBy('name')->get(['id', 'name']);
-        $stats = $this->calculateDeliveryStats($user, $activeDeliveryStatuses);
+        $availableRiders = $this->getAvailableRidersData($user, $branchIdFilter);
+        $allRiders = Rider::query()
+            ->when(!$user->isAdmin(), function ($q) use ($user) {
+                if ($user->branch_id) {
+                    $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $stats = $this->calculateDeliveryStats($user, $activeDeliveryStatuses, $branchIdFilter);
+
+        $branches = $user->isAdmin()
+            ? Branch::orderBy('name')->get(['id', 'name'])
+            : ($user->branch_id ? Branch::where('id', $user->branch_id)->get(['id', 'name']) : collect());
+
+        $appliedFilters = array_merge([
+            'view'        => $view,
+            'status'      => 'all',
+            'type'        => $filterType,
+            'branch_id'   => $user->isAdmin() ? ($branchIdFilter ?: 'all') : ($user->branch_id ? (string) $user->branch_id : 'all'),
+            'rider_id'    => 'all',
+            'search'      => '',
+            'date_preset' => 'all',
+            'start_date'  => '',
+            'end_date'    => '',
+        ], array_filter($request->only(['view', 'status', 'type', 'rider_id', 'search', 'date_preset', 'start_date', 'end_date'])));
+
+        if ($user->isAdmin() && $request->filled('branch_id')) {
+            $appliedFilters['branch_id'] = $request->branch_id;
+        }
 
         return Inertia::render('Admin/Deliveries', [
-            'deliveries'     => $deliveries,
-            'availableRiders'=> $availableRiders,
-            'allRiders'      => $allRiders,
-            'filters'        => array_merge([
-                'view'        => $view,
-                'status'      => 'all',
-                'type'        => $filterType,
-                'branch_id'   => 'all',
-                'rider_id'    => 'all',
-                'search'      => '',
-                'date_preset' => 'all',
-                'start_date'  => '',
-                'end_date'    => '',
-            ], array_filter($request->only(['view', 'status', 'type', 'branch_id', 'rider_id', 'search', 'date_preset', 'start_date', 'end_date']))),
-            'branches'       => Branch::orderBy('name')->get(['id', 'name']),
-            'stats'          => $stats,
+            'deliveries'      => $deliveries,
+            'availableRiders' => $availableRiders,
+            'allRiders'       => $allRiders,
+            'filters'         => $appliedFilters,
+            'branches'        => $branches,
+            'stats'           => $stats,
         ]);
     }
 
@@ -149,9 +176,13 @@ class DeliveryController extends Controller
         ]);
 
         if (!$user->isAdmin()) {
-            $delQuery->where(function ($q) use ($user) {
-                $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
-                  ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
+            $branchId = $user->branch_id;
+            if (!$branchId) {
+                return collect();
+            }
+            $delQuery->where(function ($q) use ($branchId) {
+                $q->whereHas('order', fn($oq) => $oq->where('branch_id', $branchId))
+                  ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $branchId));
             });
         } elseif ($branchIdFilter) {
             $delQuery->where(function ($q) use ($branchIdFilter) {
@@ -283,12 +314,20 @@ class DeliveryController extends Controller
     /**
      * Retrieve available riders with status counts.
      */
-    private function getAvailableRidersData($user)
+    private function getAvailableRidersData($user, $branchIdFilter = null)
     {
         $riderQuery = Rider::query();
-        if (!$user->isAdmin() && $user->branch_id) {
-            $riderQuery->where(function ($q) use ($user) {
-                $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+        if (!$user->isAdmin()) {
+            $branchId = $user->branch_id;
+            if (!$branchId) {
+                return collect();
+            }
+            $riderQuery->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+            });
+        } elseif ($branchIdFilter) {
+            $riderQuery->where(function ($q) use ($branchIdFilter) {
+                $q->where('branch_id', $branchIdFilter)->orWhereNull('branch_id');
             });
         }
 
@@ -333,14 +372,24 @@ class DeliveryController extends Controller
     /**
      * Compute statistics for Delivery pipeline only.
      */
-    private function calculateDeliveryStats($user, $activeDeliveryStatuses): array
+    private function calculateDeliveryStats($user, $activeDeliveryStatuses, $branchIdFilter = null): array
     {
         $baseDeliveryQuery = Delivery::query();
 
         if (!$user->isAdmin()) {
-            $baseDeliveryQuery->where(function ($q) use ($user) {
-                $q->whereHas('order', fn($oq) => $oq->where('branch_id', $user->branch_id))
-                  ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $user->branch_id));
+            $branchId = $user->branch_id;
+            if (!$branchId) {
+                $baseDeliveryQuery->whereRaw('1 = 0');
+            } else {
+                $baseDeliveryQuery->where(function ($q) use ($branchId) {
+                    $q->whereHas('order', fn($oq) => $oq->where('branch_id', $branchId))
+                      ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $branchId));
+                });
+            }
+        } elseif ($branchIdFilter) {
+            $baseDeliveryQuery->where(function ($q) use ($branchIdFilter) {
+                $q->whereHas('order', fn($oq) => $oq->where('branch_id', $branchIdFilter))
+                  ->orWhereHas('sale', fn($sq) => $sq->where('branch_id', $branchIdFilter));
             });
         }
 
@@ -446,9 +495,9 @@ class DeliveryController extends Controller
         $user = Auth::user();
 
         // ── Step 1: Authorization & Branch Check ────────────────────────────
-        if ($user->role === 'Cashier') {
+        if ($user && $user->isCashier()) {
             $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
-            if ($branchId && $user->branch_id !== $branchId) {
+            if ($branchId && (int) $user->branch_id !== (int) $branchId) {
                 return back()->with('error', 'Unauthorized: You can only cancel deliveries for your own branch.');
             }
         }
@@ -533,7 +582,7 @@ class DeliveryController extends Controller
         $user = Auth::user();
 
         // Branch authorization check
-        if ($user->role === 'Cashier') {
+        if ($user && $user->isCashier()) {
             $branchId = $delivery->order?->branch_id ?? $delivery->sale?->branch_id;
             if ($branchId && (int) $user->branch_id !== (int) $branchId) {
                 if ($request->expectsJson()) {

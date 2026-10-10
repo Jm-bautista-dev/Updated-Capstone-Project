@@ -181,7 +181,7 @@ interface CustomTooltipProps {
 const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-[#121218]/90 border border-white/10 shadow-2xl rounded-2xl p-3 text-white backdrop-blur-xl font-['Outfit'] space-y-1">
+            <div className="bg-[#121218]/95 border border-white/10 shadow-2xl rounded-2xl p-3 text-white backdrop-blur-xl font-['Outfit'] space-y-1">
                 <p className="text-[10px] font-mono font-bold uppercase text-slate-400">{label}</p>
                 {payload.map((entry: CustomTooltipItem, index: number) => (
                     <div key={index} className="flex items-center justify-between gap-4 text-xs font-bold">
@@ -190,7 +190,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
                             <span>{entry.name}</span>
                         </div>
                         <span className="font-mono">
-                            {entry.name === 'Revenue' || entry.name === 'Profit' ? formatCurrency(entry.value) : entry.value}
+                            {entry.name === 'Revenue' || entry.name === 'Profit' || entry.name === 'Net Profit' ? formatCurrency(entry.value) : entry.value}
                         </span>
                     </div>
                 ))}
@@ -946,50 +946,68 @@ function AdminReports({
                     {/* ── ZONE 3: RECHARTS ANALYTICS ── */}
                     {TREND_DATA.length > 0 && (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
+                            <div className="lg:col-span-2 rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <TrendingUp className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            <TrendingUp className="size-4 text-[#10b981] shrink-0" />
+                                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
                                                 {isAdminUser ? 'Revenue & Net Profit Trajectory' : 'Revenue Trajectory'}
                                             </h3>
                                         </div>
-                                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                                             Performance mapping over selected date interval
                                         </p>
                                     </div>
+
+                                    {/* Legend indicators */}
+                                    <div className="flex items-center gap-3 text-xs font-mono font-bold shrink-0 flex-wrap">
+                                        <span className="flex items-center gap-1 text-[#10b981]">
+                                            <span className="size-2.5 rounded-full bg-[#10b981]" />
+                                            Revenue
+                                        </span>
+                                        {isAdminUser && (
+                                            <span className="flex items-center gap-1 text-[#0ea5e9]">
+                                                <span className="size-2.5 rounded-full bg-[#0ea5e9]" />
+                                                Net Profit
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
-                                 <div className="h-72 w-full min-h-72 min-w-0 pt-2">
+                                <div className="h-72 w-full min-h-72 min-w-0 pt-2">
                                     <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={200} initialDimension={{ width: 500, height: 250 }}>
                                         <AreaChart data={TREND_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#E75480" stopOpacity={0.4} />
-                                                    <stop offset="95%" stopColor="#E75480" stopOpacity={0.0} />
+                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                                                </linearGradient>
+                                                <linearGradient id="colorProf" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.25} />
+                                                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.0} />
                                                 </linearGradient>
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                             <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} />
-                                            <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v}`} />
+                                            <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Area type="monotone" dataKey="Revenue" stroke="#E75480" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-                                            {isAdminUser && <Area type="monotone" dataKey="Profit" stroke="#10b981" strokeWidth={2} fill="none" />}
+                                            <Area type="monotone" dataKey="Revenue" name="Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                                            {isAdminUser && <Area type="monotone" dataKey="Profit" name="Net Profit" stroke="#0ea5e9" strokeWidth={2.5} strokeDasharray="3 3" fillOpacity={1} fill="url(#colorProf)" />}
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
 
-                            <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 flex flex-col justify-between">
-                                <div>
+                            <div className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 flex flex-col justify-between min-w-0">
+                                <div className="min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <BarChart3 className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                        <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                        <BarChart3 className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
+                                        <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
                                             Category Volume Distribution
                                         </h3>
                                     </div>
-                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                                         Share of gross sales by menu category
                                     </p>
                                 </div>
@@ -1009,12 +1027,12 @@ function AdminReports({
 
                                 <div className="space-y-1.5 pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10 text-xs font-bold">
                                     {CAT_DATA.map((entry, index) => (
-                                        <div key={entry.name} className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="size-2.5 rounded-full" style={{ backgroundColor: ['#E75480', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'][index % 6] }} />
-                                                <span className="text-[#3D2C2E] dark:text-[#F8FAFC]">{entry.name}</span>
+                                        <div key={entry.name} className="flex items-center justify-between gap-2 min-w-0">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: ['#E75480', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'][index % 6] }} />
+                                                <span className="text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={entry.name}>{entry.name}</span>
                                             </div>
-                                            <span className="font-mono text-[#7D6B6E] dark:text-[#94A3B8]">{entry.value}%</span>
+                                            <span className="font-mono text-[#7D6B6E] dark:text-[#94A3B8] shrink-0">{entry.value}%</span>
                                         </div>
                                     ))}
                                 </div>

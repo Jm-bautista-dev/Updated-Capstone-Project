@@ -85,7 +85,7 @@ export function CreateBranchModal({ open, onClose }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
-            <DialogContent className="max-w-xl w-[94vw] p-0 overflow-hidden bg-white dark:bg-[#121218] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl">
+            <DialogContent showCloseButton={false} className="max-w-xl w-[94vw] p-0 overflow-hidden bg-white dark:bg-[#121218] border border-[#F8C8DC]/60 dark:border-white/10 rounded-3xl font-['Outfit'] shadow-2xl">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-[#F8C8DC]/40 dark:border-white/10 flex items-center justify-between bg-linear-to-r from-[#FFF5F7] via-white to-white dark:from-[#181820] dark:via-[#14141A] dark:to-[#121218]">
                     <div className="flex items-center gap-3">
@@ -105,7 +105,8 @@ export function CreateBranchModal({ open, onClose }: Props) {
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="size-8 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 hover:bg-[#FFF5F7] dark:hover:bg-white/5 flex items-center justify-center text-[#7D6B6E] dark:text-zinc-400 cursor-pointer"
+                        aria-label="Close"
+                        className="size-8 rounded-xl border border-[#F8C8DC]/60 dark:border-white/10 hover:bg-[#FFF5F7] dark:hover:bg-white/5 flex items-center justify-center text-[#7D6B6E] dark:text-zinc-400 hover:text-[#3D2C2E] dark:hover:text-white transition-colors cursor-pointer"
                     >
                         <X className="size-4" />
                     </button>

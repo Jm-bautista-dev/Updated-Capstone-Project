@@ -71,7 +71,7 @@ class RiderController extends Controller
         }
 
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'min:2', 'max:255'],
+            'name'      => ['required', 'string', 'min:2', 'max:50'],
             'email'     => ['required', 'email', 'max:255', Rule::unique('riders', 'email')->whereNull('deleted_at')],
             'phone'     => ['nullable', 'string', 'max:20', Rule::unique('riders', 'phone')->whereNull('deleted_at')],
             'branch_id' => 'required|exists:branches,id',
@@ -79,7 +79,7 @@ class RiderController extends Controller
         ], [
             'name.required' => 'The rider name is required.',
             'name.min'      => 'The rider name must be at least 2 characters.',
-            'name.max'      => 'The rider name may not be greater than 255 characters.',
+            'name.max'      => 'The rider name may not be greater than 50 characters.',
             'email.unique'  => 'The email is already associated with an active rider account.',
             'phone.unique'  => 'This mobile number is already registered to another rider.',
         ]);
@@ -139,7 +139,7 @@ class RiderController extends Controller
         }
 
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'min:2', 'max:255'],
+            'name'      => ['required', 'string', 'min:2', 'max:50'],
             'email'     => ['required', 'email', 'max:255', Rule::unique('riders', 'email')->ignore($rider->id)->whereNull('deleted_at')],
             'phone'     => ['nullable', 'string', 'max:20', Rule::unique('riders', 'phone')->ignore($rider->id)->whereNull('deleted_at')],
             'branch_id' => 'required|exists:branches,id',
@@ -148,7 +148,7 @@ class RiderController extends Controller
         ], [
             'name.required' => 'The rider name is required.',
             'name.min'      => 'The rider name must be at least 2 characters.',
-            'name.max'      => 'The rider name may not be greater than 255 characters.',
+            'name.max'      => 'The rider name may not be greater than 50 characters.',
             'email.unique'  => 'The email is already associated with an active rider account.',
             'phone.unique'  => 'This mobile number is already registered to another rider.',
         ]);

@@ -210,6 +210,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // Branch Operating Hours & Mode Management
+        Route::delete('branches/{id}',                                         [BranchController::class, 'destroy'])->whereNumber('id');
         Route::match(['post', 'patch', 'put'], 'branches/{id}/operating-mode', [BranchController::class, 'updateOperatingMode'])->whereNumber('id');
         Route::match(['post', 'put'], 'branches/{id}/regular-hours',           [BranchController::class, 'updateRegularHours'])->whereNumber('id');
         Route::match(['post', 'put'], 'branches/{id}/special-hours',          [BranchController::class, 'storeSpecialSchedule'])->whereNumber('id');

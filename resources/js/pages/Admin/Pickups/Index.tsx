@@ -16,6 +16,8 @@ import {
     AlertTriangle,
     Flame,
     Hourglass,
+    Building2,
+    Filter,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import CreatePickupOrderModal, { type PickupBranch, type PickupProduct } from '@/components/pickups/CreatePickupOrderModal';
@@ -32,10 +34,18 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import echo from '@/echo';
 import AppLayout from '@/layouts/app-layout';
 import { globalNotificationManager } from '@/lib/global-notification-manager';
 import { playOrderNotificationSound } from '@/lib/order-audio';
+import { cn } from '@/lib/utils';
 
 type ProductItem = PickupProduct;
 
@@ -477,63 +487,156 @@ export default function PickupDashboard({
                     </Card>
                 </div>
 
-                {/* View Tabs & Search Filter */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
+                {/* View Tabs & Search Filter Toolbar */}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white/80 dark:bg-[#121218]/80 p-4 sm:p-5 rounded-3xl border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300">
+                    {/* View Switcher Navigation */}
+                    <div className="flex items-center gap-1.5 p-1 bg-black/5 dark:bg-white/5 rounded-2xl overflow-x-auto">
                         <Button
-                            variant={filters.view === 'today' ? 'default' : 'ghost'}
+                            variant="ghost"
                             size="sm"
+                            className={cn(
+                                "rounded-xl font-bold text-xs transition-all",
+                                filters.view === 'today'
+                                    ? "bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-white shadow-xs"
+                                    : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                            )}
                             onClick={() => applyFilter('view', 'today')}
                         >
                             📅 Today's Pickups
                         </Button>
                         <Button
-                            variant={filters.view === 'prep_queue' ? 'default' : 'ghost'}
+                            variant="ghost"
                             size="sm"
+                            className={cn(
+                                "rounded-xl font-bold text-xs transition-all",
+                                filters.view === 'prep_queue'
+                                    ? "bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-white shadow-xs"
+                                    : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                            )}
                             onClick={() => applyFilter('view', 'prep_queue')}
                         >
                             🍳 Kitchen Prep Queue
                         </Button>
                         <Button
-                            variant={filters.view === 'all' ? 'default' : 'ghost'}
+                            variant="ghost"
                             size="sm"
+                            className={cn(
+                                "rounded-xl font-bold text-xs transition-all",
+                                filters.view === 'all'
+                                    ? "bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-white shadow-xs"
+                                    : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                            )}
                             onClick={() => applyFilter('view', 'all')}
                         >
                             📋 All History
                         </Button>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* Filter Controls */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        {/* Status Filter */}
+                        <Select
+                            value={filters.status || 'all'}
+                            onValueChange={(value) => applyFilter('status', value)}
+                        >
+                            <SelectTrigger className="w-full sm:w-44 h-10 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-white/20 transition-all focus:ring-2 focus:ring-[#E75480]/20">
+                                <div className="flex items-center gap-2">
+                                    <Filter className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                                    <SelectValue placeholder="All Status" />
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10 dark:focus:text-white">
+                                    All Statuses
+                                </SelectItem>
+                                <SelectItem value="pending" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-yellow-600 dark:text-yellow-400 cursor-pointer dark:focus:bg-white/10">
+                                    Pending
+                                </SelectItem>
+                                <SelectItem value="confirmed" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-blue-600 dark:text-blue-400 cursor-pointer dark:focus:bg-white/10">
+                                    Ready to Prepare
+                                </SelectItem>
+                                <SelectItem value="preparing" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-orange-600 dark:text-orange-400 cursor-pointer dark:focus:bg-white/10">
+                                    In Kitchen
+                                </SelectItem>
+                                <SelectItem value="ready_for_pickup" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-emerald-600 dark:text-emerald-400 cursor-pointer dark:focus:bg-white/10">
+                                    Ready for Pickup
+                                </SelectItem>
+                                <SelectItem value="customer_arrived" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-cyan-600 dark:text-cyan-400 cursor-pointer dark:focus:bg-white/10">
+                                    Customer Arrived
+                                </SelectItem>
+                                <SelectItem value="completed" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-green-600 dark:text-green-400 cursor-pointer dark:focus:bg-white/10">
+                                    Completed
+                                </SelectItem>
+                                <SelectItem value="cancelled" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-slate-500 dark:text-slate-400 cursor-pointer dark:focus:bg-white/10">
+                                    Cancelled
+                                </SelectItem>
+                                <SelectItem value="no_show" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-rose-600 dark:text-rose-400 cursor-pointer dark:focus:bg-white/10">
+                                    No Show
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Source Filter */}
+                        <Select
+                            value={filters.source || 'all'}
+                            onValueChange={(value) => applyFilter('source', value)}
+                        >
+                            <SelectTrigger className="w-full sm:w-44 h-10 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-white/20 transition-all focus:ring-2 focus:ring-[#E75480]/20">
+                                <div className="flex items-center gap-2">
+                                    <Smartphone className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                                    <SelectValue placeholder="All Sources" />
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10 dark:focus:text-white">
+                                    All Sources
+                                </SelectItem>
+                                <SelectItem value="mobile_app" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-purple-600 dark:text-purple-400 cursor-pointer dark:focus:bg-white/10">
+                                    Mobile App
+                                </SelectItem>
+                                <SelectItem value="facebook_messenger" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-blue-600 dark:text-blue-400 cursor-pointer dark:focus:bg-white/10">
+                                    Facebook Messenger
+                                </SelectItem>
+                                <SelectItem value="phone_call" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-emerald-600 dark:text-emerald-400 cursor-pointer dark:focus:bg-white/10">
+                                    Phone Call
+                                </SelectItem>
+                                <SelectItem value="walk_in" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 text-amber-600 dark:text-amber-400 cursor-pointer dark:focus:bg-white/10">
+                                    Walk-in
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Branch Filter */}
                         {isAdmin && branches.length > 1 && (
-                            <select
-                                className="text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2 text-gray-900 dark:text-white"
-                                value={filters.branch_id || ''}
-                                onChange={(e) => applyFilter('branch_id', e.target.value)}
+                            <Select
+                                value={filters.branch_id ? String(filters.branch_id) : 'all'}
+                                onValueChange={(value) => applyFilter('branch_id', value === 'all' ? '' : value)}
                             >
-                                <option value="">All Branches</option>
-                                {branches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
+                                <SelectTrigger className="w-full sm:w-44 h-10 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 shadow-2xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-white/20 transition-all focus:ring-2 focus:ring-[#E75480]/20">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                                        <SelectValue placeholder="All Branches" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                    <SelectItem value="all" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10 dark:focus:text-white">
+                                        All Branches
+                                    </SelectItem>
+                                    {branches.map((b) => (
+                                        <SelectItem key={b.id} value={String(b.id)} className="rounded-xl font-bold text-xs uppercase tracking-wider py-2 cursor-pointer dark:focus:bg-white/10 dark:focus:text-white">
+                                            {b.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         )}
 
-                        <select
-                            className="text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2 text-gray-900 dark:text-white"
-                            value={filters.source || 'all'}
-                            onChange={(e) => applyFilter('source', e.target.value)}
-                        >
-                            <option value="all">All Sources</option>
-                            <option value="mobile_app">Mobile App</option>
-                            <option value="facebook_messenger">Facebook Messenger</option>
-                            <option value="phone_call">Phone Call</option>
-                            <option value="walk_in">Walk-in</option>
-                        </select>
-
-                        <div className="relative">
-                            <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                        {/* Search Input */}
+                        <div className="relative flex-1 min-w-50 lg:w-64">
+                            <Search className="size-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A08E91] dark:text-[#64748B] pointer-events-none" />
                             <Input
                                 placeholder="Search Order #, Code, Name..."
-                                className="pl-9 text-xs w-48 lg:w-64"
+                                className="h-10 pl-9 pr-4 bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC] rounded-2xl focus:ring-4 focus:ring-[#E75480]/15 dark:focus:ring-[#E1062C]/20 focus:border-[#E75480] dark:focus:border-[#E1062C] transition-all placeholder:text-[#C5B8BA] dark:placeholder:text-[#64748B] font-medium text-xs shadow-2xs hover:border-[#E75480]/40 dark:hover:border-white/20"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => {
@@ -546,10 +649,10 @@ export default function PickupDashboard({
 
                 {/* Orders Grid / Queue View */}
                 {pickups.data.length === 0 ? (
-                    <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
-                        <ShoppingBag className="w-12 h-12 mx-auto text-gray-400 opacity-50 mb-3" />
-                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">No pickup orders found</h3>
-                        <p className="text-sm text-gray-500 mt-1">There are no orders matching your current view or filter criteria.</p>
+                    <div className="text-center py-16 bg-white/80 dark:bg-[#121218]/80 rounded-3xl border border-[#F8C8DC]/60 dark:border-white/10 backdrop-blur-2xl">
+                        <ShoppingBag className="w-12 h-12 mx-auto text-[#7D6B6E] dark:text-[#64748B] opacity-50 mb-3" />
+                        <h3 className="text-base font-semibold text-[#3D2C2E] dark:text-white">No pickup orders found</h3>
+                        <p className="text-sm text-[#7D6B6E] dark:text-[#94A3B8] mt-1">There are no orders matching your current view or filter criteria.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

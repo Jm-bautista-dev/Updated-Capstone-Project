@@ -157,10 +157,10 @@ export function getPrinterStatusDetails(
 
     if (isUniversal) {
         return {
-            label: 'Universal Print Ready',
-            description: 'Universal 58mm zero-install print is ready on this device.',
-            variant: 'success',
-            isReady: true,
+            label: 'PRINTER DISCONNECTED',
+            description: 'No physical thermal printer connected. Universal browser print fallback is active.',
+            variant: 'neutral',
+            isReady: false,
             isChecking: false,
         };
     }
@@ -169,7 +169,7 @@ export function getPrinterStatusDetails(
         case 'ready':
         case 'connected':
             return {
-                label: 'Printer Connected',
+                label: 'PRINTER CONNECTED',
                 description: `${printerName} is connected and ready to print.`,
                 variant: 'success',
                 isReady: true,
@@ -177,31 +177,24 @@ export function getPrinterStatusDetails(
             };
         case 'connecting':
             return {
-                label: 'Connecting...',
+                label: 'CONNECTING PRINTER',
                 description: `Establishing connection with ${printerName}...`,
                 variant: 'info',
                 isReady: false,
                 isChecking: true,
             };
         case 'checking':
-            return {
-                label: 'Checking Connection',
-                description: 'Verifying thermal printer connection state...',
-                variant: 'info',
-                isReady: false,
-                isChecking: true,
-            };
         case 'scanning':
             return {
-                label: 'Scanning Devices',
-                description: 'Searching for available thermal printers...',
+                label: 'CHECKING PRINTER',
+                description: 'Verifying thermal printer connection state...',
                 variant: 'info',
                 isReady: false,
                 isChecking: true,
             };
         case 'disconnected':
             return {
-                label: 'Printer Disconnected',
+                label: 'PRINTER DISCONNECTED',
                 description: `${printerName} is disconnected. Turn on printer and tap Reconnect.`,
                 variant: 'neutral',
                 isReady: false,
@@ -209,15 +202,15 @@ export function getPrinterStatusDetails(
             };
         case 'offline':
             return {
-                label: 'Bridge Offline',
-                description: 'Local printer bridge service is offline. Please start print bridge or use Universal Web Print.',
+                label: 'PRINTER DISCONNECTED',
+                description: 'Local printer bridge service is offline. Please start print bridge or connect via Bluetooth/USB.',
                 variant: 'warning',
                 isReady: false,
                 isChecking: false,
             };
         case 'permission_required':
             return {
-                label: 'Permission Required',
+                label: 'PRINTER DISCONNECTED',
                 description: 'Browser permission required to access printer hardware.',
                 variant: 'warning',
                 isReady: false,
@@ -225,7 +218,7 @@ export function getPrinterStatusDetails(
             };
         case 'error':
             return {
-                label: 'Printer Error',
+                label: 'PRINTER CONNECTION ERROR',
                 description: 'Bluetooth/USB communication error. Please check power and cable/pairing.',
                 variant: 'error',
                 isReady: false,
@@ -234,11 +227,11 @@ export function getPrinterStatusDetails(
         case 'unknown':
         default:
             return {
-                label: 'Checking Connection',
-                description: 'Printer connection status is being determined...',
+                label: 'PRINTER DISCONNECTED',
+                description: 'Thermal printer is disconnected.',
                 variant: 'neutral',
                 isReady: false,
-                isChecking: true,
+                isChecking: false,
             };
     }
 }
@@ -1469,10 +1462,10 @@ export async function quickReconnectPrinter(): Promise<{
     const config = getPrinterConfig();
 
     if (config.connection_type === 'universal_browser') {
-        notifyPrinterStateChange('ready', null);
+        notifyPrinterStateChange('disconnected', null);
         return {
-            success: true,
-            message: 'Universal Web Thermal Printing is ready.',
+            success: false,
+            message: 'In Universal Web Print mode. Please open Printer Settings to select and connect a physical thermal printer.',
         };
     }
 
@@ -1903,15 +1896,7 @@ export async function sendTestPrint(
     if (config.connection_type === 'direct_bluetooth' || config.connection_type === 'direct_usb') {
         const interfaceLabel = config.connection_type === 'direct_bluetooth' ? 'Direct Bluetooth' : 'Direct USB';
         const testBytes = buildTestReceiptEscPos(branchName, config.paper_width, interfaceLabel);
-        const res = await sendRawToDirectHardware(testBytes);
-        if (res.success) {
-            return res;
-        }
-        triggerBrowserThermalPrint();
-        return {
-            success: true,
-            message: 'Direct hardware unlinked — test receipt opened in Universal Print dialog.',
-        };
+        return await sendRawToDirectHardware(testBytes);
     }
 
     // Android Companion Bridge Test Print
@@ -1956,7 +1941,7 @@ export async function sendTestPrint(
 // ── 5. REACT HOOK FOR PRINTER MANAGEMENT & LIVE STATUS ──
 
 export function usePrinterStatus(branchId?: number) {
-    const [status, setStatus] = useState<PrinterBridgeStatus>('checking');
+    const [status, setStatus] = useState<PrinterBridgeStatus>('disconnected');
     const [config, setConfig] = useState<PrinterConfig>(getPrinterConfig);
     const [printers, setPrinters] = useState<DetectedPrinter[]>([]);
     const [bridges, setBridges] = useState<RegisteredBridge[]>([]);
@@ -1975,16 +1960,29 @@ export function usePrinterStatus(branchId?: number) {
         const currentConfig = getPrinterConfig();
 
         if (currentConfig.connection_type === 'universal_browser') {
-            setStatus('ready');
-            return true;
+            setStatus('disconnected');
+            setActiveDirectPrinter(null);
+            return false;
         }
 
         setStatus('checking');
 
         if (currentConfig.connection_type === 'direct_bluetooth' || currentConfig.connection_type === 'direct_usb') {
-            if (activeBluetoothCharacteristic || (activeUsbDevice && activeUsbDevice.opened) || (activeSerialPort && (activeSerialPort.readable || activeSerialPort.writable))) {
-                setStatus('ready');
-                return true;
+            if (currentConfig.connection_type === 'direct_bluetooth') {
+                if (activeBluetoothDevice?.gatt?.connected && activeBluetoothCharacteristic) {
+                    setStatus('ready');
+                    return true;
+                }
+                if (activeSerialPort && (activeSerialPort.readable || activeSerialPort.writable)) {
+                    setStatus('ready');
+                    return true;
+                }
+            }
+            if (currentConfig.connection_type === 'direct_usb') {
+                if (activeUsbDevice && activeUsbDevice.opened && activeUsbEndpoint !== null) {
+                    setStatus('ready');
+                    return true;
+                }
             }
             const restored = await restoreDirectDeviceConnection();
             if (restored) {
@@ -1992,19 +1990,32 @@ export function usePrinterStatus(branchId?: number) {
                 setStatus('ready');
                 return true;
             }
+            setActiveDirectPrinter(null);
             setStatus('disconnected');
             return false;
         }
 
+        if (currentConfig.connection_type === 'android_bridge') {
+            const bridgeRes = await fetchRegisteredBridges(branchId);
+            setBridges(bridgeRes.bridges);
+            const isOnline = bridgeRes.bridges.some(b => b.is_online);
+            setStatus(isOnline ? 'ready' : 'disconnected');
+            return isOnline;
+        }
+
         const health = await checkPrintBridgeHealth();
         if (health.isHealthy) {
-            setStatus('ready');
-            return true;
+            const printerRes = await getAvailablePrinters();
+            if (printerRes.success && printerRes.printers.length > 0) {
+                setPrinters(printerRes.printers);
+                setStatus('ready');
+                return true;
+            }
         }
 
         setStatus('offline');
         return false;
-    }, []);
+    }, [branchId]);
 
     const scanForPrinters = useCallback(async (mode?: PrinterConnectionType): Promise<{
         success: boolean;
@@ -2017,23 +2028,17 @@ export function usePrinterStatus(branchId?: number) {
         const targetMode = mode || config.connection_type;
 
         try {
-            // A. Universal Browser Mode (Always Ready, Zero-Install)
+            // A. Universal Browser Mode (System Print Fallback)
             if (targetMode === 'universal_browser') {
                 setIsScanning(false);
-                setStatus('ready');
-                const universalPrinter: DetectedPrinter = {
-                    id: 'universal_browser_printer',
-                    name: 'Universal 58mm System Printer',
-                    isDefault: true,
-                    port: 'Browser / Device System Print',
-                    type: 'network',
-                };
-                setPrinters([universalPrinter]);
+                setStatus('disconnected');
+                setActiveDirectPrinter(null);
+                setPrinters([]);
                 return {
                     success: true,
-                    foundCount: 1,
-                    printers: [universalPrinter],
-                    message: 'Universal Web Thermal Printing is ready on this device.',
+                    foundCount: 0,
+                    printers: [],
+                    message: 'Universal Web Print uses browser print dialog without dedicated thermal printer link.',
                 };
             }
 
@@ -2137,8 +2142,12 @@ export function usePrinterStatus(branchId?: number) {
 
                 const listRes = await getAvailablePrinters();
                 setIsScanning(false);
-                setStatus('ready');
-                setPrinters(listRes.printers);
+                if (listRes.success && listRes.printers.length > 0) {
+                    setStatus('ready');
+                    setPrinters(listRes.printers);
+                } else {
+                    setStatus('disconnected');
+                }
 
                 return {
                     success: listRes.success,
@@ -2173,7 +2182,7 @@ export function usePrinterStatus(branchId?: number) {
         } catch (err: unknown) {
             const errorObj = err as { message?: string };
             setIsScanning(false);
-            setStatus('offline');
+            setStatus('error');
             return {
                 success: false,
                 foundCount: 0,
@@ -2189,7 +2198,7 @@ export function usePrinterStatus(branchId?: number) {
         setStatus('disconnected');
     }, []);
 
-    const isConnected = status === 'ready' || (config.connection_type === 'android_bridge' && bridges.some(b => b.is_online));
+    const isConnected = (status === 'ready' || status === 'connected') && config.connection_type !== 'universal_browser';
     const statusDetails = getPrinterStatusDetails(status, config, activeDirectPrinter?.name);
 
     useEffect(() => {
@@ -2208,7 +2217,7 @@ export function usePrinterStatus(branchId?: number) {
                         }
                         return prev;
                     });
-                } else if (newStatus === 'disconnected') {
+                } else if (newStatus === 'disconnected' || newStatus === 'error') {
                     setActiveDirectPrinter(null);
                 }
             }
@@ -2220,7 +2229,8 @@ export function usePrinterStatus(branchId?: number) {
 
             if (config.connection_type === 'universal_browser') {
                 if (isMountedRef.current) {
-                    setStatus('ready');
+                    setActiveDirectPrinter(null);
+                    setStatus('disconnected');
                 }
             } else if (config.connection_type === 'direct_bluetooth' || config.connection_type === 'direct_usb') {
                 const restored = await restoreDirectDeviceConnection();
@@ -2230,25 +2240,32 @@ export function usePrinterStatus(branchId?: number) {
                         setPrinters([restored]);
                         setStatus('ready');
                     } else {
+                        setActiveDirectPrinter(null);
                         setStatus('disconnected');
                     }
+                }
+            } else if (config.connection_type === 'android_bridge') {
+                const bridgeRes = await fetchRegisteredBridges(branchId);
+                if (isMountedRef.current) {
+                    setBridges(bridgeRes.bridges);
+                    const isOnline = bridgeRes.bridges.some(b => b.is_online);
+                    setStatus(isOnline ? 'ready' : 'disconnected');
                 }
             } else {
                 const health = await checkPrintBridgeHealth();
                 if (isMountedRef.current) {
-                    setStatus(health.isHealthy ? 'ready' : 'offline');
                     if (health.isHealthy) {
                         const printerRes = await getAvailablePrinters();
-                        if (isMountedRef.current && printerRes.success) {
+                        if (isMountedRef.current && printerRes.success && printerRes.printers.length > 0) {
                             setPrinters(printerRes.printers);
+                            setStatus('ready');
+                        } else {
+                            setStatus('disconnected');
                         }
+                    } else {
+                        setStatus('offline');
                     }
                 }
-            }
-
-            const bridgeRes = await fetchRegisteredBridges(branchId);
-            if (isMountedRef.current && bridgeRes.success) {
-                setBridges(bridgeRes.bridges);
             }
         };
 

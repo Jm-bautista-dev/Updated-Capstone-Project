@@ -277,4 +277,102 @@ class AuthSessionAndNavigationTest extends TestCase
         $response = $this->actingAs($this->admin)->get('/super-admin');
         $response->assertStatus(403);
     }
+
+    /**
+     * Regression Test: Cashier role remains Cashier and cannot access any Admin-only routes.
+     */
+    public function test_cashier_role_strictly_enforced_across_all_admin_routes(): void
+    {
+        $this->actingAs($this->cashier);
+
+        // Assert user model always reports as cashier and never admin
+        $this->assertTrue($this->cashier->isCashier());
+        $this->assertFalse($this->cashier->isAdmin());
+        $this->assertFalse($this->cashier->isSuperAdmin());
+        $this->assertEquals('cashier', $this->cashier->role);
+
+        // Attempt direct access to Admin-only web routes -> must redirect to /pos
+        $adminRoutes = [
+            '/dashboard',
+            '/analytics/cashier-performance',
+            '/analytics/sales-forecast',
+            '/analytics/forecast-benchmarking',
+            '/analytics/restock-suggestions',
+            '/suppliers',
+            '/employees',
+            '/admin/sales-data',
+            '/admin/addons',
+        ];
+
+        foreach ($adminRoutes as $route) {
+            $res = $this->get($route);
+            $res->assertRedirect('/pos');
+        }
+
+        // Attempt Admin-only mutations -> must receive 403 Forbidden
+        $adminMutationEndpoints = [
+            ['post', '/suppliers', ['name' => 'Test Supplier']],
+            ['post', '/employees', ['name' => 'Test Employee', 'email' => 'e@test.com']],
+            ['post', '/branches', ['name' => 'Test Branch', 'delivery_radius_km' => 10, 'base_delivery_fee' => 49]],
+            ['post', '/admin/addons', ['name' => 'Test Addon']],
+        ];
+
+        foreach ($adminMutationEndpoints as [$method, $endpoint, $payload]) {
+            $res = $this->{$method . 'Json'}($endpoint, $payload);
+            $res->assertStatus(403);
+        }
+    }
+
+    /**
+     * Regression Test: Account switching from Admin to Cashier isolates role and forbids Admin pages.
+     */
+    public function test_account_switch_from_admin_to_cashier_strictly_retains_cashier_permissions(): void
+    {
+        // 1. Admin logs in and accesses dashboard
+        $this->actingAs($this->admin);
+        $resAdmin = $this->get('/dashboard');
+        $resAdmin->assertStatus(200);
+
+        // 2. Admin logs out
+        $logoutRes = $this->post('/logout');
+        $logoutRes->assertRedirect('/');
+        $this->assertGuest();
+
+        // 3. Cashier logs in
+        $loginRes = $this->post('/login', [
+            'email' => $this->cashier->email,
+            'password' => 'Password123!',
+        ]);
+        $this->assertAuthenticatedAs($this->cashier);
+        $loginRes->assertRedirect('/pos');
+
+        // 4. Cashier attempting to visit previous Admin dashboard must be redirected to /pos
+        $dashAttempt = $this->get('/dashboard');
+        $dashAttempt->assertRedirect('/pos');
+        $this->assertEquals('cashier', auth()->user()->role);
+    }
+
+    /**
+     * Regression Test: Mixed-case or un-trimmed role strings are normalized and cannot elevate privileges.
+     */
+    public function test_mixed_case_role_normalization_prevents_privilege_escalation(): void
+    {
+        $weirdUser = User::create([
+            'name' => 'Weird Cashier',
+            'email' => 'weird.cashier@makidesu.com',
+            'password' => Hash::make('Password123!'),
+            'role' => '  CASHIER  ',
+            'account_status' => 'active',
+            'must_change_password' => false,
+            'email_verified_at' => now(),
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $this->assertEquals('cashier', $weirdUser->role);
+        $this->assertTrue($weirdUser->isCashier());
+        $this->assertFalse($weirdUser->isAdmin());
+
+        $res = $this->actingAs($weirdUser)->get('/dashboard');
+        $res->assertRedirect('/pos');
+    }
 }

@@ -205,7 +205,7 @@ export const InfiniteReviewFeed: React.FC<InfiniteReviewFeedProps> = ({
             )}
 
             {/* Invisible Intersection Sentinel */}
-            {hasMore && !isLoading && !isLoadingMore && (
+            {hasMore && !isLoading && (
                 <div ref={sentinelRef} className="h-6 w-full pointer-events-none" aria-hidden="true" />
             )}
         </div>

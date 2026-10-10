@@ -98,7 +98,7 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.04 }}
-                        className="p-4.5 rounded-3xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 flex flex-col justify-between space-y-3.5 shadow-2xs h-full min-h-35"
+                        className="p-4.5 rounded-3xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors duration-300 flex flex-col justify-between space-y-3.5 shadow-2xs h-full min-h-35 min-w-0"
                     >
                         <div className="flex items-start justify-between gap-3 min-w-0">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -128,12 +128,12 @@ export function RecentReportsCard({ onInspectReport }: RecentReportsCardProps) {
                         </div>
 
                         {/* Footer Meta & Actions */}
-                        <div className="flex items-center justify-between pt-2.5 border-t border-[#F8C8DC]/30 dark:border-white/5 text-[11px] font-medium text-[#7D6B6E] dark:text-[#94A3B8] gap-2 mt-auto">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2.5 border-t border-[#F8C8DC]/30 dark:border-white/5 text-[11px] font-medium text-[#7D6B6E] dark:text-[#94A3B8] gap-2 mt-auto">
                             <span className="font-mono truncate" title={`By ${rep.generatedBy} • ${rep.generatedAt}`}>
                                 By {rep.generatedBy} • {rep.generatedAt}
                             </span>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                                 <Button
                                     size="sm"
                                     variant="outline"

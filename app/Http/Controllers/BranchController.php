@@ -5,10 +5,31 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\BranchSchedule;
 use App\Models\BranchSpecialSchedule;
+use App\Models\Cart;
+use App\Models\CartItem;
+use App\Models\CashierShift;
+use App\Models\IngredientLog;
+use App\Models\IngredientStock;
+use App\Models\InventoryTransaction;
+use App\Models\Order;
+use App\Models\OrderCancellationRequest;
+use App\Models\PrintBridge;
+use App\Models\PrintJob;
+use App\Models\Product;
+use App\Models\ProductReview;
+use App\Models\RestockRequest;
+use App\Models\Rider;
+use App\Models\Sale;
+use App\Models\ScannedReceipt;
+use App\Models\StockMovement;
+use App\Models\User;
+use App\Models\Wastage;
 use App\Services\BranchScheduleService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -161,6 +182,159 @@ class BranchController extends Controller
         $branch->update($validated);
 
         return back()->with('success', "Branch \"{$branch->name}\" updated.");
+    }
+
+    /**
+     * Delete a branch (Admin only).
+     * DELETE /branches/{id}
+     * DELETE /api/v1/branches/{id}
+     */
+    public function destroy(Request $request, int $id)
+    {
+        $this->authorizeAdmin($request);
+
+        $branch = Branch::find($id);
+        if (!$branch) {
+            $errorMessage = 'Branch not found.';
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => $errorMessage], 404);
+            }
+            return back()->withErrors(['error' => $errorMessage]);
+        }
+
+        $branchName = $branch->name;
+
+        // Rule 1: Protect the last active branch
+        $totalBranches = Branch::count();
+        if ($totalBranches <= 1) {
+            $errorMessage = 'This is the last active branch and cannot be removed.';
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => $errorMessage], 422);
+            }
+            return back()->withErrors(['error' => $errorMessage]);
+        }
+
+        // Rule 2: Inspect operational and historical dependencies
+        $dependencies = [];
+
+        $salesCount = Sale::where('branch_id', $branch->id)->count();
+        if ($salesCount > 0) {
+            $dependencies[] = "{$salesCount} sales transaction(s)";
+        }
+
+        $ordersCount = Order::where('branch_id', $branch->id)->count();
+        if ($ordersCount > 0) {
+            $dependencies[] = "{$ordersCount} order record(s)";
+        }
+
+        $usersCount = User::where('branch_id', $branch->id)->count();
+        if ($usersCount > 0) {
+            $dependencies[] = "{$usersCount} assigned staff account(s)";
+        }
+
+        $productsCount = Product::where('branch_id', $branch->id)->count();
+        if ($productsCount > 0) {
+            $dependencies[] = "{$productsCount} product(s)";
+        }
+
+        $shiftsCount = CashierShift::where('branch_id', $branch->id)->count();
+        if ($shiftsCount > 0) {
+            $dependencies[] = "{$shiftsCount} cashier shift log(s)";
+        }
+
+        $invTransactionsCount = InventoryTransaction::where('branch_id', $branch->id)->count();
+        if ($invTransactionsCount > 0) {
+            $dependencies[] = "{$invTransactionsCount} inventory transaction(s)";
+        }
+
+        $ingredientLogsCount = IngredientLog::where('branch_id', $branch->id)->count();
+        if ($ingredientLogsCount > 0) {
+            $dependencies[] = "{$ingredientLogsCount} ingredient audit log(s)";
+        }
+
+        $stockWithQuantity = IngredientStock::where('branch_id', $branch->id)->where('stock', '>', 0)->count();
+        if ($stockWithQuantity > 0) {
+            $dependencies[] = "{$stockWithQuantity} ingredient(s) with active stock quantity";
+        }
+
+        $ridersCount = Rider::where('branch_id', $branch->id)->count();
+        if ($ridersCount > 0) {
+            $dependencies[] = "{$ridersCount} assigned delivery rider(s)";
+        }
+
+        $receiptsCount = ScannedReceipt::where('branch_id', $branch->id)->count();
+        if ($receiptsCount > 0) {
+            $dependencies[] = "{$receiptsCount} scanned receipt(s)";
+        }
+
+        $restockCount = RestockRequest::where('branch_id', $branch->id)->count();
+        if ($restockCount > 0) {
+            $dependencies[] = "{$restockCount} restock request(s)";
+        }
+
+        $cancellationsCount = OrderCancellationRequest::where('branch_id', $branch->id)->count();
+        if ($cancellationsCount > 0) {
+            $dependencies[] = "{$cancellationsCount} cancellation request(s)";
+        }
+
+        $reviewsCount = ProductReview::where('branch_id', $branch->id)->count();
+        if ($reviewsCount > 0) {
+            $dependencies[] = "{$reviewsCount} customer review(s)";
+        }
+
+        $wastageCount = Wastage::where('branch_id', $branch->id)->count();
+        if ($wastageCount > 0) {
+            $dependencies[] = "{$wastageCount} wastage record(s)";
+        }
+
+        $movementsCount = StockMovement::where('from_branch_id', $branch->id)->orWhere('to_branch_id', $branch->id)->count();
+        if ($movementsCount > 0) {
+            $dependencies[] = "{$movementsCount} stock transfer movement(s)";
+        }
+
+        if (!empty($dependencies)) {
+            $errorMessage = "This branch cannot be deleted because it has associated records: " . implode(', ', $dependencies) . ". To protect historical reports and sales data, active operational branches cannot be removed.";
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success'      => false,
+                    'message'      => $errorMessage,
+                    'dependencies' => $dependencies,
+                ], 422);
+            }
+            return back()->withErrors(['error' => $errorMessage]);
+        }
+
+        // Rule 3: Safe transactional deletion of auto-generated child records and branch
+        try {
+            DB::transaction(function () use ($branch) {
+                IngredientStock::where('branch_id', $branch->id)->delete();
+                BranchSchedule::where('branch_id', $branch->id)->delete();
+                BranchSpecialSchedule::where('branch_id', $branch->id)->delete();
+                PrintJob::where('branch_id', $branch->id)->delete();
+                PrintBridge::where('branch_id', $branch->id)->delete();
+                CartItem::where('branch_id', $branch->id)->delete();
+                Cart::where('branch_id', $branch->id)->delete();
+                $branch->delete();
+            });
+        } catch (\Throwable $e) {
+            Log::error("Failed to delete branch {$id}: " . $e->getMessage(), ['exception' => $e]);
+            $errorMessage = 'Unable to delete branch. Please try again.';
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => $errorMessage], 500);
+            }
+            return back()->withErrors(['error' => $errorMessage]);
+        }
+
+        $successMessage = "Branch \"{$branchName}\" deleted successfully.";
+
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => $successMessage,
+            ]);
+        }
+
+        return redirect()->route('branches.index')->with('success', $successMessage);
     }
 
     /**

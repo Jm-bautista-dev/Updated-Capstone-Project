@@ -1,4 +1,5 @@
-import { Building2, Clock, MapPin, Navigation } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { Building2, Clock, MapPin, Navigation, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,13 @@ import { BranchOperatingHoursModal } from './BranchOperatingHoursModal';
 interface BranchTableProps {
     branches: Branch[];
     onSelectBranch: (branch: Branch) => void;
+    onDelete?: (branch: Branch) => void;
 }
 
-export function BranchTable({ branches, onSelectBranch }: BranchTableProps) {
+export function BranchTable({ branches, onSelectBranch, onDelete }: BranchTableProps) {
+    const { auth } = usePage().props as unknown as { auth?: { user?: { role?: string } } };
+    const isAdmin = auth?.user?.role === 'admin' || auth?.user?.role === 'super_admin';
+
     const [selectedHoursBranch, setSelectedHoursBranch] = useState<Branch | null>(null);
 
     const activeHoursBranch = selectedHoursBranch
@@ -150,6 +155,23 @@ export function BranchTable({ branches, onSelectBranch }: BranchTableProps) {
                                                 <MapPin className="size-3 text-[#E75480] dark:text-[#FF4F81]" />
                                                 <span>Inspect</span>
                                             </Button>
+
+                                            {isAdmin && onDelete && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    title="Delete Branch"
+                                                    aria-label="Delete branch"
+                                                    className="h-8 px-2.5 rounded-xl gap-1 text-[11px] font-bold border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 cursor-pointer transition-colors"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDelete(branch);
+                                                    }}
+                                                >
+                                                    <Trash2 className="size-3" />
+                                                    <span className="hidden sm:inline">Delete</span>
+                                                </Button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -161,7 +183,7 @@ export function BranchTable({ branches, onSelectBranch }: BranchTableProps) {
 
             {/* Operating Hours Modal */}
             <BranchOperatingHoursModal
-                branch={activeHoursBranch as any}
+                branch={activeHoursBranch}
                 open={Boolean(activeHoursBranch)}
                 onClose={() => setSelectedHoursBranch(null)}
             />

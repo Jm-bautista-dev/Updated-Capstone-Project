@@ -69,9 +69,17 @@ export function setupAxiosDefaults() {
 }
 
 /**
- * Broadcast an explicit logout event across all open browser tabs.
+ * Broadcast an explicit logout event across all open browser tabs and clear client storage.
  */
 export function broadcastLogoutEvent() {
+    try {
+        if (typeof window !== 'undefined') {
+            sessionStorage.clear();
+        }
+    } catch {
+        // Ignore storage access errors
+    }
+
     try {
         if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
             const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
@@ -169,10 +177,30 @@ export function initializeAuthSync() {
     });
 
     // 6. Inertia navigation / popstate guard
+    // Revalidates with the server on browser Back/Forward navigation to guarantee
+    // server-side role resolution and prevent stale cached user snapshots from history.
+    let isPopstateReloading = false;
     window.addEventListener('popstate', () => {
         const pathname = window.location.pathname;
         if (pathname === '/login' || pathname === '/' || pathname === '/menu') {
             return;
         }
+
+        if (isPopstateReloading) {
+            return;
+        }
+
+        isPopstateReloading = true;
+        router.reload({
+            preserveScroll: true,
+            preserveState: false,
+            onFinish: () => {
+                isPopstateReloading = false;
+            },
+            onError: () => {
+                isPopstateReloading = false;
+                window.location.reload();
+            },
+        });
     });
 }

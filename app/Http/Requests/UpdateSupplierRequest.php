@@ -42,7 +42,10 @@ class UpdateSupplierRequest extends FormRequest
             'status'         => 'required|in:Active,Inactive',
             'branch_id'      => 'required|exists:branches,id',
             'ingredient_ids'   => 'nullable|array',
-            'ingredient_ids.*' => 'exists:ingredients,id',
+            'ingredient_ids.*' => [
+                'integer',
+                Rule::exists('ingredients', 'id')->whereNull('deleted_at'),
+            ],
         ];
     }
 

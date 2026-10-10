@@ -34,6 +34,9 @@ class CompositeIngredientController extends Controller
 
         $items = $ingredient->subrecipeItems->map(function ($item) use ($request) {
             $component = $item->componentIngredient;
+            if (!$component || $component->trashed()) {
+                return null;
+            }
             $branchId = $request->query('branch_id');
 
             $componentCost = (float) $component->cost_per_base_unit;
@@ -62,7 +65,7 @@ class CompositeIngredientController extends Controller
                 'unit_cost'               => $componentCost,
                 'subtotal_cost'           => round($baseQty * $componentCost, 4),
             ];
-        });
+        })->filter()->values();
 
         $calculatedCost = $this->compositeService->calculateUnitCost($ingredient, $request->query('branch_id') ? (int) $request->query('branch_id') : null);
 
@@ -86,9 +89,15 @@ class CompositeIngredientController extends Controller
 
         $validated = $request->validate([
             'items'                           => 'required|array|min:1',
-            'items.*.component_ingredient_id' => 'required|integer|exists:ingredients,id',
+            'items.*.component_ingredient_id' => [
+                'required',
+                'integer',
+                Rule::exists('ingredients', 'id')->whereNull('deleted_at'),
+            ],
             'items.*.quantity'                => 'required|numeric|gt:0',
             'items.*.unit'                    => ['required', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+        ], [
+            'items.*.component_ingredient_id.exists' => 'One or more selected micro-ingredients are deleted or inactive.',
         ]);
 
         try {

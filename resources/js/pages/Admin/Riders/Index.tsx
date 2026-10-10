@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 
 interface RiderCreds {
     name?: string;
@@ -128,6 +129,15 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const trimmedName = (data.name || '').trim();
+        if (trimmedName.length < 2) {
+            toast.error('The rider name must be at least 2 characters.');
+            return;
+        }
+        if (trimmedName.length > 50) {
+            toast.error('The rider name may not be greater than 50 characters.');
+            return;
+        }
         if (editingRider) {
             put(`/riders/${editingRider.id}`, { onSuccess: () => setIsModalOpen(false) });
         } else {
@@ -275,19 +285,39 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                                     <label className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
                                         Full Name *
                                     </label>
-                                    <span className="text-[10px] font-mono font-medium text-[#9E8B8E] dark:text-[#64748B]">
-                                        {(data.name || '').length}/255
+                                    <span
+                                        className={cn(
+                                            "text-[10px] font-mono font-medium transition-colors",
+                                            (data.name || '').length > 50
+                                                ? "text-rose-500 font-bold"
+                                                : (data.name || '').length >= 45
+                                                    ? "text-amber-500 font-semibold"
+                                                    : "text-[#9E8B8E] dark:text-[#64748B]"
+                                        )}
+                                    >
+                                        {(data.name || '').length}/50
                                     </span>
                                 </div>
                                 <Input
                                     placeholder="Ex. Mario Dela Cruz"
-                                    className="h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]"
+                                    className={cn(
+                                        "h-12 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#F8FAFC]",
+                                        (data.name || '').length > 50 && "border-rose-500 focus-visible:ring-rose-500"
+                                    )}
                                     value={data.name}
                                     onChange={(e) => setData('name', e.target.value)}
-                                    maxLength={255}
+                                    maxLength={50}
                                     minLength={2}
                                     required
                                 />
+                                <div className="flex items-center justify-between text-[11px] text-[#9E8B8E] dark:text-[#94A3B8] px-1">
+                                    <span>Maximum 50 characters</span>
+                                    {(data.name || '').length >= 50 && (
+                                        <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                            Limit reached (50/50)
+                                        </span>
+                                    )}
+                                </div>
                                 {errors.name && <p className="text-xs text-rose-500 font-bold ml-1">{errors.name}</p>}
                             </div>
 

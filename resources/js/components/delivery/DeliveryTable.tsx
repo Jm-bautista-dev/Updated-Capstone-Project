@@ -51,10 +51,10 @@ const TableRow = React.memo(function TableRow({
     const delivery = deliveries[index];
     const isPickup = Boolean(delivery.is_pickup || delivery.fulfillment_type === 'pickup');
 
-    const TypeIcon = isPickup ? Store : (delivery.delivery_type === 'internal' ? Bike : Truck);
+    const TypeIcon = isPickup ? Store : Bike;
     const typeColor = isPickup 
         ? 'text-emerald-600 dark:text-emerald-400' 
-        : (delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-blue-600 dark:text-blue-400');
+        : 'text-[#E75480] dark:text-[#FF4F81]';
 
     const isUnassignedInternal = !isPickup && delivery.delivery_type === 'internal' && !delivery.rider_id;
 
@@ -186,9 +186,7 @@ const TableRow = React.memo(function TableRow({
                     )}>
                         {isPickup
                             ? (delivery.pickup_verification_code ? `Code: ${delivery.pickup_verification_code}` : 'Store Pickup')
-                            : (delivery.delivery_type === 'internal'
-                                ? (delivery.rider?.name || 'Unassigned')
-                                : (delivery.external_service?.toUpperCase() || 'External'))}
+                            : (delivery.rider?.name || (delivery.external_service ? delivery.external_service.toUpperCase() : 'Unassigned'))}
                     </span>
                 </div>
             </div>
@@ -394,7 +392,7 @@ export function DeliveryTable({
                     <SortableHeader label="Customer" sortKey="customer" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                 </div>
                 <div className="w-25 shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8]">Type</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8]">Rider</span>
                 </div>
                 <div className="w-30 shrink-0 hidden xl:block">
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#7D6B6E] dark:text-[#94A3B8]">Branch</span>

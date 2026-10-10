@@ -374,16 +374,7 @@ class ProductsController extends Controller
                 'recipe'                     => 'nullable|array',
                 'recipe.*.ingredient_id'     => [
                     'required',
-                    Rule::exists('ingredients', 'id')->where(function ($query) use ($product) {
-                        $existingIds = $product->ingredients()->pluck('ingredients.id')->toArray();
-                        if (!empty($existingIds)) {
-                            return $query->where(function ($q) use ($existingIds) {
-                                $q->whereNull('deleted_at')
-                                  ->orWhereIn('id', $existingIds);
-                            });
-                        }
-                        return $query->whereNull('deleted_at');
-                    }),
+                    Rule::exists('ingredients', 'id')->whereNull('deleted_at'),
                 ],
                 'recipe.*.quantity_required' => 'required|numeric|gt:0|max:10000',
                 'recipe.*.unit'              => 'nullable|string',
@@ -403,7 +394,7 @@ class ProductsController extends Controller
             if (!empty($validated['recipe'])) {
                 foreach ($validated['recipe'] as $idx => &$item) {
                     if (empty($item['unit'])) {
-                        $ing = Ingredient::withTrashed()->find($item['ingredient_id']);
+                        $ing = Ingredient::where('id', $item['ingredient_id'])->whereNull('deleted_at')->first();
                         $item['unit'] = $ing ? $ing->unit : 'pcs';
                     }
                 }
@@ -428,8 +419,13 @@ class ProductsController extends Controller
                     }
 
                     /** @var Ingredient $ing */
-                    $ing = Ingredient::withTrashed()->find($item['ingredient_id']);
-                    if (!$ing) continue;
+                    $ing = Ingredient::where('id', $item['ingredient_id'])->whereNull('deleted_at')->first();
+                    if (!$ing) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "recipe.{$idx}.ingredient_id" => "The selected ingredient is deleted or inactive and cannot be assigned to a product recipe.",
+                            'recipe' => "One or more selected ingredients are deleted or inactive and cannot be assigned."
+                        ]);
+                    }
 
                     $usedUnit = strtolower(trim($item['unit']));
                     $baseUnit = strtolower(trim($ing->unit));
@@ -476,7 +472,7 @@ class ProductsController extends Controller
 
                     if (!$exists) {
                         /** @var Ingredient $ing */
-                        $ing = Ingredient::withTrashed()->find($item['ingredient_id']);
+                        $ing = Ingredient::where('id', $item['ingredient_id'])->whereNull('deleted_at')->first();
                         $ingName = $ing ? $ing->name : "ID #{$item['ingredient_id']}";
                         throw \Illuminate\Validation\ValidationException::withMessages([
                             'recipe' => "Ingredient '{$ingName}' is not available in branch: {$branchName}"

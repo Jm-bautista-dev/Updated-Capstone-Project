@@ -4,6 +4,7 @@ import {
     AlertCircle,
     Check,
     CheckCircle2,
+    Loader2,
     MessageSquare,
     Package,
     RefreshCw,
@@ -12,7 +13,7 @@ import {
     Star,
     X,
 } from 'lucide-react';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 
 import { CategoryBadge } from '@/components/reviews/CategoryBadge';
@@ -83,10 +84,27 @@ export default function Reviews({
     const [branchFilter, setBranchFilter] = useState(filters.branch_id || 'all');
     const [perPage, setPerPage] = useState(filters.per_page || 10);
 
-    // Pagination & Loading States
+    // Progressive Pagination & Loading States
+    const [currentPage, setCurrentPage] = useState<number>(reviews.current_page || 1);
+    const [hasMore, setHasMore] = useState<boolean>(() => reviews.current_page < reviews.last_page);
     const [isPageLoading, setIsPageLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [pageError, setPageError] = useState<string | null>(null);
+    const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+
+    const isFetchingRef = useRef<boolean>(false);
+    const fetchedPagesRef = useRef<Set<number>>(new Set([reviews.current_page || 1]));
+    const observerRef = useRef<IntersectionObserver | null>(null);
+    const sentinelNodeRef = useRef<HTMLDivElement | null>(null);
     const reviewsListRef = useRef<HTMLDivElement>(null);
+
+    // Keep state refs for stable observer
+    const hasMoreRef = useRef(hasMore);
+    hasMoreRef.current = hasMore;
+    const isLoadingMoreRef = useRef(isLoadingMore);
+    isLoadingMoreRef.current = isLoadingMore;
+    const isPageLoadingRef = useRef(isPageLoading);
+    isPageLoadingRef.current = isPageLoading;
 
     // Modals
     const [activeReviewDetail, setActiveReviewDetail] = useState<ReviewItem | null>(null);
@@ -98,7 +116,20 @@ export default function Reviews({
     const [deletingReview, setDeletingReview] = useState<ReviewItem | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Sync props updates during render
+    // Helper to merge and deduplicate review records by id
+    const mergeReviews = (prev: ReviewItem[], incoming: ReviewItem[]): ReviewItem[] => {
+        const existingIds = new Set(prev.map((r) => r.id));
+        const uniqueIncoming: ReviewItem[] = [];
+        for (const item of incoming) {
+            if (!existingIds.has(item.id)) {
+                existingIds.add(item.id);
+                uniqueIncoming.push(item);
+            }
+        }
+        return [...prev, ...uniqueIncoming];
+    };
+
+    // Sync props updates during render (e.g. after filter, search, or product change via Inertia)
     const [prevProps, setPrevProps] = useState({ productList, reviews, selectedProductId });
     if (
         prevProps.productList !== productList ||
@@ -108,25 +139,140 @@ export default function Reviews({
         setPrevProps({ productList, reviews, selectedProductId });
         setLocalProductList(productList);
         setLocalReviews(reviews.data);
+        setCurrentPage(reviews.current_page || 1);
+        setHasMore(reviews.current_page < reviews.last_page);
+        setIsLoadingMore(false);
+        setLoadMoreError(null);
+        fetchedPagesRef.current = new Set([reviews.current_page || 1]);
+        isFetchingRef.current = false;
         if (selectedProductId) {
             setSelectedProduct(productList.find((p) => p.id === selectedProductId) || null);
+        } else {
+            setSelectedProduct(null);
         }
     }
 
-    // Pagination handler
-    const handlePageChange = (targetPage: number, newPerPage?: number) => {
-        const pageSize = newPerPage ?? perPage;
-        if (
-            targetPage < 1 ||
-            (targetPage > reviews.last_page && !newPerPage) ||
-            (targetPage === reviews.current_page && pageSize === perPage && !pageError) ||
-            isPageLoading
-        ) {
+    // Progressive Load More for next page
+    const loadMore = useCallback(async () => {
+        if (!hasMore || isLoadingMore || isPageLoading || isFetchingRef.current) {
             return;
         }
 
+        const nextPage = currentPage + 1;
+        if (nextPage > reviews.last_page) {
+            setHasMore(false);
+            return;
+        }
+
+        if (fetchedPagesRef.current.has(nextPage)) {
+            return;
+        }
+
+        isFetchingRef.current = true;
+        setIsLoadingMore(true);
+        setLoadMoreError(null);
+        fetchedPagesRef.current.add(nextPage);
+
+        try {
+            const params = {
+                search,
+                status: statusFilter,
+                rating: ratingFilter,
+                seen_status: seenFilter,
+                verified_purchase: verifiedFilter,
+                branch_id: branchFilter,
+                product_id: selectedProduct ? String(selectedProduct.id) : 'all',
+                per_page: perPage,
+                page: nextPage,
+            };
+
+            const response = await axios.get('/admin/reviews', {
+                params,
+                headers: { Accept: 'application/json' },
+            });
+
+            if (response.data?.success && response.data?.reviews) {
+                const incomingReviews: ReviewItem[] = response.data.reviews.data || [];
+                setLocalReviews((prev) => mergeReviews(prev, incomingReviews));
+                const newCurrentPage = response.data.reviews.current_page || nextPage;
+                const newLastPage = response.data.reviews.last_page;
+                setCurrentPage(newCurrentPage);
+                setHasMore(newCurrentPage < newLastPage);
+            } else {
+                throw new Error('Invalid response structure received from server.');
+            }
+        } catch (err: unknown) {
+            fetchedPagesRef.current.delete(nextPage);
+            const msg = err instanceof Error ? err.message : 'Unable to load additional reviews.';
+            setLoadMoreError(msg);
+        } finally {
+            isFetchingRef.current = false;
+            setIsLoadingMore(false);
+        }
+    }, [
+        hasMore,
+        isLoadingMore,
+        isPageLoading,
+        currentPage,
+        reviews.last_page,
+        search,
+        statusFilter,
+        ratingFilter,
+        seenFilter,
+        verifiedFilter,
+        branchFilter,
+        selectedProduct,
+        perPage,
+    ]);
+
+    const loadMoreRef = useRef(loadMore);
+    loadMoreRef.current = loadMore;
+
+    // Stable IntersectionObserver sentinel ref
+    const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+        if (observerRef.current) {
+            observerRef.current.disconnect();
+            observerRef.current = null;
+        }
+
+        sentinelNodeRef.current = node;
+
+        if (!node) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0];
+                if (
+                    first.isIntersecting &&
+                    !isFetchingRef.current &&
+                    hasMoreRef.current &&
+                    !isLoadingMoreRef.current &&
+                    !isPageLoadingRef.current
+                ) {
+                    loadMoreRef.current();
+                }
+            },
+            { threshold: 0.1, rootMargin: '250px' }
+        );
+
+        observer.observe(node);
+        observerRef.current = observer;
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (observerRef.current) {
+                observerRef.current.disconnect();
+                observerRef.current = null;
+            }
+        };
+    }, []);
+
+    // Initial page refresh / retry
+    const handleInitialRefresh = () => {
         setIsPageLoading(true);
         setPageError(null);
+        setLoadMoreError(null);
 
         const params = {
             search,
@@ -136,8 +282,8 @@ export default function Reviews({
             verified_purchase: verifiedFilter,
             branch_id: branchFilter,
             product_id: selectedProduct ? String(selectedProduct.id) : 'all',
-            per_page: pageSize,
-            page: targetPage,
+            per_page: perPage,
+            page: 1,
         };
 
         router.get('/admin/reviews', params, {
@@ -147,7 +293,6 @@ export default function Reviews({
             onSuccess: () => {
                 setIsPageLoading(false);
                 setPageError(null);
-                reviewsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             },
             onError: (errors) => {
                 setIsPageLoading(false);
@@ -327,18 +472,14 @@ export default function Reviews({
     // Confirm Delete Review
     const handleConfirmDelete = (review: ReviewItem) => {
         setIsDeleting(true);
-        const isLastOnPage = localReviews.length === 1 && reviews.current_page > 1;
-        const nextPage = isLastOnPage ? reviews.current_page - 1 : reviews.current_page;
 
         router.delete(`/admin/reviews/${review.id}`, {
             preserveScroll: true,
             onSuccess: () => {
                 setIsDeleting(false);
                 setDeleteModalOpen(false);
+                setLocalReviews((prev) => prev.filter((r) => r.id !== review.id));
                 toast.success('Review deleted successfully.');
-                if (isLastOnPage) {
-                    handlePageChange(nextPage);
-                }
             },
             onError: () => {
                 setIsDeleting(false);
@@ -815,12 +956,12 @@ export default function Reviews({
                                     Customer Feedback & Reviews
                                 </h2>
                                 <span className="text-xs text-slate-400 font-medium">
-                                    {reviews.total} review{reviews.total !== 1 ? 's' : ''} found
+                                    Showing {localReviews.length} of {reviews.total} review{reviews.total !== 1 ? 's' : ''}
                                 </span>
                             </div>
                         )}
 
-                        {/* Error State with Retry Button */}
+                        {/* Error State for Initial Load with Retry Button */}
                         {pageError && (
                             <Card className="p-6 text-center rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20">
                                 <AlertCircle className="size-8 mx-auto mb-2 text-rose-500" />
@@ -832,7 +973,7 @@ export default function Reviews({
                                 </p>
                                 <Button
                                     size="sm"
-                                    onClick={() => handlePageChange(reviews.current_page)}
+                                    onClick={handleInitialRefresh}
                                     className="rounded-xl text-xs font-bold bg-[#FF3366] hover:bg-[#E1062C] text-white px-4 cursor-pointer"
                                 >
                                     <RefreshCw className="size-3 mr-1.5" /> Retry
@@ -842,7 +983,7 @@ export default function Reviews({
 
                         {/* Reviews List */}
                         <div className="space-y-3">
-                            {isPageLoading ? (
+                            {isPageLoading && localReviews.length === 0 ? (
                                 <div className="space-y-3">
                                     {[1, 2, 3].map((i) => (
                                         <ReviewCardSkeleton key={i} />
@@ -879,23 +1020,66 @@ export default function Reviews({
                             )}
                         </div>
 
-                        {/* Review Server-side Pagination & Page-Size */}
-                        <ReviewPagination
-                            currentPage={reviews.current_page}
-                            lastPage={reviews.last_page}
-                            total={reviews.total}
-                            perPage={perPage}
-                            from={reviews.from}
-                            to={reviews.to}
-                            label="reviews"
-                            isLoading={isPageLoading}
-                            onPageChange={(page) => handlePageChange(page)}
-                            perPageOptions={[10, 25, 50]}
-                            onPerPageChange={(size) => {
-                                setPerPage(size);
-                                handlePageChange(1, size);
-                            }}
-                        />
+                        {/* Progressive Load More Error Banner */}
+                        {loadMoreError && (
+                            <Card className="p-4 text-center rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20">
+                                <div className="flex items-center justify-center gap-2 text-rose-600 dark:text-rose-400 text-xs font-bold mb-2">
+                                    <AlertCircle className="size-4" />
+                                    <span>{loadMoreError}</span>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={loadMore}
+                                    className="rounded-xl text-xs font-bold border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/30 h-7 cursor-pointer"
+                                >
+                                    <RefreshCw className="size-3 mr-1.5" /> Retry Loading
+                                </Button>
+                            </Card>
+                        )}
+
+                        {/* Loading More Spinner Indicator */}
+                        {isLoadingMore && (
+                            <div className="flex items-center justify-center py-4 gap-2 text-xs font-bold text-slate-500">
+                                <Loader2 className="size-4 animate-spin text-[#FF3366]" />
+                                <span>Loading more reviews...</span>
+                            </div>
+                        )}
+
+                        {/* End of reviews banner */}
+                        {!hasMore && localReviews.length > 0 && !isPageLoading && (
+                            <div className="text-center py-4 border-t border-slate-100 dark:border-white/6">
+                                <p className="text-[11px] font-medium text-slate-400">
+                                    ✓ You have reached the end of reviews ({localReviews.length} of {reviews.total}).
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Progressive Pagination Sentinel & Manual Fallback Button */}
+                        {hasMore && !isPageLoading && (
+                            <div className="pt-2 pb-4 space-y-2">
+                                <div ref={sentinelRef} className="h-6 w-full pointer-events-none" aria-hidden="true" />
+                                <div className="text-center">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={loadMore}
+                                        disabled={isLoadingMore}
+                                        className="rounded-xl text-xs font-bold border-slate-200/80 dark:border-white/8 hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer text-slate-700 dark:text-slate-300 h-8 px-4"
+                                    >
+                                        {isLoadingMore ? (
+                                            <>
+                                                <Loader2 className="size-3.5 animate-spin mr-1.5 text-[#FF3366]" />
+                                                Loading...
+                                            </>
+                                        ) : (
+                                            <>Load More Reviews ({localReviews.length} of {reviews.total})</>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -20,13 +20,13 @@ interface DeliveryCardProps {
 const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUpdateStatus, onAssignRider, onFailDelivery }: DeliveryCardProps) {
     const isPickup = Boolean(delivery.is_pickup || delivery.fulfillment_type === 'pickup');
     
-    const TypeIcon = isPickup ? Store : (delivery.delivery_type === 'internal' ? Bike : Truck);
+    const TypeIcon = isPickup ? Store : Bike;
     const typeColor = isPickup 
         ? 'text-emerald-600 dark:text-emerald-400' 
-        : (delivery.delivery_type === 'internal' ? 'text-[#E75480] dark:text-[#FF4F81]' : 'text-blue-600 dark:text-blue-400');
+        : 'text-[#E75480] dark:text-[#FF4F81]';
     const typeBg = isPickup 
         ? 'bg-emerald-50 dark:bg-emerald-950/20' 
-        : (delivery.delivery_type === 'internal' ? 'bg-[#FFF5F7] dark:bg-[#1C1C28]' : 'bg-blue-50 dark:bg-blue-950/20');
+        : 'bg-[#FFF5F7] dark:bg-[#1C1C28]';
 
     const isUnassignedInternal = !isPickup && delivery.delivery_type === 'internal' && !delivery.rider_id && ['ready_for_pickup', 'assigned_to_rider', 'failed_delivery'].includes(delivery.status);
 
@@ -58,7 +58,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
         >
             <div className="flex items-stretch">
                 {/* Type indicator strip */}
-                <div className={`w-1.5 shrink-0 ${delivery.is_failed ? 'bg-red-500' : (isPickup ? 'bg-emerald-500' : (delivery.delivery_type === 'internal' ? (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40') : 'bg-blue-400/40'))}`} />
+                <div className={`w-1.5 shrink-0 ${delivery.is_failed ? 'bg-red-500' : (isPickup ? 'bg-emerald-500' : (isUnassignedInternal ? 'bg-amber-400' : 'bg-[#E75480]/40'))}`} />
 
                 <div className="flex-1 p-4 space-y-3">
                     {/* Top row: Queue Position, Source Badge, Status, Order #, Amount */}
@@ -130,9 +130,7 @@ const DeliveryCard = React.memo(function DeliveryCard({ delivery, onSelect, onUp
                             )}>
                                 {isPickup
                                     ? (delivery.pickup_verification_code ? `Code: ${delivery.pickup_verification_code}` : 'Store Pickup')
-                                    : (delivery.delivery_type === 'internal'
-                                        ? (delivery.rider?.name || 'Unassigned')
-                                        : (delivery.external_service?.toUpperCase() || 'External'))}
+                                    : (delivery.rider?.name || (delivery.external_service ? delivery.external_service.toUpperCase() : 'Unassigned'))}
                             </span>
                         </div>
                     </div>

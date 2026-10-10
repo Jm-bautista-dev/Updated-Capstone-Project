@@ -297,8 +297,8 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
     if (!delivery) return null;
 
     const isPickup = Boolean(delivery.is_pickup || delivery.fulfillment_type === 'pickup');
-    const TypeIcon = isPickup ? Store : (delivery.delivery_type === 'internal' ? Bike : Truck);
-    const typeColor = isPickup ? 'text-emerald-600 dark:text-emerald-400' : (delivery.delivery_type === 'internal' ? 'text-primary' : 'text-emerald-600');
+    const TypeIcon = isPickup ? Store : Bike;
+    const typeColor = isPickup ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary';
 
     const isUnassignedInternal = !isPickup && delivery.delivery_type === 'internal' && !delivery.rider_id;
 
@@ -331,7 +331,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                         </Badge>
                         <Badge variant="outline" className={`rounded-full text-[10px] font-bold gap-1 ${typeColor}`}>
                             <TypeIcon className="size-3" />
-                            {isPickup ? 'Store Pickup' : (delivery.delivery_type === 'internal' ? 'Internal Delivery' : 'External Courier')}
+                            {isPickup ? 'Store Pickup' : 'Delivery'}
                         </Badge>
                         {!isPickup && (
                             <Badge className={cn(
@@ -616,7 +616,7 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                     <div className="space-y-4 pb-8">
                         <div className="flex items-center justify-between">
                             <h4 className="text-xs font-black uppercase tracking-widest text-(--ops-text-muted)">
-                                {isPickup ? 'Handover Details' : 'Courier Details'}
+                                {isPickup ? 'Handover Details' : 'Rider Details'}
                             </h4>
                             {!isPickup && delivery.delivery_type === 'internal' && !delivery.is_cancelled && !delivery.is_delivered && isUnassignedInternal && (
                                 <Badge
@@ -629,14 +629,12 @@ const DeliveryDetailSheet = React.memo(function DeliveryDetailSheet({
                             )}
                         </div>
 
-                        <InfoRow icon={TypeIcon} label={isPickup ? 'Handover Type' : (delivery.delivery_type === 'internal' ? 'Rider' : 'Service')}>
+                        <InfoRow icon={TypeIcon} label={isPickup ? 'Handover Type' : 'Assigned Rider'}>
                             <div className="flex items-center justify-between group/courier">
                                 <p className={cn("font-bold", !isPickup && isUnassignedInternal && "text-amber-600")}>
                                     {isPickup
                                         ? 'In-Store Customer Handover (No Rider)'
-                                        : (delivery.delivery_type === 'internal'
-                                            ? (delivery.rider?.name || 'Unassigned')
-                                            : (delivery.external_service?.toUpperCase() || 'External'))}
+                                        : (delivery.rider?.name || (delivery.external_service ? delivery.external_service.toUpperCase() : 'Unassigned'))}
                                 </p>
                             </div>
                             {!isPickup && delivery.tracking_number && (

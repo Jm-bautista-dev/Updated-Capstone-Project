@@ -1,4 +1,5 @@
-import { Building2, MapPin, Navigation, ShieldCheck } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
+import { Building2, MapPin, Navigation, ShieldCheck, Trash2 } from 'lucide-react';
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,9 +11,13 @@ interface BranchDetailDrawerProps {
     branch: Branch | null;
     open: boolean;
     onClose: () => void;
+    onDelete?: (branch: Branch) => void;
 }
 
-export function BranchDetailDrawer({ branch, open, onClose }: BranchDetailDrawerProps) {
+export function BranchDetailDrawer({ branch, open, onClose, onDelete }: BranchDetailDrawerProps) {
+    const { auth } = usePage().props as unknown as { auth?: { user?: { role?: string } } };
+    const isAdmin = auth?.user?.role === 'admin' || auth?.user?.role === 'super_admin';
+
     if (!branch) return null;
 
     const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(branch.longitude?.toString() || '0') - 0.005},${parseFloat(branch.latitude?.toString() || '0') - 0.005},${parseFloat(branch.longitude?.toString() || '0') + 0.005},${parseFloat(branch.latitude?.toString() || '0') + 0.005}&layer=mapnik&marker=${branch.latitude},${branch.longitude}`;
@@ -136,7 +141,22 @@ export function BranchDetailDrawer({ branch, open, onClose }: BranchDetailDrawer
                         </p>
                     </div>
 
-                    <div className="pt-2 flex justify-end">
+                    <div className="pt-2 flex items-center justify-between gap-3">
+                        {isAdmin && onDelete ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    onClose();
+                                    onDelete(branch);
+                                }}
+                                className="h-11 px-5 rounded-2xl font-bold text-xs border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-2 transition-colors"
+                            >
+                                <Trash2 className="size-4" />
+                                <span>Delete Branch</span>
+                            </Button>
+                        ) : <div />}
+
                         <Button
                             variant="outline"
                             onClick={onClose}

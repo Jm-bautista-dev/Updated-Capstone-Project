@@ -58,25 +58,25 @@ export function ReportsAnalytics() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="lg:col-span-2 rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4"
+                    className="lg:col-span-2 rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 min-w-0"
                 >
-                    <div className="flex items-center justify-between">
-                        <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                                <TrendingUp className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                <TrendingUp className="size-4 text-[#10b981] shrink-0" />
+                                <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
                                     Weekly Revenue Telemetry
                                 </h3>
                             </div>
-                            <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                            <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                                 Realized revenue trajectory vs baseline projections
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-3 text-xs font-mono font-bold">
-                            <span className="flex items-center gap-1 text-[#E75480] dark:text-[#FF4F81]">
-                                <span className="size-2.5 rounded-full bg-[#E75480] dark:bg-[#FF4F81]" />
-                                Actual Sales
+                        <div className="flex items-center gap-3 text-xs font-mono font-bold shrink-0 flex-wrap">
+                            <span className="flex items-center gap-1 text-[#10b981]">
+                                <span className="size-2.5 rounded-full bg-[#10b981]" />
+                                Actual Revenue
                             </span>
                             <span className="flex items-center gap-1 text-slate-400">
                                 <span className="size-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
@@ -90,8 +90,8 @@ export function ReportsAnalytics() {
                             <AreaChart data={SALES_TREND_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#E75480" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#E75480" stopOpacity={0.0} />
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -99,17 +99,20 @@ export function ReportsAnalytics() {
                                 <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₱${v / 1000}k`} />
                                 <Tooltip
                                     contentStyle={{
-                                        backgroundColor: 'rgba(18, 18, 24, 0.9)',
+                                        backgroundColor: 'rgba(18, 18, 24, 0.95)',
                                         borderRadius: '16px',
                                         border: '1px solid rgba(255, 255, 255, 0.1)',
                                         color: '#fff',
                                         fontSize: '12px',
                                         fontFamily: 'Outfit',
                                     }}
-                                    formatter={(value: number | string | Array<number | string> | undefined) => [formatCurrency(Number(value || 0)), 'Revenue']}
+                                    formatter={(value: any, name: any) => [
+                                        formatCurrency(Number(value || 0)),
+                                        name === 'revenue' || name === 'Actual Revenue' ? 'Actual Revenue' : 'Target Benchmark'
+                                    ]}
                                 />
-                                <Area type="monotone" dataKey="revenue" stroke="#E75480" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                                <Area type="monotone" dataKey="target" stroke="#94A3B8" strokeWidth={2} strokeDasharray="4 4" fillOpacity={0} />
+                                <Area type="monotone" dataKey="revenue" name="Actual Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                                <Area type="monotone" dataKey="target" name="Target Benchmark" stroke="#94A3B8" strokeWidth={2} strokeDasharray="4 4" fillOpacity={0} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -120,16 +123,16 @@ export function ReportsAnalytics() {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.1 }}
-                    className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 flex flex-col justify-between"
+                    className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 flex flex-col justify-between min-w-0"
                 >
-                    <div>
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <PieIcon className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                            <PieIcon className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
+                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
                                 Category Breakdown
                             </h3>
                         </div>
-                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                             Share of gross revenue by product category
                         </p>
                     </div>
@@ -170,12 +173,12 @@ export function ReportsAnalytics() {
                     {/* Category Legend List */}
                     <div className="space-y-1.5 pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10 text-xs font-bold">
                         {CATEGORY_SHARE.map((cat) => (
-                            <div key={cat.name} className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                                    <span className="text-[#3D2C2E] dark:text-[#F8FAFC]">{cat.name}</span>
+                            <div key={cat.name} className="flex items-center justify-between gap-2 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                                    <span className="text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={cat.name}>{cat.name}</span>
                                 </div>
-                                <span className="font-mono text-[#7D6B6E] dark:text-[#94A3B8]">{cat.value}%</span>
+                                <span className="font-mono text-[#7D6B6E] dark:text-[#94A3B8] shrink-0">{cat.value}%</span>
                             </div>
                         ))}
                     </div>
@@ -189,17 +192,17 @@ export function ReportsAnalytics() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.15 }}
-                className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4"
+                className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 sm:p-7 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 min-w-0"
             >
-                <div className="flex items-center justify-between">
-                    <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <BarChart2 className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                            <BarChart2 className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
+                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
                                 Peak Operational Hours
                             </h3>
                         </div>
-                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
                             Hourly volume distribution for store staffing optimization
                         </p>
                     </div>

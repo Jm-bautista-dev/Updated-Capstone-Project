@@ -954,7 +954,7 @@ export default function PosIndex() {
               <button
                 type="button"
                 onClick={() => setIsPrinterSettingsOpen(true)}
-                title={printerStatusDetails?.description || `Thermal Printer (${printerConfig.printer_name || 'Default'})`}
+                title={printerStatusDetails?.description || `Thermal Printer (${printerConfig.printer_name || 'Thermal Printer'})`}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shadow-2xs",
                   printerStatusDetails?.variant === 'success' && "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40",
@@ -973,21 +973,21 @@ export default function PosIndex() {
                   printerStatusDetails?.variant === 'error' && "bg-rose-500",
                 )} />
                 <FiPrinter className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                <span className="hidden md:inline font-extrabold">
-                  {printerStatusDetails?.label || (isPrinterReady ? "Printer Ready" : "Printer Disconnected")}
+                <span className="hidden md:inline font-extrabold uppercase">
+                  {printerStatusDetails?.label || (isPrinterReady ? "PRINTER CONNECTED" : "PRINTER DISCONNECTED")}
                 </span>
               </button>
 
-              {!isPrinterReady && (printerConfig.connection_type === 'direct_bluetooth' || printerConfig.connection_type === 'direct_usb') && (
+              {!isPrinterReady && (
                 <button
                   type="button"
                   onClick={handleQuickReconnect}
                   disabled={isReconnectingPrinter || isPrinterChecking}
-                  title={`Reconnect to ${printerConfig.printer_name || 'Bluetooth Printer'}`}
+                  title={printerConfig.connection_type === 'universal_browser' ? 'Connect a thermal printer' : `Reconnect to ${printerConfig.printer_name || 'Thermal Printer'}`}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-2xl bg-[#E75480] hover:bg-[#D43D69] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs disabled:opacity-60"
                 >
                   <FiRefreshCw className={cn("size-3", (isReconnectingPrinter || isPrinterChecking) && "animate-spin")} />
-                  <span className="hidden sm:inline">{isReconnectingPrinter ? 'Connecting...' : 'Reconnect'}</span>
+                  <span className="hidden sm:inline">{isReconnectingPrinter ? 'Connecting...' : (printerConfig.connection_type === 'universal_browser' ? 'Connect Printer' : 'Reconnect')}</span>
                 </button>
               )}
             </div>

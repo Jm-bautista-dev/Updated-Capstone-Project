@@ -1,4 +1,4 @@
-import { Search, Plus, MapPin, Filter, RefreshCw, FileText, Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { Search, Plus, MapPin, Filter, RefreshCw, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -42,7 +42,6 @@ interface InventoryFilterToolbarProps {
     selectedIds: number[];
     onOpenAddModal: () => void;
     onOpenMassRestockModal: () => void;
-    onOpenReceiptScanner: () => void;
     onBulkDelete: () => void;
 }
 
@@ -64,7 +63,6 @@ export function InventoryFilterToolbar({
     selectedIds,
     onOpenAddModal,
     onOpenMassRestockModal,
-    onOpenReceiptScanner,
     onBulkDelete,
 }: InventoryFilterToolbarProps) {
     return (
@@ -230,17 +228,6 @@ export function InventoryFilterToolbar({
                     >
                         <RefreshCw className="size-4" />
                         <span className="hidden xl:inline">Mass Restock</span>
-                    </Button>
-
-                    {/* Scan Receipt Button */}
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onOpenReceiptScanner}
-                        className="h-11 px-4 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] hover:text-[#E75480] dark:hover:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer shadow-2xs"
-                    >
-                        <FileText className="size-4 text-purple-600 dark:text-purple-400" />
-                        <span className="hidden xl:inline">Scan Receipt</span>
                     </Button>
                 </div>
             </div>

@@ -18,7 +18,6 @@ import { InventoryFilterToolbar } from '@/components/inventory/InventoryFilterTo
 import { InventoryHero, type InventoryRow } from '@/components/inventory/InventoryHero';
 import { InventoryTable } from '@/components/inventory/InventoryTable';
 import { MassRestockModal } from '@/components/mass-restock-modal';
-import { ReceiptScannerModal } from '@/components/receipt-scanner-modal';
 import { ResultModal } from '@/components/result-modal';
 import { StockInModal } from '@/components/stock-in-modal';
 import { StockReductionModal } from '@/components/stock-reduction-modal';
@@ -124,9 +123,6 @@ export default function InventoryIndex() {
     });
     const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
     const [isMassRestockModalOpen, setIsMassRestockModalOpen] = useState(false);
-
-    // Receipt Scanner States
-    const [isReceiptScannerOpen, setIsReceiptScannerOpen] = useState(false);
     const [activeRestockBranch, setActiveRestockBranch] = useState<{ id: number; name: string } | null>(null);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
@@ -659,7 +655,6 @@ export default function InventoryIndex() {
                     selectedIds={selectedIds}
                     onOpenAddModal={handleAdd}
                     onOpenMassRestockModal={openMassRestockModal}
-                    onOpenReceiptScanner={() => setIsReceiptScannerOpen(true)}
                     onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
                 />
 
@@ -845,19 +840,6 @@ export default function InventoryIndex() {
                     initialQuantities={bulkRestockQuantities}
                 />
             )}
-
-            <ReceiptScannerModal
-                open={isReceiptScannerOpen}
-                onOpenChange={setIsReceiptScannerOpen}
-                branchId={Number(currentBranchId || branchList[0]?.id || 1)}
-                inventory={inventory}
-                branches={branchList}
-                isAdmin={isAdmin}
-                onSuccess={() => {
-                    fetchActivityLogs();
-                    router.reload({ only: ['inventory', 'stats'] });
-                }}
-            />
 
             <ResultModal
                 open={isResultModalOpen}

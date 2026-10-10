@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Excel Export Protection Password
+    |--------------------------------------------------------------------------
+    |
+    | Password used to prevent accidental modifications to exported Excel sheets.
+    | Note: Worksheet protection is an operational guard against accidental edits,
+    | not cryptographic encryption or strong access control.
+    |
+    */
+    'excel_export_password' => env('EXCEL_EXPORT_PASSWORD', 'MakiDesuSales'),
+
 ];

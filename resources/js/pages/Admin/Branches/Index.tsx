@@ -7,6 +7,7 @@ import { BranchesHero } from '@/components/branches/BranchesHero';
 import { BranchesStats, type BranchStatsData } from '@/components/branches/BranchesStats';
 import { BranchTable } from '@/components/branches/BranchTable';
 import { CreateBranchModal } from '@/components/branches/CreateBranchModal';
+import { DeleteBranchModal } from '@/components/branches/DeleteBranchModal';
 import AppLayout from '@/layouts/app-layout';
 
 interface Props {
@@ -18,6 +19,7 @@ export default function BranchesIndex({ branches, stats }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const [selectedDrawerBranch, setSelectedDrawerBranch] = useState<Branch | null>(null);
+    const [selectedDeleteBranch, setSelectedDeleteBranch] = useState<Branch | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     // Filter branches based on search query
@@ -54,13 +56,18 @@ export default function BranchesIndex({ branches, stats }: Props) {
                 {viewMode === 'grid' ? (
                     <div className="space-y-6">
                         {filteredBranches.map((branch) => (
-                            <BranchCard key={branch.id} branch={branch} />
+                            <BranchCard
+                                key={branch.id}
+                                branch={branch}
+                                onDelete={(b) => setSelectedDeleteBranch(b)}
+                            />
                         ))}
                     </div>
                 ) : (
                     <BranchTable
                         branches={filteredBranches}
                         onSelectBranch={(branch) => setSelectedDrawerBranch(branch)}
+                        onDelete={(b) => setSelectedDeleteBranch(b)}
                     />
                 )}
             </div>
@@ -76,6 +83,14 @@ export default function BranchesIndex({ branches, stats }: Props) {
                 branch={selectedDrawerBranch}
                 open={!!selectedDrawerBranch}
                 onClose={() => setSelectedDrawerBranch(null)}
+                onDelete={(b) => setSelectedDeleteBranch(b)}
+            />
+
+            {/* Delete Branch Confirmation Modal */}
+            <DeleteBranchModal
+                branch={selectedDeleteBranch}
+                open={!!selectedDeleteBranch}
+                onClose={() => setSelectedDeleteBranch(null)}
             />
         </AppLayout>
     );

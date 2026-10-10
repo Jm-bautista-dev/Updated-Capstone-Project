@@ -320,16 +320,11 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
                                         statusDetails?.variant === 'warning' && "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
                                         statusDetails?.variant === 'error' && "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
                                     )}>
-                                        {statusDetails?.label || (isConnected ? 'Ready to Print' : 'Disconnected')}
+                                        {statusDetails?.label || (isConnected ? 'PRINTER CONNECTED' : 'PRINTER DISCONNECTED')}
                                     </span>
                                 </div>
                                 <div className="text-sm font-extrabold text-[#3D2C2E] dark:text-white flex items-center gap-2">
-                                    <span>{connectedPrinterName}</span>
-                                    {isConnected && formConfig.connection_type === 'universal_browser' && (
-                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1">
-                                            <FiCheck className="size-3" /> Zero Install • Universal
-                                        </span>
-                                    )}
+                                    <span>{isConnected ? connectedPrinterName : (formConfig.connection_type === 'universal_browser' ? 'Universal Web Print (Zero-Install Fallback)' : 'No Printer Connected')}</span>
                                     {isConnected && formConfig.connection_type === 'direct_bluetooth' && (
                                         <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-1.5 py-0.2 rounded font-mono font-bold flex items-center gap-1">
                                             <FiBluetooth className="size-3" /> Direct Bluetooth

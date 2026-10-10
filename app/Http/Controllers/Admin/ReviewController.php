@@ -19,7 +19,7 @@ class ReviewController extends Controller
      * Shows ALL products in master catalog with aggregate review metrics,
      * coupled with high-performance server-side paginated review feed.
      */
-    public function index(Request $request): Response
+    public function index(Request $request)
     {
         $user = Auth::user();
         if (!$user) {
@@ -50,10 +50,7 @@ class ReviewController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        // 1. Master Products List with aggregated review statistics (Lightweight, No N+1)
-        $productList = $this->buildProductList($userBranchId, $search, $branchFilter, $isAdmin);
-
-        // 2. Server-side Paginated Filtered Reviews List
+        // 1. Server-side Paginated Filtered Reviews List
         $reviews = $this->buildFilteredReviews(
             $selectedProductId,
             $userBranchId,
@@ -69,6 +66,17 @@ class ReviewController extends Controller
             $page,
             $isAdmin
         );
+
+        // Lightweight JSON response for progressive / infinite pagination requests
+        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'reviews' => $reviews,
+            ]);
+        }
+
+        // 2. Master Products List with aggregated review statistics (Lightweight, No N+1)
+        $productList = $this->buildProductList($userBranchId, $search, $branchFilter, $isAdmin);
 
         // 3. System-wide Overall Statistics
         $stats = $this->buildOverallStats($userBranchId, $branchFilter, $isAdmin, $productList->count());
@@ -314,6 +322,9 @@ class ReviewController extends Controller
             'total'        => (int) $paginator->total(),
             'from'         => $paginator->firstItem(),
             'to'           => $paginator->lastItem(),
+            'has_more'     => (bool) $paginator->hasMorePages(),
+            'next_page'    => $paginator->hasMorePages() ? (int) $paginator->currentPage() + 1 : null,
+            'prev_page'    => $paginator->currentPage() > 1 ? (int) $paginator->currentPage() - 1 : null,
             'links'        => $paginator->linkCollection()->toArray(),
         ];
     }

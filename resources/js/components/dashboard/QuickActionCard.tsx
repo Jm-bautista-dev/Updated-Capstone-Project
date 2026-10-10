@@ -84,13 +84,14 @@ export function QuickActionCard() {
                         >
                             <Link
                                 href={action.href}
-                                className="group flex flex-col justify-between h-full p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 shadow-xs hover:shadow-md hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-colors duration-300 backdrop-blur-sm"
+                                aria-label={`${action.title}: ${action.description}`}
+                                className="group flex flex-col justify-between h-full p-4 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 shadow-xs hover:shadow-md hover:border-[#E75480]/50 dark:hover:border-[#E1062C]/50 hover:bg-white/90 dark:hover:bg-[#1C1C26]/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121218] transition-all duration-200 backdrop-blur-sm cursor-pointer select-none"
                             >
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="size-9 rounded-xl bg-[#FADADD]/40 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white transition-colors duration-300 flex items-center justify-center shrink-0">
+                                    <div className="size-9 rounded-xl bg-[#FADADD]/40 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white transition-colors duration-200 flex items-center justify-center shrink-0">
                                         {renderCardIcon(action.icon, "size-4")}
                                     </div>
-                                    <ChevronRight className="size-4 text-[#C5B8BA] dark:text-[#64748B] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors" />
+                                    <ChevronRight className="size-4 text-[#C5B8BA] dark:text-[#64748B] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] group-hover:translate-x-1 transition-all duration-200" />
                                 </div>
 
                                 <div>

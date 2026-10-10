@@ -78,8 +78,8 @@ export function BranchPerformanceTable({ branchStats = [] }: BranchPerformanceTa
                             const orders = branch.total_orders ?? branch.orders_today ?? 0;
 
                             return (
-                                <tr key={branch.id} className="hover:bg-[#FADADD]/15 dark:hover:bg-white/5 transition-colors group">
-                                    <td className="py-3.5 px-3 font-bold text-[#3D2C2E] dark:text-[#F8FAFC] group-hover:text-[#E75480] dark:group-hover:text-[#FF4F81] transition-colors flex items-center gap-1.5">
+                                <tr key={branch.id} className="hover:bg-[#FADADD]/15 dark:hover:bg-white/5 transition-colors">
+                                    <td className="py-3.5 px-3 font-bold text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-1.5">
                                         <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
                                         {branch.name}
                                     </td>

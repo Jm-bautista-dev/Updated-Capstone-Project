@@ -71,11 +71,25 @@ export function useInfiniteReviews({
     const observerRef = useRef<IntersectionObserver | null>(null);
     const sentinelNodeRef = useRef<HTMLElement | null>(null);
 
+    // Status refs for stable observer
+    const hasMoreRef = useRef<boolean>(hasMore);
+    hasMoreRef.current = hasMore;
+    const isLoadingRef = useRef<boolean>(isLoading);
+    isLoadingRef.current = isLoading;
+    const isLoadingMoreRef = useRef<boolean>(isLoadingMore);
+    isLoadingMoreRef.current = isLoadingMore;
+
     // Helper to merge and deduplicate review records by id
     const mergeReviews = (prev: PublicReviewItem[], incoming: PublicReviewItem[]): PublicReviewItem[] => {
         const existingIds = new Set(prev.map((r) => r.id));
-        const newUnique = incoming.filter((r) => !existingIds.has(r.id));
-        return [...prev, ...newUnique];
+        const uniqueIncoming: PublicReviewItem[] = [];
+        for (const item of incoming) {
+            if (!existingIds.has(item.id)) {
+                existingIds.add(item.id);
+                uniqueIncoming.push(item);
+            }
+        }
+        return [...prev, ...uniqueIncoming];
     };
 
     // Core fetch routine
@@ -90,12 +104,19 @@ export function useInfiniteReviews({
                 return;
             }
 
-            // Concurrency guard
-            if (isFetchingRef.current) {
+            // Abort prior in-flight request if starting initial fetch
+            if (isInitial) {
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                }
+                isFetchingRef.current = false;
+            } else if (isFetchingRef.current) {
                 return;
             }
 
             isFetchingRef.current = true;
+            fetchedKeysRef.current.add(pageKey);
+
             if (isInitial) {
                 setIsLoading(true);
             } else {
@@ -103,10 +124,6 @@ export function useInfiniteReviews({
             }
             setError(null);
 
-            // Abort prior in-flight request if starting initial fetch
-            if (isInitial && abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
             const controller = new AbortController();
             abortControllerRef.current = controller;
 
@@ -119,6 +136,7 @@ export function useInfiniteReviews({
                 }
 
                 if (mode === 'cursor') {
+                    params.set('mode', 'cursor');
                     if (targetCursor) {
                         params.set('cursor', targetCursor);
                     }
@@ -155,11 +173,9 @@ export function useInfiniteReviews({
                     ratingDistribution: json.data.rating_distribution || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
                 });
 
-                // Record successfully fetched key
-                fetchedKeysRef.current.add(pageKey);
-
                 if (isInitial) {
-                    setReviews(incomingReviews);
+                    const uniqueInit = mergeReviews([], incomingReviews);
+                    setReviews(uniqueInit);
                 } else {
                     setReviews((prev) => mergeReviews(prev, incomingReviews));
                 }
@@ -171,13 +187,16 @@ export function useInfiniteReviews({
                 if (mode === 'cursor') {
                     setNextCursor(pagination.next_cursor || null);
                 } else {
-                    setCurrentPage(pagination.current_page || targetPage);
-                    setNextPage(hasMorePages ? (pagination.next_page || targetPage + 1) : null);
+                    const activePage = pagination.current_page || targetPage;
+                    setCurrentPage(activePage);
+                    setNextPage(hasMorePages ? (pagination.next_page || activePage + 1) : null);
                 }
             } catch (err: unknown) {
                 if (err instanceof Error && err.name === 'AbortError') {
                     return; // Ignore aborted requests
                 }
+                // Allow retrying this pageKey if it failed
+                fetchedKeysRef.current.delete(pageKey);
                 const msg = err instanceof Error ? err.message : 'Unable to load reviews.';
                 setError(msg);
                 // Note: Already loaded reviews are intentionally PRESERVED
@@ -205,6 +224,10 @@ export function useInfiniteReviews({
             await fetchPage(nextPage, null, false);
         }
     }, [hasMore, isLoading, isLoadingMore, mode, nextCursor, nextPage, fetchPage]);
+
+    // Keep ref to latest loadMore for observer
+    const loadMoreRef = useRef(loadMore);
+    loadMoreRef.current = loadMore;
 
     // Refresh from page 1
     const refresh = useCallback(async () => {
@@ -242,37 +265,53 @@ export function useInfiniteReviews({
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
+                isFetchingRef.current = false;
             }
         };
     }, [productId, ratingFilter, perPage, mode, enabled, fetchPage]);
 
-    // IntersectionObserver sentinel ref
-    const sentinelRef = useCallback(
-        (node: HTMLElement | null) => {
+    // Stable IntersectionObserver sentinel ref
+    const sentinelRef = useCallback((node: HTMLElement | null) => {
+        if (observerRef.current) {
+            observerRef.current.disconnect();
+            observerRef.current = null;
+        }
+
+        sentinelNodeRef.current = node;
+
+        if (!node) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0];
+                if (
+                    first.isIntersecting &&
+                    !isFetchingRef.current &&
+                    hasMoreRef.current &&
+                    !isLoadingRef.current &&
+                    !isLoadingMoreRef.current
+                ) {
+                    loadMoreRef.current();
+                }
+            },
+            { threshold: 0.1, rootMargin: '200px' }
+        );
+
+        observer.observe(node);
+        observerRef.current = observer;
+    }, []);
+
+    // Cleanup observer on unmount
+    useEffect(() => {
+        return () => {
             if (observerRef.current) {
                 observerRef.current.disconnect();
+                observerRef.current = null;
             }
-
-            sentinelNodeRef.current = node;
-
-            if (!node || !hasMore || isLoading || isLoadingMore) {
-                return;
-            }
-
-            observerRef.current = new IntersectionObserver(
-                (entries) => {
-                    const first = entries[0];
-                    if (first.isIntersecting && !isFetchingRef.current && hasMore) {
-                        loadMore();
-                    }
-                },
-                { threshold: 0.1, rootMargin: '200px' }
-            );
-
-            observerRef.current.observe(node);
-        },
-        [hasMore, isLoading, isLoadingMore, loadMore]
-    );
+        };
+    }, []);
 
     return {
         reviews,

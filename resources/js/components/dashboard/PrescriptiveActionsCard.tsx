@@ -34,7 +34,7 @@ export function PrescriptiveActionsCard({ suggestions = [] }: PrescriptiveAction
                 </div>
                 <Link
                     href="/analytics/restock-suggestions"
-                    className="text-[10px] font-bold uppercase tracking-wider text-[#E75480] dark:text-[#FF4F81] hover:underline flex items-center gap-1"
+                    className="text-[10px] font-bold uppercase tracking-wider text-[#E75480] dark:text-[#FF4F81] hover:underline flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81] rounded-sm"
                 >
                     <span>View All</span>
                     <ArrowRight className="size-3" />
@@ -50,7 +50,7 @@ export function PrescriptiveActionsCard({ suggestions = [] }: PrescriptiveAction
                     suggestions.slice(0, 3).map((item, idx) => (
                         <div
                             key={idx}
-                            className="p-3.5 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs space-y-1.5 backdrop-blur-sm hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-colors"
+                            className="p-3.5 rounded-2xl bg-white/70 dark:bg-[#181820]/70 border border-[#F8C8DC]/40 dark:border-white/10 shadow-2xs space-y-1.5 backdrop-blur-sm"
                         >
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{item.name}</span>

@@ -67,6 +67,16 @@ class User extends Authenticatable
     const STATUS_SUSPENDED    = 'suspended';
     const STATUS_DEACTIVATED  = 'deactivated';
 
+    public function getRoleAttribute($value): string
+    {
+        return strtolower(trim((string) ($value ?? self::ROLE_CUSTOMER)));
+    }
+
+    public function setRoleAttribute($value): void
+    {
+        $this->attributes['role'] = strtolower(trim((string) $value));
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPER_ADMIN;

@@ -52,10 +52,10 @@ class RiderNameValidationTest extends TestCase
 
     public function test_can_create_rider_with_exact_max_length_name(): void
     {
-        $name255 = str_repeat('A', 255);
+        $name50 = str_repeat('A', 50);
 
         $response = $this->actingAs($this->admin)->post('/riders', [
-            'name'      => $name255,
+            'name'      => $name50,
             'email'     => 'maxname@example.com',
             'phone'     => '09171234568',
             'branch_id' => $this->branch->id,
@@ -63,17 +63,17 @@ class RiderNameValidationTest extends TestCase
 
         $response->assertSessionHasNoErrors();
         $this->assertDatabaseHas('riders', [
-            'name'  => $name255,
+            'name'  => $name50,
             'email' => 'maxname@example.com',
         ]);
     }
 
     public function test_cannot_create_rider_with_name_exceeding_max_length(): void
     {
-        $name256 = str_repeat('A', 256);
+        $name51 = str_repeat('A', 51);
 
         $response = $this->actingAs($this->admin)->post('/riders', [
-            'name'      => $name256,
+            'name'      => $name51,
             'email'     => 'toolong@example.com',
             'phone'     => '09171234569',
             'branch_id' => $this->branch->id,
@@ -96,10 +96,10 @@ class RiderNameValidationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $name256 = str_repeat('B', 256);
+        $name51 = str_repeat('B', 51);
 
         $response = $this->actingAs($this->admin)->put("/riders/{$rider->id}", [
-            'name'      => $name256,
+            'name'      => $name51,
             'email'     => 'orig@example.com',
             'phone'     => '09171234570',
             'branch_id' => $this->branch->id,
@@ -176,7 +176,7 @@ class RiderNameValidationTest extends TestCase
 
     public function test_direct_json_request_exceeding_max_length_is_rejected_with_422(): void
     {
-        $longName = str_repeat('X', 260);
+        $longName = str_repeat('X', 51);
 
         $response = $this->actingAs($this->admin)->postJson('/riders', [
             'name'      => $longName,

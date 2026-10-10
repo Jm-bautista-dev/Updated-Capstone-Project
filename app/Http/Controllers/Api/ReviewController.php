@@ -40,8 +40,10 @@ class ReviewController extends Controller
 
             // Support cursor pagination or standard page pagination seamlessly
             $cursor = $request->input('cursor');
-            if ($cursor) {
-                $cursorPaginator = $reviewsQuery->latest('id')->cursorPaginate($perPage, ['*'], 'cursor', $cursor);
+            $mode = $request->input('mode', 'page');
+            if ($cursor !== null || $mode === 'cursor' || $request->has('cursor')) {
+                $cursorVal = ($cursor === '' || $cursor === 'first' || $cursor === 'initial') ? null : $cursor;
+                $cursorPaginator = $reviewsQuery->latest('id')->cursorPaginate($perPage, ['*'], 'cursor', $cursorVal);
                 $hasMore = $cursorPaginator->hasMorePages();
                 $nextCursor = $cursorPaginator->nextCursor()?->encode();
                 $prevCursor = $cursorPaginator->previousCursor()?->encode();

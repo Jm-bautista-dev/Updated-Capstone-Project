@@ -1,6 +1,6 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { Building2, CheckCircle2, MapPin, Navigation, Save, X } from 'lucide-react';
+import { Building2, CheckCircle2, MapPin, Navigation, Save, Trash2, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,9 +27,13 @@ export interface Branch {
 
 interface BranchCardProps {
     branch: Branch;
+    onDelete?: (branch: Branch) => void;
 }
 
-export function BranchCard({ branch }: BranchCardProps) {
+export function BranchCard({ branch, onDelete }: BranchCardProps) {
+    const { auth } = usePage().props as unknown as { auth?: { user?: { role?: string } } };
+    const isAdmin = auth?.user?.role === 'admin' || auth?.user?.role === 'super_admin';
+
     const { data, setData, put, processing, errors, recentlySuccessful } = useForm({
         name: branch.name,
         address: branch.address ?? '',
@@ -200,6 +204,21 @@ export function BranchCard({ branch }: BranchCardProps) {
                         <span>🕒</span>
                         <span>Manage Store Hours</span>
                     </Button>
+
+                    {isAdmin && onDelete && (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onDelete(branch)}
+                            title="Delete Branch"
+                            aria-label="Delete branch"
+                            className="h-9 px-3 rounded-xl text-xs font-bold border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 cursor-pointer shadow-2xs gap-1.5 transition-colors"
+                        >
+                            <Trash2 className="size-3.5" />
+                            <span className="hidden sm:inline">Delete</span>
+                        </Button>
+                    )}
 
                     <Badge variant="secondary" className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/70 dark:bg-[#252532] text-[#3D2C2E] dark:text-[#F8FAFC] border border-[#F8C8DC]/40 dark:border-white/10">
                         {data.has_internal_riders ? 'Internal Fleet' : '3P Delivery'}
@@ -434,7 +453,7 @@ export function BranchCard({ branch }: BranchCardProps) {
 
             {/* Operating Hours & Overrides Management Modal */}
             <BranchOperatingHoursModal
-                branch={branch as any}
+                branch={branch}
                 open={isHoursModalOpen}
                 onClose={() => setIsHoursModalOpen(false)}
             />

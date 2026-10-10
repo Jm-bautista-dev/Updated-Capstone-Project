@@ -95,6 +95,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
 
     const { auth } = usePage().props as unknown as { auth?: { user?: { id?: number; role?: string; branch_id?: number } } };
     const userRole = (auth?.user?.role || '').toLowerCase();
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
     const isFilteredBranch = Boolean(filters.branch_id && filters.branch_id !== 'all');
     const branchFilterId = isFilteredBranch ? filters.branch_id : null;
 
@@ -388,8 +389,12 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
     }, [filters]);
 
     const handleClearFilters = useCallback(() => {
-        router.get('/deliveries', {}, { preserveState: true, replace: true });
-    }, []);
+        const resetParams: Record<string, string> = { view: filters.view || 'today' };
+        if (!isAdmin && auth?.user?.branch_id) {
+            resetParams.branch_id = String(auth.user.branch_id);
+        }
+        router.get('/deliveries', resetParams, { preserveState: true, replace: true });
+    }, [isAdmin, auth?.user?.branch_id, filters.view]);
 
     // Selected delivery for status update confirmation
     const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<number | null>(null);
@@ -475,7 +480,8 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
     // ---- Derived state ----
 
     const hasFilters = !!(filters.search || (filters.status && filters.status !== 'all') ||
-        (filters.type && filters.type !== 'all') || (filters.branch_id && filters.branch_id !== 'all'));
+        (filters.rider_id && filters.rider_id !== 'all') ||
+        (isAdmin && filters.branch_id && filters.branch_id !== 'all'));
 
     const hasMore = currentPage < deliveries.last_page;
 
@@ -508,7 +514,7 @@ export default function DeliveryIndex({ deliveries, availableRiders, allRiders =
                     branches={branches}
                     allRiders={allRiders}
                     viewMode={viewMode}
-                    stats={stats}
+                    isAdmin={isAdmin}
                     onFilterChange={handleFilterChange}
                     onViewModeChange={handleViewModeChange}
                 />

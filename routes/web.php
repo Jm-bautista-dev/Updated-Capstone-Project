@@ -128,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Branch location/settings management (Admin only)
             Route::post('branches', [BranchController::class, 'store'])->name('branches.store');
             Route::put('branches/{id}', [BranchController::class, 'update'])->name('branches.update');
+            Route::delete('branches/{id}', [BranchController::class, 'destroy'])->name('branches.destroy');
             Route::get('branches/stats', [BranchController::class, 'stats'])->name('branches.stats');
 
             // Administrative Inventory & Product Management

@@ -118,16 +118,38 @@ class DynamicExport implements FromArray, WithStyles, WithTitle, ShouldAutoSize
             $protection->setPassword((string) $password);
         }
 
-        // Also protect workbook structure where appropriate
+        // Protect all sheets consistently if multiple sheets exist in workbook
         try {
-            if ($sheet->getParent() && $sheet->getParent()->getSecurity()) {
-                $sheet->getParent()->getSecurity()->setLockStructure(true);
-                if (!empty($password)) {
-                    $sheet->getParent()->getSecurity()->setWorkbookPassword((string) $password);
+            if ($sheet->getParent()) {
+                foreach ($sheet->getParent()->getAllSheets() as $wkSheet) {
+                    $wkProtection = $wkSheet->getProtection();
+                    $wkProtection->setSheet(true);
+                    $wkProtection->setSelectLockedCells(true);
+                    $wkProtection->setSelectUnlockedCells(true);
+                    $wkProtection->setAutoFilter(true);
+                    $wkProtection->setSort(true);
+                    $wkProtection->setFormatCells(false);
+                    $wkProtection->setInsertRows(false);
+                    $wkProtection->setInsertColumns(false);
+                    $wkProtection->setDeleteRows(false);
+                    $wkProtection->setDeleteColumns(false);
+                    $wkProtection->setObjects(true);
+                    $wkProtection->setScenarios(true);
+
+                    if (!empty($password)) {
+                        $wkProtection->setPassword((string) $password);
+                    }
+                }
+
+                if ($sheet->getParent()->getSecurity()) {
+                    $sheet->getParent()->getSecurity()->setLockStructure(true);
+                    if (!empty($password)) {
+                        $sheet->getParent()->getSecurity()->setWorkbookPassword((string) $password);
+                    }
                 }
             }
         } catch (\Throwable $e) {
-            // Ignore if workbook security is not supported in current context
+            // Safe fallback if workbook security is not supported in current context
         }
     }
 

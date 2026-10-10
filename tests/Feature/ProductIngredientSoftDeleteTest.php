@@ -201,9 +201,9 @@ class ProductIngredientSoftDeleteTest extends TestCase
     }
 
     /**
-     * TEST 5: Existing product with soft-deleted ingredient can be updated without losing historical recipe.
+     * TEST 5: Attempting to assign or update recipe with soft-deleted ingredient is rejected.
      */
-    public function test_existing_product_with_soft_deleted_ingredient_can_be_updated(): void
+    public function test_updating_product_recipe_rejects_soft_deleted_ingredient(): void
     {
         $product = Product::create([
             'name' => 'Classic Roll',
@@ -215,13 +215,6 @@ class ProductIngredientSoftDeleteTest extends TestCase
             'cost_price' => 45.00,
             'unit' => 'pcs',
             'stock' => 10,
-        ]);
-
-        MenuItemIngredient::create([
-            'menu_item_id' => $product->id,
-            'ingredient_id' => $this->deletedIngredient->id,
-            'quantity_required' => 2,
-            'unit' => 'pcs',
         ]);
 
         $updatePayload = [
@@ -243,16 +236,8 @@ class ProductIngredientSoftDeleteTest extends TestCase
 
         $response = $this->actingAs($this->adminUser)->put(route('products.update', $product->id), $updatePayload);
 
-        $response->assertRedirect();
-        $this->assertDatabaseHas('products', [
-            'id' => $product->id,
-            'name' => 'Classic Roll Updated',
-            'selling_price' => 175.00,
-        ]);
-
-        $freshProduct = Product::with('ingredients')->find($product->id);
-        $this->assertCount(1, $freshProduct->ingredients);
-        $this->assertEquals($this->deletedIngredient->id, $freshProduct->ingredients->first()->id);
+        $response->assertSessionHasErrors(['recipe.0.ingredient_id']);
+        $this->assertEquals('Classic Roll', $product->fresh()->name);
     }
 
     /**
@@ -293,6 +278,44 @@ class ProductIngredientSoftDeleteTest extends TestCase
         $storeResponse->assertRedirect();
         $this->assertDatabaseHas('products', [
             'name' => 'Crabstick Maki',
+        ]);
+    }
+
+    /**
+     * TEST 7: Direct JSON API request cannot attach a deleted ingredient (returns 422).
+     */
+    public function test_direct_api_post_with_deleted_ingredient_returns_422(): void
+    {
+        $payload = [
+            'name' => 'Direct API Test Product',
+            'sku' => 'DIR-API-001',
+            'category_id' => $this->testCategory->id,
+            'selling_price' => 199.00,
+            'costing_method' => 'automatic',
+            'unit' => 'pcs',
+            'branch_option' => 'single',
+            'branch_id' => $this->testBranch->id,
+            'branch_ids' => [$this->testBranch->id],
+            'recipe' => [
+                [
+                    'ingredient_id' => $this->deletedIngredient->id,
+                    'quantity_required' => 2,
+                    'unit' => 'pcs',
+                ],
+            ],
+        ];
+
+        // Ensure ingredient is soft-deleted
+        if (!$this->deletedIngredient->trashed()) {
+            $this->deletedIngredient->delete();
+        }
+
+        $response = $this->actingAs($this->adminUser)->postJson(route('products.store'), $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['recipe.0.ingredient_id']);
+        $this->assertDatabaseMissing('products', [
+            'name' => 'Direct API Test Product',
         ]);
     }
 }

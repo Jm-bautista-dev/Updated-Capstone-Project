@@ -153,8 +153,9 @@ export function IngredientCostTrendCard({
                                 return (
                                     <button
                                         key={ing.id}
+                                        type="button"
                                         onClick={() => setSelectedId(ing.id)}
-                                        className={`w-full text-left p-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
+                                        className={`w-full text-left p-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 ${
                                             isSelected
                                                 ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 font-bold border border-amber-500/30'
                                                 : 'hover:bg-muted/40 text-foreground'

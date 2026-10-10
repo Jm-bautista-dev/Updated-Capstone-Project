@@ -43,21 +43,21 @@ export function ReportsHero() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.05 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 min-w-0"
                     >
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Gross Revenue</span>
-                            <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">Gross Revenue</span>
+                            <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs shrink-0">
                                 <DollarSign className="size-5" />
                             </div>
                         </div>
-                        <div className="mt-3 space-y-1">
-                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                        <div className="mt-3 space-y-1 min-w-0">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate" title={formatCurrency(421380)}>
                                 {formatCurrency(421380)}
                             </h2>
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold font-mono">
-                                <TrendingUp className="size-3.5" />
-                                <span>+18.4% vs last month</span>
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold font-mono truncate">
+                                <TrendingUp className="size-3.5 shrink-0" />
+                                <span className="truncate">+18.4% vs last month</span>
                             </div>
                         </div>
                     </motion.div>
@@ -67,19 +67,19 @@ export function ReportsHero() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.1 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 min-w-0"
                     >
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Growth Pace</span>
-                            <div className="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-center shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">Growth Pace</span>
+                            <div className="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-center shadow-2xs shrink-0">
                                 <TrendingUp className="size-5" />
                             </div>
                         </div>
-                        <div className="mt-3 space-y-1">
-                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                        <div className="mt-3 space-y-1 min-w-0">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate">
                                 +24.8%
                             </h2>
-                            <div className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-bold font-mono">
+                            <div className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] font-bold font-mono truncate">
                                 Above forecast baseline
                             </div>
                         </div>
@@ -90,19 +90,19 @@ export function ReportsHero() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.15 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 min-w-0"
                     >
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Stock Valuation</span>
-                            <div className="size-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">Stock Valuation</span>
+                            <div className="size-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center shadow-2xs shrink-0">
                                 <Layers className="size-5" />
                             </div>
                         </div>
-                        <div className="mt-3 space-y-1">
-                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                        <div className="mt-3 space-y-1 min-w-0">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate" title={formatCurrency(312450)}>
                                 {formatCurrency(312450)}
                             </h2>
-                            <div className="text-xs text-amber-600 dark:text-amber-400 font-bold font-mono">
+                            <div className="text-xs text-amber-600 dark:text-amber-400 font-bold font-mono truncate">
                                 Active ingredient balance
                             </div>
                         </div>
@@ -113,19 +113,19 @@ export function ReportsHero() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.2 }}
-                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300"
+                        className="rounded-3xl bg-white/90 dark:bg-[#181820]/90 border border-white/80 dark:border-white/10 p-5 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.08)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors duration-300 min-w-0"
                     >
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Avg Order Value</span>
-                            <div className="size-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900/50 flex items-center justify-center shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate">Avg Order Value</span>
+                            <div className="size-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900/50 flex items-center justify-center shadow-2xs shrink-0">
                                 <ShoppingBag className="size-5" />
                             </div>
                         </div>
-                        <div className="mt-3 space-y-1">
-                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight">
+                        <div className="mt-3 space-y-1 min-w-0">
+                            <h2 className="text-2xl sm:text-3xl font-black font-mono text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate" title={formatCurrency(284.3)}>
                                 {formatCurrency(284.3)}
                             </h2>
-                            <div className="text-xs text-purple-600 dark:text-purple-400 font-bold font-mono">
+                            <div className="text-xs text-purple-600 dark:text-purple-400 font-bold font-mono truncate">
                                 Per completed receipt
                             </div>
                         </div>

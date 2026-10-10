@@ -67,7 +67,7 @@ export function InsightCard() {
                             initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, delay: index * 0.05 }}
-                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:border-[#E75480]/30 dark:hover:border-white/20 backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 h-full min-h-55"
+                            className="rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-5 sm:p-6 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] hover:border-[#E75480]/30 dark:hover:border-white/20 backdrop-blur-2xl transition-colors duration-300 flex flex-col justify-between space-y-4 h-full min-h-55 min-w-0"
                         >
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between gap-2">

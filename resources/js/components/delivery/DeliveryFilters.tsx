@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import debounce from 'lodash/debounce';
 import { Building2, Calendar, Clock, History, LayoutGrid, List, Search, User, X } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -15,11 +16,7 @@ interface DeliveryFiltersProps {
     branches: Branch[];
     allRiders?: Array<{ id: number; name: string }>;
     viewMode: ViewMode;
-    stats?: {
-        all_count?: number;
-        delivery_count?: number;
-        pickup_count?: number;
-    };
+    isAdmin?: boolean;
     onFilterChange: (updates: Partial<FilterType>) => void;
     onViewModeChange: (mode: ViewMode) => void;
 }
@@ -29,10 +26,14 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
     branches,
     allRiders = [],
     viewMode,
-    stats,
+    isAdmin,
     onFilterChange,
     onViewModeChange,
 }: DeliveryFiltersProps) {
+    const { auth } = usePage().props as unknown as { auth?: { user?: { role?: string; branch_id?: number } } };
+    const userRole = (auth?.user?.role || '').toLowerCase();
+    const isUserAdmin = isAdmin ?? (userRole === 'admin' || userRole === 'super_admin');
+
     const [searchValue, setSearchValue] = useState(filters.search || '');
     const currentView = filters.view || 'today';
 
@@ -48,8 +49,7 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
 
     const activeFilterCount = [
         filters.status && filters.status !== 'all',
-        filters.type && filters.type !== 'all',
-        filters.branch_id && filters.branch_id !== 'all',
+        isUserAdmin && filters.branch_id && filters.branch_id !== 'all',
         filters.rider_id && filters.rider_id !== 'all',
         filters.date_preset && filters.date_preset !== 'all',
         filters.search,
@@ -57,17 +57,19 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
 
     const clearFilters = useCallback(() => {
         setSearchValue('');
-        onFilterChange({
+        const resetPayload: Partial<FilterType> = {
             status: 'all',
-            type: 'all',
-            branch_id: 'all',
             rider_id: 'all',
             date_preset: 'all',
             start_date: '',
             end_date: '',
             search: ''
-        });
-    }, [onFilterChange]);
+        };
+        if (isUserAdmin) {
+            resetPayload.branch_id = 'all';
+        }
+        onFilterChange(resetPayload);
+    }, [onFilterChange, isUserAdmin]);
 
     return (
         <div className="flex flex-col gap-4">
@@ -97,50 +99,6 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                     >
                         <History className="size-4" />
                         <span>Delivery Archive</span>
-                    </button>
-                </div>
-
-                {/* Delivery Type Tabs: ALL | INTERNAL FLEET | THIRD-PARTY COURIER */}
-                <div className="flex items-center gap-1 p-1 rounded-2xl bg-[#F8C8DC]/20 dark:bg-white/5 border border-[#F8C8DC]/40 dark:border-white/10 self-center sm:self-auto overflow-x-auto">
-                    <button
-                        type="button"
-                        onClick={() => onFilterChange({ type: 'all' })}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            (filters.type || 'all') === 'all'
-                                ? 'bg-[#E75480] text-white shadow-xs shadow-[#E75480]/30'
-                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                    >
-                        <span>All Deliveries</span>
-                        {typeof stats?.delivery_count === 'number' && (
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                                (filters.type || 'all') === 'all' ? 'bg-white/20 text-white' : 'bg-rose-100 dark:bg-white/10 text-rose-700 dark:text-rose-300'
-                            }`}>
-                                {stats.delivery_count}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onFilterChange({ type: 'internal' })}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            filters.type === 'internal'
-                                ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/30'
-                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                    >
-                        <span>🚚 Internal Fleet</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onFilterChange({ type: 'external' })}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                            filters.type === 'external'
-                                ? 'bg-purple-600 text-white shadow-xs shadow-purple-500/30'
-                                : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                    >
-                        <span>🛵 Third-Party</span>
                     </button>
                 </div>
             </div>
@@ -215,31 +173,21 @@ const DeliveryFilters = React.memo(function DeliveryFilters({
                             </Select>
                         )}
 
-                        <Select value={filters.type || 'all'} onValueChange={(v: string) => onFilterChange({ type: v })}>
-                            <SelectTrigger className="h-10 w-32.5 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold shrink-0 text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                <SelectValue placeholder="Type" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820]">
-                                <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="delivery">Delivery (All)</SelectItem>
-                                <SelectItem value="pickup">Pickup Orders</SelectItem>
-                                <SelectItem value="internal">Internal Delivery</SelectItem>
-                                <SelectItem value="external">External Delivery</SelectItem>
-                            </SelectContent>
-                        </Select>
 
-                        <Select value={filters.branch_id || 'all'} onValueChange={(v: string) => onFilterChange({ branch_id: v })}>
-                            <SelectTrigger className="h-10 w-37.5 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold shrink-0 text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                <Building2 className="size-3 mr-1 text-[#E75480] dark:text-[#FF4F81]" />
-                                <SelectValue placeholder="Branch" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820]">
-                                <SelectItem value="all">All Branches</SelectItem>
-                                {branches.map(b => (
-                                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {isUserAdmin && (
+                            <Select value={filters.branch_id || 'all'} onValueChange={(v: string) => onFilterChange({ branch_id: v })}>
+                                <SelectTrigger className="h-10 w-37.5 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-xs font-bold shrink-0 text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                    <Building2 className="size-3 mr-1 text-[#E75480] dark:text-[#FF4F81]" />
+                                    <SelectValue placeholder="Branch" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820]">
+                                    <SelectItem value="all">All Branches</SelectItem>
+                                    {branches.map(b => (
+                                        <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
 
                         {/* Clear Filters */}
                         {activeFilterCount > 0 && (

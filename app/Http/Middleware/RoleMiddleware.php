@@ -24,14 +24,15 @@ class RoleMiddleware
         $userRole = null;
         if ($user) {
             try {
-                $userRole = $user->role;
+                $userRole = strtolower(trim((string)$user->role));
             } catch (\Exception $e) {
                 // Column probably missing
                 $userRole = 'customer'; // Default fallback
             }
         }
 
-        $isAuthorized = in_array($userRole, $roles) || ($userRole === 'super_admin' && in_array('admin', $roles));
+        $normalizedRoles = array_map(fn($r) => strtolower(trim($r)), $roles);
+        $isAuthorized = in_array($userRole, $normalizedRoles) || ($userRole === 'super_admin' && in_array('admin', $normalizedRoles));
 
         if (!$user || !$isAuthorized) {
             // If it's an API request, return 403 Forbidden JSON
