@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Models\Branch;
 use App\Models\User;
+use App\Utils\UnitConverter;
+use App\Services\LowStockAlertService;
 
 class NotificationController extends Controller
 {
@@ -39,13 +41,18 @@ class NotificationController extends Controller
         $orderNotifications        = $this->fetchOrderNotifications($user, $isAdmin);
         $prepDueNotifications      = $this->fetchPrepReminderNotifications($user, $isAdmin);
         $cancellationNotifications = $this->fetchCancellationNotifications($user, $isAdmin);
+        $lowStockNotifications     = $this->fetchLowStockAlertNotifications($user, $isAdmin);
         $ingredientNotifications   = $this->fetchIngredientNotifications($user, $isAdmin);
 
         // 2. Combine and sort notifications by created_at descending
-        $allNotifications = $orderNotifications->concat($prepDueNotifications)->concat($cancellationNotifications)->concat($ingredientNotifications)
+        $allNotifications = $orderNotifications
+            ->concat($prepDueNotifications)
+            ->concat($cancellationNotifications)
+            ->concat($lowStockNotifications)
+            ->concat($ingredientNotifications)
             ->sortByDesc('created_at')
             ->values()
-            ->take(15);
+            ->take(20);
 
         $unreadCount = $allNotifications->where('is_unread', true)->count();
 
@@ -209,12 +216,125 @@ class NotificationController extends Controller
     }
 
     /**
-     * Fetch ingredient log and low stock notification stream.
+     * Fetch dedicated branch-aware low-stock and out-of-stock alert notification stream.
+     * Evaluates current inventory thresholds and formats alerts with actionable item, branch,
+     * and quantity details.
+     */
+    private function fetchLowStockAlertNotifications($user, bool $isAdmin)
+    {
+        try {
+            $branchId = (!$isAdmin && isset($user->branch_id)) ? (int) $user->branch_id : null;
+
+            // Background fallback sync: ensure any stock row reaching threshold has its alert state synced
+            try {
+                $stockQuery = IngredientStock::with(['ingredient', 'branch'])
+                    ->where(function ($q) {
+                        $q->whereColumn('stock', '<=', 'low_stock_level')
+                          ->orWhere('stock', '<=', 0);
+                    })
+                    ->where(function ($q) {
+                        $q->where('is_low_stock_notified', false)
+                          ->orWhere('is_out_of_stock_notified', false);
+                    });
+
+                if ($branchId) {
+                    $stockQuery->where('branch_id', $branchId);
+                }
+
+                $unnotified = $stockQuery->limit(10)->get();
+                $alertService = app(LowStockAlertService::class);
+                foreach ($unnotified as $unRow) {
+                    $alertService->evaluateStockRow($unRow);
+                }
+            } catch (\Throwable $e) {
+                // non-blocking
+            }
+
+            // Query authoritative stock alert logs
+            $alertQuery = IngredientLog::with(['ingredient', 'branch', 'user'])
+                ->where(function ($q) {
+                    $q->where('reason', 'like', '%Stock Alert%')
+                      ->orWhere('reason', 'like', '%Out of Stock%')
+                      ->orWhere('reason', 'like', '%Low Stock%');
+                })
+                ->latest();
+
+            if ($branchId) {
+                $alertQuery->where('branch_id', $branchId);
+            }
+
+            $alertLogs = $alertQuery->limit(20)->get();
+            $notifications = collect();
+
+            foreach ($alertLogs as $log) {
+                if (!$log->ingredient) {
+                    continue;
+                }
+
+                $stockRow = IngredientStock::where('ingredient_id', $log->ingredient_id)
+                    ->where('branch_id', $log->branch_id)
+                    ->first();
+
+                // If stock was restocked above threshold, it is no longer low-stock
+                if (!$stockRow || (float) $stockRow->stock > (float) $stockRow->low_stock_level) {
+                    continue;
+                }
+
+                $displayUnit = strtolower(trim($log->ingredient->unit ?? 'pcs'));
+                $canonicalStock = (float) $stockRow->stock;
+                $canonicalThreshold = (float) $stockRow->low_stock_level;
+
+                $displayStock = UnitConverter::convertFromBaseQuantity($canonicalStock, $displayUnit);
+                $displayThreshold = UnitConverter::convertFromBaseQuantity($canonicalThreshold, $displayUnit);
+
+                $isOutOfStock = $canonicalStock <= 0;
+                $type = $isOutOfStock ? 'out_of_stock' : 'low_stock';
+
+                $notifications->push([
+                    'id'               => 'log_' . $log->id,
+                    'log_id'           => $log->id,
+                    'ingredient_id'    => $log->ingredient_id,
+                    'employee_name'    => $log->user ? $log->user->name : 'System',
+                    'action'           => 'Alert',
+                    'ingredient_name'  => $log->ingredient->name,
+                    'current_stock'    => $displayStock . ' ' . $displayUnit,
+                    'threshold'        => $displayThreshold . ' ' . $displayUnit,
+                    'remaining'        => $displayStock . ' ' . $displayUnit,
+                    'quantity_change'  => 'Min: ' . $displayThreshold . ' ' . $displayUnit,
+                    'unit'             => $displayUnit,
+                    'branch_id'        => $log->branch_id,
+                    'branch_name'      => $log->branch ? $log->branch->name : 'Branch',
+                    'created_at'       => $log->created_at ? $log->created_at->toIso8601String() : now()->toIso8601String(),
+                    'time_ago'         => $log->created_at ? $log->created_at->diffForHumans() : 'Just now',
+                    'is_unread'        => $user->last_notifications_read_at && $log->created_at ? $log->created_at->gt($user->last_notifications_read_at) : true,
+                    'type'             => $type,
+                    'url'              => '/inventory',
+                ]);
+            }
+
+            // Deduplicate per ingredient and branch so latest alert per item/branch is served
+            return $notifications->unique(function ($item) {
+                return $item['ingredient_id'] . '_' . $item['branch_id'];
+            })->values();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed fetching low stock alert notifications: ' . $e->getMessage());
+            return collect();
+        }
+    }
+
+    /**
+     * Fetch general ingredient log activity stream (excluding stock alerts to prevent duplicate bell items).
      */
     private function fetchIngredientNotifications($user, bool $isAdmin)
     {
         try {
-            $logQuery = IngredientLog::with(['ingredient', 'branch', 'user'])->latest();
+            $logQuery = IngredientLog::with(['ingredient', 'branch', 'user'])
+                ->where(function ($q) {
+                    $q->where('reason', 'not like', '%Stock Alert%')
+                      ->where('reason', 'not like', '%Out of Stock%')
+                      ->where('reason', 'not like', '%Low Stock%');
+                })
+                ->latest();
 
             if (!$isAdmin && isset($user->branch_id)) {
                 $logQuery->where('branch_id', $user->branch_id);
@@ -222,8 +342,6 @@ class NotificationController extends Controller
 
             return $logQuery->limit(10)->get()->map(function ($log) use ($user) {
                 if (!$log->ingredient) return null;
-
-                $isAlert = str_contains($log->reason ?? '', 'Stock Alert');
 
                 $currentStock = 0;
                 if ($log->branch_id) {
@@ -233,19 +351,23 @@ class NotificationController extends Controller
                     $currentStock = $stockRow ? $stockRow->stock : 0;
                 }
 
+                $displayUnit = strtolower(trim($log->ingredient->unit ?? 'pcs'));
+                $displayCurrent = UnitConverter::convertFromBaseQuantity((float)$currentStock, $displayUnit);
+                $displayChange = UnitConverter::convertFromBaseQuantity(abs((float)$log->change_qty), $displayUnit);
+
                 return [
                     'id'              => 'log_' . $log->id,
                     'employee_name'   => $log->user ? $log->user->name : 'System',
-                    'action'          => $isAlert ? 'Alert' : ($log->change_qty > 0 ? 'Added' : 'Deducted'),
+                    'action'          => $log->change_qty > 0 ? 'Added' : 'Deducted',
                     'ingredient_name' => $log->ingredient->name,
-                    'quantity_change' => abs((float)$log->change_qty) . ' ' . $log->ingredient->unit,
-                    'remaining'       => $currentStock . ' ' . $log->ingredient->unit,
+                    'quantity_change' => $displayChange . ' ' . $displayUnit,
+                    'remaining'       => $displayCurrent . ' ' . $displayUnit,
                     'source'          => $log->reason,
                     'branch_name'     => $log->branch ? $log->branch->name : 'N/A',
                     'created_at'      => $log->created_at ? $log->created_at->toIso8601String() : now()->toIso8601String(),
                     'time_ago'        => $log->created_at ? $log->created_at->diffForHumans() : 'Just now',
                     'is_unread'       => $user->last_notifications_read_at && $log->created_at ? $log->created_at->gt($user->last_notifications_read_at) : true,
-                    'type'            => str_contains($log->reason ?? '', 'Out of Stock') ? 'out_of_stock' : (str_contains($log->reason ?? '', 'Low Stock') ? 'low_stock' : 'activity'),
+                    'type'            => 'activity',
                     'url'             => '/inventory/activity',
                 ];
             })->filter()->values();

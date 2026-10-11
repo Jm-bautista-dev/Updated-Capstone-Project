@@ -734,6 +734,8 @@ class SaleService
                                 'new_stock'      => (float) $stockRow->stock,
                                 'reference'      => "Void Sale: {$freshSale->order_number}",
                             ]);
+                            $stockRow->refresh();
+                            $this->updateStockAlerts($stockRow);
                         }
                     }
                 }
@@ -750,49 +752,10 @@ class SaleService
 
     /**
      * Update is_low_stock_notified / is_out_of_stock_notified flags on a stock row
-     * and create an IngredientLog alert entry if needed.
+     * and create an IngredientLog alert entry if needed via LowStockAlertService.
      */
     protected function updateStockAlerts(IngredientStock $stockRow): void
     {
-        $stock    = (float) $stockRow->stock;
-        $lowLevel = (float) $stockRow->low_stock_level;
-
-        if ($stock <= 0) {
-            if (!$stockRow->is_out_of_stock_notified) {
-                IngredientLog::create([
-                    'ingredient_id' => $stockRow->ingredient_id,
-                    'user_id'       => null,
-                    'branch_id'     => $stockRow->branch_id,
-                    'change_qty'    => 0,
-                    'reason'        => "Out of Stock Alert — Branch #{$stockRow->branch_id}",
-                ]);
-                $stockRow->update([
-                    'is_out_of_stock_notified' => true,
-                    'is_low_stock_notified'    => true,
-                ]);
-            }
-        } elseif ($stock <= $lowLevel) {
-            if (!$stockRow->is_low_stock_notified) {
-                IngredientLog::create([
-                    'ingredient_id' => $stockRow->ingredient_id,
-                    'user_id'       => null,
-                    'branch_id'     => $stockRow->branch_id,
-                    'change_qty'    => 0,
-                    'reason'        => "Low Stock Alert — Branch #{$stockRow->branch_id}",
-                ]);
-                $stockRow->update([
-                    'is_low_stock_notified'    => true,
-                    'is_out_of_stock_notified' => false,
-                ]);
-            }
-        } else {
-            // Stock is healthy — reset flags
-            if ($stockRow->is_low_stock_notified || $stockRow->is_out_of_stock_notified) {
-                $stockRow->update([
-                    'is_low_stock_notified'    => false,
-                    'is_out_of_stock_notified' => false,
-                ]);
-            }
-        }
+        app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stockRow, Auth::id());
     }
 }

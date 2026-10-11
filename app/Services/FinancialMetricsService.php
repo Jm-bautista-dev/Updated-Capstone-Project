@@ -301,9 +301,14 @@ class FinancialMetricsService
         }
         $endUtc = null;
         if ($endDate) {
-            $endUtc = ($endDate instanceof \DateTimeInterface)
-                ? Carbon::instance($endDate)->copy()->utc()
-                : Carbon::parse($endDate, $tz)->endOfDay()->utc();
+            if ($endDate instanceof \DateTimeInterface) {
+                $endCarbon = Carbon::instance($endDate);
+                $endUtc = ($endCarbon->format('H:i:s') === '00:00:00')
+                    ? $endCarbon->copy()->endOfDay()->utc()
+                    : $endCarbon->copy()->utc();
+            } else {
+                $endUtc = Carbon::parse($endDate, $tz)->endOfDay()->utc();
+            }
         }
 
         $salesQuery = Sale::with(['items.product.ingredients.stocks', 'delivery'])
@@ -378,12 +383,106 @@ class FinancialMetricsService
     }
 
     /**
-     * Compute day-by-day sales, COGS, operating expenses, and profit margin for charts.
+     * Compute day-by-day (or hour-by-hour for 'today') sales, COGS, operating expenses, and profit margin for charts.
      */
-    public function getDailySalesTrajectory(int $rangeDays, ?int $branchId = null): Collection
+    public function getDailySalesTrajectory($range = 7, ?int $branchId = null): Collection
     {
-        $startDate = Carbon::today()->subDays($rangeDays)->startOfDay();
-        $endDate = Carbon::today()->endOfDay();
+        $tz = 'Asia/Manila';
+
+        if ($range === 'today' || $range === '1' || $range === 1 || $range === 0 || $range === '0') {
+            $todayManila = Carbon::now($tz);
+            $startUtc = $todayManila->copy()->startOfDay()->utc();
+            $endUtc   = $todayManila->copy()->endOfDay()->utc();
+
+            $sales = Sale::with(['items.product.ingredients.stocks', 'delivery'])
+                ->where('status', 'completed')
+                ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                ->where('created_at', '>=', $startUtc)
+                ->where('created_at', '<=', $endUtc)
+                ->get();
+
+            $wastages = Wastage::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                ->where('created_at', '>=', $startUtc)
+                ->where('created_at', '<=', $endUtc)
+                ->get();
+
+            $hourlySalesMap = [];
+            foreach ($sales as $sale) {
+                $hour = (int) $sale->created_at->timezone($tz)->format('G'); // 0-23
+                if (!isset($hourlySalesMap[$hour])) {
+                    $hourlySalesMap[$hour] = ['revenue' => 0.0, 'delivery_fees' => 0.0, 'cogs' => 0.0, 'orders' => 0];
+                }
+
+                $saleDeliveryFee = (float) ($sale->delivery_fee ?? $sale->delivery?->delivery_fee ?? 0.0);
+                $saleDiscount    = (float) ($sale->discount ?? 0.0);
+                if ($sale->subtotal !== null) {
+                    $productRevenue = max(0.0, (float) $sale->subtotal - $saleDiscount);
+                } elseif ($sale->items->isNotEmpty()) {
+                    $productRevenue = max(0.0, (float) $sale->items->sum('subtotal') - $saleDiscount);
+                } else {
+                    $productRevenue = max(0.0, (float) $sale->total - $saleDeliveryFee);
+                }
+
+                $hourlySalesMap[$hour]['revenue'] += $productRevenue;
+                $hourlySalesMap[$hour]['delivery_fees'] += $saleDeliveryFee;
+                $hourlySalesMap[$hour]['orders']++;
+
+                $saleCogs = 0.0;
+                if ($sale->items->isNotEmpty()) {
+                    foreach ($sale->items as $item) {
+                        $itemCost = (float) $item->cost_price;
+                        if ($itemCost <= 0 && $item->product) {
+                            $itemCost = (float) $item->product->computeProductCost($sale->branch_id);
+                        }
+                        $saleCogs += ($itemCost * (float) $item->quantity);
+                    }
+                } elseif ((float) $sale->cost_total > 0) {
+                    $saleCogs = (float) $sale->cost_total;
+                }
+
+                $hourlySalesMap[$hour]['cogs'] += $saleCogs;
+            }
+
+            $hourlyWastageMap = [];
+            foreach ($wastages as $waste) {
+                $hour = (int) $waste->created_at->timezone($tz)->format('G');
+                $hourlyWastageMap[$hour] = ($hourlyWastageMap[$hour] ?? 0.0) + (float) $waste->cost_at_loss;
+            }
+
+            $trajectory = collect();
+            for ($h = 0; $h <= 23; $h++) {
+                $hourObj = $todayManila->copy()->startOfDay()->addHours($h);
+                $hourData = $hourlySalesMap[$h] ?? ['revenue' => 0.0, 'cogs' => 0.0, 'orders' => 0];
+                $hourWastage = (float) ($hourlyWastageMap[$h] ?? 0.0);
+
+                $revenue = (float) $hourData['revenue'];
+                $cogs = (float) $hourData['cogs'];
+                $totalExpenses = $cogs + $hourWastage;
+                $netProfit = $revenue - $totalExpenses;
+                $marginPct = $revenue > 0 ? round(($netProfit / $revenue) * 100, 1) : 0.0;
+
+                $trajectory->push([
+                    'date'       => $hourObj->format('g A'),
+                    'raw_date'   => $hourObj->toIso8601String(),
+                    'revenue'    => round($revenue, 2),
+                    'cogs'       => round($cogs, 2),
+                    'expenses'   => round($totalExpenses, 2),
+                    'profit'     => round($netProfit, 2),
+                    'margin_pct' => $marginPct,
+                    'orders'     => $hourData['orders'],
+                ]);
+            }
+
+            return $trajectory;
+        }
+
+        $rangeDays = (int) $range;
+        if ($rangeDays <= 0) {
+            $rangeDays = 7;
+        }
+
+        $startDate = Carbon::now($tz)->subDays($rangeDays)->startOfDay()->utc();
+        $endDate   = Carbon::now($tz)->endOfDay()->utc();
 
         $sales = Sale::with(['items.product.ingredients.stocks', 'delivery'])
             ->where('status', 'completed')
@@ -397,10 +496,10 @@ class FinancialMetricsService
             ->where('created_at', '<=', $endDate)
             ->get();
 
-        // Group by Date Y-m-d
+        // Group by Date Y-m-d in Asia/Manila
         $dailySalesMap = [];
         foreach ($sales as $sale) {
-            $date = $sale->created_at->toDateString();
+            $date = $sale->created_at->timezone($tz)->toDateString();
             if (!isset($dailySalesMap[$date])) {
                 $dailySalesMap[$date] = ['revenue' => 0.0, 'delivery_fees' => 0.0, 'cogs' => 0.0, 'orders' => 0];
             }
@@ -437,13 +536,13 @@ class FinancialMetricsService
 
         $dailyWastageMap = [];
         foreach ($wastages as $waste) {
-            $date = $waste->created_at->toDateString();
+            $date = $waste->created_at->timezone($tz)->toDateString();
             $dailyWastageMap[$date] = ($dailyWastageMap[$date] ?? 0.0) + (float) $waste->cost_at_loss;
         }
 
         $trajectory = collect();
         for ($i = $rangeDays; $i >= 0; $i--) {
-            $dateObj = Carbon::today()->subDays($i);
+            $dateObj = Carbon::now($tz)->subDays($i);
             $dateKey = $dateObj->toDateString();
 
             $dayData = $dailySalesMap[$dateKey] ?? ['revenue' => 0.0, 'cogs' => 0.0, 'orders' => 0];

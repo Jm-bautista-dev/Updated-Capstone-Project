@@ -16,7 +16,7 @@ interface BranchItem {
 }
 
 interface DashboardHeroProps {
-    range: number;
+    range: string | number;
     isLoading: boolean;
     lastSync: string;
     onRangeChange: (value: string) => void;
@@ -122,22 +122,25 @@ export function DashboardHero({
                         </Select>
                     )}
 
-                    <Select disabled={isLoading} defaultValue={range.toString()} onValueChange={onRangeChange}>
+                    <Select disabled={isLoading} value={range ? range.toString() : 'today'} onValueChange={onRangeChange}>
                         <SelectTrigger className="w-48 h-12 bg-white/90 dark:bg-[#181820]/90 border border-[#F8C8DC]/60 dark:border-white/10 shadow-xs rounded-2xl font-bold text-xs uppercase tracking-wider text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 transition-all">
                             <div className="flex items-center gap-2">
                                 <Calendar className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                <SelectValue placeholder="Select Period" />
+                                <SelectValue placeholder="Today" />
                             </div>
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl p-2 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                            <SelectItem value="today" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2.5 cursor-pointer dark:focus:bg-white/10">
+                                Today
+                            </SelectItem>
                             <SelectItem value="7" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2.5 cursor-pointer dark:focus:bg-white/10">
-                                Standard 7 Days
+                                7 Days
                             </SelectItem>
                             <SelectItem value="30" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2.5 cursor-pointer dark:focus:bg-white/10">
-                                Monthly 30 Days
+                                30 Days
                             </SelectItem>
                             <SelectItem value="365" className="rounded-xl font-bold text-xs uppercase tracking-wider py-2.5 cursor-pointer dark:focus:bg-white/10">
-                                Annual 365 Days
+                                Annual
                             </SelectItem>
                         </SelectContent>
                     </Select>

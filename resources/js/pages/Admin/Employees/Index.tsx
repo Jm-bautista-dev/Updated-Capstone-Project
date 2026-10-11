@@ -12,6 +12,7 @@ import { EmployeeGrid } from '@/components/employees/EmployeeGrid';
 import { EmployeesHero, type EmployeeKpis } from '@/components/employees/EmployeesHero';
 import { EmployeeTable, type Employee } from '@/components/employees/EmployeeTable';
 import { type ViewMode } from '@/components/products/ViewSwitcher';
+import { ResultModal } from '@/components/result-modal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,6 +72,13 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
     const [isCredsModalOpen, setIsCredsModalOpen] = useState(() => Boolean(props.flash?.new_employee));
     const [showPassword, setShowPassword] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+    const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; title: string; message: string }>({
+        type: 'success',
+        title: 'Employee Deleted',
+        message: 'The employee account has been removed successfully.',
+    });
 
     const { data, setData, post, put, delete: destroy, processing, errors, reset, isDirty } = useForm({
         name: '',
@@ -200,15 +208,46 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
     };
 
     const confirmDelete = () => {
-        if (itemToDelete) {
-            destroy(`/employees/${itemToDelete}`, {
-                onSuccess: () => {
-                    toast.success("Employee record deleted successfully");
-                    setItemToDelete(null);
-                },
-                onError: () => toast.error("Failed to delete employee")
-            });
-        }
+        if (!itemToDelete) return;
+
+        const targetId = itemToDelete;
+        setShowDeleteConfirm(false);
+        setItemToDelete(null);
+        setIsDeleting(true);
+
+        destroy(`/employees/${targetId}`, {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                setIsDeleting(false);
+                const flashSuccess = (page.props as PageProps)?.flash?.success;
+                const message = typeof flashSuccess === 'string' && flashSuccess
+                    ? flashSuccess
+                    : 'The employee account has been removed successfully.';
+                setResultModal({
+                    type: 'success',
+                    title: 'Employee Deleted',
+                    message,
+                });
+                setIsResultModalOpen(true);
+                toast.success(message);
+            },
+            onError: (errs) => {
+                setIsDeleting(false);
+                const msg = typeof errs === 'object' && errs !== null && Object.values(errs)[0]
+                    ? String(Object.values(errs)[0])
+                    : 'Failed to delete employee.';
+                setResultModal({
+                    type: 'error',
+                    title: 'Deletion Failed',
+                    message: msg,
+                });
+                setIsResultModalOpen(true);
+                toast.error(msg);
+            },
+            onFinish: () => {
+                setIsDeleting(false);
+            }
+        });
     };
 
     const handleDelete = (id: number) => {
@@ -642,12 +681,16 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
             {/* Confirmation Dialogs */}
             <ConfirmDialog
                 open={showDeleteConfirm}
-                onOpenChange={setShowDeleteConfirm}
+                onOpenChange={(val) => {
+                    setShowDeleteConfirm(val);
+                    if (!val) setItemToDelete(null);
+                }}
                 onConfirm={confirmDelete}
                 variant="destructive"
                 title="Delete Employee Member?"
                 description="This will permanently remove the employee account and all system access permissions. This action cannot be undone."
                 confirmText="Delete Now"
+                isLoading={isDeleting}
             />
 
             <ConfirmDialog
@@ -658,6 +701,15 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
                 description="You have pending modifications. Discarding will lose all unsaved form inputs."
                 confirmText="Discard Changes"
                 cancelText="Keep Editing"
+            />
+
+            {/* Action Feedback Result Modal */}
+            <ResultModal
+                open={isResultModalOpen}
+                onClose={() => setIsResultModalOpen(false)}
+                type={resultModal.type}
+                title={resultModal.title}
+                message={resultModal.message}
             />
         </AppLayout>
     );

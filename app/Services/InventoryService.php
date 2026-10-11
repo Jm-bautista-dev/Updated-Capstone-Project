@@ -82,10 +82,9 @@ class InventoryService
             'last_purchase_price' => $purchasePrice,
         ]);
 
-        // Reset alerts
-        if ($newStock > $stockRow->low_stock_level) {
-            $stockRow->update(['is_low_stock_notified' => false, 'is_out_of_stock_notified' => false]);
-        }
+        // Authoritative stock alert evaluation
+        $stockRow->refresh();
+        app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stockRow, $userId);
 
         $refText = $reference ?: "WAC Purchase: @{$purchasePrice}/{$rawUnit}";
 
@@ -207,6 +206,9 @@ class InventoryService
                 
                 // Update total value for WAC consistency
                 $stockRow->update(['total_stock_value' => (float)$stockRow->total_stock_value - $costAtLoss]);
+
+                $stockRow->refresh();
+                app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stockRow, Auth::id());
             } else {
                 /** @var Product $product */
                 $product = Product::where('id', $id)->lockForUpdate()->first();
@@ -323,6 +325,8 @@ class InventoryService
                     }
 
                     $stock->deduct($requiredTotalBase);
+                    $stock->refresh();
+                    app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stock, Auth::id());
 
                     // Log transaction
                     \App\Models\InventoryTransaction::create([
@@ -408,6 +412,8 @@ class InventoryService
 
                     if ($stock) {
                         $stock->restore($requiredTotalBase);
+                        $stock->refresh();
+                        app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stock, Auth::id());
 
                         // Log transaction
                         \App\Models\InventoryTransaction::create([

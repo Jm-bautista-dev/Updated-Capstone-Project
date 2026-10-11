@@ -4,11 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\CashierShift;
+use App\Models\Delivery;
+use App\Models\Order;
+use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class EmployeeController extends Controller
 {
@@ -17,7 +24,10 @@ class EmployeeController extends Controller
         $viewer = Auth::user();
 
         $employeeQuery = User::with('branch')
-            ->manageableEmployees($viewer);
+            ->manageableEmployees($viewer)
+            ->where(function ($q) {
+                $q->whereNull('account_status')->orWhere('account_status', '!=', User::STATUS_DEACTIVATED);
+            });
 
         $employees = (clone $employeeQuery)
             ->latest()
@@ -108,7 +118,7 @@ class EmployeeController extends Controller
             );
             $emailSent = true;
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to send employee credentials email: ' . $e->getMessage());
+            Log::error('Failed to send employee credentials email: ' . $e->getMessage());
         }
 
         return back()->with([
@@ -192,10 +202,73 @@ class EmployeeController extends Controller
         }
 
         if ($employee->id === Auth::id()) {
-            return back()->with('error', 'You cannot delete yourself');
+            return back()->with('error', 'You cannot delete yourself.');
         }
 
-        $employee->delete();
-        return back()->with('success', 'Employee deleted successfully');
+        // Check if employee has associated records that must be preserved for audit history
+        $hasHistory = false;
+
+        if (Schema::hasTable('deliveries') && Delivery::where('cancelled_by', $employee->id)->exists()) {
+            $hasHistory = true;
+        }
+
+        if (Schema::hasTable('sales') && Sale::where('user_id', $employee->id)->exists()) {
+            $hasHistory = true;
+        }
+
+        if (Schema::hasTable('orders') && Order::where('user_id', $employee->id)->exists()) {
+            $hasHistory = true;
+        }
+
+        if (Schema::hasTable('cashier_shifts')) {
+            if (Schema::hasColumn('cashier_shifts', 'cashier_id') && CashierShift::where('cashier_id', $employee->id)->exists()) {
+                $hasHistory = true;
+            } elseif (Schema::hasColumn('cashier_shifts', 'user_id') && CashierShift::where('user_id', $employee->id)->exists()) {
+                $hasHistory = true;
+            }
+        }
+
+        if (Schema::hasTable('stock_logs') && DB::table('stock_logs')->where('user_id', $employee->id)->exists()) {
+            $hasHistory = true;
+        }
+
+        if (Schema::hasTable('ingredient_logs') && DB::table('ingredient_logs')->where('user_id', $employee->id)->exists()) {
+            $hasHistory = true;
+        }
+
+        if ($hasHistory) {
+            // Safely deactivate account and revoke all tokens to protect audit trails
+            $employee->update([
+                'account_status' => User::STATUS_DEACTIVATED,
+                'is_active'      => false,
+                'deactivated_at' => now(),
+            ]);
+
+            if (method_exists($employee, 'tokens')) {
+                $employee->tokens()->delete();
+            }
+
+            return back()->with('success', "Employee \"{$employee->name}\" had historical transaction records and has been safely removed from active staff.");
+        }
+
+        try {
+            $name = $employee->name;
+            $employee->delete();
+            return back()->with('success', "Employee \"{$name}\" deleted successfully.");
+        } catch (\Throwable $e) {
+            Log::warning("Failed hard-deleting employee {$employee->id}, falling back to deactivation: " . $e->getMessage());
+
+            $employee->update([
+                'account_status' => User::STATUS_DEACTIVATED,
+                'is_active'      => false,
+                'deactivated_at' => now(),
+            ]);
+
+            if (method_exists($employee, 'tokens')) {
+                $employee->tokens()->delete();
+            }
+
+            return back()->with('success', "Employee \"{$employee->name}\" removed from active staff.");
+        }
     }
 }

@@ -136,6 +136,26 @@ export default function CashierPerformance() {
         setIsDrawerOpen(true);
     };
 
+    const topBranchName = useMemo(() => {
+        if (!performance || performance.length === 0) {
+            return branches[0]?.name || 'Main Store';
+        }
+        const branchTotals: Record<string, number> = {};
+        performance.forEach((item) => {
+            const bName = item.branch_name || 'Main Store';
+            branchTotals[bName] = (branchTotals[bName] || 0) + Number(item.total_sales || 0);
+        });
+        let bestBranch = '';
+        let maxSales = -1;
+        Object.entries(branchTotals).forEach(([bName, tot]) => {
+            if (tot > maxSales) {
+                maxSales = tot;
+                bestBranch = bName;
+            }
+        });
+        return bestBranch || branches[0]?.name || 'Main Store';
+    }, [performance, branches]);
+
     return (
         <AppLayout breadcrumbs={[{ title: 'Analytics', href: '#' }, { title: 'Cashier Performance', href: '#' }]}>
             <Head title="Performance Analytics Center" />
@@ -215,7 +235,7 @@ export default function CashierPerformance() {
                 {/* ── ZONE 4: TOP PERFORMERS SHOWCASE CARDS ── */}
                 <TopPerformersCard
                     topCashier={stats.topCashier}
-                    topBranchName={branches[0]?.name || 'Main Store'}
+                    topBranchName={topBranchName}
                 />
 
                 {/* ── ZONE 5: RECHARTS ANALYTICS ── */}

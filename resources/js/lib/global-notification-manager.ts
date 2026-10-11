@@ -14,8 +14,8 @@
 import { playOrderNotificationSound } from './order-audio';
 
 export interface GlobalNotificationItem {
-    id: string | number; // Unique identifier (e.g., order_id, "order_101", "cancel_req_42")
-    type: 'order' | 'pickup' | 'pickup_prep_due' | 'cancellation' | 'info' | 'warning';
+    id: string | number; // Unique identifier (e.g., order_id, "order_101", "cancel_req_42", "log_123")
+    type: 'order' | 'pickup' | 'pickup_prep_due' | 'cancellation' | 'info' | 'warning' | 'low_stock' | 'out_of_stock';
     fulfillment_type?: 'pickup' | 'delivery' | string;
     is_pickup?: boolean;
     order_id?: number | string;
@@ -30,6 +30,12 @@ export interface GlobalNotificationItem {
     link_url?: string;
     link_text?: string;
     cancellation_request_id?: number;
+    // Low stock specific fields
+    ingredient_name?: string;
+    current_stock?: string | number;
+    threshold?: string | number;
+    unit?: string;
+    severity?: 'low_stock' | 'out_of_stock';
     auto_dismiss?: boolean; // default true
     duration_ms?: number; // default 5000ms
     created_at: number; // timestamp

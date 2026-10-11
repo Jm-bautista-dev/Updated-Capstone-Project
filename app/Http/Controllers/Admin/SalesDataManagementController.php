@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\SalesImport;
 use App\Models\SalesImportAudit;
 use App\Models\SalesBackup;
+use App\Models\CashierShift;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -352,6 +353,44 @@ class SalesDataManagementController extends Controller
                         $skippedCount,
                         $duplicatesSkippedCount
                     );
+                }
+
+                // Sync daily cashier shifts with ₱1,500 float for each active date
+                if ($importedCount > 0 || $updatedCount > 0) {
+                    $cashiersByBranch = User::where('role', 'cashier')->get()->groupBy('branch_id');
+                    $dailyCashSales = DB::table('sales')
+                        ->where('sales_import_id', $salesImport->id)
+                        ->selectRaw('branch_id, DATE(created_at) as sale_date, SUM(paid_amount) as total_cash')
+                        ->groupBy('branch_id', DB::raw('DATE(created_at)'))
+                        ->get();
+
+                    foreach ($dailyCashSales as $dcs) {
+                        $cId = $cashiersByBranch->get($dcs->branch_id)?->first()?->id ?? $currentUserId;
+                        $openedAt = Carbon::parse($dcs->sale_date)->setTime(10, 0, 0);
+                        $closedAt = Carbon::parse($dcs->sale_date)->setTime(19, 0, 0);
+                        $openingFloat = 1500.00;
+                        $expectedCash = $openingFloat + (float)$dcs->total_cash;
+
+                        CashierShift::updateOrCreate(
+                            [
+                                'branch_id' => $dcs->branch_id,
+                                'opened_at' => $openedAt,
+                            ],
+                            [
+                                'cashier_id' => $cId,
+                                'opening_balance' => $openingFloat,
+                                'closing_balance' => $expectedCash,
+                                'expected_balance' => $expectedCash,
+                                'total_cash_sales' => (float)$dcs->total_cash,
+                                'cash_in' => 0.00,
+                                'cash_out' => 0.00,
+                                'variance' => 0.00,
+                                'notes' => 'Daily shift logged with ₱1,500 cash drawer float',
+                                'status' => 'closed',
+                                'closed_at' => $closedAt,
+                            ]
+                        );
+                    }
                 }
 
                 // Finalize import header record
@@ -700,7 +739,20 @@ class SalesDataManagementController extends Controller
             return $productsBySku->get($clean);
         }
 
-        // 4. Exact normalized name match (trimmed, lowercased, single spaces)
+        // 4. Known catalog aliases
+        $knownAliases = [
+            'medium sushi boat (55 pcs)' => 'medium sushi boat 55 pcs',
+            'tempura (solo)' => 'tempura(solo)',
+            'sprite in can' => 'sprite soda mini',
+            'crazy maki (8pc)' => 'crazy maki (8pcs)',
+            'torched ham (8pc)' => 'torched ham (8pcs)',
+            'lava roll (8pc)' => 'lava roll (8pcs)',
+        ];
+        if (isset($knownAliases[$clean]) && $products->has($knownAliases[$clean])) {
+            return $products->get($knownAliases[$clean]);
+        }
+
+        // 5. Exact normalized name match (trimmed, lowercased, single spaces)
         $normalizedSpaces = preg_replace('/\s+/', ' ', $clean);
         if ($products->has($normalizedSpaces)) {
             return $products->get($normalizedSpaces);
@@ -710,6 +762,12 @@ class SalesDataManagementController extends Controller
             if (preg_replace('/\s+/', ' ', $pName) === $normalizedSpaces) {
                 return $prod;
             }
+        }
+
+        // 6. Parenthesis spacing tolerance (e.g. "Tempura (Solo)" vs "Tempura(solo)")
+        $noSpaceParen = str_replace(' (', '(', $clean);
+        if ($products->has($noSpaceParen)) {
+            return $products->get($noSpaceParen);
         }
 
         return null;
@@ -928,8 +986,16 @@ class SalesDataManagementController extends Controller
             $unitPrice = round($total / $qty, 2);
         }
 
-        // Historical timestamp: preserve exact historical calendar date at midnight
-        $createdAt = Carbon::parse($parsedDate)->startOfDay();
+        // Historical timestamp: strictly between 10:00:00 AM and 7:00:00 PM (10:00 - 19:00)
+        $startSeconds = 10 * 3600;
+        $spanSeconds = 9 * 3600;
+        $seedStr = "{$parsedDate}-{$branch->id}-{$product->id}-{$qty}-" . ($occurrence ?? 1);
+        $secondOffset = abs(crc32($seedStr)) % ($spanSeconds + 1);
+        $totalSeconds = $startSeconds + $secondOffset;
+        $hours = floor($totalSeconds / 3600);
+        $minutes = floor(($totalSeconds % 3600) / 60);
+        $seconds = $totalSeconds % 60;
+        $createdAt = Carbon::parse($parsedDate)->setTime((int)$hours, (int)$minutes, (int)$seconds);
 
         // Check existing database duplicate
         /** @var Sale|null $existingSale */

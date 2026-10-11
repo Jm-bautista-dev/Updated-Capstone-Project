@@ -218,6 +218,11 @@ class InventoryController extends Controller
                     'reason'        => 'initial stock',
                 ]);
             }
+
+            $createdStockRow = IngredientStock::where('ingredient_id', $ingredient->id)->where('branch_id', $branchId)->first();
+            if ($createdStockRow) {
+                app(\App\Services\LowStockAlertService::class)->evaluateStockRow($createdStockRow, Auth::id());
+            }
         }
 
         // Gap-fill: ensure every branch has at least a zero-stock row so the
@@ -316,6 +321,9 @@ class InventoryController extends Controller
                     'reason'        => 'manual adjustment',
                 ]);
             }
+
+            $stockRow->refresh();
+            app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stockRow, Auth::id());
         }
 
         return redirect()->back()->with('success', 'Ingredient updated successfully.');

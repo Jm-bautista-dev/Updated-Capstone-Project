@@ -53,9 +53,26 @@ interface AuthState {
     };
 }
 
+interface RealTimeLowStockEvent {
+    id: string;
+    stock_id?: number;
+    ingredient_id?: number;
+    ingredient_name?: string;
+    current_stock?: string;
+    threshold?: string;
+    remaining?: string;
+    quantity_change?: string;
+    unit?: string;
+    branch_id?: number;
+    branch_name?: string;
+    type?: 'low_stock' | 'out_of_stock';
+    url?: string;
+}
+
 // Deduplication tracking to prevent duplicate alerts/sounds
 const notifiedOrderIds = new Set<number>();
 const notifiedCancellationIds = new Set<number>();
+const notifiedLowStockIds = new Set<string>();
 
 export function useRealTime(branchId?: number | null) {
     const { auth } = usePage().props as unknown as { auth: AuthState };
@@ -81,6 +98,39 @@ export function useRealTime(branchId?: number | null) {
                 });
             };
 
+            const handleLowStockAlert = (e: RealTimeLowStockEvent) => {
+                console.log('Real-time: Low Stock Alert Received', e);
+                const alertId = e.id || `low_stock_${e.stock_id || Date.now()}`;
+                if (notifiedLowStockIds.has(alertId)) return;
+                notifiedLowStockIds.add(alertId);
+                if (notifiedLowStockIds.size > 200) {
+                    const first = notifiedLowStockIds.values().next().value;
+                    if (first !== undefined) notifiedLowStockIds.delete(first);
+                }
+
+                playOrderNotificationSound();
+
+                const isOutOfStock = e.type === 'out_of_stock';
+                globalNotificationManager.notify({
+                    id: alertId,
+                    type: isOutOfStock ? 'out_of_stock' : 'low_stock',
+                    title: isOutOfStock ? 'Out of Stock Alert' : 'Low Stock Warning',
+                    ingredient_name: e.ingredient_name || 'Inventory Item',
+                    current_stock: e.current_stock || e.remaining || '0',
+                    threshold: e.threshold || e.quantity_change || 'N/A',
+                    branch_name: e.branch_name || 'Branch',
+                    link_url: e.url || '/inventory',
+                    link_text: 'VIEW INVENTORY',
+                    duration_ms: 7000,
+                    auto_dismiss: true,
+                    created_at: Date.now(),
+                });
+
+                router.reload({ 
+                    only: ['inventory', 'stats'],
+                });
+            };
+
             echo.private(`branch.${targetId}`)
                 .listen('SaleCreated', handleSaleCreated)
                 .listen('.SaleCreated', handleSaleCreated)
@@ -98,6 +148,10 @@ export function useRealTime(branchId?: number | null) {
                         only: ['products'],
                     });
                 })
+                .listen('LowStockAlert', handleLowStockAlert)
+                .listen('.LowStockAlert', handleLowStockAlert)
+                .listen('App\\Events\\LowStockAlert', handleLowStockAlert)
+                .listen('.App\\Events\\LowStockAlert', handleLowStockAlert)
                 .listen('RiderStatusUpdated', (e: Record<string, unknown>) => {
                     console.log('Real-time: Rider Status Sync', e);
                     router.reload({ 

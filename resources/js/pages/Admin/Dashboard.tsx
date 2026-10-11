@@ -120,9 +120,9 @@ interface DashboardProps {
     topProductCosts?: TopProductCostItem[];
     salesByPaymentMethod?: PaymentMethodItem[];
     ingredientCostTrends?: IngredientCostTrendItem[];
-    range: number;
+    range: string | number;
     branches?: BranchItem[];
-    filters?: { branch_id?: string; range?: number };
+    filters?: { branch_id?: string; range?: string | number };
     recentActivity?: ActivityItem[];
     forecastIntel?: ForecastIntel;
     suggestions?: Suggestion[];
@@ -137,7 +137,7 @@ export default function Dashboard({
     topProductCosts = [],
     salesByPaymentMethod,
     ingredientCostTrends = [],
-    range,
+    range = 'today',
     branches = [],
     filters = {},
     recentActivity = [],
@@ -167,7 +167,7 @@ export default function Dashboard({
 
     const handleBranchChange = (value: string) => {
         setSelectedBranch(value);
-        navigateDashboard({ range: range.toString(), branch_id: value });
+        navigateDashboard({ range: range ? range.toString() : 'today', branch_id: value });
     };
 
     const activeBranchName = selectedBranch === 'all' 

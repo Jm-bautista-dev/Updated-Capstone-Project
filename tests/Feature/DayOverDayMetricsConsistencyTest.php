@@ -119,6 +119,10 @@ class DayOverDayMetricsConsistencyTest extends TestCase
 
         $total = $attributes['total'] ?? 1000.00;
 
+        if (isset($attributes['created_at']) && $attributes['created_at'] instanceof \DateTimeInterface) {
+            $attributes['created_at'] = Carbon::instance($attributes['created_at'])->utc();
+        }
+
         return Sale::create(array_merge([
             'order_number'   => 'ORD-' . $orderCounter,
             'branch_id'      => $this->branchA->id,

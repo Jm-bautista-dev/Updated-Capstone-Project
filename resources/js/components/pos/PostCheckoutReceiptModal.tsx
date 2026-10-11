@@ -20,7 +20,8 @@ import {
     printReceiptToThermalPrinter, 
     triggerBrowserThermalPrint, 
     getPrinterConfig,
-    type LocalPrintJobPayload 
+    type LocalPrintJobPayload,
+    type ReceiptDataPayload 
 } from '@/lib/pos-print-bridge';
 import { cn, formatCurrency } from '@/lib/utils';
 import { PrinterSettingsModal } from './PrinterSettingsModal';

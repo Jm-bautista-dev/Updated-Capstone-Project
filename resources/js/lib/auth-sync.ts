@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import axios from 'axios';
+import { clearAllPosCarts } from '@/lib/pos-cart-storage';
 
 const AUTH_CHANNEL_NAME = 'maki_auth_sync_channel';
 const AUTH_STORAGE_KEY = 'maki_auth_event';
@@ -81,6 +82,12 @@ export function broadcastLogoutEvent() {
     }
 
     try {
+        clearAllPosCarts();
+    } catch {
+        // Ignore POS storage errors
+    }
+
+    try {
         if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
             const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
             channel.postMessage({ type: 'LOGOUT', timestamp: Date.now() });
@@ -116,6 +123,7 @@ export function initializeAuthSync() {
             const channel = new BroadcastChannel(AUTH_CHANNEL_NAME);
             channel.onmessage = (event) => {
                 if (event.data?.type === 'LOGOUT') {
+                    clearAllPosCarts();
                     const pathname = window.location.pathname;
                     if (pathname !== '/login' && pathname !== '/' && pathname !== '/menu') {
                         window.location.href = '/login';
@@ -130,6 +138,7 @@ export function initializeAuthSync() {
     // 2. Storage event fallback for older browsers or cross-window contexts
     window.addEventListener('storage', (event) => {
         if (event.key === AUTH_STORAGE_KEY && event.newValue?.startsWith('LOGOUT_')) {
+            clearAllPosCarts();
             const pathname = window.location.pathname;
             if (pathname !== '/login' && pathname !== '/' && pathname !== '/menu') {
                 window.location.href = '/login';
@@ -192,8 +201,6 @@ export function initializeAuthSync() {
 
         isPopstateReloading = true;
         router.reload({
-            preserveScroll: true,
-            preserveState: false,
             onFinish: () => {
                 isPopstateReloading = false;
             },

@@ -22,6 +22,7 @@ use App\Models\Rider;
 use App\Models\Sale;
 use App\Models\ScannedReceipt;
 use App\Models\StockMovement;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Wastage;
 use App\Services\BranchScheduleService;
@@ -30,6 +31,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -214,92 +216,71 @@ class BranchController extends Controller
             return back()->withErrors(['error' => $errorMessage]);
         }
 
-        // Rule 2: Inspect operational and historical dependencies
-        $dependencies = [];
+        // Rule 2: Inspect operational and historical dependencies safely
+        try {
+            $dependencies = [];
 
-        $salesCount = Sale::where('branch_id', $branch->id)->count();
-        if ($salesCount > 0) {
-            $dependencies[] = "{$salesCount} sales transaction(s)";
-        }
+            $salesCount = Sale::where('branch_id', $branch->id)->count();
+            if ($salesCount > 0) {
+                $dependencies[] = "{$salesCount} sales transaction(s)";
+            }
 
-        $ordersCount = Order::where('branch_id', $branch->id)->count();
-        if ($ordersCount > 0) {
-            $dependencies[] = "{$ordersCount} order record(s)";
-        }
+            $ordersCount = Order::where('branch_id', $branch->id)->count();
+            if ($ordersCount > 0) {
+                $dependencies[] = "{$ordersCount} order record(s)";
+            }
 
-        $usersCount = User::where('branch_id', $branch->id)->count();
-        if ($usersCount > 0) {
-            $dependencies[] = "{$usersCount} assigned staff account(s)";
-        }
+            $usersCount = User::where('branch_id', $branch->id)->count();
+            if ($usersCount > 0) {
+                $dependencies[] = "{$usersCount} assigned staff account(s)";
+            }
 
-        $productsCount = Product::where('branch_id', $branch->id)->count();
-        if ($productsCount > 0) {
-            $dependencies[] = "{$productsCount} product(s)";
-        }
+            $shiftsCount = CashierShift::where('branch_id', $branch->id)->count();
+            if ($shiftsCount > 0) {
+                $dependencies[] = "{$shiftsCount} cashier shift log(s)";
+            }
 
-        $shiftsCount = CashierShift::where('branch_id', $branch->id)->count();
-        if ($shiftsCount > 0) {
-            $dependencies[] = "{$shiftsCount} cashier shift log(s)";
-        }
+            $ridersCount = Rider::where('branch_id', $branch->id)->count();
+            if ($ridersCount > 0) {
+                $dependencies[] = "{$ridersCount} assigned delivery rider(s)";
+            }
 
-        $invTransactionsCount = InventoryTransaction::where('branch_id', $branch->id)->count();
-        if ($invTransactionsCount > 0) {
-            $dependencies[] = "{$invTransactionsCount} inventory transaction(s)";
-        }
+            $wastageCount = Wastage::where('branch_id', $branch->id)->count();
+            if ($wastageCount > 0) {
+                $dependencies[] = "{$wastageCount} wastage record(s)";
+            }
 
-        $ingredientLogsCount = IngredientLog::where('branch_id', $branch->id)->count();
-        if ($ingredientLogsCount > 0) {
-            $dependencies[] = "{$ingredientLogsCount} ingredient audit log(s)";
-        }
+            $movementsCount = StockMovement::where('branch_id', $branch->id)->count();
+            if ($movementsCount > 0) {
+                $dependencies[] = "{$movementsCount} stock transfer movement(s)";
+            }
 
-        $stockWithQuantity = IngredientStock::where('branch_id', $branch->id)->where('stock', '>', 0)->count();
-        if ($stockWithQuantity > 0) {
-            $dependencies[] = "{$stockWithQuantity} ingredient(s) with active stock quantity";
-        }
+            $receiptsCount = ScannedReceipt::where('branch_id', $branch->id)->count();
+            if ($receiptsCount > 0) {
+                $dependencies[] = "{$receiptsCount} scanned receipt(s)";
+            }
 
-        $ridersCount = Rider::where('branch_id', $branch->id)->count();
-        if ($ridersCount > 0) {
-            $dependencies[] = "{$ridersCount} assigned delivery rider(s)";
-        }
+            $invTransactionsCount = InventoryTransaction::where('branch_id', $branch->id)->count();
+            if ($invTransactionsCount > 0) {
+                $dependencies[] = "{$invTransactionsCount} inventory transaction(s)";
+            }
 
-        $receiptsCount = ScannedReceipt::where('branch_id', $branch->id)->count();
-        if ($receiptsCount > 0) {
-            $dependencies[] = "{$receiptsCount} scanned receipt(s)";
-        }
-
-        $restockCount = RestockRequest::where('branch_id', $branch->id)->count();
-        if ($restockCount > 0) {
-            $dependencies[] = "{$restockCount} restock request(s)";
-        }
-
-        $cancellationsCount = OrderCancellationRequest::where('branch_id', $branch->id)->count();
-        if ($cancellationsCount > 0) {
-            $dependencies[] = "{$cancellationsCount} cancellation request(s)";
-        }
-
-        $reviewsCount = ProductReview::where('branch_id', $branch->id)->count();
-        if ($reviewsCount > 0) {
-            $dependencies[] = "{$reviewsCount} customer review(s)";
-        }
-
-        $wastageCount = Wastage::where('branch_id', $branch->id)->count();
-        if ($wastageCount > 0) {
-            $dependencies[] = "{$wastageCount} wastage record(s)";
-        }
-
-        $movementsCount = StockMovement::where('from_branch_id', $branch->id)->orWhere('to_branch_id', $branch->id)->count();
-        if ($movementsCount > 0) {
-            $dependencies[] = "{$movementsCount} stock transfer movement(s)";
-        }
-
-        if (!empty($dependencies)) {
-            $errorMessage = "This branch cannot be deleted because it has associated records: " . implode(', ', $dependencies) . ". To protect historical reports and sales data, active operational branches cannot be removed.";
+            if (!empty($dependencies)) {
+                $errorMessage = "This branch cannot be deleted because it has associated records: " . implode(', ', $dependencies) . ". To protect historical reports and sales data, active operational branches cannot be removed.";
+                if ($request->wantsJson() || $request->is('api/*')) {
+                    return response()->json([
+                        'success'      => false,
+                        'message'      => $errorMessage,
+                        'dependencies' => $dependencies,
+                    ], 422);
+                }
+                return back()->withErrors(['error' => $errorMessage]);
+            }
+        } catch (\Throwable $e) {
+            Log::error("Failed to inspect branch dependencies for branch {$id}: " . $e->getMessage(), ['exception' => $e]);
+            $errorMessage = 'Unable to verify branch dependencies. Please try again.';
             if ($request->wantsJson() || $request->is('api/*')) {
-                return response()->json([
-                    'success'      => false,
-                    'message'      => $errorMessage,
-                    'dependencies' => $dependencies,
-                ], 422);
+                return response()->json(['success' => false, 'message' => $errorMessage], 500);
             }
             return back()->withErrors(['error' => $errorMessage]);
         }
@@ -307,13 +288,51 @@ class BranchController extends Controller
         // Rule 3: Safe transactional deletion of auto-generated child records and branch
         try {
             DB::transaction(function () use ($branch) {
-                IngredientStock::where('branch_id', $branch->id)->delete();
-                BranchSchedule::where('branch_id', $branch->id)->delete();
-                BranchSpecialSchedule::where('branch_id', $branch->id)->delete();
-                PrintJob::where('branch_id', $branch->id)->delete();
-                PrintBridge::where('branch_id', $branch->id)->delete();
-                CartItem::where('branch_id', $branch->id)->delete();
-                Cart::where('branch_id', $branch->id)->delete();
+                if (Schema::hasTable('branch_product')) {
+                    DB::table('branch_product')->where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('ingredient_stocks')) {
+                    IngredientStock::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('ingredient_logs')) {
+                    IngredientLog::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('stock_logs')) {
+                    DB::table('stock_logs')->where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('branch_category')) {
+                    DB::table('branch_category')->where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('branch_schedules')) {
+                    BranchSchedule::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('branch_special_schedules')) {
+                    BranchSpecialSchedule::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('print_jobs')) {
+                    PrintJob::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('print_bridges')) {
+                    PrintBridge::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('cart_items')) {
+                    CartItem::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('carts')) {
+                    Cart::where('branch_id', $branch->id)->delete();
+                }
+                if (Schema::hasTable('addons')) {
+                    DB::table('addons')->where('branch_id', $branch->id)->update(['branch_id' => null]);
+                }
+                if (Schema::hasTable('suppliers')) {
+                    DB::table('suppliers')->where('branch_id', $branch->id)->update(['branch_id' => null]);
+                }
+                if (Schema::hasTable('products') && Schema::hasColumn('products', 'branch_id')) {
+                    Product::where('branch_id', $branch->id)->update(['branch_id' => null]);
+                }
+                if (Schema::hasTable('users') && Schema::hasColumn('users', 'branch_id')) {
+                    User::where('branch_id', $branch->id)->update(['branch_id' => null]);
+                }
                 $branch->delete();
             });
         } catch (\Throwable $e) {

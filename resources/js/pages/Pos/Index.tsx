@@ -21,7 +21,9 @@ import {
   FiChevronRight,
   FiRefreshCw,
   FiX,
-  FiMenu
+  FiMenu,
+  FiMinimize2,
+  FiMaximize2
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notification-bell';
@@ -46,6 +48,15 @@ import { Input } from '@/components/ui/input';
 import { useSidebar } from '@/components/ui/sidebar';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
+import { 
+  loadAndRevalidatePosCart, 
+  savePosCart, 
+  clearPosCart, 
+  validateCartBeforeCheckout, 
+  getPosCartStorageKey, 
+  type CatalogProduct, 
+  type PosCartItem 
+} from '@/lib/pos-cart-storage';
 import { usePrinterStatus, printReceiptToThermalPrinter, triggerBrowserThermalPrint, type LocalPrintJobPayload } from '@/lib/pos-print-bridge';
 import { cn, formatCurrency } from '@/lib/utils';
 
@@ -143,9 +154,19 @@ function PosNavTrigger() {
 }
 
 export default function PosIndex() {
-  const pageProps = usePage().props as unknown as PosPageProps & { auth?: { user?: { name?: string } } };
+  const pageProps = usePage().props as unknown as PosPageProps & { 
+    auth?: { 
+      user?: { 
+        id?: number | string; 
+        name?: string; 
+        branch_id?: number | string; 
+      } 
+    } 
+  };
   const { products = [], categories = [], branch, activeShift } = pageProps;
   const cashierName = pageProps.auth?.user?.name || 'Staff';
+  const userId = pageProps.auth?.user?.id ?? 'guest';
+  const branchId = branch?.id ?? pageProps.auth?.user?.branch_id ?? 'default';
 
   // --- Real-time Printer Status & Config Hook ---
   const { 
@@ -185,13 +206,18 @@ export default function PosIndex() {
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
+  // --- Hydrate & Revalidate Persisted Cart on Initial Load ---
+  const [initialHydration] = useState(() => {
+    return loadAndRevalidatePosCart(userId, branchId, products as unknown as CatalogProduct[]);
+  });
+
   // --- Main Kiosk Flow State ---
-  const [kioskStep, setKioskStep] = useState<KioskStep>('browse');
+  const [kioskStep, setKioskStep] = useState<KioskStep>(() => initialHydration.kioskStep);
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [orderType, setOrderType] = useState('dine-in');
+  const [cart, setCart] = useState<CartItem[]>(() => initialHydration.cart as unknown as CartItem[]);
+  const [orderType, setOrderType] = useState(() => initialHydration.orderType);
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
   // Modal States
@@ -199,6 +225,7 @@ export default function PosIndex() {
   const [alertModal, setAlertModal] = useState<{ type: 'error' | 'warning'; title: string; message: string }>({
     type: 'warning', title: '', message: '',
   });
+  const [isClearCartConfirmOpen, setIsClearCartConfirmOpen] = useState(false);
   const [cashReceived, setCashReceived] = useState('');
 
   // Shift Management States
@@ -245,6 +272,7 @@ export default function PosIndex() {
       ...(token ? { _token: token } : {})
     }, {
       onSuccess: () => {
+        clearPosCart(userId, branchId);
         setIsCloseShiftModalOpen(false);
         setClosingCash('');
         setVarianceReason('');
@@ -279,7 +307,7 @@ export default function PosIndex() {
 
   // Discount State
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
-  const [activeDiscount, setActiveDiscount] = useState<PosDiscount | null>(null);
+  const [activeDiscount, setActiveDiscount] = useState<PosDiscount | null>(() => initialHydration.activeDiscount);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Receipt & USB Printing State ---
@@ -295,20 +323,8 @@ export default function PosIndex() {
   } | null>(null);
 
   // --- Delivery State ---
-  const [deliveryInfo, setDeliveryInfo] = useState<PosDeliveryInfo>({
-    customer_name: '',
-    customer_phone: '',
-    customer_address: '',
-    delivery_type: 'internal',
-    external_service: 'grab',
-    rider_id: '',
-    tracking_number: '',
-    distance_km: '',
-    external_notes: '',
-    latitude: null,
-    longitude: null,
-  });
-  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
+  const [deliveryInfo, setDeliveryInfo] = useState<PosDeliveryInfo>(() => initialHydration.deliveryInfo);
+  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(() => initialHydration.calculatedDeliveryFee);
   const [proofFile, setProofFile] = useState<File | null>(null);
 
   const deliveryFee = useMemo(() => {
@@ -324,6 +340,68 @@ export default function PosIndex() {
     const computed = base + (distance - freeKm) * perKm;
     return Math.round(computed * 100) / 100;
   }, [orderType, calculatedDeliveryFee, deliveryInfo.distance_km, branch?.base_delivery_fee, branch?.per_km_fee]);
+
+  // --- Notify Cashier of Restored / Revalidated Cart State on Mount ---
+  useEffect(() => {
+    if (initialHydration.isRestored && initialHydration.cart.length > 0) {
+      toast.info(`Cart restored (${initialHydration.cart.length} item${initialHydration.cart.length > 1 ? 's' : ''})`, {
+        description: 'Your previous active cart has been loaded.',
+        duration: 3500,
+      });
+      if (initialHydration.notices.length > 0) {
+        initialHydration.notices.forEach((notice) => {
+          toast.warning(notice, { duration: 5000 });
+        });
+      }
+    }
+  }, []);
+
+  // --- Auto-persist Cart State to Scoped Browser Storage ---
+  useEffect(() => {
+    savePosCart(userId, branchId, {
+      cart: cart as unknown as PosCartItem[],
+      orderType,
+      kioskStep,
+      activeDiscount,
+      deliveryInfo,
+      calculatedDeliveryFee,
+    });
+  }, [userId, branchId, cart, orderType, kioskStep, activeDiscount, deliveryInfo, calculatedDeliveryFee]);
+
+  // --- Cross-Tab Cart Synchronization ---
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      const storageKey = getPosCartStorageKey(userId, branchId);
+      if (e.key === storageKey) {
+        if (!e.newValue) {
+          setCart([]);
+          setActiveDiscount(null);
+          setKioskStep('browse');
+          return;
+        }
+        try {
+          const fresh = loadAndRevalidatePosCart(userId, branchId, products as unknown as CatalogProduct[]);
+          setCart(fresh.cart as unknown as CartItem[]);
+          setOrderType(fresh.orderType);
+          setKioskStep(fresh.kioskStep);
+          setActiveDiscount(fresh.activeDiscount);
+          setDeliveryInfo(fresh.deliveryInfo);
+          setCalculatedDeliveryFee(fresh.calculatedDeliveryFee);
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [userId, branchId, products]);
+
+  // --- Ensure document.body pointer-events is cleaned up whenever returning to catalog browse view ---
+  useEffect(() => {
+    if (kioskStep === 'browse') {
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.style.removeProperty('pointer-events');
+      }
+    }
+  }, [kioskStep]);
 
   const cartTotalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const cartBaseSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.selling_price * item.quantity), 0), [cart]);
@@ -528,6 +606,7 @@ export default function PosIndex() {
   }, [cart.length, kioskStep]);
 
   const handleClearCart = () => {
+    clearPosCart(userId, branchId);
     setCart([]);
     setActiveDiscount(null);
     setCashReceived('');
@@ -537,7 +616,42 @@ export default function PosIndex() {
     toast.info('Cart cleared');
   };
 
+  const handlePromptClearCart = () => {
+    if (cart.length === 0) {
+      handleClearCart();
+      return;
+    }
+    setIsClearCartConfirmOpen(true);
+  };
+
+  const handleMinimizeOrder = () => {
+    setKioskStep('browse');
+    toast.info('Order minimized', {
+      description: 'Active order preserved. Select more products or tap View Order anytime.',
+      duration: 3000,
+    });
+  };
+
+  const handleCloseOrder = () => {
+    setKioskStep('browse');
+  };
+
+  // --- Keyboard shortcut: Escape to minimize View Order modal ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && kioskStep === 'review') {
+        if (!isDiscountModalOpen && !modifierProduct && !isClearCartConfirmOpen && !isAlertModalOpen) {
+          e.preventDefault();
+          handleMinimizeOrder();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [kioskStep, isDiscountModalOpen, modifierProduct, isClearCartConfirmOpen, isAlertModalOpen]);
+
   const handleResetOrder = () => {
+    clearPosCart(userId, branchId);
     setCart([]);
     setActiveDiscount(null);
     setCashReceived('');
@@ -573,6 +687,23 @@ export default function PosIndex() {
       return;
     }
 
+    const validation = validateCartBeforeCheckout(cart as unknown as PosCartItem[], products as unknown as CatalogProduct[]);
+    if (!validation.isValid) {
+      setAlertModal({ 
+        type: 'warning', 
+        title: 'Cart Adjustment Needed', 
+        message: validation.errorMessage || 'Some items in your cart are no longer available or exceed stock.' 
+      });
+      setIsAlertModalOpen(true);
+      if (validation.updatedCart) {
+        setCart(validation.updatedCart as unknown as CartItem[]);
+      }
+      return;
+    }
+    if (validation.updatedCart) {
+      setCart(validation.updatedCart as unknown as CartItem[]);
+    }
+
     if (orderType === 'delivery') {
       if (!deliveryInfo.customer_name || !deliveryInfo.customer_address) {
         setAlertModal({ type: 'warning', title: 'Missing Info', message: 'Customer name and address are required for delivery.' });
@@ -596,6 +727,23 @@ export default function PosIndex() {
 
   const confirmPayment = () => {
     if (isSubmitting) return;
+
+    const validation = validateCartBeforeCheckout(cart as unknown as PosCartItem[], products as unknown as CatalogProduct[]);
+    if (!validation.isValid) {
+      setAlertModal({ 
+        type: 'warning', 
+        title: 'Checkout Blocked', 
+        message: validation.errorMessage || 'Cart contents are no longer valid.' 
+      });
+      setIsAlertModalOpen(true);
+      if (validation.updatedCart) {
+        setCart(validation.updatedCart as unknown as CartItem[]);
+      }
+      return;
+    }
+    if (validation.updatedCart) {
+      setCart(validation.updatedCart as unknown as CartItem[]);
+    }
 
     if (paymentMethod === 'cash') {
       if (!cashReceived || cashReceived.trim() === '') {
@@ -652,6 +800,7 @@ export default function PosIndex() {
         type: 'SALE',
         payload: salePayload
       }).then(() => {
+        clearPosCart(userId, branchId);
         toast.success(`✓ Offline Order #${opId.toUpperCase()} Saved Locally`, {
           description: 'It will auto-sync and print when online.',
           duration: 4000,
@@ -808,6 +957,7 @@ export default function PosIndex() {
         setLastSaleSummary(summary);
 
         // 2. Safely reset cart and kiosk input state now that transaction & receipt data is preserved
+        clearPosCart(userId, branchId);
         setCart([]);
         setActiveDiscount(null);
         setCashReceived('');
@@ -1083,7 +1233,7 @@ export default function PosIndex() {
                 </div>
 
                 {/* RESPONSIVE PRODUCT CATALOG GRID (5 cols desktop, 4 md, 3 sm, 2 xs) */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 scrollbar-hide pb-28">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 scrollbar-hide pb-36 sm:pb-44">
                   <AnimatePresence mode="popLayout">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
                       {filteredProducts.map((p: Product) => {
@@ -1098,9 +1248,26 @@ export default function PosIndex() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
+                            role="button"
+                            tabIndex={isOutOfStock ? -1 : 0}
+                            aria-disabled={isOutOfStock}
+                            aria-label={isOutOfStock ? `${p.name} is sold out` : `Add ${p.name} - ${formatCurrency(p.selling_price)} to order`}
+                            onClick={() => {
+                              if (!isOutOfStock) {
+                                addToCart(p);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if ((e.key === 'Enter' || e.key === ' ') && !isOutOfStock) {
+                                e.preventDefault();
+                                addToCart(p);
+                              }
+                            }}
                             className={cn(
-                              "group flex flex-col bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl shadow-[0_4px_20px_-4px_rgba(231,84,128,0.08)] dark:shadow-md hover:border-[#E75480]/60 transition-all duration-200 overflow-hidden relative select-none",
-                              isOutOfStock && "opacity-50 grayscale"
+                              "group flex flex-col bg-white dark:bg-[#171719] border border-[#F8C8DC]/60 dark:border-[#26262A] rounded-2xl shadow-[0_4px_20px_-4px_rgba(231,84,128,0.08)] dark:shadow-md transition-all duration-200 overflow-hidden relative select-none focus:outline-hidden focus:ring-2 focus:ring-[#E75480] focus:ring-offset-2",
+                              isOutOfStock
+                                ? "opacity-50 grayscale cursor-not-allowed"
+                                : "cursor-pointer hover:border-[#E75480] hover:shadow-[0_8px_30px_-6px_rgba(231,84,128,0.25)] active:scale-[0.98]"
                             )}
                           >
                             {/* Product Image Area (Aspect 4/3, fixed) */}
@@ -1109,19 +1276,19 @@ export default function PosIndex() {
                                 src={p.image_url}
                                 alt={p.name}
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10 pointer-events-none"
-                                fallbackIcon={<FiPackage className="size-8 text-zinc-400 opacity-40" />}
+                                fallbackIcon={<FiPackage className="size-8 text-zinc-400 opacity-40 pointer-events-none" />}
                               />
 
                               {/* Cart Count Overlay Badge */}
                               {inCartCount > 0 && (
-                                <div className="absolute top-2 left-2 bg-[#E75480] text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                                <div className="absolute top-2 left-2 bg-[#E75480] text-white font-bold text-[10px] px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 pointer-events-none z-20">
                                   <FiShoppingCart className="size-3" />
                                   <span>{inCartCount} in cart</span>
                                 </div>
                               )}
 
                               {/* Stock Status Badge */}
-                              <div className="absolute top-2 right-2">
+                              <div className="absolute top-2 right-2 pointer-events-none z-20">
                                 {isOutOfStock ? (
                                   <span className="bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs backdrop-blur-md">
                                     SOLD OUT
@@ -1165,6 +1332,7 @@ export default function PosIndex() {
                                 <Button
                                   type="button"
                                   size="icon"
+                                  tabIndex={-1}
                                   aria-label={isOutOfStock ? `${p.name} is sold out` : `Add ${p.name} to order`}
                                   title={isOutOfStock ? 'Sold out' : `Add ${p.name}`}
                                   className="size-9 rounded-xl bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
@@ -1188,41 +1356,55 @@ export default function PosIndex() {
                           <p className="text-xs font-bold tracking-wider uppercase text-[#7D6B6E] dark:text-zinc-400">No products match search criteria</p>
                         </div>
                       )}
+
+                      {/* Clearance spacer guaranteeing products at bottom of scrollable catalog never get covered by floating dock */}
+                      <div className="col-span-full h-24 sm:h-28 pointer-events-none" aria-hidden="true" />
                     </div>
                   </AnimatePresence>
                 </div>
 
-                {/* FLOATING STICKY ORDER BUTTON (Bottom-Right Badge) */}
+                {/* FLOATING STICKY ORDER BUTTON / MINIMIZED ORDER DOCK */}
                 <AnimatePresence>
                   {cart.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 50, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 50, scale: 0.95 }}
-                      className="fixed bottom-6 right-6 left-6 lg:left-auto lg:w-96 bg-white/95 dark:bg-[#171719]/95 border-2 border-[#E75480] rounded-2xl p-4 shadow-2xl backdrop-blur-2xl z-30 flex items-center justify-between gap-4"
+                      className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto sm:w-105 max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-[#171719]/95 border-2 border-[#E75480] rounded-2xl p-3 sm:p-4 shadow-2xl backdrop-blur-2xl z-30 flex items-center justify-between gap-3 sm:gap-4 select-none pointer-events-auto"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="size-11 rounded-xl bg-[#E75480] text-white flex items-center justify-center font-bold text-base shadow shrink-0">
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                        <div className="size-10 sm:size-11 rounded-xl bg-[#E75480] text-white flex items-center justify-center font-bold text-base shadow shrink-0 relative">
                           <FiShoppingCart className="size-5" />
+                          <span className="absolute -top-1 -right-1 size-3 bg-emerald-500 rounded-full border-2 border-white dark:border-[#171719]" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-[#7D6B6E] dark:text-zinc-400 uppercase tracking-wider">
-                            🛒 {cartTotalItems} {cartTotalItems === 1 ? 'ITEM' : 'ITEMS'}
-                          </p>
-                          <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 truncate">
-                            {formatCurrency(cartSubtotal)}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800/40">
+                              MINIMIZED
+                            </span>
+                            <p className="text-[10px] sm:text-[11px] font-bold text-[#7D6B6E] dark:text-zinc-400 uppercase tracking-wider truncate">
+                              {cartTotalItems} {cartTotalItems === 1 ? 'ITEM' : 'ITEMS'}
+                            </p>
+                          </div>
+                          <p className="text-base sm:text-lg font-extrabold text-emerald-600 dark:text-emerald-400 truncate mt-0.5">
+                            {formatCurrency(cartTotal)}
                           </p>
                         </div>
                       </div>
 
-                      <Button
-                        size="lg"
-                        className="h-12 px-5 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-lg flex items-center gap-2 shrink-0 active:scale-95 transition-all"
-                        onClick={() => setKioskStep('review')}
-                      >
-                        <span>VIEW ORDER</span>
-                        <FiChevronRight className="size-4" />
-                      </Button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          id="pos-restore-view-order-btn"
+                          aria-label="Restore View Order modal"
+                          className="h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-[#E75480] hover:bg-[#E75480]/90 text-white shadow-lg flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                          onClick={() => setKioskStep('review')}
+                          title="Restore View Order modal"
+                        >
+                          <FiMaximize2 className="size-3.5" />
+                          <span>VIEW ORDER</span>
+                        </Button>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1240,27 +1422,82 @@ export default function PosIndex() {
               exit={{ opacity: 0, x: -20 }}
               className="flex-1 flex flex-col h-full bg-[#FFFDFE] dark:bg-[#0F0F11] overflow-hidden transition-colors"
             >
-              {/* Review Header */}
-              <div className="p-4 sm:px-6 py-4 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#171719] flex items-center justify-between shrink-0">
+              {/* Review Header with Complete Window Controls */}
+              <div className="p-3 sm:px-6 py-3.5 border-b border-[#F8C8DC]/60 dark:border-[#26262A] bg-white dark:bg-[#171719] flex items-center justify-between shrink-0 gap-2 sm:gap-4">
+                {/* Left: Back / Add More Items */}
                 <Button 
                   variant="outline" 
-                  className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-2 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A]"
-                  onClick={() => setKioskStep('browse')}
+                  size="sm"
+                  id="pos-back-to-products-btn"
+                  className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-1.5 sm:gap-2 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A] font-bold text-xs"
+                  onClick={handleMinimizeOrder}
+                  title="Return to product catalog to select more products"
+                  aria-label="Add more items (Minimize View Order)"
                 >
                   <FiArrowLeft className="size-4 text-[#E75480]" />
-                  <span>ADD MORE ITEMS</span>
+                  <span className="hidden sm:inline">ADD MORE ITEMS</span>
                 </Button>
-                <div className="text-center">
-                  <h2 className="text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white">YOUR ORDER</h2>
-                  <p className="text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase">{cartTotalItems} Items in Order</p>
+
+                {/* Center: Title & Live Summary */}
+                <div className="text-center min-w-0">
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                    <h2 className="text-sm sm:text-base md:text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white truncate">
+                      VIEW ORDER
+                    </h2>
+                    <span className="text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-[#E75480]/10 text-[#E75480] uppercase tracking-wider shrink-0">
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-[#7D6B6E] dark:text-zinc-400 font-bold uppercase truncate mt-0.5">
+                    {cartTotalItems} {cartTotalItems === 1 ? 'Item' : 'Items'} • {formatCurrency(cartTotal)}
+                  </p>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl text-xs gap-1 font-bold cursor-pointer"
-                  onClick={handleClearCart}
-                >
-                  <FiTrash2 className="size-4" /> Clear Cart
-                </Button>
+
+                {/* Right: Window Management Action Group (Minimize, Close, Clear) */}
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Dedicated Minimize / Collapse Control */}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    id="pos-view-order-minimize-btn"
+                    className="rounded-xl border-[#F8C8DC]/60 dark:border-[#26262A] gap-1.5 text-[#3D2C2E] dark:text-zinc-300 hover:bg-[#FFF5F7] dark:hover:bg-[#26262A] font-bold text-xs"
+                    onClick={handleMinimizeOrder}
+                    title="Minimize View Order modal (Esc)"
+                    aria-label="Minimize View Order modal"
+                  >
+                    <FiMinimize2 className="size-3.5 text-[#E75480]" />
+                    <span className="hidden md:inline">MINIMIZE</span>
+                  </Button>
+
+                  {/* Dedicated Close Control */}
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    id="pos-view-order-close-btn"
+                    className="size-8 sm:size-9 rounded-xl hover:bg-[#FFF5F7] dark:hover:bg-[#26262A] text-[#7D6B6E] dark:text-zinc-400 hover:text-[#3D2C2E] dark:hover:text-white cursor-pointer"
+                    onClick={handleCloseOrder}
+                    title="Close View Order (Keep Cart)"
+                    aria-label="Close View Order modal"
+                  >
+                    <FiX className="size-4" />
+                  </Button>
+
+                  <div className="h-4 w-px bg-[#F8C8DC]/60 dark:bg-[#26262A] mx-0.5 sm:mx-1 hidden sm:block" />
+
+                  {/* Distinct Clear / Cancel Order Control */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    id="pos-view-order-clear-btn"
+                    className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl text-xs gap-1 font-bold cursor-pointer px-2 sm:px-3"
+                    onClick={handlePromptClearCart}
+                    title="Clear entire order"
+                    aria-label="Clear entire order"
+                  >
+                    <FiTrash2 className="size-3.5 sm:size-4" />
+                    <span className="hidden sm:inline">Clear Cart</span>
+                  </Button>
+                </div>
               </div>
 
               {/* Review Content */}
@@ -1699,6 +1936,45 @@ export default function PosIndex() {
           title={alertModal.title}
           message={alertModal.message}
         />
+
+        {/* Clear Cart Confirmation Safeguard Dialog */}
+        <Dialog open={isClearCartConfirmOpen} onOpenChange={setIsClearCartConfirmOpen}>
+          <DialogContent className="max-w-md bg-white dark:bg-[#171719] border-[#F8C8DC]/60 dark:border-[#26262A] text-[#3D2C2E] dark:text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-extrabold text-rose-600 flex items-center gap-2">
+                <FiTrash2 className="size-5" />
+                <span>Clear Entire Order?</span>
+              </DialogTitle>
+              <DialogDescription className="text-[#7D6B6E] dark:text-zinc-400 text-xs font-medium">
+                Are you sure you want to clear this cart? All {cartTotalItems} item{cartTotalItems > 1 ? 's' : ''} worth {formatCurrency(cartTotal)} will be permanently removed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/60 text-xs text-amber-800 dark:text-amber-300">
+              💡 <strong>Tip:</strong> If you only want to add more products, choose <strong>"Keep Order"</strong> and use <strong>"Minimize"</strong> instead.
+            </div>
+            <DialogFooter className="flex gap-2 sm:gap-3 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setIsClearCartConfirmOpen(false)}
+              >
+                Keep Order
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white"
+                onClick={() => {
+                  setIsClearCartConfirmOpen(false);
+                  handleClearCart();
+                }}
+              >
+                Yes, Clear Cart
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Opening Shift Modal */}
         <Dialog open={isShiftModalOpen} onOpenChange={() => {}}>

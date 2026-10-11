@@ -591,4 +591,60 @@ class BranchOperatingHoursTest extends TestCase
                 ],
             ]);
     }
+
+    /**
+     * Test 16: Admin cannot delete a branch with historical dependencies without 500 error.
+     */
+    public function test_admin_cannot_delete_branch_with_dependencies_safely(): void
+    {
+        // Add an order to Sta Cruz
+        Order::create([
+            'order_number'     => 'ORD-TEST-999',
+            'customer_name'    => 'Test Customer',
+            'mobile_number'    => '09123456789',
+            'user_id'          => $this->customer->id,
+            'branch_id'        => $this->staCruzBranch->id,
+            'status'           => 'completed',
+            'fulfillment_type' => 'pickup',
+            'subtotal'         => 100,
+            'total_amount'     => 100,
+            'payment_method'   => 'cash',
+            'payment_status'   => 'paid',
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->deleteJson("/branches/{$this->staCruzBranch->id}");
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+            ]);
+
+        $this->assertDatabaseHas('branches', ['id' => $this->staCruzBranch->id]);
+    }
+
+    /**
+     * Test 17: Admin can safely delete an unused branch without 500 error.
+     */
+    public function test_admin_can_safely_delete_unused_branch(): void
+    {
+        $newBranch = Branch::create([
+            'name'               => 'Temporary Unused Branch',
+            'address'            => 'Nowhere Street',
+            'latitude'           => 14.9999,
+            'longitude'          => 121.9999,
+            'delivery_radius_km' => 10.0,
+            'base_delivery_fee'  => 30.0,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->deleteJson("/branches/{$newBranch->id}");
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->assertDatabaseMissing('branches', ['id' => $newBranch->id]);
+    }
 }

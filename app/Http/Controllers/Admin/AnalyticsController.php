@@ -20,21 +20,40 @@ class AnalyticsController extends Controller
 {
     public function index(Request $request)
     {
-        $range     = (int) $request->input('range', 7);
+        $rawRange = $request->input('range');
+        if ($rawRange === null || $rawRange === '' || $rawRange === 'today' || $rawRange === '1' || $rawRange === 1) {
+            $range = 'today';
+        } elseif ($rawRange === '30' || $rawRange === 30) {
+            $range = '30';
+        } elseif ($rawRange === '365' || $rawRange === 365 || $rawRange === 'annual') {
+            $range = '365';
+        } else {
+            $range = '7';
+        }
+
+        $tz        = 'Asia/Manila';
+        $manilaNow = Carbon::now($tz);
         $branchId  = $request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int)$request->input('branch_id') : null;
-        $startDate = Carbon::now()->subDays($range);
-        $today     = Carbon::today();
         $branches  = Branch::orderBy('name')->get();
+
+        if ($range === 'today') {
+            $startDate = $manilaNow->copy()->startOfDay()->utc();
+            $endDate   = $manilaNow->copy()->endOfDay()->utc();
+        } else {
+            $rangeDays = (int) $range;
+            $startDate = $manilaNow->copy()->subDays($rangeDays)->startOfDay()->utc();
+            $endDate   = $manilaNow->copy()->endOfDay()->utc();
+        }
 
         $forecastIntel = $this->buildForecastIntel();
 
         return Inertia::render('Admin/Dashboard', [
-            'stats'                => $this->getGlobalStats($startDate, $branchId),
-            'branchStats'          => $this->getBranchStats($branches, $startDate, $today),
-            'salesOverTime'        => $this->getSalesOverTime($range, $startDate, $branchId),
-            'salesPerProduct'      => $this->getTopProducts($startDate, $branchId),
+            'stats'                => $this->getGlobalStats($startDate, $endDate, $branchId, $range),
+            'branchStats'          => $this->getBranchStats($branches, $startDate, $endDate),
+            'salesOverTime'        => $this->getSalesOverTime($range, $startDate, $endDate, $branchId),
+            'salesPerProduct'      => $this->getTopProducts($startDate, $endDate, $branchId),
             'topProductCosts'      => $this->getTopProductCosts($branchId),
-            'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $branchId),
+            'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $endDate, $branchId),
             'ingredientCostTrends' => $this->getIngredientCostTrends($branchId),
             'range'                => $range,
             'branches'             => $branches,
@@ -43,7 +62,7 @@ class AnalyticsController extends Controller
             'forecastIntel'        => $forecastIntel,
             'suggestions'          => $this->buildSuggestions(),
             'alerts'               => $this->buildAlerts($forecastIntel),
-            'heatmapData'          => $this->buildHeatmapData($startDate),
+            'heatmapData'          => $this->buildHeatmapData($startDate, $endDate),
         ]);
     }
 
@@ -115,15 +134,20 @@ class AnalyticsController extends Controller
         return $alerts;
     }
 
-    private function buildHeatmapData(Carbon $startDate): \Illuminate\Support\Collection
+    private function buildHeatmapData(Carbon $startDate, ?Carbon $endDate = null): \Illuminate\Support\Collection
     {
         $isSqlite = DB::connection()->getDriverName() === 'sqlite';
         $dayExpression = $isSqlite ? "CAST(strftime('%w', created_at) AS INTEGER) + 1" : 'DAYOFWEEK(created_at)';
         $hourExpression = $isSqlite ? "CAST(strftime('%H', created_at) AS INTEGER)" : 'HOUR(created_at)';
 
-        return Sale::where('status', 'completed')
-            ->where('created_at', '>=', $startDate)
-            ->selectRaw("{$dayExpression} as dow, {$hourExpression} as hr, COUNT(*) as volume")
+        $query = Sale::where('status', 'completed')
+            ->where('created_at', '>=', $startDate);
+
+        if ($endDate) {
+            $query->where('created_at', '<=', $endDate);
+        }
+
+        return $query->selectRaw("{$dayExpression} as dow, {$hourExpression} as hr, COUNT(*) as volume")
             ->groupBy('dow', 'hr')
             ->get()
             ->map(fn($r) => [
@@ -134,12 +158,16 @@ class AnalyticsController extends Controller
     }
 
 
-    private function getGlobalStats($startDate, ?int $branchId = null)
+    private function getGlobalStats($startDate, $endDate, ?int $branchId = null, string $range = 'today')
     {
         $metricsService = new \App\Services\FinancialMetricsService();
-        $metrics = $metricsService->getSummaryMetrics($startDate, null, $branchId);
-        $popMetrics = $metricsService->getPeriodOverPeriodMetrics($startDate, Carbon::now(), $branchId);
-        $dodMetrics = $metricsService->getDayOverDayMetrics($branchId);
+        $metrics = $metricsService->getSummaryMetrics($startDate, $endDate, $branchId);
+
+        if ($range === 'today') {
+            $deltaMetrics = $metricsService->getDayOverDayMetrics($branchId);
+        } else {
+            $deltaMetrics = $metricsService->getPeriodOverPeriodMetrics($startDate, $endDate, $branchId);
+        }
 
         $stockQuery = IngredientStock::whereHas('ingredient');
         if ($branchId) {
@@ -154,20 +182,20 @@ class AnalyticsController extends Controller
             'total_profit'       => $metrics['net_profit'],
             'profit_margin'      => $metrics['net_margin'],
             'total_orders'       => $metrics['total_orders'],
-            'revenue_delta'      => $popMetrics['revenue'],
-            'expenses_delta'     => $popMetrics['expenses'],
-            'profit_delta'       => $popMetrics['profit'],
-            'orders_delta'       => $popMetrics['orders'],
-            'dod_revenue_delta'  => $dodMetrics['revenue'],
-            'dod_orders_delta'   => $dodMetrics['orders'],
+            'revenue_delta'      => $deltaMetrics['revenue'],
+            'expenses_delta'     => $deltaMetrics['expenses'],
+            'profit_delta'       => $deltaMetrics['profit'],
+            'orders_delta'       => $deltaMetrics['orders'],
+            'dod_revenue_delta'  => $deltaMetrics['revenue'],
+            'dod_orders_delta'   => $deltaMetrics['orders'],
             'low_stock_items'    => $stockQuery->whereColumn('stock', '<=', 'low_stock_level')->count(),
         ];
     }
 
-    private function getBranchStats($branches, $startDate, $today)
+    private function getBranchStats($branches, $startDate, $endDate)
     {
         $metricsService = new \App\Services\FinancialMetricsService();
-        $branchFinancials = $metricsService->getBranchStats($branches, $startDate, null)->keyBy('id');
+        $branchFinancials = $metricsService->getBranchStats($branches, $startDate, $endDate)->keyBy('id');
 
         return $branches->map(function (Branch $branch) use ($branchFinancials) {
             $financial = $branchFinancials->get($branch->id) ?? [];
@@ -226,19 +254,23 @@ class AnalyticsController extends Controller
         });
     }
 
-    private function getSalesOverTime($range, $startDate, ?int $branchId = null)
+    private function getSalesOverTime($range, $startDate, $endDate, ?int $branchId = null)
     {
         $metricsService = new \App\Services\FinancialMetricsService();
         return $metricsService->getDailySalesTrajectory($range, $branchId);
     }
 
-    private function getTopProducts($startDate, ?int $branchId = null)
+    private function getTopProducts($startDate, $endDate = null, ?int $branchId = null)
     {
         $query = DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->where('sales.status', 'completed')
             ->where('sales.created_at', '>=', $startDate);
+
+        if ($endDate) {
+            $query->where('sales.created_at', '<=', $endDate);
+        }
 
         if ($branchId) {
             $query->where('sales.branch_id', $branchId);
@@ -338,10 +370,14 @@ class AnalyticsController extends Controller
         })->sortBy('name')->values()->toArray();
     }
 
-    private function getSalesByPayment($startDate, ?int $branchId = null)
+    private function getSalesByPayment($startDate, $endDate = null, ?int $branchId = null)
     {
         $query = Sale::where('status', 'completed')
             ->where('created_at', '>=', $startDate);
+
+        if ($endDate) {
+            $query->where('created_at', '<=', $endDate);
+        }
 
         if ($branchId) {
             $query->where('branch_id', $branchId);

@@ -27,6 +27,9 @@ export interface NotificationItem {
     employee_name?: string;
     action?: string;
     ingredient_name?: string;
+    current_stock?: string;
+    threshold?: string;
+    unit?: string;
     quantity_change?: string;
     branch_name?: string;
     is_unread?: boolean;
@@ -118,6 +121,40 @@ const triggerCancellationToast = (notif: NotificationItem) => {
     });
 };
 
+const alertedLowStockIds = new Set<string | number>();
+
+const triggerLowStockToast = (notif: NotificationItem) => {
+    const keyId = notif.id;
+    if (!keyId || alertedLowStockIds.has(keyId)) return;
+
+    alertedLowStockIds.add(keyId);
+    if (alertedLowStockIds.size > 200) {
+        const first = alertedLowStockIds.values().next().value;
+        if (first !== undefined) alertedLowStockIds.delete(first);
+    }
+
+    const isOutOfStock = notif.type === 'out_of_stock';
+    const ingredientName = notif.ingredient_name || 'Inventory Item';
+    const currentStock = notif.current_stock || notif.remaining || (isOutOfStock ? '0' : 'Low');
+    const threshold = notif.threshold || notif.quantity_change || 'N/A';
+    const branchName = notif.branch_name || 'Branch';
+
+    globalNotificationManager.notify({
+        id: notif.id,
+        type: isOutOfStock ? 'out_of_stock' : 'low_stock',
+        title: isOutOfStock ? 'Out of Stock Alert' : 'Low Stock Warning',
+        ingredient_name: ingredientName,
+        current_stock: currentStock,
+        threshold: threshold,
+        branch_name: branchName,
+        link_url: notif.url || '/inventory',
+        link_text: 'VIEW INVENTORY',
+        duration_ms: 7000,
+        auto_dismiss: true,
+        created_at: Date.now(),
+    });
+};
+
 export function NotificationBell() {
     const { auth } = usePage().props as unknown as { auth?: AuthState };
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -129,13 +166,15 @@ export function NotificationBell() {
         const unread = items.filter(i => i.is_unread).length;
         setUnreadCount(unread);
 
-        // Check for new unread notifications to alert cashier
+        // Check for new unread notifications to alert cashier and admin
         items.forEach(item => {
             if (item.is_unread) {
                 if (item.type === 'new_order') {
                     triggerToastAlert(item);
                 } else if (item.type === 'cancellation_request') {
                     triggerCancellationToast(item);
+                } else if (item.type === 'low_stock' || item.type === 'out_of_stock') {
+                    triggerLowStockToast(item);
                 }
             }
         });
