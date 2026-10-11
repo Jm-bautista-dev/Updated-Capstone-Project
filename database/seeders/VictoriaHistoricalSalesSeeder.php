@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Branch;
+use App\Models\CashierShift;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -14,83 +15,114 @@ use Illuminate\Support\Facades\DB;
 class VictoriaHistoricalSalesSeeder extends Seeder
 {
     /**
-     * Run the synthetic Victoria historical sales seeder.
+     * Run the Victoria historical sales seeder.
+     * Aligns Victoria historical sales and attendance with Victoria's authentic cashier account.
      */
     public function run(): void
     {
+        $this->command?->info("========================================================================");
+        $this->command?->info("   VICTORIA HISTORICAL SALES & CASHIER ATTENDANCE SYNCHRONIZATION       ");
+        $this->command?->info("========================================================================");
+
         // 1. Resolve Victoria Branch & Sta Cruz Branch
-        $victoriaBranch = Branch::where('name', 'like', '%Victoria%')->first();
+        $victoriaBranch = Branch::where('id', 1)
+            ->orWhere('name', 'like', '%Victoria%')
+            ->first();
+
         if (!$victoriaBranch) {
-            $victoriaBranch = Branch::create([
-                'id'                 => 1,
-                'name'               => 'Maki Desu Victoria',
-                'code'               => 'VIC',
-                'address'            => 'Victoria, Laguna',
-                'latitude'           => 14.2280,
-                'longitude'          => 121.3280,
-                'delivery_radius_km' => 10,
-            ]);
+            $this->command?->error("Victoria branch not found.");
+            return;
         }
 
-        $staCruzBranch = Branch::where('name', 'like', '%Sta Cruz%')
+        $staCruzBranch = Branch::where('id', 2)
+            ->orWhere('name', 'like', '%Sta Cruz%')
             ->orWhere('name', 'like', '%Santa Cruz%')
             ->first();
 
         if (!$staCruzBranch) {
-            $this->command->error("Sta Cruz branch not found. Please run SalesDatasetSeeder first.");
+            $this->command?->error("Sta Cruz branch not found.");
             return;
         }
 
-        // 2. Analyze Sta Cruz exact daily figures (Sept 10 - Sept 30)
-        $startDate = '2026-09-10 00:00:00';
-        $endDate = '2026-09-30 23:59:59';
+        // 2. Resolve Victoria Cashier User Account
+        // Prioritize active Victoria cashier named 'Victoria' (User ID 66), or any active cashier at Branch 1
+        $victoriaCashier = User::where('branch_id', $victoriaBranch->id)
+            ->where('role', 'cashier')
+            ->where('name', 'Victoria')
+            ->where(function ($q) {
+                $q->whereNull('account_status')->orWhere('account_status', 'active');
+            })
+            ->first()
+            ?? User::where('id', 66)->first()
+            ?? User::where('branch_id', $victoriaBranch->id)
+                ->where('role', 'cashier')
+                ->where(function ($q) {
+                    $q->whereNull('account_status')->orWhere('account_status', 'active');
+                })
+                ->first()
+            ?? User::where('branch_id', $victoriaBranch->id)->where('role', 'cashier')->first();
 
+        if (!$victoriaCashier) {
+            $this->command?->error("No cashier account found for Victoria branch.");
+            return;
+        }
+
+        $this->command?->info("Assigned Victoria Cashier: [ID: {$victoriaCashier->id}] {$victoriaCashier->name} ({$victoriaCashier->email})");
+
+        // 3. Clear residual synthetic sales and their items for Victoria
+        $residualSales = Sale::where('branch_id', $victoriaBranch->id)
+            ->where(function ($q) {
+                $q->where('source_system', 'Synthetic History (POS Unavailable)')
+                  ->orWhere('order_number', 'like', 'POS-VIC-%');
+            })
+            ->pluck('id');
+
+        if ($residualSales->isNotEmpty()) {
+            DB::table('sale_items')->whereIn('sale_id', $residualSales)->delete();
+            DB::table('sales')->whereIn('id', $residualSales)->delete();
+            $this->command?->comment("Purged " . count($residualSales) . " prior synthetic Victoria sales.");
+        }
+
+        // 4. Analyze Sta Cruz Daily Volume across historical period
         $staCruzSales = Sale::where('branch_id', $staCruzBranch->id)
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', ['2026-09-09 00:00:00', '2026-10-10 23:59:59'])
             ->with('items')
             ->orderBy('created_at')
             ->get();
 
         if ($staCruzSales->isEmpty()) {
-            $this->command->error("No Sta Cruz sales found for September 10-30. Please run SalesDatasetSeeder first.");
+            $this->command?->error("No Sta Cruz baseline sales found.");
             return;
         }
 
-        $staCruzTotalRevenue = (float)$staCruzSales->sum('total');
-        $staCruzTotalOrders = $staCruzSales->count();
-        $staCruzTotalQty = 0;
         $staCruzDaily = [];
+        $staCruzTotalRevenue = 0.0;
+        $staCruzTotalQty = 0;
 
         foreach ($staCruzSales as $scSale) {
-            $d = substr($scSale->created_at->toDateTimeString(), 0, 10);
-            if (!isset($staCruzDaily[$d])) {
-                $staCruzDaily[$d] = ['orders' => 0, 'revenue' => 0.0, 'qty' => 0];
+            $manilaDate = $scSale->created_at->copy()->setTimezone('Asia/Manila')->format('Y-m-d');
+            if (!isset($staCruzDaily[$manilaDate])) {
+                $staCruzDaily[$manilaDate] = ['orders' => 0, 'revenue' => 0.0, 'qty' => 0];
             }
-            $staCruzDaily[$d]['orders']++;
-            $staCruzDaily[$d]['revenue'] += (float)$scSale->total;
+            $staCruzDaily[$manilaDate]['orders']++;
+            $staCruzDaily[$manilaDate]['revenue'] += (float)$scSale->total;
+
             foreach ($scSale->items as $scItem) {
-                $staCruzDaily[$d]['qty'] += (float)$scItem->quantity;
+                $staCruzDaily[$manilaDate]['qty'] += (float)$scItem->quantity;
                 $staCruzTotalQty += (float)$scItem->quantity;
             }
+            $staCruzTotalRevenue += (float)$scSale->total;
         }
 
-        // 3. Resolve Victoria Cashier Users
-        $victoriaCashiers = User::where('branch_id', $victoriaBranch->id)
-            ->whereIn('role', ['cashier', 'admin'])
-            ->get();
+        $this->command?->info("Sta Cruz Baseline: " . count($staCruzDaily) . " operating days, ₱" . number_format($staCruzTotalRevenue, 2) . ", {$staCruzTotalQty} total items.");
 
-        $cashierIds = $victoriaCashiers->isNotEmpty()
-            ? $victoriaCashiers->pluck('id')->toArray()
-            : [User::where('role', 'admin')->first()?->id ?? 1];
-
-        // 4. Fetch Available Active Products for Victoria
+        // 5. Fetch Active Catalog Products
         $products = Product::whereNull('deleted_at')->get();
         if ($products->isEmpty()) {
-            $this->command->error("No active products found in catalog.");
+            $this->command?->error("No active catalog products found.");
             return;
         }
 
-        // Fast-casual restaurant mix weights for realistic independent variation
         $weightedProducts = [];
         foreach ($products as $p) {
             $name = strtolower($p->name);
@@ -103,7 +135,7 @@ class VictoriaHistoricalSalesSeeder extends Seeder
             elseif (str_contains($name, 'crazy maki (4pcs)')) $weight = 35;
             elseif (str_contains($name, 'kani maki with salted egg (4pcs)')) $weight = 30;
             elseif (str_contains($name, 'torched salmon (4pcs)')) $weight = 25;
-            elseif (str_contains($name, 'coke') || str_contains($name, 'sprite') || str_contains($name, 'royal') || str_contains($name, 'water')) $weight = 40;
+            elseif (str_contains($name, 'coke') || str_contains($name, 'sprite') || str_contains($name, 'royal') || str_contains($name, 'water') || str_contains($name, 'mismo')) $weight = 40;
             elseif (str_contains($name, 'classic california maki (8pcs)')) $weight = 22;
             elseif (str_contains($name, 'crazy maki (8pcs)')) $weight = 20;
             elseif (str_contains($name, 'california maki (bento)')) $weight = 20;
@@ -122,51 +154,44 @@ class VictoriaHistoricalSalesSeeder extends Seeder
                 'product' => $p,
                 'weight' => $weight,
                 'price' => $price,
+                'cost' => (float)($p->cost_price ?? $p->manual_cost ?? 0.0),
             ];
         }
 
-        // 5. Duplicate Protection: Remove existing synthetic Victoria sales in target range before re-seeding
-        $existingSyntheticSales = Sale::where('branch_id', $victoriaBranch->id)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('order_number', 'like', 'POS-VIC-%')
-            ->pluck('id');
-
-        if ($existingSyntheticSales->isNotEmpty()) {
-            DB::table('sale_items')->whereIn('sale_id', $existingSyntheticSales)->delete();
-            DB::table('sales')->whereIn('id', $existingSyntheticSales)->delete();
-            $this->command->info("Cleared " . count($existingSyntheticSales) . " previous synthetic Victoria sales for re-generation.");
-        }
-
-        // 6. Generate Synthetic Dataset (Controlled Seed for reproducibility)
-        mt_srand(987654);
+        // Fixed seed for deterministic, stable generation
+        mt_srand(424242);
 
         $insertedSalesCount = 0;
         $insertedItemsCount = 0;
         $victoriaTotalRevenue = 0.0;
-        $victoriaTotalQty = 0;
+        $businessTz = 'Asia/Manila';
+        $storageTz = config('app.timezone', 'UTC');
 
         DB::beginTransaction();
 
         try {
             foreach ($staCruzDaily as $dateStr => $scStat) {
                 $scQty = $scStat['qty'];
+                // Target ~88% - 96% of Sta Cruz daily volume with natural variance
                 $scale = mt_rand(88, 96) / 100.0;
                 $targetDayQty = max(8, (int)round($scQty * $scale));
 
                 $dayQty = 0;
                 $dayOrders = [];
+                $dailyCashSales = 0.0;
 
                 while ($dayQty < $targetDayQty) {
                     $numItems = mt_rand(1, 100) <= 65 ? 1 : (mt_rand(1, 100) <= 75 ? 2 : 3);
                     $orderItems = [];
                     $orderTotal = 0.0;
+                    $orderCostTotal = 0.0;
                     $orderQty = 0;
 
                     for ($i = 0; $i < $numItems; $i++) {
-                        // Pick random weighted product
                         $picked = $this->pickProduct($weightedProducts);
                         $p = $picked['product'];
                         $price = $picked['price'];
+                        $cost = $picked['cost'];
 
                         $itemQty = 1;
                         $qtyRand = mt_rand(1, 100);
@@ -181,49 +206,63 @@ class VictoriaHistoricalSalesSeeder extends Seeder
                         }
 
                         $lineTotal = round($price * $itemQty, 2);
+                        $lineCost = round($cost * $itemQty, 2);
+                        $lineProfit = max(0.0, round($lineTotal - $lineCost, 2));
+
                         $orderTotal += $lineTotal;
+                        $orderCostTotal += $lineCost;
                         $orderQty += $itemQty;
 
                         $orderItems[] = [
-                            'product_id'   => $p->id,
-                            'quantity'     => $itemQty,
-                            'unit_price'   => $price,
-                            'subtotal'     => $lineTotal,
+                            'product_id' => $p->id,
+                            'quantity'   => $itemQty,
+                            'unit_price' => $price,
+                            'cost_price' => $cost,
+                            'subtotal'   => $lineTotal,
+                            'profit'     => $lineProfit,
                         ];
                     }
 
-                    $transTime = $this->generateVictoriaTime($dateStr);
-                    $payMethod = mt_rand(1, 100) <= 82 ? 'cash' : (mt_rand(1, 100) <= 60 ? 'gcash' : 'maya');
+                    $payMethodRand = mt_rand(1, 100);
+                    $payMethod = $payMethodRand <= 80 ? 'cash' : ($payMethodRand <= 95 ? 'gcash' : 'maya');
                     $orderType = mt_rand(1, 100) <= 75 ? 'dine-in' : 'take-out';
-                    $cashierId = $cashierIds[array_rand($cashierIds)];
+
+                    // Generate timestamp strictly between 09:15:00 AM and 06:45:00 PM Asia/Manila
+                    $orderTimeUtc = $this->generateOperatingTimestamp($dateStr, $businessTz, $storageTz);
 
                     $dayOrders[] = [
-                        'time'           => $transTime,
+                        'time_utc'       => $orderTimeUtc,
                         'total'          => $orderTotal,
+                        'cost_total'     => $orderCostTotal,
+                        'profit'         => max(0.0, round($orderTotal - $orderCostTotal, 2)),
                         'quantity'       => $orderQty,
                         'payment_method' => $payMethod,
                         'type'           => $orderType,
-                        'cashier_id'     => $cashierId,
                         'items'          => $orderItems,
                     ];
+
+                    if ($payMethod === 'cash') {
+                        $dailyCashSales += $orderTotal;
+                    }
 
                     $dayQty += $orderQty;
                 }
 
-                // Sort transactions chronologically within the day
-                usort($dayOrders, fn($a, $b) => $a['time'] <=> $b['time']);
+                // Sort orders chronologically within the day
+                usort($dayOrders, fn($a, $b) => $a['time_utc'] <=> $b['time_utc']);
 
+                // Insert day orders
                 foreach ($dayOrders as $order) {
-                    $tTime = $order['time'];
-                    $dateSlug = $tTime->format('Ymd');
-                    $timeSlug = $tTime->format('His');
+                    $utcTime = $order['time_utc'];
+                    $localTime = $utcTime->copy()->setTimezone($businessTz);
+                    $dateSlug = $localTime->format('Ymd');
+                    $timeSlug = $localTime->format('His');
                     $uniqueSuffix = strtoupper(substr(md5(uniqid((string) mt_rand(), true)), 0, 4));
                     $orderNumber = "POS-VIC-{$dateSlug}-{$timeSlug}-{$uniqueSuffix}";
 
-                    // Create Sale (without triggering current inventory deduction)
                     $sale = Sale::create([
                         'order_number'     => $orderNumber,
-                        'user_id'          => $order['cashier_id'],
+                        'user_id'          => $victoriaCashier->id,
                         'branch_id'        => $victoriaBranch->id,
                         'type'             => $order['type'],
                         'subtotal'         => $order['total'],
@@ -232,20 +271,20 @@ class VictoriaHistoricalSalesSeeder extends Seeder
                         'discount_details' => null,
                         'delivery_fee'     => 0.00,
                         'total'            => $order['total'],
-                        'cost_total'       => 0.00,
-                        'profit'           => $order['total'],
+                        'cost_total'       => $order['cost_total'],
+                        'profit'           => $order['profit'],
                         'paid_amount'      => $order['total'],
                         'change_amount'    => 0.00,
                         'payment_method'   => $order['payment_method'],
                         'status'           => 'completed',
                         'source'           => 'pos',
                         'source_system'    => 'Synthetic History (POS Unavailable)',
-                        'created_at'       => $tTime,
-                        'updated_at'       => $tTime,
+                        'created_at'       => $utcTime,
+                        'updated_at'       => $utcTime,
                     ]);
 
-                    $sale->created_at = $tTime;
-                    $sale->updated_at = $tTime;
+                    $sale->created_at = $utcTime;
+                    $sale->updated_at = $utcTime;
                     $sale->saveQuietly();
 
                     foreach ($order['items'] as $item) {
@@ -254,42 +293,88 @@ class VictoriaHistoricalSalesSeeder extends Seeder
                             'product_id'      => $item['product_id'],
                             'quantity'        => $item['quantity'],
                             'unit_price'      => $item['unit_price'],
-                            'cost_price'      => 0.00,
+                            'cost_price'      => $item['cost_price'],
                             'subtotal'        => $item['subtotal'],
-                            'profit'          => $item['subtotal'],
+                            'profit'          => $item['profit'],
                             'addon_total'     => 0.00,
                             'selected_addons' => null,
-                            'created_at'      => $tTime,
-                            'updated_at'      => $tTime,
+                            'created_at'      => $utcTime,
+                            'updated_at'      => $utcTime,
                         ]);
 
-                        $saleItem->created_at = $tTime;
-                        $saleItem->updated_at = $tTime;
+                        $saleItem->created_at = $utcTime;
+                        $saleItem->updated_at = $utcTime;
                         $saleItem->saveQuietly();
                         $insertedItemsCount++;
                     }
 
                     $insertedSalesCount++;
                     $victoriaTotalRevenue += (float)$order['total'];
-                    $victoriaTotalQty += (int)$order['quantity'];
+                }
+
+                // Synchronize CashierShift for Victoria Cashier on this date
+                $openingFloat = 1500.00;
+                $expectedBalance = $openingFloat + $dailyCashSales;
+                $shiftOpenedUtc = Carbon::createFromFormat('Y-m-d H:i:s', "{$dateStr} 09:00:00", $businessTz)->setTimezone($storageTz);
+                $shiftClosedUtc = Carbon::createFromFormat('Y-m-d H:i:s', "{$dateStr} 19:00:00", $businessTz)->setTimezone($storageTz);
+
+                $dayStartUtc = Carbon::createFromFormat('Y-m-d H:i:s', "{$dateStr} 00:00:00", $businessTz)->setTimezone($storageTz);
+                $dayEndUtc = Carbon::createFromFormat('Y-m-d H:i:s', "{$dateStr} 23:59:59", $businessTz)->setTimezone($storageTz);
+
+                $existingShift = CashierShift::where('branch_id', $victoriaBranch->id)
+                    ->whereBetween('opened_at', [$dayStartUtc, $dayEndUtc])
+                    ->first();
+
+                if ($existingShift) {
+                    $existingShift->update([
+                        'cashier_id'       => $victoriaCashier->id,
+                        'opened_at'        => $shiftOpenedUtc,
+                        'closed_at'        => $shiftClosedUtc,
+                        'opening_balance'  => $openingFloat,
+                        'closing_balance'  => $expectedBalance,
+                        'expected_balance' => $expectedBalance,
+                        'total_cash_sales' => $dailyCashSales,
+                        'cash_in'          => 0.00,
+                        'cash_out'         => 0.00,
+                        'variance'         => 0.00,
+                        'notes'            => 'Historical daily cashier shift aligned with ₱1,500 float (09:00:00 - 19:00:00 Manila)',
+                        'status'           => 'closed',
+                    ]);
+                } else {
+                    CashierShift::create([
+                        'branch_id'        => $victoriaBranch->id,
+                        'cashier_id'       => $victoriaCashier->id,
+                        'opened_at'        => $shiftOpenedUtc,
+                        'closed_at'        => $shiftClosedUtc,
+                        'opening_balance'  => $openingFloat,
+                        'closing_balance'  => $expectedBalance,
+                        'expected_balance' => $expectedBalance,
+                        'total_cash_sales' => $dailyCashSales,
+                        'cash_in'          => 0.00,
+                        'cash_out'         => 0.00,
+                        'variance'         => 0.00,
+                        'notes'            => 'Historical daily cashier shift aligned with ₱1,500 float (09:00:00 - 19:00:00 Manila)',
+                        'status'           => 'closed',
+                    ]);
                 }
             }
 
             DB::commit();
 
             $ratio = $staCruzTotalRevenue > 0 ? ($victoriaTotalRevenue / $staCruzTotalRevenue) * 100 : 0;
-            $this->command->info("Successfully seeded {$insertedSalesCount} transactions ({$insertedItemsCount} items) for Victoria branch.");
-            $this->command->info("Victoria Total Revenue: ₱" . number_format($victoriaTotalRevenue, 2) . " (" . number_format($ratio, 2) . "% of Sta Cruz ₱" . number_format($staCruzTotalRevenue, 2) . ").");
+            $this->command?->info(" Successfully seeded {$insertedSalesCount} Victoria transactions ({$insertedItemsCount} items) across " . count($staCruzDaily) . " days.");
+            $this->command?->info("Victoria Total Revenue: ₱" . number_format($victoriaTotalRevenue, 2) . " (" . number_format($ratio, 2) . "% of Sta Cruz ₱" . number_format($staCruzTotalRevenue, 2) . ").");
+            $this->command?->info("All Victoria sales and shifts strictly attributed to cashier {$victoriaCashier->name} (User ID {$victoriaCashier->id}).");
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            $this->command->error("Failed to seed Victoria sales: " . $e->getMessage());
+            $this->command?->error("Failed to seed Victoria historical sales: " . $e->getMessage());
             throw $e;
         }
     }
 
     /**
-     * Pick random weighted product.
+     * Pick random weighted product from catalog.
      */
     private function pickProduct(array $weightedProducts): array
     {
@@ -306,32 +391,36 @@ class VictoriaHistoricalSalesSeeder extends Seeder
     }
 
     /**
-     * Generate realistic time within Victoria operating hours (10:00 AM - 8:00 PM).
+     * Generate realistic operating timestamp strictly between 09:15:00 AM and 06:45:00 PM Asia/Manila,
+     * converted to UTC storage timezone.
      */
-    private function generateVictoriaTime(string $dateStr): Carbon
+    private function generateOperatingTimestamp(string $dateStr, string $businessTz, string $storageTz): Carbon
     {
+        // Operating slots (minutes from midnight in Manila):
+        // 09:15 is 555 mins
+        // 18:45 is 1125 mins
         $slotRand = mt_rand(1, 100);
-        if ($slotRand <= 35) {
-            // Lunch peak: 11:30 - 13:30 (690 to 810 mins from midnight)
+        if ($slotRand <= 38) {
+            // Lunch peak: 11:30 - 13:30 (690 to 810 mins)
             $minute = mt_rand(690, 810);
-        } elseif ($slotRand <= 55) {
+        } elseif ($slotRand <= 58) {
             // Afternoon: 13:30 - 17:00 (810 to 1020 mins)
             $minute = mt_rand(810, 1020);
         } elseif ($slotRand <= 90) {
-            // Dinner peak: 17:00 - 19:30 (1020 to 1170 mins)
-            $minute = mt_rand(1020, 1170);
-        } elseif ($slotRand <= 95) {
-            // Morning: 10:00 - 11:30 (600 to 690 mins)
-            $minute = mt_rand(600, 690);
+            // Dinner peak: 17:00 - 18:45 (1020 to 1125 mins)
+            $minute = mt_rand(1020, 1125);
         } else {
-            // Evening close: 19:30 - 19:55 (1170 to 1195 mins)
-            $minute = mt_rand(1170, 1195);
+            // Morning: 09:15 - 11:30 (555 to 690 mins)
+            $minute = mt_rand(555, 690);
         }
 
         $sec = mt_rand(0, 59);
         $hour = intdiv($minute, 60);
         $min = $minute % 60;
 
-        return Carbon::createFromFormat('Y-m-d H:i:s', "{$dateStr} " . sprintf('%02d:%02d:%02d', $hour, $min, $sec));
+        $localTimeString = sprintf('%02d:%02d:%02d', $hour, $min, $sec);
+        $localCarbon = Carbon::createFromFormat('Y-m-d H:i:s', "{$dateStr} {$localTimeString}", $businessTz);
+
+        return $localCarbon->copy()->setTimezone($storageTz);
     }
 }
