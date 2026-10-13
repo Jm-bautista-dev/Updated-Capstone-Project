@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import {
     Sheet,
     SheetContent,
+    SheetTitle,
+    SheetDescription,
 } from '@/components/ui/sheet';
 
 interface ReportsDrawerProps {
@@ -38,9 +40,12 @@ export function ReportsDrawer({ report, open, onClose }: ReportsDrawerProps) {
                                 <h2 className="text-sm font-mono font-black text-[#E75480] dark:text-[#FF4F81]">
                                     {report.id}
                                 </h2>
-                                <h3 className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] line-clamp-1">
+                                <SheetTitle className="text-base font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] line-clamp-1">
                                     {report.name}
-                                </h3>
+                                </SheetTitle>
+                                <SheetDescription className="sr-only">
+                                    Report details for {report.name} ({report.id})
+                                </SheetDescription>
                             </div>
                         </div>
 

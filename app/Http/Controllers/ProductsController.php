@@ -536,12 +536,12 @@ class ProductsController extends Controller
         // Branch resolution & authorization
         if (!$isAdmin) {
             $branchId = (int) $user->branch_id;
-            $branches = Branch::where('id', $branchId)->get(['id', 'name', 'code']);
+            $branches = Branch::where('id', $branchId)->get(['id', 'name']);
         } else {
             $branchId = $request->filled('branch_id') && $request->input('branch_id') !== 'all'
                 ? (int) $request->input('branch_id')
                 : ($user->branch_id ?: (Branch::first()?->id ?? 1));
-            $branches = Branch::orderBy('name')->get(['id', 'name', 'code']);
+            $branches = Branch::orderBy('name')->get(['id', 'name']);
         }
 
         $branch = Branch::find($branchId);
@@ -597,7 +597,7 @@ class ProductsController extends Controller
             'branch'       => [
                 'id'   => $branch->id,
                 'name' => $branch->name,
-                'code' => $branch->code,
+                'code' => $branch->code ?? null,
             ],
             'branches'     => $branches,
             'ingredients'  => $ingredients,

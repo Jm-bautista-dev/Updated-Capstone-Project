@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import {
     Sheet,
     SheetContent,
+    SheetTitle,
+    SheetDescription,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
@@ -104,9 +106,12 @@ export function InventoryDrawer({
                             <Tag className="size-3.5" />
                             <span>{row.is_composite ? 'Composite Ingredient' : 'Standard Ingredient'}</span>
                         </div>
-                        <h2 className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate">
+                        <SheetTitle className="text-2xl font-black text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight truncate">
                             {row.name}
-                        </h2>
+                        </SheetTitle>
+                        <SheetDescription className="sr-only">
+                            Inventory details and batch management for {row.name}
+                        </SheetDescription>
                     </div>
                 </div>
 

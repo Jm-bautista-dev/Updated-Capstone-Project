@@ -583,11 +583,11 @@ export default function EmployeeIndex({ employees, branches, kpis, isSuperAdmin 
                             <CheckCircle2 className="size-10 text-white" />
                         </div>
                         <DialogTitle className="text-2xl font-black">Access Authorized!</DialogTitle>
-                        <p className="text-emerald-50 text-xs font-medium">
+                        <DialogDescription className="text-emerald-50 text-xs font-medium">
                             {newEmployeeCreds?.email_sent
                                 ? `Credentials sent to ${newEmployeeCreds?.email}`
                                 : 'Credentials generated successfully.'}
-                        </p>
+                        </DialogDescription>
                     </div>
 
                     <div className="p-8 space-y-5">

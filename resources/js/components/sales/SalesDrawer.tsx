@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button';
 import {
     Sheet,
     SheetContent,
+    SheetTitle,
+    SheetDescription,
 } from '@/components/ui/sheet';
 import { printReceiptToThermalPrinter, triggerBrowserThermalPrint, getPrinterConfig } from '@/lib/pos-print-bridge';
 import { cn } from '@/lib/utils';
@@ -161,12 +163,12 @@ export function SalesDrawer({
                                 <Receipt className="size-5" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-mono font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                <SheetTitle className="text-xl font-mono font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
                                     #{sale.order_number}
-                                </h2>
-                                <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                </SheetTitle>
+                                <SheetDescription className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
                                     {safeFormatDate(sale.created_at)}
-                                </p>
+                                </SheetDescription>
                             </div>
                         </div>
 

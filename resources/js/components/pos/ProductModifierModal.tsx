@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FiPlus, FiMinus, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { ImageWithFallback } from '@/components/shared/ImageWithFallback';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { formatCurrency } from '@/lib/utils';
 
 export interface ModifierAddon {
@@ -236,6 +236,9 @@ export function ProductModifierModal({
               <DialogTitle className="text-lg font-extrabold uppercase tracking-tight text-[#3D2C2E] dark:text-white truncate">
                 Customize {product.name}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Select add-ons and customize specifications for {product.name}
+              </DialogDescription>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
                   Base: {formatCurrency(product.selling_price)}

@@ -457,11 +457,11 @@ export default function RiderIndex({ riders, branches, filters, stats }: Props) 
                             <CheckCircle2 className="size-10 text-white" />
                         </div>
                         <DialogTitle className="text-2xl font-black">Rider Account Created!</DialogTitle>
-                        <p className="text-emerald-50 text-xs font-medium">
+                        <DialogDescription className="text-emerald-50 text-xs font-medium">
                             {newRiderCreds?.email_sent
                                 ? `Credentials have been emailed to ${newRiderCreds?.email}`
                                 : 'Please copy these credentials and provide them to the rider.'}
-                        </p>
+                        </DialogDescription>
                     </div>
 
                     <div className="p-8 space-y-5">
