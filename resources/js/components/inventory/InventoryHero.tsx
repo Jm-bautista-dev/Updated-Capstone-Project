@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Package, AlertTriangle, Slash, DollarSign, Sparkles, RefreshCw } from 'lucide-react';
+import { Package, AlertTriangle, Slash, DollarSign, Sparkles, RefreshCw, Clock, Layers, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -27,9 +27,18 @@ export interface InventoryRow {
 
 interface ServerStats {
     total_items?: number;
+    total?: number;
     low_stock_count?: number;
+    low_stock?: number;
     out_of_stock_count?: number;
+    out_of_stock?: number;
     total_valuation?: number;
+    active_batches?: number;
+    expiring_today?: number;
+    expiring_soon?: number;
+    expired_count?: number;
+    quarantined_count?: number;
+    alerts_summary?: string;
 }
 
 interface InventoryHeroProps {
@@ -166,6 +175,54 @@ export function InventoryHero({ inventory, stats: serverStats, activeBranchName 
                     </div>
                 </motion.div>
 
+            </div>
+
+            {/* FEFO/FIFO Queue & Food-Safety Expiration Intelligence Ribbon */}
+            <div className="relative z-10 pt-1 border-t border-[#F8C8DC]/30 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                        <Layers className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                        <span>FEFO/FIFO Batch Queue:</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 font-mono font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">
+                        <CheckCircle2 className="size-3 text-emerald-500" />
+                        <span>{serverStats?.active_batches ?? 0} Active Batches</span>
+                    </span>
+
+                    {(serverStats?.expiring_today ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 font-bold text-amber-700 dark:text-amber-400">
+                            <Clock className="size-3" />
+                            <span>{serverStats?.expiring_today} Expiring Today</span>
+                        </span>
+                    )}
+
+                    {(serverStats?.expiring_soon ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-orange-500/10 border border-orange-500/30 font-bold text-orange-600 dark:text-orange-400">
+                            <Clock className="size-3" />
+                            <span>{serverStats?.expiring_soon} Expiring Soon</span>
+                        </span>
+                    )}
+
+                    {(serverStats?.expired_count ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/15 border border-rose-500/30 font-bold text-rose-600 dark:text-rose-400">
+                            <ShieldAlert className="size-3" />
+                            <span>{serverStats?.expired_count} Expired (Blocked from Sale)</span>
+                        </span>
+                    )}
+
+                    {(serverStats?.quarantined_count ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/30 font-bold text-purple-700 dark:text-purple-300">
+                            <ShieldAlert className="size-3" />
+                            <span>{serverStats?.quarantined_count} Quarantined</span>
+                        </span>
+                    )}
+                </div>
+
+                <div className="text-[11px] font-semibold text-[#9E8B8E] dark:text-[#64748B] flex items-center gap-1.5">
+                    <span className="inline-block size-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Automatic consumption engine active • Branch isolated</span>
+                </div>
             </div>
         </motion.div>
     );

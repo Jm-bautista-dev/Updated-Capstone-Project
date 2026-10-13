@@ -106,11 +106,24 @@ class InventoryController extends Controller
                 // Removed fallback resurrection block to allow true deletion of branch stock records.
         }
 
-        // Stats based on visible inventory
+        // Batch and Expiration Stats based on actual database lot records
+        $batchService = app(\App\Services\InventoryBatchService::class);
+        $alertService = app(\App\Services\ExpirationAlertService::class);
+        $batchStats   = $batchService->getOverviewKpiStats($branchId);
+        $activeAlerts = $alertService->getActiveAlerts($branchId);
+
+        // Stats based on visible inventory & real batch queues
         $stats = [
-            'total'     => collect($inventory)->pluck('id')->unique()->count(),
-            'low_stock' => collect($inventory)->where('is_low_stock', true)->count(),
-            'out_of_stock' => collect($inventory)->where('is_out_of_stock', true)->count(),
+            'total'                => collect($inventory)->pluck('id')->unique()->count(),
+            'low_stock'            => collect($inventory)->where('is_low_stock', true)->count(),
+            'out_of_stock'         => collect($inventory)->where('is_out_of_stock', true)->count(),
+            'active_batches'       => $batchStats['active_batches'],
+            'expiring_today'       => $batchStats['expiring_today'],
+            'expiring_soon'        => $batchStats['expiring_soon'],
+            'expired_count'        => $batchStats['expired_count'],
+            'quarantined_count'    => $batchStats['quarantined_count'],
+            'total_valuation'      => $batchStats['inventory_valuation'],
+            'alerts_summary'       => $activeAlerts['summary'],
         ];
 
         return Inertia::render('Inventory/Index', [
@@ -119,6 +132,8 @@ class InventoryController extends Controller
             'currentBranchId' => $branchId,
             'isAdmin'         => $user->isAdmin(),
             'stats'           => $stats,
+            'batchStats'      => $batchStats,
+            'activeAlerts'    => $activeAlerts,
         ]);
     }
 

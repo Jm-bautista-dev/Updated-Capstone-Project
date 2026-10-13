@@ -241,10 +241,13 @@ class NotificationController extends Controller
                     $stockQuery->where('branch_id', $branchId);
                 }
 
+                /** @var \Illuminate\Database\Eloquent\Collection<int, IngredientStock> $unnotified */
                 $unnotified = $stockQuery->limit(10)->get();
                 $alertService = app(LowStockAlertService::class);
                 foreach ($unnotified as $unRow) {
-                    $alertService->evaluateStockRow($unRow);
+                    if ($unRow instanceof IngredientStock) {
+                        $alertService->evaluateStockRow($unRow);
+                    }
                 }
             } catch (\Throwable $e) {
                 // non-blocking

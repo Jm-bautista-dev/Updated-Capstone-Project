@@ -105,6 +105,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('analytics/sales-forecast', [AnalyticsController::class, 'salesForecast'])->name('analytics.sales-forecast');
             Route::get('analytics/forecast-benchmarking', [AnalyticsController::class, 'forecastBenchmarking'])->name('analytics.forecast-benchmarking');
             Route::post('analytics/forecast-benchmarking/run', [AnalyticsController::class, 'runBenchmark'])->name('analytics.forecast-benchmarking.run');
+            Route::post('analytics/forecast-benchmarking/retrain', [AnalyticsController::class, 'retrainActiveModel'])->name('analytics.forecast-benchmarking.retrain');
+            Route::post('analytics/forecast-benchmarking/experiment', [AnalyticsController::class, 'startNewExperiment'])->name('analytics.forecast-benchmarking.experiment');
             Route::post('analytics/forecast-benchmarking/save', [AnalyticsController::class, 'saveForecast'])->name('analytics.forecast-benchmarking.save');
             Route::get('analytics/forecast-benchmarking/export', [AnalyticsController::class, 'exportBenchmarkReport'])->name('analytics.forecast-benchmarking.export');
             Route::get('analytics/restock-suggestions', [AnalyticsController::class, 'restockSuggestions'])->name('analytics.restock-suggestions');
@@ -184,6 +186,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Products
             Route::get('products', [App\Http\Controllers\ProductsController::class, 'index'])->name('products.index');
+            Route::get('products/{product}/restock-ingredients', [App\Http\Controllers\ProductsController::class, 'getRestockIngredients'])->name('products.restock-ingredients.show');
+            Route::post('products/{product}/restock-ingredients', [App\Http\Controllers\ProductsController::class, 'restockIngredients'])->name('products.restock-ingredients');
 
             // Categories
             Route::get('categories', [CategoriesController::class, 'index'])->name('categories.index');
@@ -196,6 +200,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/inventory/stock-in', [App\Http\Controllers\StockInController::class, 'store'])->name('inventory.stock-in');
             Route::post('/inventory/wastage',  [\App\Http\Controllers\WastageController::class, 'store'])->name('inventory.wastage');
             Route::post('/inventory/{ingredient}/reduce-stock', [CompositeIngredientController::class, 'reduceStock'])->name('inventory.reduce-stock');
+
+            // FIFO/FEFO Batch Queue & Lot Tracking
+            Route::get('/inventory/batches', [App\Http\Controllers\InventoryBatchController::class, 'index'])->name('inventory.batches.index');
+            Route::get('/inventory/batches/overview', [App\Http\Controllers\InventoryBatchController::class, 'overview'])->name('inventory.batches.overview');
+            Route::get('/inventory/{ingredient}/queue', [App\Http\Controllers\InventoryBatchController::class, 'queue'])->name('inventory.batches.queue');
+            Route::get('/inventory/batches/{id}', [App\Http\Controllers\InventoryBatchController::class, 'show'])->name('inventory.batches.show');
+            Route::post('/inventory/batches/{id}/adjust', [App\Http\Controllers\InventoryBatchController::class, 'adjust'])->name('inventory.batches.adjust');
+            Route::post('/inventory/batches/{id}/status', [App\Http\Controllers\InventoryBatchController::class, 'updateStatus'])->name('inventory.batches.status');
+
             Route::post('/inventory/scan-receipt/upload', [App\Http\Controllers\Api\ReceiptController::class, 'upload'])->name('inventory.scan-receipt.upload');
             Route::post('/inventory/scan-receipt/process', [App\Http\Controllers\Api\ReceiptController::class, 'process'])->name('inventory.scan-receipt.process');
             Route::post('/inventory/scan-receipt/confirm', [App\Http\Controllers\Api\ReceiptController::class, 'stockIn'])->name('inventory.scan-receipt.confirm');

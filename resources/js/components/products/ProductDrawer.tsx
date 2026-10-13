@@ -10,7 +10,8 @@ import {
     Info,
     AlertCircle,
     AlertTriangle,
-    CheckCircle2
+    CheckCircle2,
+    PackagePlus
 } from 'lucide-react';
 
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -115,6 +116,7 @@ interface ProductDrawerProps {
     onClose: () => void;
     isAdmin: boolean;
     onOpenStockIn: (product: Product) => void;
+    onOpenRestockIngredients?: (product: Product) => void;
     onOpenEdit: (product: Product) => void;
     onOpenDelete: (product: Product) => void;
 }
@@ -125,6 +127,7 @@ export function ProductDrawer({
     onClose,
     isAdmin,
     onOpenStockIn,
+    onOpenRestockIngredients,
     onOpenEdit,
     onOpenDelete,
 }: ProductDrawerProps) {
@@ -415,10 +418,23 @@ export function ProductDrawer({
 
                     {/* Recipe Composition Materials */}
                     <div className="space-y-3 pt-2 border-t border-[#F8C8DC]/40 dark:border-white/10">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] flex items-center gap-1.5">
-                            <Layers className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                            <span>Recipe Composition Materials</span>
-                        </span>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8] flex items-center gap-1.5">
+                                <Layers className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
+                                <span>Recipe Composition Materials</span>
+                            </span>
+                            {product.ingredients && product.ingredients.length > 0 && onOpenRestockIngredients && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => { onClose(); onOpenRestockIngredients(product); }}
+                                    className="h-7 px-2 text-[11px] font-bold text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-1"
+                                >
+                                    <PackagePlus className="size-3" />
+                                    <span>Restock Ingredients</span>
+                                </Button>
+                            )}
+                        </div>
 
                         {product.ingredients && product.ingredients.length > 0 ? (
                             <div className="space-y-2">
@@ -484,13 +500,21 @@ export function ProductDrawer({
 
                     {/* Quick Actions Footer */}
                     <div className="pt-4 border-t border-[#F8C8DC]/40 dark:border-white/10 flex flex-wrap gap-3">
-                        {product.is_direct && (
+                        {product.is_direct ? (
                             <Button
                                 onClick={() => { onClose(); onOpenStockIn(product); }}
                                 className="flex-1 h-11 bg-white dark:bg-[#181822] hover:bg-[#FFF5F7] dark:hover:bg-white/10 border border-[#F8C8DC] dark:border-white/10 text-[#E75480] dark:text-[#FF4F81] rounded-xl font-bold text-xs gap-2 cursor-pointer"
                             >
                                 <RefreshCw className="size-3.5" />
                                 <span>Stock In</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={() => { onClose(); onOpenRestockIngredients?.(product); }}
+                                className="flex-1 h-11 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white rounded-xl font-bold text-xs gap-2 cursor-pointer shadow-xs"
+                            >
+                                <PackagePlus className="size-3.5" />
+                                <span>Restock Ingredients</span>
                             </Button>
                         )}
 

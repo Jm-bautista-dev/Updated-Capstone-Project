@@ -16,6 +16,7 @@ import {
     ShieldCheck
 } from 'lucide-react';
 
+import { BatchQueueViewer } from '@/components/inventory/BatchQueueViewer';
 import type { InventoryRow } from '@/components/inventory/InventoryHero';
 import { StatusBadge } from '@/components/products/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -46,8 +47,8 @@ interface InventoryDrawerProps {
     isAdmin: boolean;
     drawerLogs: ActivityLog[];
     loadingDrawerLogs: boolean;
-    drawerTab: 'overview' | 'history' | 'procurement';
-    onTabChange: (tab: 'overview' | 'history' | 'procurement') => void;
+    drawerTab: 'overview' | 'queue' | 'history' | 'procurement';
+    onTabChange: (tab: 'overview' | 'queue' | 'history' | 'procurement') => void;
     onOpenStockIn: (row: InventoryRow) => void;
     onOpenWastage: (row: InventoryRow) => void;
     onOpenReduceStock?: (row: InventoryRow) => void;
@@ -87,7 +88,7 @@ export function InventoryDrawer({
 
     return (
         <Sheet open={open} onOpenChange={(val) => !val && onClose()}>
-            <SheetContent side="right" className="w-full sm:max-w-md md:max-w-lg p-0 bg-[#FFFDFE] dark:bg-[#0F0F14] border-l border-[#F8C8DC]/60 dark:border-white/10 overflow-y-auto font-['Outfit'] transition-colors duration-300">
+            <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 bg-[#FFFDFE] dark:bg-[#0F0F14] border-l border-[#F8C8DC]/60 dark:border-white/10 overflow-y-auto font-['Outfit'] transition-colors duration-300">
                 
                 {/* Header Banner */}
                 <div className="relative w-full h-44 bg-linear-to-br from-[#FFF5F7] to-[#FADADD]/40 dark:from-[#181822] dark:to-[#20202E] p-6 flex flex-col justify-between border-b border-[#F8C8DC]/40 dark:border-white/10 overflow-hidden">
@@ -113,13 +114,14 @@ export function InventoryDrawer({
                 <div className="flex border-b border-[#F8C8DC]/40 dark:border-white/10 bg-[#FFF5F7]/50 dark:bg-[#121218]/50 p-1.5 gap-1">
                     {[
                         { id: 'overview', label: 'Overview' },
+                        { id: 'queue', label: 'FEFO Queue' },
                         { id: 'history', label: 'Stock Movement' },
                         { id: 'procurement', label: 'Actions' },
                     ].map((tab) => (
                         <button
                             key={tab.id}
                             type="button"
-                            onClick={() => onTabChange(tab.id as 'overview' | 'history' | 'procurement')}
+                            onClick={() => onTabChange(tab.id as 'overview' | 'queue' | 'history' | 'procurement')}
                             className={cn(
                                 'flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer',
                                 drawerTab === tab.id
@@ -241,6 +243,17 @@ export function InventoryDrawer({
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* FEFO QUEUE & BATCHES TAB */}
+                    {drawerTab === 'queue' && (
+                        <div className="space-y-4">
+                            <BatchQueueViewer
+                                ingredientId={row.id}
+                                branchId={row.branch_id}
+                                isAdmin={isAdmin}
+                            />
                         </div>
                     )}
 

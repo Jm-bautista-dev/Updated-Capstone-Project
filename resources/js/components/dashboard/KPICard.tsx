@@ -1,4 +1,3 @@
-import React, { isValidElement } from 'react';
 import { Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import {
@@ -32,6 +31,7 @@ import {
     Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import React, { isValidElement } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
 import { Skeleton } from '@/components/ui/skeleton';

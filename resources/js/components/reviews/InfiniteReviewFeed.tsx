@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
 import { Star, RefreshCw, AlertCircle, MessageSquare, Loader2 } from 'lucide-react';
-import { useInfiniteReviews } from '@/hooks/use-infinite-reviews';
+import React, { useState } from 'react';
 import { RatingStars } from '@/components/reviews/RatingStars';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useInfiniteReviews } from '@/hooks/use-infinite-reviews';
 
 interface InfiniteReviewFeedProps {
     productId: number | string;

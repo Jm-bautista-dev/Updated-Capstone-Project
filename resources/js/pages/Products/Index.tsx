@@ -15,6 +15,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FilterToolbar } from '@/components/products/FilterToolbar';
 import { ProductDrawer } from '@/components/products/ProductDrawer';
 import { ProductGrid } from '@/components/products/ProductGrid';
+import { ProductIngredientRestockModal } from '@/components/products/ProductIngredientRestockModal';
 import { ProductsHero } from '@/components/products/ProductsHero';
 import { ProductTable } from '@/components/products/ProductTable';
 import type { ViewMode } from '@/components/products/ViewSwitcher';
@@ -219,7 +220,10 @@ export default function ProductsIndex() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
+    const [isRestockIngredientsOpen, setIsRestockIngredientsOpen] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    const [restockProduct, setRestockProduct] = useState<Product | null>(null);
 
     const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -417,6 +421,11 @@ export default function ProductsIndex() {
     const openStockInModal = (product: Product) => {
         setSelectedProduct(product);
         setIsStockInModalOpen(true);
+    };
+
+    const openRestockIngredientsModal = (product: Product) => {
+        setRestockProduct(product);
+        setIsRestockIngredientsOpen(true);
     };
 
     const openDeleteModal = (product: Product) => {
@@ -682,6 +691,7 @@ export default function ProductsIndex() {
                                     isAdmin={isAdmin}
                                     onSelectProduct={openDrawer}
                                     onOpenStockIn={openStockInModal}
+                                    onOpenRestockIngredients={openRestockIngredientsModal}
                                     onOpenEdit={openEditModal}
                                     onOpenDelete={openDeleteModal}
                                 />
@@ -699,6 +709,7 @@ export default function ProductsIndex() {
                                     isAdmin={isAdmin}
                                     onSelectProduct={openDrawer}
                                     onOpenStockIn={openStockInModal}
+                                    onOpenRestockIngredients={openRestockIngredientsModal}
                                     onOpenEdit={openEditModal}
                                     onOpenDelete={openDeleteModal}
                                 />
@@ -796,6 +807,7 @@ export default function ProductsIndex() {
                 onClose={() => setIsDrawerOpen(false)}
                 isAdmin={isAdmin}
                 onOpenStockIn={openStockInModal}
+                onOpenRestockIngredients={openRestockIngredientsModal}
                 onOpenEdit={openEditModal}
                 onOpenDelete={openDeleteModal}
             />
@@ -814,6 +826,20 @@ export default function ProductsIndex() {
                 onOpenChange={setIsStockInModalOpen}
                 item={selectedProduct}
                 type="product"
+            />
+
+            {/* Product Ingredient Restock Modal */}
+            <ProductIngredientRestockModal
+                open={isRestockIngredientsOpen}
+                onOpenChange={setIsRestockIngredientsOpen}
+                product={restockProduct}
+                branches={branches}
+                currentBranchId={currentBranchId}
+                isAdmin={isAdmin}
+                onEditRecipe={(prod) => {
+                    setIsRestockIngredientsOpen(false);
+                    openEditModal(prod as Product);
+                }}
             />
 
             {/* Add Product Dialog */}

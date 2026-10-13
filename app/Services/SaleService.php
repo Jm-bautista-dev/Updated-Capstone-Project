@@ -174,6 +174,17 @@ class SaleService
             'status'           => $data['status'] ?? 'completed',
         ]);
 
+        // Link batch allocations & movements to the newly created Sale ID
+        \App\Models\BatchAllocation::where('allocatable_type', Sale::class)
+            ->where('allocatable_id', 0)
+            ->where('branch_id', $branchId)
+            ->update(['allocatable_id' => $sale->id]);
+
+        \App\Models\IngredientBatchMovement::where('reference_type', Sale::class)
+            ->where('reference_id', 0)
+            ->where('reference_number', $orderRef)
+            ->update(['reference_id' => $sale->id]);
+
         // Update Shift totals if cash (using authoritative discounted saleTotal)
         if ($activeShift && $paymentMethod === 'cash') {
             $activeShift->increment('total_cash_sales', $saleTotal);
@@ -491,6 +502,8 @@ class SaleService
      */
     protected function validateIngredientStock(array $requirements, int $branchId): void
     {
+        $batchService = app(\App\Services\InventoryBatchService::class);
+
         foreach ($requirements as $ingredientId => $totalNeeded) {
             /** @var IngredientStock|null $stockRow */
             $stockRow = IngredientStock::with('ingredient', 'branch')
@@ -508,9 +521,12 @@ class SaleService
                 );
             }
 
-            if ((float) $stockRow->stock < $totalNeeded) {
+            // Check eligible stock (unexpired, available, non-quarantined) via InventoryBatchService
+            $eligibleStock = $batchService->getAvailableEligibleStock($ingredientId, $branchId);
+
+            if ($eligibleStock < $totalNeeded) {
                 $unit = $stockRow->ingredient->unit ?? 'unit(s)';
-                $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity((float) $stockRow->stock, $unit);
+                $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity($eligibleStock, $unit);
                 $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($totalNeeded, $unit);
 
                 throw new \Exception(
@@ -554,12 +570,14 @@ class SaleService
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Deduct from ingredient_stocks — ONLY for the current branch.
+     * Deduct from ingredient_stocks and originating batches — ONLY for the current branch.
      *
      * 🚫 NEVER touches another branch's stock row.
      */
-    protected function deductIngredientStock(array $requirements, int $branchId, string $ref, bool $force = false): void
+    protected function deductIngredientStock(array $requirements, int $branchId, string $ref, bool $force = false, ?int $saleId = null): void
     {
+        $batchService = app(\App\Services\InventoryBatchService::class);
+
         foreach ($requirements as $ingredientId => $qty) {
             /** @var IngredientStock $stockRow */
             $stockRow = IngredientStock::with('ingredient')
@@ -569,6 +587,21 @@ class SaleService
                 ->firstOrFail();
 
             $previousStock = (float) $stockRow->stock;
+
+            // 1. Consume from eligible batches in strict FEFO/FIFO order
+            $batchService->allocateStock(
+                $ingredientId,
+                $branchId,
+                $qty,
+                Sale::class,
+                $saleId ?? 0,
+                $ref,
+                Auth::id(),
+                false,
+                $force
+            );
+
+            // 2. Decrement aggregate stock in IngredientStock
             $stockRow->deduct($qty, $force); // throws if insufficient
 
             // Audit log
@@ -695,8 +728,46 @@ class SaleService
                     broadcast(new StockUpdated($branchId, Product::class, $product->id))->toOthers();
                 }
 
-                // 2. Restore ingredient stocks if recipe present
-                if ($product->ingredients->isNotEmpty()) {
+                // 2. Restore ingredient stocks and batches using InventoryBatchService
+                $batchService = app(\App\Services\InventoryBatchService::class);
+                $reversedAllocations = $batchService->reverseAllocations(
+                    Sale::class,
+                    $freshSale->id,
+                    Auth::id(),
+                    "Void Sale: {$freshSale->order_number}"
+                );
+
+                if (!empty($reversedAllocations)) {
+                    // Update IngredientStock for each reversed allocation
+                    foreach ($reversedAllocations as $alloc) {
+                        $stockRow = IngredientStock::where('ingredient_id', $alloc->ingredient_id)
+                            ->where('branch_id', $branchId)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($stockRow) {
+                            $previousStock = (float) $stockRow->stock;
+                            $stockRow->add((float) $alloc->reversed_quantity_base);
+
+                            StockLog::create([
+                                'storable_type'  => Ingredient::class,
+                                'storable_id'    => $alloc->ingredient_id,
+                                'branch_id'      => $branchId,
+                                'user_id'        => Auth::id(),
+                                'action_type'    => 'sale_void_restoration',
+                                'quantity'       => (float) $alloc->reversed_quantity_base,
+                                'quantity_base'  => (float) $alloc->reversed_quantity_base,
+                                'unit'           => $alloc->unit,
+                                'previous_stock' => $previousStock,
+                                'new_stock'      => (float) $stockRow->stock,
+                                'reference'      => "Void Sale: {$freshSale->order_number}",
+                            ]);
+                            $stockRow->refresh();
+                            $this->updateStockAlerts($stockRow);
+                        }
+                    }
+                } elseif ($product->ingredients->isNotEmpty()) {
+                    // Fallback for legacy sales created without batch allocations
                     foreach ($product->ingredients as $ingredient) {
                         $qtyInput = (float) ($ingredient->pivot->quantity_required ?? 0);
                         $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;

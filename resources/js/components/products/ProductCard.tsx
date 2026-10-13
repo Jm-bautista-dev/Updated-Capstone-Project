@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Package, RefreshCw, Edit2, Trash2, Eye, Building2 } from 'lucide-react';
+import { Package, RefreshCw, Edit2, Trash2, Eye, Building2, Layers } from 'lucide-react';
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -15,6 +15,7 @@ interface ProductCardProps {
     isAdmin: boolean;
     onSelectProduct: (product: Product) => void;
     onOpenStockIn: (product: Product) => void;
+    onOpenRestockIngredients?: (product: Product) => void;
     onOpenEdit: (product: Product) => void;
     onOpenDelete: (product: Product) => void;
     index?: number;
@@ -25,6 +26,7 @@ export function ProductCard({
     isAdmin,
     onSelectProduct,
     onOpenStockIn,
+    onOpenRestockIngredients,
     onOpenEdit,
     onOpenDelete,
     index = 0,
@@ -150,14 +152,23 @@ export function ProductCard({
                     </Button>
 
                     <div className="flex items-center gap-1">
-                        {product.is_direct && (
+                        {product.is_direct ? (
                             <Button
                                 size="icon"
                                 onClick={() => onOpenStockIn(product)}
                                 className="size-9 rounded-xl bg-white dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 shadow-2xs cursor-pointer"
-                                title="Stock In"
+                                title="Stock In Finished Item"
                             >
                                 <RefreshCw className="size-3.5" />
+                            </Button>
+                        ) : (
+                            <Button
+                                size="icon"
+                                onClick={() => onOpenRestockIngredients?.(product)}
+                                className="size-9 rounded-xl bg-white dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 shadow-2xs cursor-pointer"
+                                title="Restock Ingredients"
+                            >
+                                <Layers className="size-3.5" />
                             </Button>
                         )}
 

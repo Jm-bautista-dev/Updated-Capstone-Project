@@ -828,15 +828,19 @@ export default function PosIndex() {
     formData.append('idempotency_key', idempotencyKey);
 
     formData.append('type', orderType);
-    formData.append('items', JSON.stringify(cart.map(item => ({ 
-      id: item.id, 
-      quantity: item.quantity,
-      selected_addons: item.selected_addons || [] 
-    }))));
     formData.append('total', String(cartTotal));
     formData.append('payment_method', paymentMethod);
     formData.append('paid_amount', String(paid));
     formData.append('change_amount', String(paymentMethod === 'cash' ? changeDue : 0));
+
+    // Append every cart line item cleanly
+    cart.forEach((item, index) => {
+      formData.append(`items[${index}][id]`, String(item.id));
+      formData.append(`items[${index}][quantity]`, String(item.quantity));
+      if (item.selected_addons && item.selected_addons.length > 0) {
+        formData.append(`items[${index}][selected_addons]`, JSON.stringify(item.selected_addons));
+      }
+    });
 
     if (discountAmount > 0 && activeDiscount) {
       formData.append('discount', String(discountAmount));
@@ -853,14 +857,6 @@ export default function PosIndex() {
     }
 
     if (orderType === 'delivery') {
-      cart.forEach((item, index) => {
-        formData.append(`items[${index}][id]`, String(item.id));
-        formData.append(`items[${index}][quantity]`, String(item.quantity));
-        if (item.selected_addons && item.selected_addons.length > 0) {
-          formData.append(`items[${index}][selected_addons]`, JSON.stringify(item.selected_addons));
-        }
-      });
-
       Object.entries({ ...deliveryInfo, delivery_fee: deliveryFee }).forEach(([key, value]) => {
         if (value === null || value === undefined || value === '') return;
         formData.append(`delivery_info[${key}]`, String(value));
@@ -869,14 +865,6 @@ export default function PosIndex() {
       if (proofFile) {
         formData.append('delivery_info[proof_of_delivery]', proofFile);
       }
-    } else {
-      cart.forEach((item, index) => {
-        formData.append(`items[${index}][id]`, String(item.id));
-        formData.append(`items[${index}][quantity]`, String(item.quantity));
-        if (item.selected_addons && item.selected_addons.length > 0) {
-          formData.append(`items[${index}][selected_addons]`, JSON.stringify(item.selected_addons));
-        }
-      });
     }
 
     router.post('/pos', formData, {
@@ -979,11 +967,13 @@ export default function PosIndex() {
 
         // 3. Dispatch thermal printing (Universal Zero-Install or Direct Hardware)
         if (printerConfig.connection_type === 'universal_browser') {
-          if (printerConfig.auto_print) {
-            triggerBrowserThermalPrint();
-          }
           setReceiptPrintStatus('success');
           setIsReceiptModalOpen(true);
+          if (printerConfig.auto_print) {
+            setTimeout(() => {
+              triggerBrowserThermalPrint();
+            }, 150);
+          }
           toast.success(`✓ Order #${orderNum} Completed`, {
             description: printerConfig.auto_print ? 'Receipt sent to print dialog.' : 'Order saved. Click below to print.',
             duration: 3500,

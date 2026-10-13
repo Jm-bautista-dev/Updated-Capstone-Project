@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, RefreshCw, Edit2, Trash2, Eye, PackageSearch, Building2 } from 'lucide-react';
+import { Package, RefreshCw, Edit2, Trash2, Eye, PackageSearch, Building2, Layers } from 'lucide-react';
 
 import type { Product } from '@/components/products/ProductDrawer';
 import { StatusBadge } from '@/components/products/StatusBadge';
@@ -16,6 +16,7 @@ interface ProductTableProps {
     isAdmin: boolean;
     onSelectProduct: (product: Product) => void;
     onOpenStockIn: (product: Product) => void;
+    onOpenRestockIngredients: (product: Product) => void;
     onOpenEdit: (product: Product) => void;
     onOpenDelete: (product: Product) => void;
 }
@@ -25,6 +26,7 @@ export function ProductTable({
     isAdmin,
     onSelectProduct,
     onOpenStockIn,
+    onOpenRestockIngredients,
     onOpenEdit,
     onOpenDelete,
 }: ProductTableProps) {
@@ -198,15 +200,25 @@ export function ProductTable({
                                                     <Eye className="size-4" />
                                                 </Button>
 
-                                                {product.is_direct && (
+                                                {product.is_direct ? (
                                                     <Button
                                                         size="icon"
                                                         variant="ghost"
                                                         onClick={() => onOpenStockIn(product)}
                                                         className="size-8 rounded-xl hover:bg-[#FFF5F7] dark:hover:bg-white/10 text-[#E75480] dark:text-[#FF4F81] cursor-pointer"
-                                                        title="Stock In"
+                                                        title="Stock In Finished Product"
                                                     >
                                                         <RefreshCw className="size-4" />
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        onClick={() => onOpenRestockIngredients(product)}
+                                                        className="size-8 rounded-xl hover:bg-[#FFF5F7] dark:hover:bg-white/10 text-[#E75480] dark:text-[#FF4F81] cursor-pointer"
+                                                        title="Restock Ingredients"
+                                                    >
+                                                        <Layers className="size-4" />
                                                     </Button>
                                                 )}
 

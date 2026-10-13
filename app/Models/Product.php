@@ -520,7 +520,8 @@ class Product extends Model
                 : $ingredient->stocks()->where('branch_id', $branchId)->first();
 
             $hasInventoryRecord = ($stockRow !== null);
-            $availableInStock = $stockRow ? max(0.0, (float) $stockRow->stock) : 0.0;
+            // Authoritatively read eligible batch stock (excluding expired, quarantined, and recalled stock)
+            $availableInStock = app(\App\Services\InventoryBatchService::class)->getAvailableEligibleStock($ingredient->id, $branchId);
 
             $unitsPossible = floor($availableInStock / $requiredPerUnit);
 

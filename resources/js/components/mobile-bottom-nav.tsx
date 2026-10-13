@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { broadcastLogoutEvent } from '@/lib/auth-sync';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,6 +34,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useAppearance } from '@/hooks/use-appearance';
+import { broadcastLogoutEvent } from '@/lib/auth-sync';
 import type { NavItem, User } from '@/types';
 
 const allNavItems: NavItem[] = [

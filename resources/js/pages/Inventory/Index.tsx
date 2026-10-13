@@ -135,7 +135,7 @@ export default function InventoryIndex() {
     const [, setUpdatedTodayCount] = useState(0);
     const [drawerLogs, setDrawerLogs] = useState<ActivityLog[]>([]);
     const [loadingDrawerLogs, setLoadingDrawerLogs] = useState(false);
-    const [drawerTab, setDrawerTab] = useState<'overview' | 'history' | 'procurement'>('overview');
+    const [drawerTab, setDrawerTab] = useState<'overview' | 'queue' | 'history' | 'procurement'>('overview');
 
     // Load activity logs on page mount
     const fetchActivityLogs = async () => {

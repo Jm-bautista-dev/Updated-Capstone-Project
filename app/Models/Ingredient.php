@@ -25,10 +25,16 @@ class Ingredient extends Model
         'unit',
         'cost_per_base_unit',
         'avg_weight_per_piece',
+        'requires_expiration_tracking',
+        'default_expiry_days',
+        'expiry_warning_days',
     ];
 
     protected $casts = [
-        'is_composite' => 'boolean',
+        'is_composite'                 => 'boolean',
+        'requires_expiration_tracking' => 'boolean',
+        'default_expiry_days'          => 'integer',
+        'expiry_warning_days'          => 'integer',
     ];
 
     public function toArray(): array
@@ -131,5 +137,21 @@ class Ingredient extends Model
     {
         return $this->belongsToMany(Supplier::class, 'supplier_ingredient', 'ingredient_id', 'supplier_id')
                     ->withTimestamps();
+    }
+
+    /**
+     * Lots/batches of this ingredient.
+     */
+    public function batches(): HasMany
+    {
+        return $this->hasMany(IngredientBatch::class);
+    }
+
+    /**
+     * Movement ledger entries for this ingredient.
+     */
+    public function batchMovements(): HasMany
+    {
+        return $this->hasMany(IngredientBatchMovement::class);
     }
 }

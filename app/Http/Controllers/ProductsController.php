@@ -8,16 +8,20 @@ use App\Models\Category;
 use App\Models\Ingredient;
 use App\Models\MenuItemIngredient;
 use App\Models\IngredientStock;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use App\Services\ProductService;
+use App\Services\InventoryService;
 use App\Utils\UnitConverter;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Carbon\Carbon;
 
 class ProductsController extends Controller
 {
@@ -515,5 +519,341 @@ class ProductsController extends Controller
         $product->delete();
 
         return redirect()->back()->with('success', 'Product deleted.');
+    }
+
+    /**
+     * Get authoritative ingredients, stock, and batch policies for a product to restock.
+     */
+    public function getRestockIngredients(Request $request, Product $product)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $isAdmin = method_exists($user, 'isAdmin') && $user->isAdmin();
+
+        // Branch resolution & authorization
+        if (!$isAdmin) {
+            $branchId = (int) $user->branch_id;
+            $branches = Branch::where('id', $branchId)->get(['id', 'name', 'code']);
+        } else {
+            $branchId = $request->filled('branch_id') && $request->input('branch_id') !== 'all'
+                ? (int) $request->input('branch_id')
+                : ($user->branch_id ?: (Branch::first()?->id ?? 1));
+            $branches = Branch::orderBy('name')->get(['id', 'name', 'code']);
+        }
+
+        $branch = Branch::find($branchId);
+        if (!$branch) {
+            return response()->json(['message' => 'Destination branch not found.'], 404);
+        }
+
+        // Load fresh product details with category
+        $product->load('category');
+
+        // Retrieve configured recipe ingredients
+        $recipeIngredients = $product->ingredients()
+            ->whereNull('ingredients.deleted_at')
+            ->with(['stocks' => function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            }])
+            ->get();
+
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
+
+        $ingredients = $recipeIngredients->map(function (Ingredient $ing) use ($branchId, $isAdmin) {
+            $stockRow = $ing->stocks->first();
+            $rawStockBase = $stockRow ? (float) $stockRow->stock : 0.0;
+            $displayUnit = $ing->unit ?: 'pcs';
+            $displayStock = UnitConverter::convertFromBaseQuantity($rawStockBase, $displayUnit);
+
+            return [
+                'id'                           => $ing->id,
+                'name'                         => $ing->name,
+                'unit'                         => $displayUnit,
+                'recipe_quantity'              => (float) ($ing->pivot->quantity_required ?? 0),
+                'recipe_unit'                  => $ing->pivot->unit ?? $displayUnit,
+                'current_stock'                => round($displayStock, 3),
+                'current_stock_base'           => $rawStockBase,
+                'requires_expiration_tracking' => (bool) $ing->requires_expiration_tracking,
+                'default_expiry_days'          => $ing->default_expiry_days,
+                'cost_per_base_unit'           => $isAdmin ? (float) $ing->cost_per_base_unit : null,
+                'compatible_units'             => UnitConverter::getCompatibleUnits($displayUnit),
+                'is_composite'                 => (bool) $ing->is_composite,
+            ];
+        });
+
+        return response()->json([
+            'product' => [
+                'id'            => $product->id,
+                'name'          => $product->name,
+                'sku'           => $product->sku,
+                'category_name' => $product->category?->name ?? 'Uncategorized',
+                'image_url'     => $product->image_url,
+                'status'        => $product->status,
+                'has_recipe'    => $recipeIngredients->isNotEmpty(),
+            ],
+            'branch'       => [
+                'id'   => $branch->id,
+                'name' => $branch->name,
+                'code' => $branch->code,
+            ],
+            'branches'     => $branches,
+            'ingredients'  => $ingredients,
+            'suppliers'    => $suppliers,
+            'is_admin'     => $isAdmin,
+        ]);
+    }
+
+    /**
+     * Submit product-specific ingredient restocking directly to branch inventory.
+     */
+    public function restockIngredients(Request $request, Product $product)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $isAdmin = method_exists($user, 'isAdmin') && $user->isAdmin();
+
+        // 1. Authorization & Branch Validation
+        $reqBranchId = (int) $request->input('branch_id');
+        if (!$isAdmin) {
+            if ($reqBranchId !== (int) $user->branch_id) {
+                return response()->json(['message' => 'You are only authorized to restock for your assigned branch.'], 403);
+            }
+            $branchId = (int) $user->branch_id;
+        } else {
+            if (!$reqBranchId || !Branch::where('id', $reqBranchId)->exists()) {
+                return response()->json(['message' => 'Please select a valid destination branch.'], 422);
+            }
+            $branchId = $reqBranchId;
+        }
+
+        $branch = Branch::findOrFail($branchId);
+
+        // 2. Validate Product Has Recipe Ingredients
+        $configuredRecipeIngredientIds = $product->ingredients()
+            ->whereNull('ingredients.deleted_at')
+            ->pluck('ingredients.id')
+            ->all();
+
+        if (empty($configuredRecipeIngredientIds)) {
+            return response()->json([
+                'message' => "Product '{$product->name}' does not have configured recipe ingredients. Please configure its recipe before restocking.",
+                'error_type' => 'NO_RECIPE',
+            ], 422);
+        }
+
+        // 3. Idempotency & Duplicate Prevention
+        $idempotencyToken = $request->input('idempotency_token');
+        $lockKey = null;
+        if ($idempotencyToken) {
+            $lockKey = 'restock_lock_' . md5($idempotencyToken);
+            if (!Cache::add($lockKey, 'in_flight', 60)) {
+                return response()->json([
+                    'message' => 'Duplicate submission detected. This restock operation is already being processed or has already completed.',
+                    'is_duplicate' => true,
+                ], 409);
+            }
+        }
+
+        // 4. Validate Request Structure
+        $validated = $request->validate([
+            'branch_id'                   => 'required|integer|exists:branches,id',
+            'items'                       => 'required|array|min:1',
+            'items.*.ingredient_id'       => 'required|integer',
+            'items.*.quantity'            => 'nullable|numeric|min:0|max:1000000',
+            'items.*.unit'                => ['nullable', 'string', Rule::in(UnitConverter::getAllowedUnits())],
+            'items.*.purchase_price'      => 'nullable|numeric|min:0|max:9999999',
+            'items.*.unit_cost'           => 'nullable|numeric|min:0|max:9999999',
+            'items.*.lot_number'          => 'nullable|string|max:100',
+            'items.*.batch_code'          => 'nullable|string|max:64',
+            'items.*.expiration_date'     => 'nullable|date',
+            'items.*.expiration_type'     => 'nullable|string|in:use_by,best_before,none',
+            'items.*.supplier_id'         => 'nullable|exists:suppliers,id',
+            'items.*.supplier_name'       => 'nullable|string|max:150',
+            'items.*.notes'               => 'nullable|string|max:500',
+            'items.*.included'            => 'nullable|boolean',
+        ]);
+
+        // 5. Filter included & positive quantity items
+        $rawItems = $validated['items'];
+        $validItems = [];
+        foreach ($rawItems as $rawItem) {
+            $isIncluded = isset($rawItem['included']) ? (bool)$rawItem['included'] : true;
+            $qty = isset($rawItem['quantity']) && is_numeric($rawItem['quantity']) ? (float)$rawItem['quantity'] : 0.0;
+            if ($isIncluded && $qty > 0) {
+                $validItems[] = $rawItem;
+            }
+        }
+
+        if (empty($validItems)) {
+            if ($lockKey) {
+                Cache::forget($lockKey);
+            }
+            return response()->json([
+                'message' => 'Please enter a received quantity greater than zero for at least one ingredient.',
+            ], 422);
+        }
+
+        // 6. Strict Ingredient & Expiration Policy Validation
+        $errors = [];
+        $preparedItems = [];
+
+        foreach ($validItems as $index => $item) {
+            $ingredientId = (int) $item['ingredient_id'];
+
+            // Security: Injected ingredient check
+            if (!in_array($ingredientId, $configuredRecipeIngredientIds)) {
+                $errors["items.{$index}.ingredient_id"] = "Ingredient ID #{$ingredientId} is not part of {$product->name}'s configured recipe.";
+                continue;
+            }
+
+            /** @var Ingredient|null $ing */
+            $ing = Ingredient::where('id', $ingredientId)->whereNull('deleted_at')->first();
+            if (!$ing) {
+                $errors["items.{$index}.ingredient_id"] = "The ingredient ID #{$ingredientId} was deleted or does not exist.";
+                continue;
+            }
+
+            $quantity = (float) $item['quantity'];
+            $unit = !empty($item['unit']) ? trim($item['unit']) : $ing->unit;
+
+            // Unit compatibility
+            if (!UnitConverter::areUnitsCompatible($unit, $ing->unit, $ing->avg_weight_per_piece)) {
+                $errors["items.{$index}.unit"] = "The unit '{$unit}' is not compatible with {$ing->name} (base unit: {$ing->unit}).";
+                continue;
+            }
+
+            // Expiration requirement
+            $expDate = !empty($item['expiration_date']) ? Carbon::parse($item['expiration_date']) : null;
+            $expType = !empty($item['expiration_type']) ? $item['expiration_type'] : ($ing->requires_expiration_tracking ? 'use_by' : 'none');
+
+            if ($ing->requires_expiration_tracking && !$expDate) {
+                if (!$ing->default_expiry_days) {
+                    $errors["items.{$index}.expiration_date"] = "Expiration date is required for '{$ing->name}'. Each stock-in is tracked as an individual batch for FEFO/FIFO queue priority.";
+                    continue;
+                }
+            }
+
+            $price = isset($item['purchase_price']) && is_numeric($item['purchase_price'])
+                ? (float)$item['purchase_price']
+                : (isset($item['unit_cost']) && is_numeric($item['unit_cost']) ? (float)$item['unit_cost'] : 0.0);
+
+            $preparedItems[] = [
+                'ingredient'      => $ing,
+                'quantity'        => $quantity,
+                'unit'            => $unit,
+                'price'           => $price,
+                'lot_number'      => !empty($item['lot_number']) ? trim($item['lot_number']) : null,
+                'batch_code'      => !empty($item['batch_code']) ? trim($item['batch_code']) : null,
+                'expiration_date' => $item['expiration_date'] ?? null,
+                'expiration_type' => $expType,
+                'supplier_id'     => !empty($item['supplier_id']) ? (int)$item['supplier_id'] : null,
+                'supplier_name'   => !empty($item['supplier_name']) ? trim($item['supplier_name']) : null,
+                'notes'           => !empty($item['notes']) ? trim($item['notes']) : "Product-Specific Restock from {$product->name}",
+            ];
+        }
+
+        if (!empty($errors)) {
+            if ($lockKey) {
+                Cache::forget($lockKey);
+            }
+            return response()->json([
+                'message' => 'One or more ingredients failed validation.',
+                'errors'  => $errors,
+            ], 422);
+        }
+
+        // 7. Atomic Stock-In Execution via Existing InventoryService
+        $inventoryService = app(InventoryService::class);
+        $receipts = [];
+
+        try {
+            DB::transaction(function () use ($preparedItems, $branchId, $user, $product, $inventoryService, &$receipts) {
+                foreach ($preparedItems as $prep) {
+                    /** @var Ingredient $ing */
+                    $ing = $prep['ingredient'];
+                    $reference = sprintf('Product-Specific Restock: %s (Product #%d)', $product->name, $product->id);
+
+                    $batchMeta = [
+                        'lot_number'      => $prep['lot_number'],
+                        'batch_code'      => $prep['batch_code'],
+                        'expiration_date' => $prep['expiration_date'],
+                        'expiration_type' => $prep['expiration_type'],
+                        'supplier_id'     => $prep['supplier_id'],
+                        'supplier_name'   => $prep['supplier_name'],
+                        'notes'           => $prep['notes'],
+                    ];
+
+                    $log = $inventoryService->stockIn(
+                        type: 'ingredient',
+                        id: $ing->id,
+                        quantity: $prep['quantity'],
+                        unit: $prep['unit'],
+                        branchId: $branchId,
+                        purchasePrice: $prep['price'],
+                        userId: $user->id,
+                        reference: $reference,
+                        batchMeta: $batchMeta
+                    );
+
+                    $stockRow = IngredientStock::where('ingredient_id', $ing->id)->where('branch_id', $branchId)->first();
+                    $newStock = $stockRow ? UnitConverter::convertFromBaseQuantity((float)$stockRow->stock, $ing->unit) : 0.0;
+
+                    $receipts[] = [
+                        'ingredient_id'   => $ing->id,
+                        'ingredient_name' => $ing->name,
+                        'quantity'        => $prep['quantity'],
+                        'unit'            => $prep['unit'],
+                        'new_stock'       => round($newStock, 3),
+                        'stock_unit'      => $ing->unit,
+                        'reference'       => $reference,
+                        'batch_code'      => $batchMeta['batch_code'] ?? null,
+                    ];
+                }
+            });
+        } catch (\Exception $e) {
+            if ($lockKey) {
+                Cache::forget($lockKey);
+            }
+            Log::error('Product Ingredient Restock Failed:', [
+                'product_id' => $product->id,
+                'branch_id'  => $branchId,
+                'error'      => $e->getMessage(),
+            ]);
+            return response()->json([
+                'message' => 'Restock operation failed: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        $successMsg = sprintf(
+            'Restock completed successfully for %s at %s. %d ingredient(s) received.',
+            $product->name,
+            $branch->name,
+            count($receipts)
+        );
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success'              => true,
+                'message'              => $successMsg,
+                'product'              => [
+                    'id'   => $product->id,
+                    'name' => $product->name,
+                ],
+                'branch'               => [
+                    'id'   => $branch->id,
+                    'name' => $branch->name,
+                ],
+                'ingredients_received' => count($receipts),
+                'receipts'             => $receipts,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $successMsg);
     }
 }

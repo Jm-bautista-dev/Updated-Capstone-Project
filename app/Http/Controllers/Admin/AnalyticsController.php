@@ -14,6 +14,9 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\ForecastBenchmark;
+use App\Models\ForecastModel;
+use App\Models\ForecastRecord;
 use Carbon\Carbon;
 
 class AnalyticsController extends Controller
@@ -547,24 +550,34 @@ class AnalyticsController extends Controller
             ? (int) $request->input('branch_id')
             : null;
 
-        $result = (new ForecastService())->benchmark($branchId);
+        $service = new ForecastService();
+        $result  = $service->getBenchmarkState($branchId);
 
-        $benchmarksHistory = \App\Models\ForecastBenchmark::with(['user', 'branch'])
+        $benchmarksHistory = ForecastBenchmark::with(['user', 'branch'])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->latest()
             ->take(30)
             ->get();
 
-        $savedForecasts = \App\Models\ForecastRecord::with(['user', 'branch'])
+        $modelsHistory = ForecastModel::with(['trainedBy', 'branch'])
+            ->forBranch($branchId)
+            ->latest()
+            ->take(30)
+            ->get();
+
+        $savedForecasts = ForecastRecord::with(['user', 'branch'])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->latest()
             ->take(30)
             ->get();
 
         return Inertia::render('Analytics/ForecastBenchmarking', [
-            'benchmark' => $result,
-            'history' => $benchmarksHistory,
+            'benchmark'      => $result,
+            'history'        => $benchmarksHistory,
+            'modelsHistory'  => $modelsHistory,
             'savedForecasts' => $savedForecasts,
-            'branches' => Branch::all(),
-            'filters' => $request->only(['branch_id']),
+            'branches'       => Branch::all(),
+            'filters'        => $request->only(['branch_id']),
         ]);
     }
 
@@ -574,16 +587,50 @@ class AnalyticsController extends Controller
             ? (int) $request->input('branch_id')
             : null;
 
-        (new ForecastService())->benchmark($branchId);
+        $result = (new ForecastService())->runInitialBenchmark($branchId, Auth::id(), false);
 
-        return redirect()->back()->with('success', 'Benchmarking run executed successfully.');
+        if (isset($result['error'])) {
+            return redirect()->back()->withErrors(['error' => $result['error']]);
+        }
+
+        return redirect()->back()->with('success', 'Initial model benchmark completed. Winning model trained and deployed.');
+    }
+
+    public function retrainActiveModel(Request $request)
+    {
+        $branchId = $request->input('branch_id') && $request->input('branch_id') !== 'all'
+            ? (int) $request->input('branch_id')
+            : null;
+
+        $result = (new ForecastService())->retrainActiveModel($branchId, Auth::id());
+
+        if (isset($result['error'])) {
+            return redirect()->back()->withErrors(['error' => $result['error']]);
+        }
+
+        return redirect()->back()->with('success', $result['message'] ?? 'Model retrained successfully.');
+    }
+
+    public function startNewExperiment(Request $request)
+    {
+        $branchId = $request->input('branch_id') && $request->input('branch_id') !== 'all'
+            ? (int) $request->input('branch_id')
+            : null;
+
+        $result = (new ForecastService())->runInitialBenchmark($branchId, Auth::id(), true);
+
+        if (isset($result['error'])) {
+            return redirect()->back()->withErrors(['error' => $result['error']]);
+        }
+
+        return redirect()->back()->with('success', 'New benchmark experiment completed. Winning model selected and activated.');
     }
 
     public function saveForecast(Request $request)
     {
         $request->validate([
-            'model_used' => 'required|string',
-            'horizon_days' => 'required|integer',
+            'model_used'    => 'required|string',
+            'horizon_days'  => 'required|integer',
             'dataset_range' => 'required|string',
             'forecast_data' => 'required|array',
         ]);
@@ -592,21 +639,21 @@ class AnalyticsController extends Controller
             ? (int) $request->input('branch_id')
             : null;
 
-        $benchmark = (new ForecastService())->benchmark($branchId);
-        $mae = isset($benchmark['best_metrics']) ? $benchmark['best_metrics']['mae'] : 0;
-        $rmse = isset($benchmark['best_metrics']) ? $benchmark['best_metrics']['rmse'] : 0;
-        $mape = isset($benchmark['best_metrics']) ? $benchmark['best_metrics']['mape'] : 0;
+        $benchmark = (new ForecastService())->getBenchmarkState($branchId);
+        $mae       = isset($benchmark['best_metrics']) ? $benchmark['best_metrics']['mae'] : 0;
+        $rmse      = isset($benchmark['best_metrics']) ? $benchmark['best_metrics']['rmse'] : 0;
+        $mape      = isset($benchmark['best_metrics']) ? $benchmark['best_metrics']['mape'] : 0;
 
-        \App\Models\ForecastRecord::create([
-            'user_id' => Auth::id(),
-            'branch_id' => $branchId,
-            'model_used' => $request->input('model_used'),
-            'horizon_days' => $request->input('horizon_days'),
+        ForecastRecord::create([
+            'user_id'       => Auth::id(),
+            'branch_id'     => $branchId,
+            'model_used'    => $request->input('model_used'),
+            'horizon_days'  => $request->input('horizon_days'),
             'dataset_range' => $request->input('dataset_range'),
             'forecast_data' => $request->input('forecast_data'),
-            'mae' => $mae,
-            'rmse' => $rmse,
-            'mape' => $mape,
+            'mae'           => $mae,
+            'rmse'          => $rmse,
+            'mape'          => $mape,
         ]);
 
         return redirect()->back()->with('success', 'Forecast snapshot version saved successfully.');
@@ -618,33 +665,34 @@ class AnalyticsController extends Controller
             ? (int) $request->input('branch_id')
             : null;
 
-        $result = (new ForecastService())->benchmark($branchId);
+        $result = (new ForecastService())->getBenchmarkState($branchId);
 
-        if (isset($result['error'])) {
-            return redirect()->back()->withErrors(['error' => $result['error']]);
+        if (empty($result['is_benchmarked']) || isset($result['error'])) {
+            return redirect()->back()->withErrors(['error' => $result['error'] ?? 'No completed benchmark found to export.']);
         }
 
         $headers = [
-            'Content-Type' => 'text/csv',
+            'Content-Type'        => 'text/csv',
             'Content-Disposition' => 'attachment; filename="forecast_benchmark_report_' . date('Ymd_His') . '.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0'
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
         ];
 
-        $callback = function() use ($result) {
+        $callback = function () use ($result) {
             $file = fopen('php://output', 'w');
-            
+
             fputcsv($file, ['Forecast Validation & Benchmarking Report']);
-            fputcsv($file, ['Dataset Range', $result['dataset_range']]);
-            fputcsv($file, ['Validation Method', $result['validation_method']]);
-            fputcsv($file, ['Recommended Model', $result['best_model']]);
+            fputcsv($file, ['Dataset Range', $result['dataset_range'] ?? 'N/A']);
+            fputcsv($file, ['Validation Method', $result['validation_method'] ?? 'Walk-Forward Splitting']);
+            fputcsv($file, ['Recommended Model', $result['best_model'] ?? 'N/A']);
+            fputcsv($file, ['Experiment Number', $result['experiment_number'] ?? 1]);
             fputcsv($file, ['Run Timestamp', date('Y-m-d H:i:s')]);
             fputcsv($file, []);
 
             fputcsv($file, ['Model Rankings']);
             fputcsv($file, ['Rank', 'Model', 'MAE', 'RMSE', 'MAPE (%)', 'sMAPE (%)', 'WAPE (%)', 'Accuracy (%)']);
-            foreach ($result['rankings'] as $row) {
+            foreach ($result['rankings'] ?? [] as $row) {
                 fputcsv($file, [
                     $row['rank'],
                     $row['model'],
@@ -653,21 +701,23 @@ class AnalyticsController extends Controller
                     $row['mape'] . '%',
                     $row['smape'] . '%',
                     $row['wape'] . '%',
-                    $row['accuracy'] . '%'
+                    $row['accuracy'] . '%',
                 ]);
             }
             fputcsv($file, []);
 
-            fputcsv($file, ['Validation Period Forecast Comparisons']);
-            fputcsv($file, array_merge(['Date', 'Actual Sales'], array_keys($result['val_predictions'])));
-            
-            foreach ($result['val_dates'] as $idx => $date) {
-                $actual = $result['val_actuals'][$idx];
-                $row = [$date, $actual];
-                foreach ($result['val_predictions'] as $name => $preds) {
-                    $row[] = round($preds[$idx] ?? 0, 2);
+            if (!empty($result['val_dates']) && !empty($result['val_predictions'])) {
+                fputcsv($file, ['Validation Period Forecast Comparisons']);
+                fputcsv($file, array_merge(['Date', 'Actual Sales'], array_keys($result['val_predictions'])));
+
+                foreach ($result['val_dates'] as $idx => $date) {
+                    $actual = $result['val_actuals'][$idx] ?? 0;
+                    $row    = [$date, $actual];
+                    foreach ($result['val_predictions'] as $name => $preds) {
+                        $row[] = round($preds[$idx] ?? 0, 2);
+                    }
+                    fputcsv($file, $row);
                 }
-                fputcsv($file, $row);
             }
 
             fclose($file);
@@ -692,6 +742,10 @@ class AnalyticsController extends Controller
         }
 
         $branchId = (int) $branchId;
+        $horizonDays = (int) $request->input('horizon_days', 7);
+        if ($horizonDays <= 0 || $horizonDays > 90) {
+            $horizonDays = 7;
+        }
 
         // 1. Run hybrid forecast to get tomorrow's prediction + bounds + insights
         $forecastResult = (new ForecastService())->generate(30, $branchId);
@@ -700,7 +754,7 @@ class AnalyticsController extends Controller
             return Inertia::render('Analytics/RestockSuggestions', [
                 'error'    => "Forecast error: {$forecastResult['error']}",
                 'branches' => Branch::all(),
-                'filters'  => ['branch_id' => $branchId],
+                'filters'  => ['branch_id' => $branchId, 'horizon_days' => $horizonDays],
             ]);
         }
 
@@ -711,8 +765,9 @@ class AnalyticsController extends Controller
 
         // 2. Run prescriptive restock engine
         $restockService = new RestockService();
-        $restockResult = $restockService->generate($branchId);
+        $restockResult = $restockService->generate($branchId, $horizonDays);
         $impactResult  = $restockService->getImpactBasedSuggestions($branchId);
+        $productSuggestions = $restockService->getProductCentricSuggestions($branchId, $horizonDays);
 
         // 3. Fetch inventory for MassRestockModal support
         $inventory = IngredientStock::with('ingredient')
@@ -732,15 +787,20 @@ class AnalyticsController extends Controller
             });
 
         return Inertia::render('Analytics/RestockSuggestions', array_merge($restockResult, [
-            'impact_suggestions' => $impactResult,
-            'inventory'        => $inventory,
-            'branches'         => Branch::all(),
-            'filters'          => ['branch_id' => $branchId],
-            'tomorrow_forecast' => $tomorrowForecast,
-            'forecast_lower'    => $forecastLower,
-            'forecast_upper'    => $forecastUpper,
-            'forecast_insights' => $forecastInsights,
-            'forecast_trend'   => $forecastResult['trend'] ?? null,
+            'impact_suggestions'  => $impactResult,
+            'product_suggestions' => $productSuggestions,
+            'horizon_days'        => $horizonDays,
+            'inventory'           => $inventory,
+            'branches'            => Branch::all(),
+            'filters'             => [
+                'branch_id'    => $branchId,
+                'horizon_days' => $horizonDays,
+            ],
+            'tomorrow_forecast'   => $tomorrowForecast,
+            'forecast_lower'      => $forecastLower,
+            'forecast_upper'      => $forecastUpper,
+            'forecast_insights'   => $forecastInsights,
+            'forecast_trend'      => $forecastResult['trend'] ?? null,
             'forecast_confidence' => $forecastResult['confidence'] ?? null,
         ]));
     }

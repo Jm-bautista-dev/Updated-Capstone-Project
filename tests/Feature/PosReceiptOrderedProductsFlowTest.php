@@ -225,6 +225,29 @@ class PosReceiptOrderedProductsFlowTest extends TestCase
     }
 
     /**
+     * Test JSON string items payload as sent by FormData.
+     */
+    public function test_json_string_items_payload(): void
+    {
+        $this->actingAs($this->cashier);
+
+        $response = $this->post('/pos', [
+            'type'           => 'dine-in',
+            'payment_method' => 'cash',
+            'paid_amount'    => 1000.00,
+            'items'          => json_encode([
+                ['id' => $this->ramen->id, 'quantity' => 1],
+                ['id' => $this->gyoza->id, 'quantity' => 1],
+                ['id' => $this->sushi->id, 'quantity' => 1],
+            ]),
+        ], ['X-Inertia' => 'true']);
+
+        $response->assertStatus(302);
+        $printJobData = session('print_job');
+        $this->assertCount(3, $printJobData['receipt_data']['items']);
+    }
+
+    /**
      * 3. Test Same product with different quantities (e.g. quantity = 4).
      */
     public function test_product_with_larger_quantity_appears_with_correct_subtotal(): void
@@ -490,5 +513,212 @@ class PosReceiptOrderedProductsFlowTest extends TestCase
         $this->assertEquals('Salmon Nigiri 4pcs', $receiptData['items'][1]['name']);
         $this->assertEquals(250.00, $receiptData['items'][0]['unit_price']);
         $this->assertEquals(180.00, $receiptData['items'][1]['unit_price']);
+    }
+
+    /**
+     * Helper to create product with branch inventory stock.
+     */
+    protected function createTestProduct(string $name, string $sku, float $price, int $stock = 100): Product
+    {
+        $product = Product::create([
+            'name'          => $name,
+            'sku'           => $sku,
+            'category_id'   => $this->category->id,
+            'selling_price' => $price,
+            'cost_price'    => $price * 0.4,
+            'branch_id'     => $this->branch->id,
+            'stock'         => $stock,
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('branch_product')->updateOrInsert(
+            ['branch_id' => $this->branch->id, 'product_id' => $product->id],
+            ['stock' => $stock, 'created_at' => now(), 'updated_at' => now()]
+        );
+
+        return $product;
+    }
+
+    /**
+     * 10. Test 1 from Task: Exact 3 distinct products: Kani Maki, Sushi Boat, and Sushi Boat Small.
+     * All 3 products must appear on the printed receipt with correct names, unit prices, and subtotals.
+     */
+    public function test_three_distinct_products_kani_maki_sushi_boat_and_sushi_boat_small_print_all_three(): void
+    {
+        $this->actingAs($this->cashier);
+
+        $kaniMaki = $this->createTestProduct('Kani Maki', 'KM-001', 180.00, 100);
+        $sushiBoat = $this->createTestProduct('Sushi Boat', 'SB-001', 650.00, 100);
+        $sushiBoatSmall = $this->createTestProduct('Sushi Boat Small', 'SBS-001', 350.00, 100);
+
+        $response = $this->post('/pos', [
+            'type'           => 'dine-in',
+            'payment_method' => 'cash',
+            'paid_amount'    => 1200.00,
+            'items'          => [
+                ['id' => $kaniMaki->id, 'quantity' => 1],
+                ['id' => $sushiBoat->id, 'quantity' => 1],
+                ['id' => $sushiBoatSmall->id, 'quantity' => 1],
+            ],
+        ], ['X-Inertia' => 'true']);
+
+        $response->assertStatus(302);
+        $printJobData = session('print_job');
+        $this->assertNotNull($printJobData, 'Print job should be present in session flash');
+
+        $receiptData = $printJobData['receipt_data'];
+        $this->assertCount(3, $receiptData['items'], 'All three line items must appear on the receipt');
+
+        $itemNames = array_column($receiptData['items'], 'name');
+        $this->assertEquals(['Kani Maki', 'Sushi Boat', 'Sushi Boat Small'], $itemNames);
+
+        // Verify totals reconciliation
+        $expectedTotal = 180.00 + 650.00 + 350.00; // 1,180.00
+        $this->assertEquals($expectedTotal, $receiptData['total']);
+        $this->assertEquals($expectedTotal, $receiptData['subtotal']);
+        $this->assertEquals(1200.00, $receiptData['paid_amount']);
+        $this->assertEquals(20.00, $receiptData['change_amount']);
+
+        // Verify plain text contains all 3 items and neither is omitted
+        $formattedText = $printJobData['formatted_text'];
+        $this->assertStringContainsString('Kani Maki', $formattedText);
+        $this->assertStringContainsString('Sushi Boat', $formattedText);
+        $this->assertStringContainsString('Sushi Boat Small', $formattedText);
+        $this->assertStringContainsString('PHP 1,180.00', $formattedText);
+
+        // Verify binary ESC/POS payload contains all 3 items
+        $escposDecoded = base64_decode($printJobData['raw_escpos_base64']);
+        $this->assertStringContainsString('Kani Maki', $escposDecoded);
+        $this->assertStringContainsString('Sushi Boat', $escposDecoded);
+        $this->assertStringContainsString('Sushi Boat Small', $escposDecoded);
+
+        // Verify branch header rule: Branch name only, never "MAKI DESU"
+        $this->assertStringContainsString('VICTORIA', $formattedText);
+        $this->assertStringNotContainsString('MAKI DESU', $formattedText);
+    }
+
+    /**
+     * 11. Test Multiple quantities and duplicate product handling.
+     * Kani Maki x2, Sushi Boat x1, Sushi Boat Small x3.
+     */
+    public function test_multiple_quantities_and_total_reconciliation_flow(): void
+    {
+        $this->actingAs($this->cashier);
+
+        $kaniMaki = $this->createTestProduct('Kani Maki', 'KM-002', 180.00, 100);
+        $sushiBoat = $this->createTestProduct('Sushi Boat', 'SB-002', 650.00, 100);
+        $sushiBoatSmall = $this->createTestProduct('Sushi Boat Small', 'SBS-002', 350.00, 100);
+
+        $response = $this->post('/pos', [
+            'type'           => 'dine-in',
+            'payment_method' => 'cash',
+            'paid_amount'    => 2500.00,
+            'items'          => [
+                ['id' => $kaniMaki->id, 'quantity' => 2],
+                ['id' => $sushiBoat->id, 'quantity' => 1],
+                ['id' => $sushiBoatSmall->id, 'quantity' => 3],
+            ],
+        ], ['X-Inertia' => 'true']);
+
+        $response->assertStatus(302);
+        $printJobData = session('print_job');
+        $this->assertNotNull($printJobData);
+        $receiptData = $printJobData['receipt_data'];
+
+        $this->assertCount(3, $receiptData['items']);
+
+        // Check line items details
+        $this->assertEquals(2, $receiptData['items'][0]['quantity']);
+        $this->assertEquals(180.00, $receiptData['items'][0]['unit_price']);
+        $this->assertEquals(360.00, $receiptData['items'][0]['subtotal']);
+
+        $this->assertEquals(1, $receiptData['items'][1]['quantity']);
+        $this->assertEquals(650.00, $receiptData['items'][1]['unit_price']);
+        $this->assertEquals(650.00, $receiptData['items'][1]['subtotal']);
+
+        $this->assertEquals(3, $receiptData['items'][2]['quantity']);
+        $this->assertEquals(350.00, $receiptData['items'][2]['unit_price']);
+        $this->assertEquals(1050.00, $receiptData['items'][2]['subtotal']);
+
+        $expectedTotal = 360.00 + 650.00 + 1050.00; // 2,060.00
+        $this->assertEquals($expectedTotal, $receiptData['total']);
+        $this->assertEquals(2500.00, $receiptData['paid_amount']);
+        $this->assertEquals(440.00, $receiptData['change_amount']);
+
+        $formattedText = $printJobData['formatted_text'];
+        $this->assertStringContainsString('2 x PHP 180.00', $formattedText);
+        $this->assertStringContainsString('1 x PHP 650.00', $formattedText);
+        $this->assertStringContainsString('3 x PHP 350.00', $formattedText);
+        $this->assertStringContainsString('PHP 2,060.00', $formattedText);
+    }
+
+    /**
+     * 12. Test Consecutive Transactions: Printing a second transaction does not bleed or reuse products.
+     */
+    public function test_consecutive_transactions_do_not_bleed_or_reuse_products(): void
+    {
+        $this->actingAs($this->cashier);
+
+        // Transaction 1: 2 items
+        $this->post('/pos', [
+            'type'           => 'dine-in',
+            'payment_method' => 'cash',
+            'paid_amount'    => 500.00,
+            'items'          => [
+                ['id' => $this->ramen->id, 'quantity' => 1],
+                ['id' => $this->gyoza->id, 'quantity' => 1],
+            ],
+        ], ['X-Inertia' => 'true']);
+
+        $printJob1 = session('print_job');
+        $this->assertCount(2, $printJob1['receipt_data']['items']);
+
+        // Transaction 2: 1 single distinct item (sushi)
+        $this->post('/pos', [
+            'type'           => 'dine-in',
+            'payment_method' => 'cash',
+            'paid_amount'    => 200.00,
+            'items'          => [
+                ['id' => $this->sushi->id, 'quantity' => 1],
+            ],
+        ], ['X-Inertia' => 'true']);
+
+        $printJob2 = session('print_job');
+        $this->assertCount(1, $printJob2['receipt_data']['items']);
+        $this->assertEquals('Salmon Nigiri 4pcs', $printJob2['receipt_data']['items'][0]['name']);
+        $this->assertStringNotContainsString('Shoyu Ramen', $printJob2['formatted_text']);
+        $this->assertStringNotContainsString('Pork Gyoza 6pcs', $printJob2['formatted_text']);
+    }
+
+    /**
+     * 13. Test Long receipt with many items: None are clipped or omitted.
+     */
+    public function test_long_receipt_with_many_items_contains_all_products(): void
+    {
+        $this->actingAs($this->cashier);
+
+        $itemsPayload = [];
+        $createdProducts = [];
+
+        for ($i = 1; $i <= 6; $i++) {
+            $p = $this->createTestProduct("Special Roll Item {$i}", "SPEC-00{$i}", 100.00 + ($i * 10), 100);
+            $createdProducts[] = $p;
+            $itemsPayload[] = ['id' => $p->id, 'quantity' => $i];
+        }
+
+        $response = $this->post('/pos', [
+            'type'           => 'dine-in',
+            'payment_method' => 'cash',
+            'paid_amount'    => 5000.00,
+            'items'          => $itemsPayload,
+        ], ['X-Inertia' => 'true']);
+
+        $response->assertStatus(302);
+        $printJobData = session('print_job');
+        $this->assertNotNull($printJobData);
+        $this->assertCount(6, $printJobData['receipt_data']['items']);
+
+        foreach ($createdProducts as $cp) {
+            $this->assertStringContainsString($cp->name, $printJobData['formatted_text']);
+        }
     }
 }

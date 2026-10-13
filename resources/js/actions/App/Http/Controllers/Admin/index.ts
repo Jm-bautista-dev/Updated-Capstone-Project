@@ -1,13 +1,13 @@
 import AccountFlagController from './AccountFlagController'
-import DeliveryController from './DeliveryController'
 import AnalyticsController from './AnalyticsController'
-import SupplierController from './SupplierController'
-import RiderController from './RiderController'
+import DeliveryController from './DeliveryController'
 import EmployeeController from './EmployeeController'
-import SalesDataManagementController from './SalesDataManagementController'
-import ReportController from './ReportController'
 import PickupOrderController from './PickupOrderController'
+import ReportController from './ReportController'
 import ReviewController from './ReviewController'
+import RiderController from './RiderController'
+import SalesDataManagementController from './SalesDataManagementController'
+import SupplierController from './SupplierController'
 const Admin = {
     AccountFlagController: Object.assign(AccountFlagController, AccountFlagController),
 DeliveryController: Object.assign(DeliveryController, DeliveryController),

@@ -16,17 +16,26 @@ use Illuminate\Support\Facades\Auth;
 class InventoryService
 {
     /**
-     * Perform a strictly logged stock-in operation with Weighted Average Cost (WAC) tracking.
+     * Perform a strictly logged stock-in operation with batch tracking and Weighted Average Cost (WAC) tracking.
      */
-    public function stockIn(string $type, int $id, float $quantity, string $unit, int $branchId, float $purchasePrice = 0, ?int $userId = null, ?string $reference = null)
-    {
-        return DB::transaction(function () use ($type, $id, $quantity, $unit, $branchId, $purchasePrice, $userId, $reference) {
+    public function stockIn(
+        string  $type, 
+        int     $id, 
+        float   $quantity, 
+        string  $unit, 
+        int     $branchId, 
+        float   $purchasePrice = 0, 
+        ?int    $userId = null, 
+        ?string $reference = null,
+        array   $batchMeta = []
+    ) {
+        return DB::transaction(function () use ($type, $id, $quantity, $unit, $branchId, $purchasePrice, $userId, $reference, $batchMeta) {
             $userId        = $userId ?? Auth::id();
             $quantityBase  = UnitConverter::convertToBaseQuantity($quantity, $unit);
             $normalizedUnit = UnitConverter::normalizeUnit($unit);
 
             if ($type === 'ingredient' || $type === Ingredient::class) {
-                return $this->stockInIngredient($id, $quantity, $quantityBase, $unit, $normalizedUnit, $branchId, $purchasePrice, $userId, $reference);
+                return $this->stockInIngredient($id, $quantity, $quantityBase, $unit, $normalizedUnit, $branchId, $purchasePrice, $userId, $reference, $batchMeta);
             }
 
             if ($type === 'product') {
@@ -38,10 +47,7 @@ class InventoryService
     }
 
     /**
-     * Stock-in for a GLOBAL ingredient using Weighted Average Cost (WAC).
-     * 
-     * Formula:
-     * New Avg Cost = (Current Total Value + New Batch Value) / (Current Stock + New Stock)
+     * Stock-in for a GLOBAL ingredient creating a traceable batch and updating Weighted Average Cost (WAC).
      */
     protected function stockInIngredient(
         int     $ingredientId,
@@ -52,41 +58,28 @@ class InventoryService
         int     $branchId,
         float   $purchasePrice,
         ?int    $userId,
-        ?string $reference = null
+        ?string $reference = null,
+        array   $batchMeta = []
     ) {
         $ingredient = Ingredient::findOrFail($ingredientId);
+
+        // 1. Create traceable lot/batch via InventoryBatchService
+        $batchService = app(\App\Services\InventoryBatchService::class);
+        $batch = $batchService->stockInBatch(array_merge([
+            'ingredient_id'   => $ingredientId,
+            'branch_id'       => $branchId,
+            'quantity'        => $quantity,
+            'unit'            => $rawUnit,
+            'purchase_price'  => $purchasePrice,
+            'reference'       => $reference,
+        ], $batchMeta), $userId);
 
         $stockRow = IngredientStock::firstOrCreate(
             ['ingredient_id' => $ingredientId, 'branch_id' => $branchId],
             ['stock' => 0, 'low_stock_level' => 5, 'total_stock_value' => 0]
         );
 
-        $previousStock = (float) $stockRow->stock;
-        $previousValue = (float) $stockRow->total_stock_value;
-
-        // Calculate value of new batch (normalize total purchase price to base unit cost)
-        // Rule: 10kg for 500 pesos => 500 / 10,000g = 0.05 per gram
-        $costPerBaseUnitNew = $quantityBase > 0 ? ($purchasePrice / $quantityBase) : 0; 
-        $batchValue = $purchasePrice; // The user enters the total batch cost
-
-        $newStock = $previousStock + $quantityBase;
-        $newValue = $previousValue + $batchValue;
-
-        // NEW WAC: total value / total quantity
-        $newAvgCost = $newStock > 0 ? ($newValue / $newStock) : 0;
-
-        $stockRow->update([
-            'stock'               => $newStock,
-            'total_stock_value'   => $newValue,
-            'cost_per_unit'       => $newAvgCost,
-            'last_purchase_price' => $purchasePrice,
-        ]);
-
-        // Authoritative stock alert evaluation
-        $stockRow->refresh();
-        app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stockRow, $userId);
-
-        $refText = $reference ?: "WAC Purchase: @{$purchasePrice}/{$rawUnit}";
+        $refText = $reference ?: "Batch {$batch->batch_code} @{$purchasePrice}/{$rawUnit}";
 
         return StockLog::create([
             'storable_type'  => Ingredient::class,
@@ -97,20 +90,30 @@ class InventoryService
             'quantity'       => $quantity,
             'quantity_base'  => $quantityBase,
             'unit'           => $rawUnit,
-            'previous_stock' => $previousStock,
-            'new_stock'      => $newStock,
+            'previous_stock' => (float) $stockRow->stock - $quantityBase,
+            'new_stock'      => (float) $stockRow->stock,
             'reference'      => $refText,
         ]);
     }
 
     /**
-     * Perform bulk stock-in for multiple items in a single transaction.
+     * Perform bulk stock-in for multiple items in a single transaction with batch metadata.
      */
     public function massStockIn(array $items, int $branchId, ?int $userId = null)
     {
         return DB::transaction(function () use ($items, $branchId, $userId) {
             $results = [];
             foreach ($items as $item) {
+                $batchMeta = [
+                    'batch_code'      => $item['batch_code'] ?? null,
+                    'lot_number'      => $item['lot_number'] ?? null,
+                    'expiration_date' => $item['expiration_date'] ?? null,
+                    'expiration_type' => $item['expiration_type'] ?? 'use_by',
+                    'supplier_id'     => $item['supplier_id'] ?? null,
+                    'supplier_name'   => $item['supplier_name'] ?? null,
+                    'notes'           => $item['notes'] ?? null,
+                ];
+
                 $results[] = $this->stockIn(
                     $item['type'] ?? 'ingredient',
                     (int) $item['id'],
@@ -118,7 +121,9 @@ class InventoryService
                     $item['unit'],
                     $branchId,
                     (float) ($item['purchase_price'] ?? $item['unit_cost'] ?? 0),
-                    $userId
+                    $userId,
+                    $item['reference'] ?? null,
+                    $batchMeta
                 );
             }
             return $results;
@@ -175,11 +180,11 @@ class InventoryService
     }
 
     /**
-     * Professional Wastage Logging
+     * Professional Wastage Logging with batch-specific or FEFO/FIFO ledger tracking.
      */
-    public function logWastage(string $type, int $id, float $quantity, string $unit, string $reason, string $notes = "", ?int $branchId = null)
+    public function logWastage(string $type, int $id, float $quantity, string $unit, string $reason, string $notes = "", ?int $branchId = null, ?int $batchId = null)
     {
-        return DB::transaction(function () use ($type, $id, $quantity, $unit, $reason, $notes, $branchId) {
+        return DB::transaction(function () use ($type, $id, $quantity, $unit, $reason, $notes, $branchId, $batchId) {
             $branchId = $branchId ?? Auth::user()->branch_id;
             $qtyBase = UnitConverter::convertToBaseQuantity($quantity, $unit);
             
@@ -200,6 +205,46 @@ class InventoryService
                 }
 
                 $costAtLoss = (float) $stockRow->cost_per_unit * $qtyBase;
+
+                // Deduct from specific batch if provided, otherwise via InventoryBatchService FEFO
+                if ($batchId) {
+                    $batch = \App\Models\IngredientBatch::where('id', $batchId)->where('branch_id', $branchId)->lockForUpdate()->first();
+                    if ($batch) {
+                        $prevBatchQty = (float) $batch->current_quantity;
+                        $deductBatch = min($prevBatchQty, $qtyBase);
+                        $batch->current_quantity = max(0.0, $prevBatchQty - $deductBatch);
+                        if ($batch->current_quantity <= 0.00001) {
+                            $batch->status = $reason === 'expired' ? 'expired' : 'depleted';
+                        }
+                        $batch->save();
+
+                        \App\Models\IngredientBatchMovement::create([
+                            'batch_id'                => $batch->id,
+                            'ingredient_id'           => $id,
+                            'branch_id'               => $branchId,
+                            'user_id'                 => Auth::id(),
+                            'movement_type'           => $reason === 'expired' ? 'expired_removal' : 'waste',
+                            'quantity'                => $quantity,
+                            'quantity_base'           => $qtyBase,
+                            'unit'                    => $unit,
+                            'previous_batch_quantity' => $prevBatchQty,
+                            'new_batch_quantity'      => $batch->current_quantity,
+                            'cost_at_movement'        => (float) $batch->cost_per_base_unit,
+                            'reference_type'          => Wastage::class,
+                            'notes'                   => "Wastage: {$reason} - {$notes}",
+                        ]);
+                    }
+                } else {
+                    app(\App\Services\InventoryBatchService::class)->allocateStock(
+                        $id,
+                        $branchId,
+                        $qtyBase,
+                        Wastage::class,
+                        0,
+                        "Wastage: {$reason}",
+                        Auth::id()
+                    );
+                }
                 
                 $prevStock = (float) $stockRow->stock;
                 $stockRow->deduct($qtyBase);
@@ -306,7 +351,7 @@ class InventoryService
                     broadcast(new StockUpdated($order->branch_id, Product::class, $product->id))->toOthers();
                 }
 
-                // 2. Deduct ingredient stocks if product has a recipe
+                // 2. Deduct ingredient stocks and batches if product has a recipe
                 foreach ($product->ingredients as $ingredient) {
                     $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
                     $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
@@ -323,6 +368,17 @@ class InventoryService
                     if (!$stock) {
                         throw new \Exception("Ingredient '{$ingredient->name}' stock not found in branch.");
                     }
+
+                    // Allocate from batches in FEFO/FIFO order
+                    app(\App\Services\InventoryBatchService::class)->allocateStock(
+                        $ingredient->id,
+                        $order->branch_id,
+                        $requiredTotalBase,
+                        Order::class,
+                        $order->id,
+                        "Order #{$order->order_number}",
+                        Auth::id()
+                    );
 
                     $stock->deduct($requiredTotalBase);
                     $stock->refresh();
@@ -396,7 +452,14 @@ class InventoryService
                     broadcast(new StockUpdated($order->branch_id, Product::class, $product->id))->toOthers();
                 }
 
-                // 2. Restore ingredient stocks
+                // 2. Restore ingredient stocks and batch allocations
+                app(\App\Services\InventoryBatchService::class)->reverseAllocations(
+                    Order::class,
+                    $order->id,
+                    Auth::id(),
+                    "Cancelled Order #{$order->order_number}"
+                );
+
                 foreach ($product->ingredients as $ingredient) {
                     $qtyPerUnit = (float) $ingredient->pivot->quantity_required;
                     $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;

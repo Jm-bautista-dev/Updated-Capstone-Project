@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import type { ReceiptDataPayload } from '@/lib/pos-print-bridge';
 import { formatCurrency, formatReceiptBranchHeading } from '@/lib/utils';
 
@@ -68,237 +69,291 @@ export const ThermalReceipt58mm: React.FC<ThermalReceipt58mmProps> = ({
     const reprintReason = receiptData?.reprint_reason;
     const reprintedAt = receiptData?.reprinted_at;
 
+    const receiptContent = (
+        <div>
+            {/* Reprint Banner */}
+            {isReprint && (
+                <div className="text-center font-bold pb-1 border-b border-dashed border-black mb-1.5 text-[10px]">
+                    <div>*** REPRINT ***</div>
+                    {reprintReason && <div>Reason: {reprintReason}</div>}
+                    {reprintedAt && <div>Time: {reprintedAt}</div>}
+                </div>
+            )}
+
+            {/* Branch Header ONLY (Never "MAKI DESU") */}
+            <div className="border-t-2 border-b-2 border-black py-1.5 text-center my-1">
+                <div className="font-extrabold text-[15px] tracking-widest uppercase text-black">
+                    {branchHeading}
+                </div>
+            </div>
+
+            {/* Order Metadata */}
+            <div className="space-y-0.5 text-[10.5px] pt-1.5 pb-1">
+                <div className="font-bold">Order #: {orderNumber}</div>
+                <div>Date: {dateDisplay}</div>
+                {timeDisplay && <div>Time: {timeDisplay}</div>}
+                <div>Type: {fulfillmentType}</div>
+
+                {receiptData?.scheduled_pickup_at && (
+                    <div>Pickup: {receiptData.scheduled_pickup_at}</div>
+                )}
+                {receiptData?.pickup_verification_code && (
+                    <div>Pickup Code: {receiptData.pickup_verification_code}</div>
+                )}
+
+                {cashierName && <div>Cashier: {cashierName}</div>}
+                {customerName && <div>Customer: {customerName}</div>}
+                {customerPhone && <div>Phone: {customerPhone}</div>}
+            </div>
+
+            {/* If plain text fallback only */}
+            {!receiptData && formattedText ? (
+                <pre className="whitespace-pre-wrap font-mono text-[10px] leading-tight mt-2">
+                    {formattedText}
+                </pre>
+            ) : (
+                <>
+                    {/* Items Section Header */}
+                    <div className="border-t border-dashed border-black my-1" />
+                    <div className="font-bold text-[11px] py-0.5 tracking-wider">ITEMS</div>
+                    <div className="border-t border-dashed border-black my-1" />
+
+                    {/* Items List — Renders ALL N products in the transaction */}
+                    <div className="space-y-2 my-1.5">
+                        {items.map((item, idx) => {
+                            const rawName = item.name 
+                                || (item as unknown as { product_name?: string }).product_name 
+                                || (item as unknown as { product?: { name?: string } }).product?.name 
+                                || 'Menu Item';
+                            const productName = String(rawName).trim() || 'Menu Item';
+                            const qty = Number(item.quantity) || 1;
+                            const unitPrice = item.unit_price !== undefined && item.unit_price !== null 
+                                ? Number(item.unit_price) 
+                                : (item.subtotal ? Number(item.subtotal) / qty : 0);
+                            const itemSubtotal = item.subtotal !== undefined && item.subtotal !== null
+                                ? Number(item.subtotal)
+                                : (qty * unitPrice);
+
+                            return (
+                                <div key={idx} className="space-y-0.5">
+                                    {/* Product Name (Always rendered, natural word wrap, never truncated) */}
+                                    <div 
+                                        className="font-bold text-[11px] leading-snug wrap-break-word text-black"
+                                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                                    >
+                                        {productName}
+                                    </div>
+
+                                    {/* Quantity x Unit Price & Line Total */}
+                                    <div className="flex justify-between items-center text-[10.5px] pl-2">
+                                        <span className="text-gray-800 font-mono">
+                                            {qty} x {formatCurrency(unitPrice)}
+                                        </span>
+                                        <span className="font-bold text-black text-right shrink-0 font-mono">
+                                            {formatCurrency(itemSubtotal)}
+                                        </span>
+                                    </div>
+
+                                    {/* Add-ons / Modifiers */}
+                                    {item.addons && item.addons.length > 0 && (
+                                        <div className="pl-3 space-y-0.5 text-[9.5px] text-gray-700">
+                                            {item.addons.map((ad, adIdx) => {
+                                                const adQty = Number(ad.quantity) || 1;
+                                                const adUnitPrice = Number(ad.unit_price ?? ad.price ?? 0);
+                                                const adPrice = Number(ad.subtotal ?? (adUnitPrice * adQty));
+                                                const adQtyPrefix = adQty > 1 ? `${adQty}x ` : '';
+                                                return (
+                                                    <div key={adIdx} className="flex justify-between items-center">
+                                                        <span 
+                                                            className="wrap-break-word"
+                                                            style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                                                        >
+                                                            + {adQtyPrefix}{ad.name}
+                                                        </span>
+                                                        {adPrice > 0 && (
+                                                            <span className="font-semibold text-black text-right shrink-0 font-mono">
+                                                                +{formatCurrency(adPrice)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="border-t border-dashed border-black my-1.5" />
+
+                    {/* Totals Section */}
+                    <div className="space-y-0.5 text-[10.5px]">
+                        <div className="flex justify-between">
+                            <span>Subtotal</span>
+                            <span className="font-mono">{formatCurrency(subtotal)}</span>
+                        </div>
+
+                        {discount > 0 && (
+                            <div className="flex justify-between font-bold text-black">
+                                <span>Discount {discountType ? `(${discountType.replace(/_/g, ' ').toUpperCase()})` : ''}</span>
+                                <span className="font-mono">-{formatCurrency(discount)}</span>
+                            </div>
+                        )}
+
+                        {deliveryFee > 0 && (
+                            <div className="flex justify-between">
+                                <span>Delivery Fee</span>
+                                <span className="font-mono">+{formatCurrency(deliveryFee)}</span>
+                            </div>
+                        )}
+
+                        <div className="border-t border-dashed border-black my-1" />
+
+                        <div className="flex justify-between font-extrabold text-[12px] py-0.5">
+                            <span>TOTAL</span>
+                            <span className="font-mono">{formatCurrency(total)}</span>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-dashed border-black my-1.5" />
+
+                    {/* Payment & Change */}
+                    <div className="space-y-0.5 text-[10.5px]">
+                        <div>Payment: {paymentMethod}</div>
+                        {paymentMethod === 'CASH' ? (
+                            <>
+                                <div className="flex justify-between">
+                                    <span>Cash Received</span>
+                                    <span className="font-mono">{formatCurrency(paidAmount)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                    <span>Change</span>
+                                    <span className="font-mono">{formatCurrency(changeAmount)}</span>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex justify-between font-bold">
+                                <span>Paid Amount</span>
+                                <span className="font-mono">{formatCurrency(paidAmount)}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer Section */}
+                    <div className="border-t-2 border-b-2 border-black py-1.5 text-center my-2">
+                        <div className="font-extrabold text-[12px] tracking-wider uppercase">
+                            THANK YOU!
+                        </div>
+                    </div>
+
+                    {isReprint && (
+                        <div className="text-center text-[9.5px] font-bold pb-1">
+                            *** END OF REPRINT ***
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* Feed padding for physical thermal tear-off */}
+            <div className="h-4 print:h-8" />
+        </div>
+    );
+
+    const printStyleSheet = (
+        <style dangerouslySetInnerHTML={{
+            __html: `
+                @media print {
+                    @page {
+                        size: 58mm auto;
+                        margin: 0mm;
+                    }
+                    html, body {
+                        width: 58mm !important;
+                        max-width: 58mm !important;
+                        min-width: 58mm !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                        min-height: auto !important;
+                        max-height: none !important;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    #thermal-receipt-58mm-print,
+                    #thermal-receipt-58mm-print *,
+                    #thermal-receipt-58mm,
+                    #thermal-receipt-58mm * {
+                        visibility: visible !important;
+                    }
+                    #thermal-receipt-58mm-print,
+                    #thermal-receipt-58mm {
+                        display: block !important;
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 58mm !important;
+                        max-width: 58mm !important;
+                        min-width: 58mm !important;
+                        height: auto !important;
+                        max-height: none !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 2mm 2mm 8mm 2mm !important;
+                        display: block !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        font-family: 'Courier New', Courier, monospace !important;
+                        font-size: 11px !important;
+                        line-height: 1.25 !important;
+                        box-sizing: border-box !important;
+                        z-index: 999999 !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .thermal-receipt-preview,
+                    .thermal-receipt-preview * {
+                        display: none !important;
+                        visibility: hidden !important;
+                    }
+                }
+            `
+        }} />
+    );
+
+    // When rendering specifically for printing, portal directly to document.body
+    // to bypass any dialog transform, overflow-hidden, or scroll container clipping.
+    if (isPrintOnly) {
+        if (typeof document === 'undefined') {
+            return null;
+        }
+        return createPortal(
+            <>
+                {printStyleSheet}
+                <div
+                    id="thermal-receipt-58mm-print"
+                    className={`w-[58mm] max-w-[58mm] p-2.5 bg-white text-black font-mono text-[11px] leading-tight select-none box-border hidden print:block ${className}`}
+                >
+                    {receiptContent}
+                </div>
+            </>,
+            document.body
+        );
+    }
+
+    // Default: On-screen preview mode (hidden during print so only the root print container renders)
     return (
         <>
-            {/* Scoped CSS for 58mm Thermal Printing */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    @media print {
-                        @page {
-                            size: 58mm auto;
-                            margin: 0mm;
-                        }
-                        html, body {
-                            width: 58mm !important;
-                            max-width: 58mm !important;
-                            margin: 0 !important;
-                            padding: 0 !important;
-                            background: #fff !important;
-                        }
-                        body * {
-                            visibility: hidden !important;
-                        }
-                        #thermal-receipt-58mm, #thermal-receipt-58mm * {
-                            visibility: visible !important;
-                        }
-                        #thermal-receipt-58mm {
-                            position: absolute !important;
-                            left: 0 !important;
-                            top: 0 !important;
-                            width: 58mm !important;
-                            max-width: 58mm !important;
-                            margin: 0 !important;
-                            padding: 2mm 2mm 8mm 2mm !important;
-                            display: block !important;
-                            background: #ffffff !important;
-                            color: #000000 !important;
-                            font-family: 'Courier New', Courier, monospace !important;
-                            font-size: 11px !important;
-                            line-height: 1.25 !important;
-                            box-sizing: border-box !important;
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                        }
-                    }
-                `
-            }} />
-
+            {printStyleSheet}
             <div
                 id="thermal-receipt-58mm"
-                className={`w-[58mm] max-w-[58mm] p-2.5 bg-white text-black font-mono text-[11px] leading-tight select-none box-border flex flex-col justify-between ${
-                    isPrintOnly ? 'hidden print:block' : ''
-                } ${className}`}
+                className={`w-[58mm] max-w-[58mm] p-2.5 bg-white text-black font-mono text-[11px] leading-tight select-none box-border block thermal-receipt-preview print:hidden ${className}`}
             >
-                <div>
-                    {/* Reprint Banner */}
-                    {isReprint && (
-                        <div className="text-center font-bold pb-1 border-b border-dashed border-black mb-1.5 text-[10px]">
-                            <div>*** REPRINT ***</div>
-                            {reprintReason && <div>Reason: {reprintReason}</div>}
-                            {reprintedAt && <div>Time: {reprintedAt}</div>}
-                        </div>
-                    )}
-
-                    {/* Branch Header ONLY (Never "MAKI DESU") */}
-                    <div className="border-t-2 border-b-2 border-black py-1.5 text-center my-1">
-                        <div className="font-extrabold text-[15px] tracking-widest uppercase text-black">
-                            {branchHeading}
-                        </div>
-                    </div>
-
-                    {/* Order Metadata */}
-                    <div className="space-y-0.5 text-[10.5px] pt-1.5 pb-1">
-                        <div className="font-bold">Order #: {orderNumber}</div>
-                        <div>Date: {dateDisplay}</div>
-                        {timeDisplay && <div>Time: {timeDisplay}</div>}
-                        <div>Type: {fulfillmentType}</div>
-
-                        {receiptData?.scheduled_pickup_at && (
-                            <div>Pickup: {receiptData.scheduled_pickup_at}</div>
-                        )}
-                        {receiptData?.pickup_verification_code && (
-                            <div>Pickup Code: {receiptData.pickup_verification_code}</div>
-                        )}
-
-                        {cashierName && <div>Cashier: {cashierName}</div>}
-                        {customerName && <div>Customer: {customerName}</div>}
-                        {customerPhone && <div>Phone: {customerPhone}</div>}
-                    </div>
-
-                    {/* If plain text fallback only */}
-                    {!receiptData && formattedText ? (
-                        <pre className="whitespace-pre-wrap font-mono text-[10px] leading-tight mt-2">
-                            {formattedText}
-                        </pre>
-                    ) : (
-                        <>
-                            {/* Items Section Header */}
-                            <div className="border-t border-dashed border-black my-1" />
-                            <div className="font-bold text-[11px] py-0.5 tracking-wider">ITEMS</div>
-                            <div className="border-t border-dashed border-black my-1" />
-
-                            {/* Items List */}
-                            <div className="space-y-2 my-1.5">
-                                {items.map((item, idx) => {
-                                    const rawName = item.name 
-                                        || (item as unknown as { product_name?: string }).product_name 
-                                        || (item as unknown as { product?: { name?: string } }).product?.name 
-                                        || 'Menu Item';
-                                    const productName = String(rawName).trim() || 'Menu Item';
-                                    const qty = Number(item.quantity) || 1;
-                                    const unitPrice = item.unit_price !== undefined && item.unit_price !== null 
-                                        ? Number(item.unit_price) 
-                                        : (item.subtotal ? Number(item.subtotal) / qty : 0);
-                                    const itemSubtotal = item.subtotal !== undefined && item.subtotal !== null
-                                        ? Number(item.subtotal)
-                                        : (qty * unitPrice);
-
-                                    return (
-                                        <div key={idx} className="space-y-0.5">
-                                            {/* Product Name (Always rendered, natural word wrap, never truncated) */}
-                                            <div className="font-bold text-[11px] leading-snug wrap-break-word text-black">
-                                                {productName}
-                                            </div>
-
-                                            {/* Quantity x Unit Price & Line Total */}
-                                            <div className="flex justify-between items-center text-[10.5px] pl-2">
-                                                <span className="text-gray-800">
-                                                    {qty} x {formatCurrency(unitPrice)}
-                                                </span>
-                                                <span className="font-bold text-black text-right shrink-0 font-mono">
-                                                    {formatCurrency(itemSubtotal)}
-                                                </span>
-                                            </div>
-
-                                            {/* Add-ons / Modifiers */}
-                                            {item.addons && item.addons.length > 0 && (
-                                                <div className="pl-3 space-y-0.5 text-[9.5px] text-gray-700">
-                                                    {item.addons.map((ad, adIdx) => {
-                                                        const adQty = Number(ad.quantity) || 1;
-                                                        const adUnitPrice = Number(ad.unit_price ?? ad.price ?? 0);
-                                                        const adPrice = Number(ad.subtotal ?? (adUnitPrice * adQty));
-                                                        const adQtyPrefix = adQty > 1 ? `${adQty}x ` : '';
-                                                        return (
-                                                             <div key={adIdx} className="flex justify-between items-center">
-                                                                <span className="wrap-break-word">+ {adQtyPrefix}{ad.name}</span>
-                                                                {adPrice > 0 && (
-                                                                    <span className="font-semibold text-black text-right shrink-0 font-mono">
-                                                                        +{formatCurrency(adPrice)}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="border-t border-dashed border-black my-1.5" />
-
-                            {/* Totals Section */}
-                            <div className="space-y-0.5 text-[10.5px]">
-                                <div className="flex justify-between">
-                                    <span>Subtotal</span>
-                                    <span className="font-mono">{formatCurrency(subtotal)}</span>
-                                </div>
-
-                                {discount > 0 && (
-                                    <div className="flex justify-between font-bold text-black">
-                                        <span>Discount {discountType ? `(${discountType.replace(/_/g, ' ').toUpperCase()})` : ''}</span>
-                                        <span className="font-mono">-{formatCurrency(discount)}</span>
-                                    </div>
-                                )}
-
-                                {deliveryFee > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>Delivery Fee</span>
-                                        <span className="font-mono">+{formatCurrency(deliveryFee)}</span>
-                                    </div>
-                                )}
-
-                                <div className="border-t border-dashed border-black my-1" />
-
-                                <div className="flex justify-between font-extrabold text-[12px] py-0.5">
-                                    <span>TOTAL</span>
-                                    <span className="font-mono">{formatCurrency(total)}</span>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-dashed border-black my-1.5" />
-
-                            {/* Payment & Change */}
-                            <div className="space-y-0.5 text-[10.5px]">
-                                <div>Payment: {paymentMethod}</div>
-                                {paymentMethod === 'CASH' ? (
-                                    <>
-                                        <div className="flex justify-between">
-                                            <span>Cash Received</span>
-                                            <span className="font-mono">{formatCurrency(paidAmount)}</span>
-                                        </div>
-                                        <div className="flex justify-between font-bold">
-                                            <span>Change</span>
-                                            <span className="font-mono">{formatCurrency(changeAmount)}</span>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="flex justify-between font-bold">
-                                        <span>Paid Amount</span>
-                                        <span className="font-mono">{formatCurrency(paidAmount)}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Footer Section */}
-                            <div className="border-t-2 border-b-2 border-black py-1.5 text-center my-2">
-                                <div className="font-extrabold text-[12px] tracking-wider uppercase">
-                                    THANK YOU!
-                                </div>
-                            </div>
-
-                            {isReprint && (
-                                <div className="text-center text-[9.5px] font-bold pb-1">
-                                    *** END OF REPRINT ***
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                {/* Feed padding for physical thermal tear-off */}
-                <div className="h-4 print:h-8" />
+                {receiptContent}
             </div>
         </>
     );

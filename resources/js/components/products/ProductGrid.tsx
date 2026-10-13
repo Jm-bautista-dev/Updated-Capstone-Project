@@ -9,6 +9,7 @@ interface ProductGridProps {
     isAdmin: boolean;
     onSelectProduct: (product: Product) => void;
     onOpenStockIn: (product: Product) => void;
+    onOpenRestockIngredients?: (product: Product) => void;
     onOpenEdit: (product: Product) => void;
     onOpenDelete: (product: Product) => void;
 }
@@ -18,6 +19,7 @@ export function ProductGrid({
     isAdmin,
     onSelectProduct,
     onOpenStockIn,
+    onOpenRestockIngredients,
     onOpenEdit,
     onOpenDelete,
 }: ProductGridProps) {
@@ -48,6 +50,7 @@ export function ProductGrid({
                     isAdmin={isAdmin}
                     onSelectProduct={onSelectProduct}
                     onOpenStockIn={onOpenStockIn}
+                    onOpenRestockIngredients={onOpenRestockIngredients}
                     onOpenEdit={onOpenEdit}
                     onOpenDelete={onOpenDelete}
                     index={idx}
