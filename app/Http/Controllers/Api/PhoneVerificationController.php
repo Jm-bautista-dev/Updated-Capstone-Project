@@ -326,6 +326,7 @@ class PhoneVerificationController extends Controller
 
             // Idempotent guard: if already completed, return existing user session safely
             if ($pending->isCompleted()) {
+                /** @var \App\Models\User|null $existingUser */
                 $existingUser = User::where('email', $pending->email)
                     ->orWhere('mobile_number', $pending->mobile_number)
                     ->first();
@@ -442,6 +443,7 @@ class PhoneVerificationController extends Controller
         if ($pending) {
             return DB::transaction(function () use ($pending, $normalizedPhone, $maskedPhone, $request) {
                 // Ensure no duplicate race condition occurred
+                /** @var \App\Models\User|null $alreadyExists */
                 $alreadyExists = User::where('email', $pending->email)
                     ->orWhere('mobile_number', $normalizedPhone)
                     ->first();
