@@ -417,8 +417,11 @@ class IprogSmsService
             $options['verify'] = 'C:\\xampp\\perl\\vendor\\lib\\Mozilla\\CA\\cacert.pem';
         }
 
-        $client = Http::asJson()
-            ->acceptJson()
+        $client = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->apiToken,
+            'Accept'        => 'application/json',
+            'Content-Type'  => 'application/json',
+        ])
             ->timeout($this->timeout)
             ->connectTimeout(5);
 
