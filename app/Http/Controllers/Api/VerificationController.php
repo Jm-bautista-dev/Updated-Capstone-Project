@@ -13,11 +13,16 @@ use Illuminate\Support\Facades\Log;
 class VerificationController extends Controller
 {
     /**
-     * Send OTP to the provided customer email address.
+     * Send OTP to the provided customer email address or mobile phone number.
      * POST /api/v1/send-otp
      */
     public function sendOtp(Request $request): JsonResponse
     {
+        // If phone_number, mobile_number, or registration_token is supplied, route to PhoneVerificationController
+        if ($request->filled('phone_number') || $request->filled('mobile_number') || $request->filled('registration_token')) {
+            return app(PhoneVerificationController::class)->sendOtp($request);
+        }
+
         $request->validate([
             'email' => 'required|email|max:255',
         ]);
@@ -74,11 +79,16 @@ class VerificationController extends Controller
     }
 
     /**
-     * Verify the provided OTP for a specific customer email.
+     * Verify the provided OTP for a customer email or mobile phone.
      * POST /api/v1/verify-otp
      */
     public function verifyOtp(Request $request): JsonResponse
     {
+        // If phone_number, mobile_number, or registration_token is supplied, route to PhoneVerificationController
+        if ($request->filled('phone_number') || $request->filled('mobile_number') || $request->filled('registration_token')) {
+            return app(PhoneVerificationController::class)->verifyOtp($request);
+        }
+
         $request->validate([
             'email' => 'required|email|max:255',
             'otp'   => 'required|string|size:6',

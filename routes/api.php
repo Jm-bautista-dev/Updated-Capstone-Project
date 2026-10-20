@@ -27,6 +27,12 @@ Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeli
 // Direct non-v1 Auth endpoints for client compatibility
 Route::post('login',          [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('register',       [AuthController::class, 'register']);
+Route::post('auth/phone/send-otp',   [App\Http\Controllers\Api\PhoneVerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
+Route::post('auth/phone/verify-otp', [App\Http\Controllers\Api\PhoneVerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
+Route::match(['get', 'post'], 'auth/phone/status', [App\Http\Controllers\Api\PhoneVerificationController::class, 'status'])->middleware('throttle:30,1');
+Route::post('phone/send-otp',        [App\Http\Controllers\Api\PhoneVerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
+Route::post('phone/verify-otp',      [App\Http\Controllers\Api\PhoneVerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
+Route::match(['get', 'post'], 'phone/status',      [App\Http\Controllers\Api\PhoneVerificationController::class, 'status'])->middleware('throttle:30,1');
 Route::post('auth/google',    [AuthController::class, 'googleAuth'])->middleware('throttle:15,1');
 Route::post('rider/login',    [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('logout',         [AuthController::class, 'logout'])->middleware(['auth:sanctum,web']);
@@ -42,6 +48,14 @@ Route::prefix('v1')->group(function () {
     Route::post('send-otp',       [VerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
     Route::post('verify-otp',     [VerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
     Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+
+    // Phone OTP Verification (Official IPROG SMS Integration)
+    Route::post('auth/phone/send-otp',   [App\Http\Controllers\Api\PhoneVerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
+    Route::post('auth/phone/verify-otp', [App\Http\Controllers\Api\PhoneVerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
+    Route::match(['get', 'post'], 'auth/phone/status', [App\Http\Controllers\Api\PhoneVerificationController::class, 'status'])->middleware('throttle:30,1');
+    Route::post('phone/send-otp',        [App\Http\Controllers\Api\PhoneVerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
+    Route::post('phone/verify-otp',      [App\Http\Controllers\Api\PhoneVerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
+    Route::match(['get', 'post'], 'phone/status',      [App\Http\Controllers\Api\PhoneVerificationController::class, 'status'])->middleware('throttle:30,1');
 
     // Public System Status & Maintenance API
     Route::get('system/status', [App\Http\Controllers\Api\SystemStatusController::class, 'status']);
@@ -92,6 +106,8 @@ Route::prefix('v1')->group(function () {
         Route::match(['patch', 'put', 'post'], 'user', [UserController::class, 'update']);
         Route::match(['patch', 'put', 'post'], 'user/password', [UserController::class, 'updatePassword']);
         Route::post('user/delete-otp', [UserController::class, 'requestDeleteOtp']);
+        Route::post('user/phone/send-otp',   [App\Http\Controllers\Api\PhoneVerificationController::class, 'sendOtp'])->middleware('throttle:5,1');
+        Route::post('user/phone/verify-otp', [App\Http\Controllers\Api\PhoneVerificationController::class, 'verifyOtp'])->middleware('throttle:10,1');
         Route::delete('user', [UserController::class, 'destroy']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('token/refresh', [AuthController::class, 'refreshToken']);

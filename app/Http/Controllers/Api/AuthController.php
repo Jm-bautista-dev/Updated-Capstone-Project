@@ -12,32 +12,139 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Models\PendingRegistration;
+use App\Models\PhoneVerification;
+use App\Services\PhoneNumberService;
+use App\Services\IprogSmsService;
+use App\Services\SmsAntiSpamService;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     /**
      * Register a new customer user.
+     * Supports both Phone Verification (via IPROG SMS) and Email Verification flows.
      * POST /api/v1/register
      */
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'first_name'    => 'required|string|max:255',
-            'last_name'     => 'required|string|max:255',
-            'mobile_number' => 'required|string|max:20',
-            'email'         => 'required|email|unique:users,email|max:255',
-            'password'      => 'required|string|min:6',
+            'first_name'          => 'required|string|max:255',
+            'last_name'           => 'required|string|max:255',
+            'mobile_number'       => 'required|string|max:30',
+            'email'               => 'required|email|unique:users,email|max:255',
+            'password'            => 'required|string|min:6',
+            'verification_method' => 'nullable|string|in:phone,email',
         ]);
 
         $email = strtolower(trim($validated['email']));
+        $method = strtolower(trim((string) ($request->input('verification_method') ?? '')));
 
-        // Verify OTP was completed for this exact email
-        $verified = EmailVerification::where('email', $email)
+        // 1. Validate & Normalize Philippine Mobile Number
+        $normalizedMobile = PhoneNumberService::normalize($validated['mobile_number']);
+        if (!$normalizedMobile || !PhoneNumberService::isValidPhMobile($normalizedMobile)) {
+            return response()->json([
+                'success' => false,
+                'status'  => 'error',
+                'message' => 'Invalid Philippine mobile number. Must be an 11-digit number starting with 09.',
+                'errors'  => [
+                    'mobile_number' => ['Invalid Philippine mobile number. Must be an 11-digit number starting with 09.']
+                ]
+            ], 422);
+        }
+
+        // 2. Enforce phone-number uniqueness against registered customer accounts
+        if (User::where('mobile_number', $normalizedMobile)->exists()) {
+            return response()->json([
+                'success' => false,
+                'status'  => 'error',
+                'message' => 'This mobile number is already registered to an existing account.',
+                'errors'  => [
+                    'mobile_number' => ['This mobile number is already registered to an existing account.']
+                ]
+            ], 409);
+        }
+
+        // 3. Inspect existing pre-verification states
+        $emailVerifiedRecord = EmailVerification::where('email', $email)
             ->where('is_verified', true)
             ->first();
 
-        if (!$verified) {
+        $phoneVerifiedRecord = PhoneVerification::where('phone_number', $normalizedMobile)
+            ->where('is_verified', true)
+            ->where('updated_at', '>=', now()->subMinutes(30))
+            ->latest()
+            ->first();
+
+        // ── Branch A: Email Pre-Verification Flow (Preserved Existing Contract) ──
+        if ($emailVerifiedRecord && ($method === 'email' || empty($method))) {
+            $user = User::create([
+                'first_name'        => $validated['first_name'],
+                'last_name'         => $validated['last_name'],
+                'name'              => $validated['first_name'] . ' ' . $validated['last_name'],
+                'mobile_number'     => $normalizedMobile,
+                'email'             => $email,
+                'password'          => Hash::make($validated['password']),
+                'role'              => User::ROLE_CUSTOMER,
+                'email_verified_at' => now(),
+                'phone_verified_at' => null, // Distinct from phone verification
+            ]);
+
+            // Clean up consumed email verification record
+            $emailVerifiedRecord->delete();
+
+            Log::info('[AUTH SYSTEM] Customer Registered Successfully via Email Verification', [
+                'user_id' => $user->id,
+                'email'   => $email,
+                'ip'      => $request->ip(),
+            ]);
+
+            $token = $user->createToken('mobile-app')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'status'  => 'success',
+                'message' => 'Registration successful.',
+                'token'   => $token,
+                'user'    => $this->formatUser($user),
+            ], 201);
+        }
+
+        // ── Branch B: Phone Pre-Verification Flow (Standalone OTP verified beforehand) ──
+        if ($phoneVerifiedRecord && ($method === 'phone' || empty($method))) {
+            $user = User::create([
+                'first_name'        => $validated['first_name'],
+                'last_name'         => $validated['last_name'],
+                'name'              => $validated['first_name'] . ' ' . $validated['last_name'],
+                'mobile_number'     => $normalizedMobile,
+                'email'             => $email,
+                'password'          => Hash::make($validated['password']),
+                'role'              => User::ROLE_CUSTOMER,
+                'phone_verified_at' => now(),
+                'email_verified_at' => null, // Distinct from email verification
+            ]);
+
+            $phoneVerifiedRecord->delete();
+
+            Log::info('[AUTH SYSTEM] Customer Registered Successfully via Pre-Verified Phone', [
+                'user_id' => $user->id,
+                'phone'   => PhoneNumberService::mask($normalizedMobile),
+                'ip'      => $request->ip(),
+            ]);
+
+            $token = $user->createToken('mobile-app')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'status'  => 'success',
+                'message' => 'Registration successful.',
+                'token'   => $token,
+                'user'    => $this->formatUser($user),
+            ], 201);
+        }
+
+        // ── Branch C: Strict Email Verification Mode explicitly requested without pre-verification ──
+        if ($method === 'email') {
             Log::warning('[AUTH SYSTEM] Registration rejected - Unverified Email', [
                 'email' => $email,
                 'ip'    => $request->ip(),
@@ -45,37 +152,115 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => false,
+                'status'  => 'error',
                 'message' => 'Email not verified. Please verify your OTP code first.'
             ], 403);
         }
 
-        $user = User::create([
-            'first_name'    => $validated['first_name'],
-            'last_name'     => $validated['last_name'],
-            'name'          => $validated['first_name'] . ' ' . $validated['last_name'],
-            'mobile_number' => $validated['mobile_number'],
-            'email'         => $email,
-            'password'      => Hash::make($validated['password']),
-            'role'          => User::ROLE_CUSTOMER,
+        // ── Branch D: Phone Verification Flow (Pending Registration with Real IPROG OTP) ──
+        // Generate secure, short-lived registration transaction token
+        $registrationToken = Str::random(40);
+        $cooldown = (int) config('services.iprog_sms.resend_cooldown_sec', 60);
+
+        // Check if an existing uncompleted pending registration exists for this email
+        $pending = PendingRegistration::where('email', $email)
+            ->where('status', PendingRegistration::STATUS_PENDING)
+            ->first();
+
+        if ($pending) {
+            // Update existing pending registration attempt
+            $pending->update([
+                'registration_token'    => $registrationToken,
+                'first_name'            => $validated['first_name'],
+                'last_name'             => $validated['last_name'],
+                'name'                  => $validated['first_name'] . ' ' . $validated['last_name'],
+                'mobile_number'         => $normalizedMobile,
+                'password'              => Hash::make($validated['password']), // Strictly hashed
+                'verification_method'   => 'phone',
+                'expires_at'            => now()->addMinutes(15),
+                'verification_attempts' => 0,
+                'ip_address'            => $request->ip(),
+                'user_agent'            => $request->userAgent(),
+            ]);
+        } else {
+            $pending = PendingRegistration::create([
+                'registration_token'    => $registrationToken,
+                'first_name'            => $validated['first_name'],
+                'last_name'             => $validated['last_name'],
+                'name'                  => $validated['first_name'] . ' ' . $validated['last_name'],
+                'email'                 => $email,
+                'mobile_number'         => $normalizedMobile,
+                'password'              => Hash::make($validated['password']), // Strictly hashed
+                'verification_method'   => 'phone',
+                'status'                => PendingRegistration::STATUS_PENDING,
+                'verification_attempts' => 0,
+                'resend_count'          => 0,
+                'last_sent_at'          => null,
+                'expires_at'            => now()->addMinutes(15),
+                'ip_address'            => $request->ip(),
+                'user_agent'            => $request->userAgent(),
+            ]);
+        }
+
+        // Anti-Spam & Cost-Protection Throttling Check (Evaluated BEFORE IPROG send call)
+        $antiSpamService = app(SmsAntiSpamService::class);
+        $spamCheck = $antiSpamService->checkCanSendOtp($normalizedMobile, $request->ip());
+
+        if (!$spamCheck['allowed']) {
+            return response()->json([
+                'success'         => false,
+                'status'          => $spamCheck['status'],
+                'message'         => $spamCheck['message'],
+                'retry_after'     => $spamCheck['retry_after'],
+                'resend_cooldown' => $spamCheck['retry_after'],
+            ], 429)->header('Retry-After', (string) $spamCheck['retry_after']);
+        }
+
+        // Concurrency Protection
+        if (!$antiSpamService->acquireConcurrencyLock($normalizedMobile)) {
+            return response()->json([
+                'success'     => false,
+                'status'      => 'busy',
+                'message'     => 'A verification request is already in progress for this mobile number. Please wait a moment.',
+                'retry_after' => 5,
+            ], 429)->header('Retry-After', '5');
+        }
+
+        try {
+            // Dispatch Initial SMS OTP via IPROG SMS Service
+            $smsService = app(IprogSmsService::class);
+            $sendResult = $smsService->sendOtp($normalizedMobile);
+
+            if ($sendResult['success']) {
+                $antiSpamService->recordAcceptedSend($normalizedMobile, $request->ip());
+                $pending->update([
+                    'last_sent_at' => now(),
+                    'resend_count' => 1,
+                ]);
+            }
+        } finally {
+            $antiSpamService->releaseConcurrencyLock($normalizedMobile);
+        }
+
+        Log::info('[AUTH SYSTEM] Pending Customer Registration Created - Phone OTP Dispatched', [
+            'email'              => $email,
+            'masked_phone'       => PhoneNumberService::mask($normalizedMobile),
+            'registration_token' => substr($registrationToken, 0, 10) . '...',
+            'sms_status'         => $sendResult['status'],
         ]);
-
-        // Clean up consumed email verification record
-        $verified->delete();
-
-        Log::info('[AUTH SYSTEM] Customer Registered Successfully', [
-            'user_id' => $user->id,
-            'email'   => $email,
-            'ip'      => $request->ip(),
-        ]);
-
-        $token = $user->createToken('mobile-app')->plainTextToken;
 
         return response()->json([
-            'success' => true,
-            'message' => 'Registration successful.',
-            'token'   => $token,
-            'user'    => $this->formatUser($user),
-        ], 201);
+            'success'             => true,
+            'status'              => 'pending_verification',
+            'message'             => 'Account created. Please enter the verification code sent to your mobile phone.',
+            'registration_token'  => $registrationToken,
+            'verification_method' => 'phone',
+            'phone_number'        => $normalizedMobile,
+            'masked_phone'        => PhoneNumberService::mask($normalizedMobile),
+            'expires_in_seconds'  => 900,
+            'resend_cooldown'     => $cooldown,
+            'sms_sent'            => $sendResult['success'],
+        ], 200);
     }
 
     /**
@@ -300,14 +485,16 @@ class AuthController extends Controller
         if (!$user) return [];
 
         return [
-            'id'            => $user->id ?? 0,
-            'first_name'    => $user->first_name ?? $user->name ?? 'User',
-            'last_name'     => $user->last_name ?? '',
-            'full_name'     => $user->name ?? ($user->first_name . ' ' . $user->last_name),
-            'email'         => $user->email ?? '',
-            'mobile_number' => $user->mobile_number ?? $user->phone ?? '',
-            'role'          => $user->role ?? ($user instanceof Rider ? 'rider' : 'customer'),
-            'branch_id'     => $user->branch_id ?? null,
+            'id'             => $user->id ?? 0,
+            'first_name'     => $user->first_name ?? $user->name ?? 'User',
+            'last_name'      => $user->last_name ?? '',
+            'full_name'      => $user->name ?? ($user->first_name . ' ' . $user->last_name),
+            'email'          => $user->email ?? '',
+            'mobile_number'  => $user->mobile_number ?? $user->phone ?? '',
+            'role'           => $user->role ?? ($user instanceof Rider ? 'rider' : 'customer'),
+            'branch_id'      => $user->branch_id ?? null,
+            'phone_verified' => (bool) (isset($user->phone_verified_at) && $user->phone_verified_at !== null),
+            'email_verified' => (bool) (isset($user->email_verified_at) && $user->email_verified_at !== null),
         ];
     }
 
