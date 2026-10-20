@@ -182,7 +182,7 @@ class OneTimeModelBenchmarkingAndTrainingTest extends TestCase
             $response->assertStatus(200);
             $response->assertInertia(fn (Assert $page) => $page
                 ->component('Analytics/ForecastBenchmarking')
-                ->where('benchmark.lifecycle_status', 'MODEL_READY')
+                ->where('benchmark.lifecycle_status', fn ($status) => $status === 'MODEL_READY')
                 ->where('benchmark.is_benchmarked', true)
             );
         }

@@ -242,6 +242,33 @@ class AuthController extends Controller
             $antiSpamService->releaseConcurrencyLock($normalizedMobile);
         }
 
+        // If provider SMS dispatch failed, preserve pending registration but return explicit failure
+        if (!$sendResult['success']) {
+            Log::warning('[AUTH SYSTEM] Pending Registration Saved, but SMS Dispatch Failed', [
+                'email'              => $email,
+                'masked_phone'       => PhoneNumberService::mask($normalizedMobile),
+                'registration_token' => substr($registrationToken, 0, 10) . '...',
+                'error_code'         => $sendResult['error_code'] ?? null,
+                'provider_message'   => $sendResult['message'] ?? null,
+            ]);
+
+            $statusCode = ($sendResult['error_code'] === 'SERVICE_UNCONFIGURED') ? 503 : 502;
+
+            return response()->json([
+                'success'             => false,
+                'status'              => 'sms_dispatch_failed',
+                'message'             => 'Registration details saved, but we were unable to dispatch the verification SMS. Please tap Resend Code to try again.',
+                'registration_token'  => $registrationToken,
+                'verification_method' => 'phone',
+                'phone_number'        => $normalizedMobile,
+                'masked_phone'        => PhoneNumberService::mask($normalizedMobile),
+                'expires_in_seconds'  => 900,
+                'resend_cooldown'     => 0,
+                'can_resend'          => true,
+                'sms_sent'            => false,
+            ], $statusCode);
+        }
+
         Log::info('[AUTH SYSTEM] Pending Customer Registration Created - Phone OTP Dispatched', [
             'email'              => $email,
             'masked_phone'       => PhoneNumberService::mask($normalizedMobile),
@@ -259,7 +286,7 @@ class AuthController extends Controller
             'masked_phone'        => PhoneNumberService::mask($normalizedMobile),
             'expires_in_seconds'  => 900,
             'resend_cooldown'     => $cooldown,
-            'sms_sent'            => $sendResult['success'],
+            'sms_sent'            => true,
         ], 200);
     }
 

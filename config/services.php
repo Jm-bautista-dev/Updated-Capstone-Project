@@ -60,7 +60,7 @@ return [
     ],
 
     'iprog_sms' => [
-        'api_token'             => env('IPROG_SMS_API_TOKEN'),
+        'api_token'             => env('IPROG_SMS_API_TOKEN', env('IPROG_API_TOKEN', env('IPROG_API_KEY', env('IPROG_SMS_KEY', env('IPROG_TOKEN'))))),
         'base_url'              => env('IPROG_SMS_BASE_URL', 'https://www.iprogsms.com/api/v1'),
         'timeout'               => (int) env('IPROG_SMS_TIMEOUT', 15),
         'expires_in_minutes'    => (int) env('IPROG_SMS_OTP_EXPIRY_MINUTES', 5),

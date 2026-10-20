@@ -503,10 +503,11 @@ class PhoneVerificationFlowTest extends TestCase
             'phone_number' => '09291234567',
         ]);
 
-        $response->assertStatus(502)
+        $response->assertStatus(504)
             ->assertJson([
                 'success' => false,
                 'status'  => 'error',
+                'code'    => 'PROVIDER_TIMEOUT',
             ]);
     }
 
@@ -556,15 +557,21 @@ class PhoneVerificationFlowTest extends TestCase
      */
     public function test_phone_number_formats_normalized_consistently(): void
     {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        config(['services.iprog_sms.max_ip_send_per_hour' => 50]);
+
         Http::fake([
             'https://www.iprogsms.com/api/v1/otp/send_otp' => Http::response(['status' => 'success', 'message' => 'Sent'], 200),
         ]);
 
         $formats = [
-            ['input' => '09311234561',     'expected' => '09311234561'],
-            ['input' => '+63 931 123 4562', 'expected' => '09311234562'],
-            ['input' => '639311234563',    'expected' => '09311234563'],
-            ['input' => '0931-123-4564',   'expected' => '09311234564'],
+            ['input' => '09311234561',        'expected' => '09311234561'],
+            ['input' => '+63 931 123 4562',   'expected' => '09311234562'],
+            ['input' => '639311234563',       'expected' => '09311234563'],
+            ['input' => '0931-123-4564',      'expected' => '09311234564'],
+            ['input' => '+6309311234565',     'expected' => '09311234565'],
+            ['input' => '00639311234566',     'expected' => '09311234566'],
+            ['input' => '+63 (931) 123-4567', 'expected' => '09311234567'],
         ];
 
         foreach ($formats as $item) {
@@ -849,14 +856,94 @@ class PhoneVerificationFlowTest extends TestCase
             'phone_number' => '09411234567',
         ]);
 
-        $response->assertStatus(502)
+        $response->assertStatus(504)
             ->assertJson([
                 'success' => false,
                 'status'  => 'error',
+                'code'    => 'PROVIDER_TIMEOUT',
             ]);
 
         // CRITICAL REQUIREMENT: Exactly 1 dispatch attempt — No automatic re-send on ambiguous timeout
         $this->assertEquals(1, $callCount);
+    }
+
+    /**
+     * 24. Invalid Philippine mobile formats are strictly rejected.
+     */
+    public function test_invalid_phone_number_formats_strictly_rejected(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+
+        $invalidInputs = [
+            '08123456789',   // Invalid prefix
+            '12345',         // Too short
+            '+12345678901',  // Foreign US code
+            '0917123456',    // 10 digits
+            '091712345678',  // 12 digits
+            'abcd-efgh-ijk', // Non-numeric
+        ];
+
+        foreach ($invalidInputs as $invalid) {
+            $response = $this->postJson('/api/v1/auth/phone/send-otp', [
+                'phone_number' => $invalid,
+            ]);
+
+            $response->assertStatus(422)
+                ->assertJson([
+                    'success' => false,
+                    'status'  => 'error',
+                ]);
+        }
+    }
+
+    /**
+     * 25. Registration when provider SMS dispatch fails preserves pending registration and returns recoverable 502.
+     */
+    public function test_registration_when_sms_dispatch_fails_preserves_pending_state_and_returns_recoverable_error(): void
+    {
+        Http::fake([
+            'https://www.iprogsms.com/api/v1/otp/send_otp' => Http::response([
+                'status'  => 'error',
+                'message' => 'Insufficient SMS credits'
+            ], 402),
+        ]);
+
+        $payload = [
+            'first_name'          => 'Fail',
+            'last_name'           => 'Gracefully',
+            'mobile_number'       => '09551234567',
+            'email'               => 'failgraceful@example.com',
+            'password'            => 'SecretPass123!',
+            'verification_method' => 'phone',
+        ];
+
+        $response = $this->postJson('/api/v1/register', $payload);
+
+        // Assert response is 502 with sms_dispatch_failed status (NOT 200 OK)
+        $response->assertStatus(502)
+            ->assertJson([
+                'success'             => false,
+                'status'              => 'sms_dispatch_failed',
+                'sms_sent'            => false,
+                'can_resend'          => true,
+                'verification_method' => 'phone',
+                'phone_number'        => '09551234567',
+            ]);
+
+        $data = $response->json();
+        $this->assertNotEmpty($data['registration_token']);
+
+        // Assert pending registration was preserved so customer can tap Resend Code
+        $this->assertDatabaseHas('pending_registrations', [
+            'email'         => 'failgraceful@example.com',
+            'mobile_number' => '09551234567',
+            'status'        => PendingRegistration::STATUS_PENDING,
+        ]);
+
+        // User table MUST NOT have this user yet
+        $this->assertDatabaseMissing('users', [
+            'email' => 'failgraceful@example.com',
+        ]);
     }
 }
 

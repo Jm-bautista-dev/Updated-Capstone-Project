@@ -53,7 +53,7 @@ class ExpirationAlertService
             $query->where('branch_id', $branchId);
         }
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\IngredientBatch> $batches */
+        /** @var \Illuminate\Database\Eloquent\Collection<int, IngredientBatch> $batches */
         $batches = $query->get();
 
         $expired = [];
@@ -62,7 +62,7 @@ class ExpirationAlertService
         $quarantined = [];
         $missingExpiry = [];
 
-        /** @var \App\Models\IngredientBatch $batch */
+        /** @var IngredientBatch $batch */
         foreach ($batches as $batch) {
             $ingredient = $batch->ingredient;
             if (!$ingredient) {

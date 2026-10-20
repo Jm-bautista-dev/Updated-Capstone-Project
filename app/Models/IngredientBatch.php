@@ -18,9 +18,9 @@ use Illuminate\Database\Eloquent\Builder;
  * @property int $branch_id
  * @property int|null $supplier_id
  * @property string|null $supplier_name
- * @property \Carbon\Carbon|null $received_at
- * @property \Carbon\Carbon|null $manufacture_date
- * @property \Carbon\Carbon|null $expiration_date
+ * @property Carbon|null $received_at
+ * @property Carbon|null $manufacture_date
+ * @property Carbon|null $expiration_date
  * @property string $expiration_type
  * @property float $initial_quantity
  * @property float $current_quantity
@@ -31,15 +31,15 @@ use Illuminate\Database\Eloquent\Builder;
  * @property string|null $notes
  * @property string|null $reference
  * @property bool $is_legacy
- * @property-read \App\Models\Ingredient|null $ingredient
- * @property-read \App\Models\Branch|null $branch
- * @property-read \App\Models\Supplier|null $supplier
+ * @property-read Ingredient|null $ingredient
+ * @property-read Branch|null $branch
+ * @property-read Supplier|null $supplier
  * @property-read string $expiration_status
  * @property-read bool $is_eligible
  * @property-read int|null $days_until_expiration
- * @method bool isExpired(?\Carbon\Carbon $asOf = null)
- * @method bool isExpiringToday(?\Carbon\Carbon $asOf = null)
- * @method bool isExpiringSoon(int $warningDays = 3, ?\Carbon\Carbon $asOf = null)
+ * @method bool isExpired(?Carbon $asOf = null)
+ * @method bool isExpiringToday(?Carbon $asOf = null)
+ * @method bool isExpiringSoon(int $warningDays = 3, ?Carbon $asOf = null)
  */
 class IngredientBatch extends Model
 {

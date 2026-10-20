@@ -28,19 +28,12 @@ class PhoneNumberService
         // Strip everything except digits
         $digits = preg_replace('/\D+/', '', $cleaned);
 
-        // Case 1: Starts with country code 63 and total length 12 -> 639... -> 09...
-        if (str_starts_with($digits, '63') && strlen($digits) === 12) {
-            return '0' . substr($digits, 2);
-        }
-
-        // Case 2: 10 digits starting with 9 (e.g. 9171234567) -> 09171234567
-        if (strlen($digits) === 10 && str_starts_with($digits, '9')) {
-            return '0' . $digits;
-        }
-
-        // Case 3: 11 digits starting with 09 (e.g. 09171234567)
-        if (strlen($digits) === 11 && str_starts_with($digits, '09')) {
-            return $digits;
+        // Match any Philippine mobile number format:
+        // Optional international prefix: 0063, 63, or none
+        // Optional leading 0 (common when users or pickers combine +63 and 09, e.g. +6309...)
+        // Followed by 9 and exactly 9 digits (total 10 subscriber digits)
+        if (preg_match('/^(?:0063|63)?0?(9\d{9})$/', $digits, $matches)) {
+            return '0' . $matches[1];
         }
 
         // If not matching valid mobile shapes, return cleaned digits as best effort

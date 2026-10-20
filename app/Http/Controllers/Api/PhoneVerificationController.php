@@ -213,11 +213,20 @@ class PhoneVerificationController extends Controller
             $providerResult = $this->smsService->sendOtp($normalizedPhone, null, $expiryMinutes);
 
             if (!$providerResult['success']) {
+                $statusMap = [
+                    'SERVICE_UNCONFIGURED' => 503,
+                    'PROVIDER_TIMEOUT'     => 504,
+                    'INVALID_PHONE_NUMBER' => 422,
+                ];
+                $statusCode = $statusMap[$providerResult['error_code'] ?? ''] ?? 502;
+
                 return response()->json([
-                    'success' => false,
-                    'status'  => 'error',
-                    'message' => $providerResult['message'] ?? 'Failed to dispatch verification SMS. Please try again.',
-                ], 502);
+                    'success'    => false,
+                    'status'     => 'error',
+                    'code'       => $providerResult['error_code'] ?? 'PROVIDER_ERROR',
+                    'error_code' => $providerResult['error_code'] ?? 'PROVIDER_ERROR',
+                    'message'    => $providerResult['message'] ?? 'Failed to dispatch verification SMS. Please try again.',
+                ], $statusCode);
             }
 
             // 6. Record Accepted Send in Shared Anti-Spam Rate Limiters

@@ -78,7 +78,7 @@ class AnalyticsController extends Controller
             'status'    => $s->status,
         ]);
 
-        $recentBenchmarks = \App\Models\ForecastBenchmark::latest()->limit(3)->get()->map(fn($b) => [
+        $recentBenchmarks = ForecastBenchmark::latest()->limit(3)->get()->map(fn($b) => [
             'user'      => 'Adaptive Engine',
             'timestamp' => $b->created_at->diffForHumans(),
             'action'    => "Model benchmark completed for branch ID {$b->branch_id}",
@@ -90,7 +90,7 @@ class AnalyticsController extends Controller
 
     private function buildForecastIntel(): array
     {
-        $latestBenchmark = \App\Models\ForecastBenchmark::latest()->first();
+        $latestBenchmark = ForecastBenchmark::latest()->first();
 
         return [
             'recommended_model' => $latestBenchmark?->best_model ?? 'SES (Exponential)',
