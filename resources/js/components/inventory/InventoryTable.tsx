@@ -22,6 +22,8 @@ interface InventoryTableProps {
     onOpenReduceStock?: (row: InventoryRow) => void;
     onOpenEdit: (row: InventoryRow) => void;
     onOpenDelete: (row: InventoryRow) => void;
+    branchName?: string;
+    emptyMessage?: string;
 }
 
 export function InventoryTable({
@@ -37,16 +39,18 @@ export function InventoryTable({
     onOpenReduceStock,
     onOpenEdit,
     onOpenDelete,
+    branchName,
+    emptyMessage,
 }: InventoryTableProps) {
     const isAllSelected = inventory.length > 0 && inventory.every((r) => selectedIds.includes(r.id));
 
     return (
         <div className="rounded-[2.5rem] bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_20px_50px_-15px_rgba(231,84,128,0.08)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 overflow-hidden flex flex-col min-h-0">
-            <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto flex-1 scrollbar-thin scrollbar-thumb-stone-300 dark:scrollbar-thumb-stone-700">
+                <table className="w-full min-w-190 text-left border-collapse text-xs">
                     <thead className="sticky top-0 z-10 bg-[#FFFDFE]/90 dark:bg-[#14141E]/90 border-b border-[#F8C8DC]/40 dark:border-white/10 backdrop-blur-md">
                         <tr className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
-                            <th className="py-4 px-6 w-10">
+                            <th className="py-4 px-5 w-10">
                                 {isAdmin && (
                                     <input
                                         type="checkbox"
@@ -56,12 +60,12 @@ export function InventoryTable({
                                     />
                                 )}
                             </th>
-                            <th className="py-4 px-6">SKU / Item Specs</th>
-                            <th className="py-4 px-6 text-center">Stock Level</th>
-                            {isAdmin && <th className="py-4 px-6 hidden sm:table-cell">Cost & Valuation</th>}
-                            <th className="py-4 px-6 hidden md:table-cell min-w-32.5">Branch Location</th>
-                            <th className="py-4 px-6 text-center">Status</th>
-                            <th className="py-4 px-6 text-right">Actions</th>
+                            <th className="py-4 px-5 min-w-50">SKU / Item Specs</th>
+                            <th className="py-4 px-5 text-center min-w-30">Stock Level</th>
+                            {isAdmin && <th className="py-4 px-5 min-w-32.5">Cost & Valuation</th>}
+                            <th className="py-4 px-5 min-w-32.5">Branch Location</th>
+                            <th className="py-4 px-5 text-center min-w-27.5">Status</th>
+                            <th className="py-4 px-5 text-right min-w-45">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F8C8DC]/20 dark:divide-white/5">
@@ -76,8 +80,12 @@ export function InventoryTable({
                                     <td colSpan={isAdmin ? 7 : 6} className="p-8 text-[#7D6B6E] dark:text-[#94A3B8]">
                                         <div className="flex flex-col items-center justify-center gap-2">
                                             <PackageSearch className="size-8 text-[#E75480]/50 dark:text-[#FF4F81]/50 mb-1" />
-                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">No Inventory Rows Found</span>
-                                            <span className="text-xs text-[#9E8B8E] dark:text-[#64748B]">Try adjusting your search query or branch filter selections.</span>
+                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                {emptyMessage || 'No Inventory Rows Found'}
+                                            </span>
+                                            <span className="text-xs text-[#9E8B8E] dark:text-[#64748B]">
+                                                {branchName ? `No ingredients recorded for ${branchName}.` : 'Try adjusting your search query or branch filter selections.'}
+                                            </span>
                                         </div>
                                     </td>
                                 </motion.tr>
@@ -155,7 +163,7 @@ export function InventoryTable({
 
                                             {/* Cost & Valuation */}
                                             {isAdmin && (
-                                                <td className="p-4 px-6 align-middle hidden sm:table-cell font-mono">
+                                                <td className="p-4 px-5 align-middle font-mono">
                                                     <div className="flex flex-col">
                                                         <span className="text-xs font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
                                                             {formatCurrency(row.cost_per_unit || 0)} / {row.unit}
@@ -168,7 +176,7 @@ export function InventoryTable({
                                             )}
 
                                             {/* Branch Location */}
-                                            <td className="p-4 px-6 align-middle hidden md:table-cell text-xs font-bold text-[#5D4A4D] dark:text-[#E2E8F0]">
+                                            <td className="p-4 px-5 align-middle text-xs font-bold text-[#5D4A4D] dark:text-[#E2E8F0]">
                                                 <span
                                                     className="inline-flex items-center gap-1.5 bg-[#FADADD]/30 dark:bg-white/5 border border-[#F8C8DC]/50 dark:border-white/10 px-3 py-1 rounded-xl whitespace-nowrap text-xs max-w-50"
                                                     title={row.branch_name || 'Global'}

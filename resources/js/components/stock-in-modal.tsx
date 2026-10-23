@@ -1,6 +1,6 @@
 import { useForm, usePage } from '@inertiajs/react';
 import React, { useMemo, useEffect, useState } from 'react';
-import { FiPackage, FiTruck, FiArrowRight, FiCalendar, FiTag, FiAlertCircle, FiCheck, FiInfo } from 'react-icons/fi';
+import { FiPackage, FiTruck, FiArrowRight, FiCalendar, FiAlertCircle, FiCheck, FiInfo } from 'react-icons/fi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,13 +70,11 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
         unit: item?.unit || (type === 'product' ? 'pcs' : 'g'),
         branch_id: item?.branch_id ? String(item.branch_id) : defaultBranchId,
         purchase_price: '',
-        lot_number: '',
-        batch_code: '',
         expiration_type: 'use_by',
         expiration_date: '',
-        supplier_name: '',
         received_at: new Date().toISOString().slice(0, 10),
         notes: '',
+        idempotency_token: '',
     });
 
     // Sync form data when item changes or modal opens
@@ -89,13 +87,11 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                 unit: item.unit || (type === 'product' ? 'pcs' : 'g'),
                 branch_id: item.branch_id ? String(item.branch_id) : defaultBranchId,
                 purchase_price: '',
-                lot_number: '',
-                batch_code: '',
                 expiration_type: 'use_by',
                 expiration_date: '',
-                supplier_name: '',
                 received_at: new Date().toISOString().slice(0, 10),
                 notes: '',
+                idempotency_token: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             });
         }
     }, [open, item, type, defaultBranchId, setData]);
@@ -234,35 +230,6 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                             </Select>
                         </div>
 
-                        {/* Lot / Batch Reference */}
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] uppercase font-bold text-[#7D6B6E] dark:text-[#94A3B8] flex items-center gap-1">
-                                <FiTag className="size-3 text-[#E75480]" />
-                                <span>Supplier Lot / Batch #</span>
-                            </label>
-                            <Input
-                                type="text"
-                                maxLength={100}
-                                value={data.lot_number}
-                                onChange={(e) => setData('lot_number', e.target.value)}
-                                className="h-11 rounded-xl bg-white dark:bg-[#181822] border-[#F8C8DC]/40 dark:border-white/10 text-xs font-mono font-bold"
-                                placeholder="e.g. LOT-2026-X88"
-                            />
-                        </div>
-
-                        {/* Supplier / Vendor Name */}
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] uppercase font-bold text-[#7D6B6E] dark:text-[#94A3B8]">Supplier / Vendor</label>
-                            <Input
-                                type="text"
-                                maxLength={150}
-                                value={data.supplier_name}
-                                onChange={(e) => setData('supplier_name', e.target.value)}
-                                className="h-11 rounded-xl bg-white dark:bg-[#181822] border-[#F8C8DC]/40 dark:border-white/10 text-xs font-bold"
-                                placeholder="e.g. ABC Meat & Produce"
-                            />
-                        </div>
-
                         {/* Expiration Tracking Policy */}
                         <div className="space-y-1.5">
                             <label className="text-[11px] uppercase font-bold text-[#7D6B6E] dark:text-[#94A3B8]">Expiration Policy</label>
@@ -374,7 +341,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 text-[#5D4A4D] dark:text-[#CBD5E1]">
                                 <div><span className="font-bold">Item:</span> {item.name}</div>
-                                <div><span className="font-bold">Lot:</span> {data.lot_number || 'Auto-generated'}</div>
+                                <div><span className="font-bold">Batch Tracking:</span> Auto-assigned (Queue)</div>
                                 <div><span className="font-bold">Quantity:</span> {data.quantity} {data.unit} ({preview?.baseQty} {preview?.baseUnit})</div>
                                 <div><span className="font-bold">Expiry Policy:</span> {data.expiration_type === 'none' ? 'Non-perishable (FIFO)' : (data.expiration_date || 'None')}</div>
                             </div>

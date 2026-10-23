@@ -5,6 +5,12 @@ import {
     ChevronLeft,
     ChevronRight,
     Trash2,
+    Store,
+    Search,
+    RefreshCw,
+    X,
+    Columns,
+    Layers,
 } from 'lucide-react';
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -44,6 +50,9 @@ import { convertQuantity } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
 type Branch = { id: number; name: string };
+
+const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
 
 interface ServerStats {
     total_items?: number;
@@ -104,8 +113,14 @@ export default function InventoryIndex() {
     const [sortBy] = useState<string>('name');
     const [sortOrder] = useState<'asc' | 'desc'>('asc');
     
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(25);
+    // Dual-Branch Layout & Independent Panel Controls
+    const [searchVictoria, setSearchVictoria] = useState('');
+    const [searchStaCruz, setSearchStaCruz] = useState('');
+    const [viewMode, setViewMode] = useState<'split' | 'victoria' | 'stacruz' | 'stacked'>('split');
+    const [currentPageVic, setCurrentPageVic] = useState(1);
+    const [itemsPerPageVic, setItemsPerPageVic] = useState(25);
+    const [currentPageSta, setCurrentPageSta] = useState(1);
+    const [itemsPerPageSta, setItemsPerPageSta] = useState(25);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -223,10 +238,12 @@ export default function InventoryIndex() {
         setIsBatchPrepareModalOpen(true);
     };
 
-    const openMassRestockModal = () => {
-        const branchId = currentBranchId ? Number(currentBranchId) : branchList[0]?.id || 1;
-        const branchName = branchList.find(b => b.id === branchId)?.name || 'Default Branch';
-        setActiveRestockBranch({ id: branchId, name: branchName });
+    const openMassRestockModal = (targetBranch?: Branch | null) => {
+        const branch = targetBranch
+            || (currentBranchId && currentBranchId !== 'all' ? branchList.find(b => String(b.id) === String(currentBranchId)) : null)
+            || branchList[0]
+            || { id: 1, name: 'Default Branch' };
+        setActiveRestockBranch({ id: Number(branch.id), name: branch.name });
         setIsMassRestockModalOpen(true);
     };
 
@@ -383,31 +400,196 @@ export default function InventoryIndex() {
             });
     }, [inventory, search, filterUnit, filterStatus, quickFilter, sortBy, sortOrder, lastUpdatedMap]);
 
-    // Pagination
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const paginatedData = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return filteredData.slice(start, start + itemsPerPage);
-    }, [filteredData, currentPage, itemsPerPage]);
+    // Identification of Branches
+    const victoriaBranch = useMemo(() => {
+        return branchList.find(b => b.name.toLowerCase().includes('victoria')) || branchList[0];
+    }, [branchList]);
+
+    const staCruzBranch = useMemo(() => {
+        return branchList.find(b => b.name.toLowerCase().includes('cruz') || b.name.toLowerCase().includes('sta')) || branchList[1];
+    }, [branchList]);
+
+    // Independent Data Streams
+    const victoriaData = useMemo(() => {
+        if (!victoriaBranch) return [];
+        return filteredData.filter(item => {
+            if (Number(item.branch_id) !== Number(victoriaBranch.id)) return false;
+            if (searchVictoria.trim()) {
+                const q = searchVictoria.toLowerCase();
+                const sku = `ING-${item.id.toString().padStart(5, '0')}`.toLowerCase();
+                return item.name.toLowerCase().includes(q) || sku.includes(q);
+            }
+            return true;
+        });
+    }, [filteredData, victoriaBranch, searchVictoria]);
+
+    const staCruzData = useMemo(() => {
+        if (!staCruzBranch) return [];
+        return filteredData.filter(item => {
+            if (Number(item.branch_id) !== Number(staCruzBranch.id)) return false;
+            if (searchStaCruz.trim()) {
+                const q = searchStaCruz.toLowerCase();
+                const sku = `ING-${item.id.toString().padStart(5, '0')}`.toLowerCase();
+                return item.name.toLowerCase().includes(q) || sku.includes(q);
+            }
+            return true;
+        });
+    }, [filteredData, staCruzBranch, searchStaCruz]);
+
+    // Victoria Pagination
+    const totalPagesVic = Math.ceil(victoriaData.length / itemsPerPageVic);
+    const paginatedVictoriaData = useMemo(() => {
+        const start = (currentPageVic - 1) * itemsPerPageVic;
+        return victoriaData.slice(start, start + itemsPerPageVic);
+    }, [victoriaData, currentPageVic, itemsPerPageVic]);
+
+    // Sta. Cruz Pagination
+    const totalPagesSta = Math.ceil(staCruzData.length / itemsPerPageSta);
+    const paginatedStaCruzData = useMemo(() => {
+        const start = (currentPageSta - 1) * itemsPerPageSta;
+        return staCruzData.slice(start, start + itemsPerPageSta);
+    }, [staCruzData, currentPageSta, itemsPerPageSta]);
+
+    // Branch Live Metrics
+    const vicLowStock = useMemo(() => victoriaData.filter(i => i.is_low_stock && !i.is_out_of_stock).length, [victoriaData]);
+    const vicOutOfStock = useMemo(() => victoriaData.filter(i => i.is_out_of_stock).length, [victoriaData]);
+    const vicValuation = useMemo(() => victoriaData.reduce((acc, i) => acc + (i.stock * (i.cost_per_unit || 0)), 0), [victoriaData]);
+
+    const staLowStock = useMemo(() => staCruzData.filter(i => i.is_low_stock && !i.is_out_of_stock).length, [staCruzData]);
+    const staOutOfStock = useMemo(() => staCruzData.filter(i => i.is_out_of_stock).length, [staCruzData]);
+    const staValuation = useMemo(() => staCruzData.reduce((acc, i) => acc + (i.stock * (i.cost_per_unit || 0)), 0), [staCruzData]);
 
     const handleSearchChange = (val: string) => {
         setSearch(val);
-        setCurrentPage(1);
+        setCurrentPageVic(1);
+        setCurrentPageSta(1);
     };
 
     const handleUnitFilterChange = (val: string) => {
         setFilterUnit(val);
-        setCurrentPage(1);
+        setCurrentPageVic(1);
+        setCurrentPageSta(1);
     };
 
     const handleStatusChange = (val: string) => {
         setFilterStatus(val);
-        setCurrentPage(1);
+        setCurrentPageVic(1);
+        setCurrentPageSta(1);
     };
 
     const handleQuickFilterChange = (val: 'all' | 'low' | 'out' | 'updated' | 'restocked') => {
         setQuickFilter(val);
-        setCurrentPage(1);
+        setCurrentPageVic(1);
+        setCurrentPageSta(1);
+    };
+
+    const toggleSelectAllBranch = (isChecked: boolean, branchRows: InventoryRow[]) => {
+        const pageIds = branchRows.map(r => r.id);
+        if (isChecked) {
+            setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+        } else {
+            const pageIdsSet = new Set(pageIds);
+            setSelectedIds(prev => prev.filter(id => !pageIdsSet.has(id)));
+        }
+    };
+
+    const renderBranchPagination = (
+        page: number,
+        setPage: React.Dispatch<React.SetStateAction<number>>,
+        perPage: number,
+        setPerPage: React.Dispatch<React.SetStateAction<number>>,
+        totalCount: number,
+        totalNumPages: number,
+        accentColor: 'rose' | 'indigo' = 'rose'
+    ) => {
+        if (totalCount === 0) return null;
+
+        const startItem = (page - 1) * perPage + 1;
+        const endItem = Math.min(totalCount, page * perPage);
+
+        return (
+            <div className="rounded-2xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.06)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] p-3.5 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs transition-colors duration-300">
+                <div className="flex items-center gap-3 font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
+                    <div className="flex items-center gap-1.5">
+                        <span className="uppercase tracking-wider text-[10px]">Per Page</span>
+                        <Select
+                            value={String(perPage)}
+                            onValueChange={(val) => {
+                                setPerPage(Number(val));
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-18 h-8 rounded-lg border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] font-mono font-bold text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl min-w-18 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                {[10, 25, 50, 100].map((val) => (
+                                    <SelectItem key={val} value={String(val)} className="text-xs font-mono font-bold dark:focus:bg-white/10">
+                                        {val}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <span className="font-mono text-[11px]">
+                        {startItem} - {endItem} of {totalCount} items
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={page === 1}
+                        onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                        className="rounded-lg h-8 w-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer"
+                    >
+                        <ChevronLeft className="size-3.5" />
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalNumPages) }, (_, i) => {
+                            let pageNum = i + 1;
+                            if (totalNumPages > 5 && page > 3) {
+                                pageNum = page - 3 + i + 1;
+                                if (pageNum > totalNumPages) pageNum = totalNumPages - (4 - i);
+                            }
+                            if (pageNum <= 0) return null;
+
+                            const isActive = page === pageNum;
+                            return (
+                                <Button
+                                    key={pageNum}
+                                    variant={isActive ? 'default' : 'outline'}
+                                    onClick={() => setPage(pageNum)}
+                                    className={cn(
+                                        'h-8 w-8 rounded-lg font-bold text-xs font-mono transition-all cursor-pointer',
+                                        isActive
+                                            ? accentColor === 'rose'
+                                                ? 'bg-rose-500 hover:bg-rose-600 text-white border-transparent shadow-xs'
+                                                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent shadow-xs'
+                                            : 'border-[#F8C8DC]/60 dark:border-white/10 text-[#5D4A4D] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10'
+                                    )}
+                                >
+                                    {pageNum}
+                                </Button>
+                            );
+                        })}
+                    </div>
+
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={page === totalNumPages || totalNumPages === 0}
+                        onClick={() => setPage((prev) => Math.min(totalNumPages, prev + 1))}
+                        className="rounded-lg h-8 w-8 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer"
+                    >
+                        <ChevronRight className="size-3.5" />
+                    </Button>
+                </div>
+            </div>
+        );
     };
 
     // Handlers
@@ -578,15 +760,6 @@ export default function InventoryIndex() {
         });
     };
 
-    const toggleSelectAll = (isChecked: boolean) => {
-        if (isChecked) {
-            const pageIds = paginatedData.map(r => r.id);
-            setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
-        } else {
-            const pageIdsSet = new Set(paginatedData.map(r => r.id));
-            setSelectedIds(prev => prev.filter(id => !pageIdsSet.has(id)));
-        }
-    };
 
     const toggleSelectRow = (id: number) => {
         setSelectedIds(prev => 
@@ -658,102 +831,343 @@ export default function InventoryIndex() {
                     onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
                 />
 
-                {/* ── ZONE 3: INVENTORY TABLE DISPLAY ── */}
+                {/* ── ZONE 3: DUAL-BRANCH SIDE-BY-SIDE INVENTORY DISPLAY ── */}
                 <div className="space-y-6">
-                    <InventoryTable
-                        inventory={paginatedData}
-                        isAdmin={isAdmin}
-                        density={density}
-                        selectedIds={selectedIds}
-                        onToggleSelectAll={toggleSelectAll}
-                        onToggleSelectRow={toggleSelectRow}
-                        onSelectRow={openDetailDrawer}
-                        onOpenStockIn={openStockInModal}
-                        onOpenWastage={openWastageModal}
-                        onOpenReduceStock={openStockReductionModal}
-                        onOpenEdit={handleEdit}
-                        onOpenDelete={handleDelete}
-                    />
-
-                    {/* Pagination Controls */}
-                    {filteredData.length > 0 && (
-                        <div className="rounded-2xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_10px_25px_-5px_rgba(231,84,128,0.06)] dark:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] p-4 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors duration-300">
-                            <div className="flex items-center gap-4 text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
-                                <div className="flex items-center gap-2">
-                                    <span className="uppercase tracking-wider">Per Page</span>
-                                    <Select 
-                                        value={String(itemsPerPage)} 
-                                        onValueChange={(val) => {
-                                            setItemsPerPage(Number(val));
-                                            setCurrentPage(1);
-                                        }}
-                                    >
-                                        <SelectTrigger className="w-20 h-9 rounded-xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] font-mono font-bold text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl border-[#F8C8DC]/60 dark:border-white/10 shadow-xl min-w-20 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0]">
-                                            {[10, 25, 50, 100].map(val => (
-                                                <SelectItem key={val} value={String(val)} className="text-xs font-mono font-bold dark:focus:bg-white/10">{val}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <span className="font-mono">
-                                    Showing {Math.min(filteredData.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredData.length, currentPage * itemsPerPage)} of {filteredData.length} items
-                                </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    disabled={currentPage === 1}
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer"
+                    {/* Responsive View Mode Selector & Branch Quick Overview */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 p-2.5 bg-white/70 dark:bg-[#121218]/70 backdrop-blur-xl border border-white/90 dark:border-white/10 rounded-2xl shadow-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] px-2.5">
+                                Branch Layout
+                            </span>
+                            <div className="inline-flex p-1 bg-[#FFF5F7] dark:bg-[#181820] border border-[#F8C8DC]/60 dark:border-white/10 rounded-xl">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('split')}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                        viewMode === 'split'
+                                            ? "bg-white dark:bg-[#252532] text-[#E75480] dark:text-[#FF4F81] shadow-xs"
+                                            : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                    )}
+                                    title="View Victoria on Left and Sta. Cruz on Right simultaneously"
                                 >
-                                    <ChevronLeft className="size-4" />
-                                </Button>
-
-                                <div className="flex items-center gap-1">
-                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        let pageNum = i + 1;
-                                        if (totalPages > 5 && currentPage > 3) {
-                                            pageNum = currentPage - 3 + i + 1;
-                                            if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                                        }
-                                        if (pageNum <= 0) return null;
-
-                                        return (
-                                            <Button
-                                                key={pageNum}
-                                                variant={currentPage === pageNum ? 'default' : 'outline'}
-                                                onClick={() => setCurrentPage(pageNum)}
-                                                className={cn(
-                                                    "h-9 w-9 rounded-xl font-bold text-xs font-mono transition-all cursor-pointer",
-                                                    currentPage === pageNum 
-                                                        ? "bg-[#E75480] dark:bg-[#E1062C] text-white border-transparent shadow-xs" 
-                                                        : "border-[#F8C8DC]/60 dark:border-white/10 text-[#5D4A4D] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10"
-                                                )}
-                                            >
-                                                {pageNum}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    disabled={currentPage === totalPages || totalPages === 0}
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    className="rounded-xl h-9 w-9 border-[#F8C8DC]/60 dark:border-white/10 text-[#3D2C2E] dark:text-[#E2E8F0] cursor-pointer"
+                                    <Columns className="size-3.5" />
+                                    <span>Side-by-Side</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('victoria')}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                        viewMode === 'victoria'
+                                            ? "bg-white dark:bg-[#252532] text-rose-600 dark:text-rose-400 shadow-xs"
+                                            : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                    )}
+                                    title="Focus on Victoria Inventory only"
                                 >
-                                    <ChevronRight className="size-4" />
-                                </Button>
+                                    <Store className="size-3.5 text-rose-500" />
+                                    <span>Victoria ({victoriaData.length})</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('stacruz')}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                        viewMode === 'stacruz'
+                                            ? "bg-white dark:bg-[#252532] text-indigo-600 dark:text-indigo-400 shadow-xs"
+                                            : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                    )}
+                                    title="Focus on Sta. Cruz Inventory only"
+                                >
+                                    <Store className="size-3.5 text-indigo-500" />
+                                    <span>Sta. Cruz ({staCruzData.length})</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('stacked')}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                                        viewMode === 'stacked'
+                                            ? "bg-white dark:bg-[#252532] text-[#E75480] dark:text-[#FF4F81] shadow-xs"
+                                            : "text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-[#F8FAFC]"
+                                    )}
+                                    title="Stack Victoria and Sta. Cruz tables vertically"
+                                >
+                                    <Layers className="size-3.5" />
+                                    <span>Stacked</span>
+                                </button>
                             </div>
                         </div>
-                    )}
+
+                        {/* Branch Metrics Pill */}
+                        <div className="flex flex-wrap items-center gap-3 px-2 text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                            <span className="flex items-center gap-1.5">
+                                <span className="size-2 rounded-full bg-rose-500"></span>
+                                Victoria: <strong className="font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">{victoriaData.length}</strong> items
+                            </span>
+                            <span className="text-stone-300 dark:text-stone-700">|</span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="size-2 rounded-full bg-indigo-500"></span>
+                                Sta. Cruz: <strong className="font-mono text-[#3D2C2E] dark:text-[#F8FAFC]">{staCruzData.length}</strong> items
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Dual Branch Grid: Left (Victoria) & Right (Sta. Cruz) */}
+                    <div className={cn(
+                        "grid gap-6 transition-all duration-300 items-start",
+                        viewMode === 'split' ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
+                    )}>
+                        {/* ────────────────────────────────────────────────────────── */}
+                        {/* ── LEFT PANEL: VICTORIA INVENTORY ── */}
+                        {/* ────────────────────────────────────────────────────────── */}
+                        {(viewMode === 'split' || viewMode === 'victoria' || viewMode === 'stacked') && (
+                            <div className="flex flex-col space-y-4 min-w-0">
+                                {/* Victoria Header Card */}
+                                <div className="rounded-3xl bg-linear-to-r from-rose-500/10 via-rose-500/5 to-white/80 dark:from-rose-950/30 dark:via-rose-950/10 dark:to-[#121218]/80 border border-rose-200/80 dark:border-rose-900/30 p-5 backdrop-blur-xl shadow-xs space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0">
+                                                <Store className="size-5" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                        VICTORIA INVENTORY
+                                                    </h2>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50">
+                                                        {victoriaBranch?.name || 'Victoria'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-medium">
+                                                    Independent branch stock, batches, and ingredient specifications
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Restock Victoria CTA */}
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => openMassRestockModal(victoriaBranch)}
+                                            className="h-9 px-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs gap-1.5 shadow-xs cursor-pointer shrink-0 self-start sm:self-auto"
+                                            title="Mass restock ingredients for Victoria"
+                                        >
+                                            <RefreshCw className="size-3.5" />
+                                            <span>Restock Victoria</span>
+                                        </Button>
+                                    </div>
+
+                                    {/* Victoria Metric Badges */}
+                                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rose-100 dark:border-rose-950/40 text-xs">
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/80 dark:bg-[#181820]/80 border border-rose-200/60 dark:border-white/10 font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                            <span>Items:</span>
+                                            <span className="font-mono text-rose-600 dark:text-rose-400">{victoriaData.length}</span>
+                                        </span>
+                                        {vicLowStock > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 font-bold text-amber-700 dark:text-amber-400">
+                                                <span>Low:</span>
+                                                <span className="font-mono">{vicLowStock}</span>
+                                            </span>
+                                        )}
+                                        {vicOutOfStock > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/40 font-bold text-rose-700 dark:text-rose-400">
+                                                <span>Out:</span>
+                                                <span className="font-mono">{vicOutOfStock}</span>
+                                            </span>
+                                        )}
+                                        {isAdmin && vicValuation > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                                                <span>Val:</span>
+                                                <span>{formatCurrency(vicValuation)}</span>
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Victoria Dedicated Search Filter */}
+                                    <div className="relative">
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#A08E91] dark:text-[#64748B]" />
+                                        <Input
+                                            type="text"
+                                            value={searchVictoria}
+                                            onChange={(e) => {
+                                                setSearchVictoria(e.target.value);
+                                                setCurrentPageVic(1);
+                                            }}
+                                            placeholder="Search Victoria ingredients or SKU..."
+                                            className="h-10 pl-10 pr-9 bg-white/90 dark:bg-[#181820]/90 border-rose-200/60 dark:border-white/10 rounded-xl text-xs font-medium placeholder:text-[#C5B8BA] dark:placeholder:text-[#64748B]"
+                                        />
+                                        {searchVictoria && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSearchVictoria('');
+                                                    setCurrentPageVic(1);
+                                                }}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Victoria Inventory Table */}
+                                <InventoryTable
+                                    inventory={paginatedVictoriaData}
+                                    isAdmin={isAdmin}
+                                    density={density}
+                                    selectedIds={selectedIds}
+                                    onToggleSelectAll={(checked) => toggleSelectAllBranch(checked, paginatedVictoriaData)}
+                                    onToggleSelectRow={toggleSelectRow}
+                                    onSelectRow={openDetailDrawer}
+                                    onOpenStockIn={openStockInModal}
+                                    onOpenWastage={openWastageModal}
+                                    onOpenReduceStock={openStockReductionModal}
+                                    onOpenEdit={handleEdit}
+                                    onOpenDelete={handleDelete}
+                                    branchName={victoriaBranch?.name || 'Victoria'}
+                                    emptyMessage="No ingredients found in Victoria inventory"
+                                />
+
+                                {/* Victoria Independent Pagination */}
+                                {renderBranchPagination(
+                                    currentPageVic,
+                                    setCurrentPageVic,
+                                    itemsPerPageVic,
+                                    setItemsPerPageVic,
+                                    victoriaData.length,
+                                    totalPagesVic,
+                                    'rose'
+                                )}
+                            </div>
+                        )}
+
+                        {/* ────────────────────────────────────────────────────────── */}
+                        {/* ── RIGHT PANEL: STA. CRUZ INVENTORY ── */}
+                        {/* ────────────────────────────────────────────────────────── */}
+                        {(viewMode === 'split' || viewMode === 'stacruz' || viewMode === 'stacked') && (
+                            <div className="flex flex-col space-y-4 min-w-0">
+                                {/* Sta. Cruz Header Card */}
+                                <div className="rounded-3xl bg-linear-to-r from-indigo-500/10 via-indigo-500/5 to-white/80 dark:from-indigo-950/30 dark:via-indigo-950/10 dark:to-[#121218]/80 border border-indigo-200/80 dark:border-indigo-900/30 p-5 backdrop-blur-xl shadow-xs space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
+                                                <Store className="size-5" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                        STA. CRUZ INVENTORY
+                                                    </h2>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">
+                                                        {staCruzBranch?.name || 'Sta. Cruz'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-[#9E8B8E] dark:text-[#64748B] font-medium">
+                                                    Independent branch stock, batches, and ingredient specifications
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Restock Sta. Cruz CTA */}
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => openMassRestockModal(staCruzBranch)}
+                                            className="h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs gap-1.5 shadow-xs cursor-pointer shrink-0 self-start sm:self-auto"
+                                            title="Mass restock ingredients for Sta. Cruz"
+                                        >
+                                            <RefreshCw className="size-3.5" />
+                                            <span>Restock Sta. Cruz</span>
+                                        </Button>
+                                    </div>
+
+                                    {/* Sta. Cruz Metric Badges */}
+                                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-indigo-100 dark:border-indigo-950/40 text-xs">
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/80 dark:bg-[#181820]/80 border border-indigo-200/60 dark:border-white/10 font-bold text-[#3D2C2E] dark:text-[#E2E8F0]">
+                                            <span>Items:</span>
+                                            <span className="font-mono text-indigo-600 dark:text-indigo-400">{staCruzData.length}</span>
+                                        </span>
+                                        {staLowStock > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 font-bold text-amber-700 dark:text-amber-400">
+                                                <span>Low:</span>
+                                                <span className="font-mono">{staLowStock}</span>
+                                            </span>
+                                        )}
+                                        {staOutOfStock > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/40 font-bold text-rose-700 dark:text-rose-400">
+                                                <span>Out:</span>
+                                                <span className="font-mono">{staOutOfStock}</span>
+                                            </span>
+                                        )}
+                                        {isAdmin && staValuation > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                                                <span>Val:</span>
+                                                <span>{formatCurrency(staValuation)}</span>
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Sta. Cruz Dedicated Search Filter */}
+                                    <div className="relative">
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#A08E91] dark:text-[#64748B]" />
+                                        <Input
+                                            type="text"
+                                            value={searchStaCruz}
+                                            onChange={(e) => {
+                                                setSearchStaCruz(e.target.value);
+                                                setCurrentPageSta(1);
+                                            }}
+                                            placeholder="Search Sta. Cruz ingredients or SKU..."
+                                            className="h-10 pl-10 pr-9 bg-white/90 dark:bg-[#181820]/90 border-indigo-200/60 dark:border-white/10 rounded-xl text-xs font-medium placeholder:text-[#C5B8BA] dark:placeholder:text-[#64748B]"
+                                        />
+                                        {searchStaCruz && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSearchStaCruz('');
+                                                    setCurrentPageSta(1);
+                                                }}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Sta. Cruz Inventory Table */}
+                                <InventoryTable
+                                    inventory={paginatedStaCruzData}
+                                    isAdmin={isAdmin}
+                                    density={density}
+                                    selectedIds={selectedIds}
+                                    onToggleSelectAll={(checked) => toggleSelectAllBranch(checked, paginatedStaCruzData)}
+                                    onToggleSelectRow={toggleSelectRow}
+                                    onSelectRow={openDetailDrawer}
+                                    onOpenStockIn={openStockInModal}
+                                    onOpenWastage={openWastageModal}
+                                    onOpenReduceStock={openStockReductionModal}
+                                    onOpenEdit={handleEdit}
+                                    onOpenDelete={handleDelete}
+                                    branchName={staCruzBranch?.name || 'Sta. Cruz'}
+                                    emptyMessage="No ingredients found in Sta. Cruz inventory"
+                                />
+
+                                {/* Sta. Cruz Independent Pagination */}
+                                {renderBranchPagination(
+                                    currentPageSta,
+                                    setCurrentPageSta,
+                                    itemsPerPageSta,
+                                    setItemsPerPageSta,
+                                    staCruzData.length,
+                                    totalPagesSta,
+                                    'indigo'
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
             </div>

@@ -161,7 +161,8 @@ class PickupOrderController extends Controller
                   ->orWhereHas('branches', fn ($bq) => $bq->where('branches.id', $branchId));
             });
         }
-        $products = $productsQuery->get()->map(function (Product $product) use ($branchId) {
+        $products = $productsQuery->get()->map(function ($product) use ($branchId) {
+            /** @var Product $product */
             $avail = $product->dynamicAvailability($branchId);
             return [
                 'id'            => $product->id,
