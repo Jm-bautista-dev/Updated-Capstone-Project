@@ -97,60 +97,9 @@ class DynamicExport implements FromArray, WithStyles, WithTitle, ShouldAutoSize
             $sheet->setAutoFilter("A{$headerRow}:{$highestColumn}{$highestRow}");
         }
 
-        // Worksheet Protection against accidental editing
-        $protection = $sheet->getProtection();
-        $protection->setSheet(true);
-        $protection->setSelectLockedCells(true);
-        $protection->setSelectUnlockedCells(true);
-        $protection->setAutoFilter(true);
-        $protection->setSort(true);
-        $protection->setFormatCells(false);
-        $protection->setInsertRows(false);
-        $protection->setInsertColumns(false);
-        $protection->setDeleteRows(false);
-        $protection->setDeleteColumns(false);
-        $protection->setObjects(true);
-        $protection->setScenarios(true);
-
-        // Set protection password
-        $password = $this->payload['protection_password'] ?? config('app.excel_export_password', 'MakiDesuSales');
-        if (!empty($password)) {
-            $protection->setPassword((string) $password);
-        }
-
-        // Protect all sheets consistently if multiple sheets exist in workbook
-        try {
-            if ($sheet->getParent()) {
-                foreach ($sheet->getParent()->getAllSheets() as $wkSheet) {
-                    $wkProtection = $wkSheet->getProtection();
-                    $wkProtection->setSheet(true);
-                    $wkProtection->setSelectLockedCells(true);
-                    $wkProtection->setSelectUnlockedCells(true);
-                    $wkProtection->setAutoFilter(true);
-                    $wkProtection->setSort(true);
-                    $wkProtection->setFormatCells(false);
-                    $wkProtection->setInsertRows(false);
-                    $wkProtection->setInsertColumns(false);
-                    $wkProtection->setDeleteRows(false);
-                    $wkProtection->setDeleteColumns(false);
-                    $wkProtection->setObjects(true);
-                    $wkProtection->setScenarios(true);
-
-                    if (!empty($password)) {
-                        $wkProtection->setPassword((string) $password);
-                    }
-                }
-
-                if ($sheet->getParent()->getSecurity()) {
-                    $sheet->getParent()->getSecurity()->setLockStructure(true);
-                    if (!empty($password)) {
-                        $sheet->getParent()->getSecurity()->setWorkbookPassword((string) $password);
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // Safe fallback if workbook security is not supported in current context
-        }
+        // Apply standardized Excel protection (worksheet + workbook structure)
+        $password = $this->payload['protection_password'] ?? null;
+        \App\Services\ExcelProtectionService::protect($sheet, $password);
     }
 
     public function title(): string

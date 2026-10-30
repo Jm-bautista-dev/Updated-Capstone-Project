@@ -7,7 +7,6 @@ import {
     Tag, 
     Clock,
     Activity,
-    DollarSign,
     Scale,
     AlertTriangle,
     Layers,
@@ -20,6 +19,7 @@ import { BatchQueueViewer } from '@/components/inventory/BatchQueueViewer';
 import type { InventoryRow } from '@/components/inventory/InventoryHero';
 import { StatusBadge } from '@/components/products/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { PesoSign } from '@/components/ui/peso-sign';
 import {
     Sheet,
     SheetContent,
@@ -174,7 +174,7 @@ export function InventoryDrawer({
                                 {isAdmin && (
                                     <div className="flex items-center justify-between text-xs border-t border-[#F8C8DC]/30 dark:border-white/10 pt-2.5">
                                         <span className="flex items-center gap-2 font-bold text-[#5D4A4D] dark:text-[#94A3B8]">
-                                            <DollarSign className="size-4 text-emerald-500" />
+                                            <PesoSign className="size-4 text-emerald-500" />
                                             <span>Cost Per Base Unit</span>
                                         </span>
                                         <span className="font-mono font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">{formatCurrency(row.cost_per_unit || 0)} / {row.unit}</span>

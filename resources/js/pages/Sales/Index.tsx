@@ -171,11 +171,6 @@ export default function SalesIndex() {
         return b ? b.name : 'All Branches';
     }, [branchFilter, branchList]);
 
-    // Print Sales Summary Report
-    const handlePrintReport = () => {
-        window.print();
-    };
-
     return (
         <AppLayout breadcrumbs={[{ title: 'Sales', href: '/sales' }]}>
             <Head title="Sales Command Center" />
@@ -204,7 +199,6 @@ export default function SalesIndex() {
                     branches={branchList}
                     isAdmin={isAdmin}
                     onExportSales={() => setIsExportModalOpen(true)}
-                    onPrintReport={handlePrintReport}
                 />
 
                 {/* ── ZONE 3: MAIN VIEW (TABLE VS CARDS GRID) ── */}

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { Package, AlertTriangle, Slash, DollarSign, Sparkles } from 'lucide-react';
+import { Package, AlertTriangle, Slash, Sparkles } from 'lucide-react';
 import { useMemo } from 'react';
+import { PesoSign } from '@/components/ui/peso-sign';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
@@ -80,7 +81,7 @@ export function ProductsHero({ summary, products }: ProductsHeroProps) {
                     className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
                 >
                     <div className="p-3 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
-                        <DollarSign className="size-5" />
+                        <PesoSign className="size-5" />
                     </div>
                     <div>
                         <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Est. Catalog Value</p>

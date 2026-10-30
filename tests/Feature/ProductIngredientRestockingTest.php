@@ -745,4 +745,495 @@ class ProductIngredientRestockingTest extends TestCase
         $this->assertEquals(0, $chickenMovements);
         $this->assertEquals(0, $sauceMovements);
     }
+
+    /**
+     * Test 16 — Destination branch switching:
+     * Loading recipe ingredients dynamically returns accurate branch-specific balances
+     * for Victoria and Santa Cruz, and rejects unauthorized branch queries by cashiers.
+     */
+    public function test_16_destination_branch_switching_loads_branch_specific_balances_for_both_victoria_and_santa_cruz()
+    {
+        // Setup distinct initial stock balances
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $this->chicken->id, 'branch_id' => $this->branchVictoria->id],
+            ['stock' => 1250.0, 'low_stock_level' => 5]
+        );
+
+        IngredientStock::updateOrCreate(
+            ['ingredient_id' => $this->chicken->id, 'branch_id' => $this->branchSantaCruz->id],
+            ['stock' => 4500.0, 'low_stock_level' => 5]
+        );
+
+        // 1. Fetch Victoria balances as admin
+        $vicResponse = $this->actingAs($this->admin)
+            ->getJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients?branch_id={$this->branchVictoria->id}");
+
+        $vicResponse->assertStatus(200);
+        $vicResponse->assertJsonPath('branch.id', $this->branchVictoria->id);
+        $vicResponse->assertJsonPath('branch.name', $this->branchVictoria->name);
+
+        $vicIngredients = collect($vicResponse->json('ingredients'));
+        $vicChicken = $vicIngredients->firstWhere('id', $this->chicken->id);
+        $this->assertNotNull($vicChicken);
+        $this->assertEquals(1250.0, (float) $vicChicken['current_stock']);
+
+        // 2. Switch to Santa Cruz as admin
+        $scResponse = $this->actingAs($this->admin)
+            ->getJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients?branch_id={$this->branchSantaCruz->id}");
+
+        $scResponse->assertStatus(200);
+        $scResponse->assertJsonPath('branch.id', $this->branchSantaCruz->id);
+        $scResponse->assertJsonPath('branch.name', $this->branchSantaCruz->name);
+
+        $scIngredients = collect($scResponse->json('ingredients'));
+        $scChicken = $scIngredients->firstWhere('id', $this->chicken->id);
+        $this->assertNotNull($scChicken);
+        $this->assertEquals(4500.0, (float) $scChicken['current_stock']);
+
+        // 3. Confirm available branches list includes both Victoria and Santa Cruz
+        $branches = collect($scResponse->json('branches'));
+        $this->assertTrue($branches->contains('id', $this->branchVictoria->id));
+        $this->assertTrue($branches->contains('id', $this->branchSantaCruz->id));
+
+        // 4. Cashier Victoria attempting to query Santa Cruz must receive 403 Forbidden
+        $unauthResponse = $this->actingAs($this->cashierVictoria)
+            ->getJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients?branch_id={$this->branchSantaCruz->id}");
+
+        $unauthResponse->assertStatus(403);
+    }
+
+    /**
+     * Test 17 — Santa Cruz restocking updates only Santa Cruz:
+     * Restocking ingredients with destination Santa Cruz increases Santa Cruz inventory
+     * while leaving Victoria inventory unchanged.
+     */
+    public function test_17_restocking_santa_cruz_updates_only_santa_cruz_inventory()
+    {
+        $initialVicChicken = (float) (IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->value('stock') ?? 0);
+
+        $response = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchSantaCruz->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->chicken->id,
+                        'quantity' => 4, // 4 kg
+                        'unit' => 'kg',
+                        'expiration_date' => Carbon::now()->addDays(10)->toDateString(),
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'branch' => [
+                'id' => $this->branchSantaCruz->id,
+                'name' => $this->branchSantaCruz->name,
+            ],
+            'ingredients_received' => 1,
+        ]);
+
+        // Santa Cruz stock updated (+4000 g)
+        $newScChicken = (float) IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchSantaCruz->id)
+            ->value('stock');
+        $this->assertEquals(4000.0, $newScChicken);
+
+        // Victoria stock remains exactly the same
+        $finalVicChicken = (float) (IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->value('stock') ?? 0);
+        $this->assertEquals($initialVicChicken, $finalVicChicken);
+
+        // Batch is attached to Santa Cruz
+        $batch = IngredientBatch::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchSantaCruz->id)
+            ->first();
+        $this->assertNotNull($batch);
+        $this->assertEquals(4000.0, (float) $batch->initial_quantity);
+    }
+
+    /**
+     * Test 18 — Restock without user-entered batch number:
+     * Submitting a restock request without lot_number or batch_code succeeds,
+     * generates an internal traceable batch identifier (BATCH-YYYYMMDD-XXXXX),
+     * keeps lot_number null, and preserves FEFO priority queue ordering.
+     */
+    public function test_18_restock_without_user_entered_batch_number_generates_internal_batch_and_preserves_fefo()
+    {
+        $batchService = app(InventoryBatchService::class);
+
+        // Pre-existing batch expiring in 15 days
+        $batchService->stockInBatch([
+            'ingredient_id' => $this->chicken->id,
+            'branch_id' => $this->branchVictoria->id,
+            'quantity' => 1500,
+            'unit' => 'g',
+            'expiration_date' => Carbon::now()->addDays(15)->toDateString(),
+        ], $this->admin->id);
+
+        $expDate = Carbon::now()->addDays(5)->toDateString();
+
+        // Submit product restock without any batch_code or lot_number
+        $response = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->chicken->id,
+                        'quantity' => 2.5, // 2500 g
+                        'unit' => 'kg',
+                        'expiration_date' => $expDate,
+                        'included' => true,
+                        // Note: lot_number and batch_code are completely omitted
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'ingredients_received' => 1,
+        ]);
+
+        // Find the newly created batch
+        $batch = IngredientBatch::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->whereDate('expiration_date', $expDate)
+            ->first();
+
+        $this->assertNotNull($batch);
+        $this->assertNull($batch->lot_number, 'User-entered lot number must be null when not provided');
+        $this->assertNotEmpty($batch->batch_code, 'Internal batch code must be generated');
+        $this->assertMatchesRegularExpression('/^BATCH-\d{8}-[A-Z0-9]+$/', $batch->batch_code, 'Batch code must follow system-generated format');
+        $this->assertEquals(2500.0, (float) $batch->initial_quantity);
+        $this->assertEquals(2500.0, (float) $batch->current_quantity);
+        $this->assertEquals('available', $batch->status);
+
+        // Movement audit record
+        $movement = IngredientBatchMovement::where('batch_id', $batch->id)->first();
+        $this->assertNotNull($movement);
+        $this->assertEquals('stock_in', $movement->movement_type);
+        $this->assertEquals(2500.0, (float) $movement->quantity_base);
+
+        // Verify FEFO queue ordering: the 5-day batch should have priority 1 over the 15-day batch
+        $queue = $batchService->getQueueForIngredient($this->chicken->id, $this->branchVictoria->id);
+        $this->assertCount(2, $queue['eligible_batches']);
+        $this->assertEquals($batch->id, $queue['eligible_batches'][0]['id']);
+        $this->assertEquals(1, $queue['eligible_batches'][0]['priority']);
+        $this->assertEquals(5, $queue['eligible_batches'][0]['days_until_expiration']);
+    }
+
+    /**
+     * Test 19 — Restock with unit acquisition cost:
+     * Restocking an ingredient with unit_cost and quantity calculates batch purchase price,
+     * updates weighted-average cost (WAC), stores movements, and returns enriched cost receipt metadata.
+     */
+    public function test_19_restock_with_unit_acquisition_cost_updates_batch_price_and_wac()
+    {
+        // 1. Check GET returns authoritative costing fields
+        $getResponse = $this->actingAs($this->admin)
+            ->getJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients?branch_id={$this->branchVictoria->id}");
+
+        $getResponse->assertStatus(200);
+        $getResponse->assertJsonStructure([
+            'ingredients' => [
+                '*' => [
+                    'id', 'name', 'unit', 'recipe_quantity', 'recipe_unit', 'current_stock',
+                    'cost_per_base_unit', 'current_cost_per_base_unit', 'current_unit_cost',
+                    'total_stock_value', 'last_purchase_price'
+                ]
+            ]
+        ]);
+
+        // Pre-condition: Victoria has existing chicken stock: 3600g @ 0.18/g = 648.00
+        $stockRowBefore = IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->first();
+        $this->assertNotNull($stockRowBefore);
+        $oldStock = (float) $stockRowBefore->stock;
+        $oldValue = (float) $stockRowBefore->total_stock_value;
+
+        // 2. Restock 4 kg @ ₱200/kg (unit_cost = 200, purchase_price = 800)
+        $qty = 4.0;
+        $unitCost = 200.0;
+        $expectedBatchPrice = 800.0;
+        $qtyBase = 4000.0; // 4 kg -> 4000 g
+
+        $postResponse = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->chicken->id,
+                        'quantity' => $qty,
+                        'unit' => 'kg',
+                        'unit_cost' => $unitCost,
+                        'purchase_price' => $expectedBatchPrice,
+                        'expiration_date' => Carbon::now()->addDays(10)->toDateString(),
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $postResponse->assertStatus(200);
+        $postResponse->assertJson([
+            'success' => true,
+            'ingredients_received' => 1,
+        ]);
+
+        // Verify receipt item structure and values
+        $receipt = $postResponse->json('receipts.0');
+        $this->assertEquals($this->chicken->id, $receipt['ingredient_id']);
+        $this->assertEquals($qty, (float) $receipt['quantity']);
+        $this->assertEquals('kg', $receipt['unit']);
+        $this->assertEquals($unitCost, (float) $receipt['unit_cost']);
+        $this->assertEquals($expectedBatchPrice, (float) $receipt['purchase_price']);
+
+        // 3. Verify batch record
+        $batch = IngredientBatch::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($batch);
+        $this->assertEquals($expectedBatchPrice, (float) $batch->purchase_price);
+        $this->assertEquals(round($expectedBatchPrice / $qtyBase, 4), round((float) $batch->cost_per_base_unit, 4));
+
+        // 4. Verify WAC on IngredientStock
+        $stockRowAfter = IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->first();
+        $expectedNewStock = $oldStock + $qtyBase;
+        $expectedNewValue = $oldValue + $expectedBatchPrice;
+        $expectedWac = $expectedNewValue / $expectedNewStock;
+
+        $this->assertEquals($expectedNewStock, (float) $stockRowAfter->stock);
+        $this->assertEquals($expectedNewValue, (float) $stockRowAfter->total_stock_value);
+        $this->assertEquals(round($expectedWac, 4), round((float) $stockRowAfter->cost_per_unit, 4));
+        $this->assertEquals($expectedBatchPrice, (float) $stockRowAfter->last_purchase_price);
+    }
+
+    /**
+     * Test 20 — Unit conversion preserves monetary acquisition costs:
+     * When restocking in a larger unit (e.g., L for ml, kg for g), unit acquisition costs
+     * scale appropriately without erroneously inflating or deflating the batch purchase price.
+     */
+    public function test_20_receipt_unit_conversions_preserve_monetary_acquisition_costs()
+    {
+        // Teriyaki Sauce base unit is 'ml'. We receive 2.5 Liters @ ₱300.00 per Liter.
+        $qtyLiters = 2.5;
+        $unitCostPerLiter = 300.0;
+        $expectedBatchCost = 750.0; // 2.5 * 300 = 750
+        $qtyBaseMl = 2500.0;
+
+        $stockRowBefore = IngredientStock::where('ingredient_id', $this->teriyakiSauce->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->first();
+        $oldStock = (float) $stockRowBefore->stock;
+        $oldValue = (float) $stockRowBefore->total_stock_value;
+
+        $response = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->teriyakiSauce->id,
+                        'quantity' => $qtyLiters,
+                        'unit' => 'L',
+                        'unit_cost' => $unitCostPerLiter,
+                        'purchase_price' => $expectedBatchCost,
+                        'expiration_date' => Carbon::now()->addDays(30)->toDateString(),
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(200);
+
+        // Batch created with 2500 ml base quantity and 750.00 purchase price
+        $batch = IngredientBatch::where('ingredient_id', $this->teriyakiSauce->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($batch);
+        $this->assertEquals($qtyBaseMl, (float) $batch->initial_quantity);
+        $this->assertEquals($expectedBatchCost, (float) $batch->purchase_price);
+        $this->assertEquals(round(750.0 / 2500.0, 4), round((float) $batch->cost_per_base_unit, 4)); // ₱0.30/ml
+
+        // Movement audit
+        $movement = IngredientBatchMovement::where('batch_id', $batch->id)->first();
+        $this->assertEquals(0.30, round((float) $movement->cost_at_movement, 4));
+
+        // Resulting stock value
+        $stockRowAfter = IngredientStock::where('ingredient_id', $this->teriyakiSauce->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->first();
+        $this->assertEquals($oldStock + $qtyBaseMl, (float) $stockRowAfter->stock);
+        $this->assertEquals($oldValue + $expectedBatchCost, (float) $stockRowAfter->total_stock_value);
+    }
+
+    /**
+     * Test 21 — Branch-specific costing isolation:
+     * Updating acquisition cost and restock quantities at Victoria leaves Santa Cruz
+     * costs, total values, and quantities completely unaffected.
+     */
+    public function test_21_branch_specific_costing_isolation()
+    {
+        // Snapshot Santa Cruz stock before
+        $scStockBefore = IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchSantaCruz->id)
+            ->first();
+        $scOldQty = (float) ($scStockBefore?->stock ?? 0);
+        $scOldVal = (float) ($scStockBefore?->total_stock_value ?? 0);
+        $scOldCost = (float) ($scStockBefore?->cost_per_unit ?? 0);
+
+        // Restock Victoria with distinct unit cost
+        $response = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->chicken->id,
+                        'quantity' => 5,
+                        'unit' => 'kg',
+                        'unit_cost' => 220.0, // ₱220/kg
+                        'purchase_price' => 1100.0,
+                        'expiration_date' => Carbon::now()->addDays(14)->toDateString(),
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(200);
+
+        // Santa Cruz stock must remain strictly identical
+        $scStockAfter = IngredientStock::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchSantaCruz->id)
+            ->first();
+
+        $this->assertEquals($scOldQty, (float) ($scStockAfter?->stock ?? 0));
+        $this->assertEquals($scOldVal, (float) ($scStockAfter?->total_stock_value ?? 0));
+        $this->assertEquals($scOldCost, (float) ($scStockAfter?->cost_per_unit ?? 0));
+    }
+
+    /**
+     * Test 22 — Zero-cost handling and negative cost rejection:
+     * Negative unit cost or purchase price is rejected with 422 validation error.
+     * Zero-cost restock is supported (e.g., complimentary promotional inventory).
+     */
+    public function test_22_zero_cost_handling_and_negative_cost_rejection()
+    {
+        // 1. Negative unit cost is rejected
+        $negativeResponse = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->chicken->id,
+                        'quantity' => 2,
+                        'unit' => 'kg',
+                        'unit_cost' => -100,
+                        'expiration_date' => Carbon::now()->addDays(5)->toDateString(),
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $negativeResponse->assertStatus(422);
+
+        // 2. Zero-cost restock succeeds
+        $zeroCostResponse = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => $this->chicken->id,
+                        'quantity' => 1,
+                        'unit' => 'kg',
+                        'unit_cost' => 0,
+                        'purchase_price' => 0,
+                        'expiration_date' => Carbon::now()->addDays(5)->toDateString(),
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $zeroCostResponse->assertStatus(200);
+        $this->assertEquals(0.0, (float) $zeroCostResponse->json('receipts.0.purchase_price'));
+        $this->assertEquals(0.0, (float) $zeroCostResponse->json('receipts.0.unit_cost'));
+    }
+
+    /**
+     * Test 23 — Failed restocking leaves costing and inventory unchanged:
+     * When validation or processing fails, no batches or movements are persisted and
+     * stock/cost values are untouched.
+     */
+    public function test_23_failed_restocking_leaves_costing_and_inventory_unchanged()
+    {
+        $stockBefore = IngredientStock::where('ingredient_id', $this->rice->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->first();
+        $oldStock = (float) $stockBefore->stock;
+        $oldVal = (float) $stockBefore->total_stock_value;
+        $oldCost = (float) $stockBefore->cost_per_unit;
+
+        // Attempt restock with an invalid ingredient not in recipe
+        $response = $this->actingAs($this->admin)
+            ->postJson("/products/{$this->chickenTeriyaki->id}/restock-ingredients", [
+                'branch_id' => $this->branchVictoria->id,
+                'items' => [
+                    [
+                        'ingredient_id' => 999999, // Injected invalid ingredient
+                        'quantity' => 5,
+                        'unit' => 'kg',
+                        'unit_cost' => 150,
+                        'included' => true,
+                    ]
+                ]
+            ]);
+
+        $response->assertStatus(422);
+
+        $stockAfter = IngredientStock::where('ingredient_id', $this->rice->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->first();
+
+        $this->assertEquals($oldStock, (float) $stockAfter->stock);
+        $this->assertEquals($oldVal, (float) $stockAfter->total_stock_value);
+        $this->assertEquals($oldCost, (float) $stockAfter->cost_per_unit);
+    }
+
+    /**
+     * Test 24 — Standard inventory restocking remains functional with costing:
+     * The general inventory stock-in endpoint continues to function seamlessly with purchase_price.
+     */
+    public function test_24_standard_inventory_restocking_remains_functional_with_costing()
+    {
+        $response = $this->actingAs($this->admin)
+            ->post('/inventory/stock-in', [
+                'type' => 'ingredient',
+                'id' => $this->chicken->id,
+                'quantity' => 3,
+                'unit' => 'kg',
+                'branch_id' => $this->branchVictoria->id,
+                'purchase_price' => 600.0,
+                'expiration_date' => Carbon::now()->addDays(7)->toDateString(),
+            ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $batch = IngredientBatch::where('ingredient_id', $this->chicken->id)
+            ->where('branch_id', $this->branchVictoria->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($batch);
+        $this->assertEquals(600.0, (float) $batch->purchase_price);
+    }
 }
+

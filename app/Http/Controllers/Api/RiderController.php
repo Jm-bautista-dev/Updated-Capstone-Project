@@ -154,7 +154,10 @@ class RiderController extends Controller
                 $deliveries->push($d->load(['order.items.product', 'order.branch', 'sale.items.product', 'sale.branch']));
             }
 
-            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
+            $formatted = $deliveries->map(function ($d) {
+                /** @var Delivery $d */
+                return $this->formatDelivery($d);
+            });
 
             return response()->json([
                 'success'              => true,
@@ -238,7 +241,10 @@ class RiderController extends Controller
                 }
             }
 
-            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
+            $formatted = $deliveries->map(function ($d) {
+                /** @var Delivery $d */
+                return $this->formatDelivery($d);
+            });
 
             return response()->json([
                 'success'    => true,
@@ -279,8 +285,11 @@ class RiderController extends Controller
                 ->orderBy('updated_at', 'desc')
                 ->get();
 
-            $formatted = $deliveries->map(fn(Delivery $d) => $this->formatDelivery($d));
-            $totalEarnings = (float) $deliveries->sum(fn(Delivery $d) => (float) ($d->delivery_fee ?: 50.00));
+            $formatted = $deliveries->map(function ($d) {
+                /** @var Delivery $d */
+                return $this->formatDelivery($d);
+            });
+            $totalEarnings = (float) $deliveries->sum(fn($d) => (float) ($d->delivery_fee ?: 50.00));
 
             return response()->json([
                 'success'           => true,

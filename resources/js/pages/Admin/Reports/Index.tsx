@@ -3,7 +3,6 @@ import axios from 'axios';
 import { format, subDays, parseISO } from 'date-fns';
 import {
     BarChart3,
-    DollarSign,
     TrendingUp,
     ShoppingBag,
     AlertTriangle,
@@ -27,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { PesoSign } from '@/components/ui/peso-sign';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
@@ -832,7 +832,7 @@ function AdminReports({
                     </div>
 
                     {/* Dashboard Reused KPI Cards Strip */}
-                    <div className={cn("grid gap-4 pt-2", isAdminUser ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4")}>
+                    <div className={cn("grid gap-4 pt-2", isAdminUser ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4")}>
                         <KPICard
                             title={periodInfo.revenueTitle}
                             value={formatCurrency(total_revenue ?? 0)}
@@ -885,7 +885,7 @@ function AdminReports({
                             <KPICard
                                 title="Avg. Order Value"
                                 value={formatCurrency(total_orders > 0 ? (total_revenue / total_orders) : 0)}
-                                icon={DollarSign}
+                                icon={PesoSign}
                                 trend="neutral"
                                 trendValue={profit_margin !== undefined ? `${profit_margin}% Margin` : 'AOV'}
                                 comparison="revenue per order"
@@ -935,7 +935,7 @@ function AdminReports({
                                 : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white'
                         )}
                     >
-                        <DollarSign className="size-3.5" />
+                        <PesoSign className="size-3.5" />
                         <span>Cash Drawer Shifts</span>
                     </button>
                 </div>
@@ -951,11 +951,11 @@ function AdminReports({
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
                                             <TrendingUp className="size-4 text-[#10b981] shrink-0" />
-                                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word">
                                                 {isAdminUser ? 'Revenue & Net Profit Trajectory' : 'Revenue Trajectory'}
                                             </h3>
                                         </div>
-                                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
+                                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] wrap-break-word">
                                             Performance mapping over selected date interval
                                         </p>
                                     </div>
@@ -1003,11 +1003,11 @@ function AdminReports({
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                         <BarChart3 className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
-                                        <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                                        <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word">
                                             Category Volume Distribution
                                         </h3>
                                     </div>
-                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
+                                    <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] wrap-break-word">
                                         Share of gross sales by menu category
                                     </p>
                                 </div>
@@ -1030,7 +1030,7 @@ function AdminReports({
                                         <div key={entry.name} className="flex items-center justify-between gap-2 min-w-0">
                                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                                 <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: ['#E75480', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'][index % 6] }} />
-                                                <span className="text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={entry.name}>{entry.name}</span>
+                                                <span className="text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word flex-1" title={entry.name}>{entry.name}</span>
                                             </div>
                                             <span className="font-mono text-[#7D6B6E] dark:text-[#94A3B8] shrink-0">{entry.value}%</span>
                                         </div>
@@ -1063,21 +1063,21 @@ function AdminReports({
                                 {top_addons.map((addon, index) => (
                                     <div
                                         key={index}
-                                        className="p-4 rounded-2xl bg-[#FFF5F7]/40 dark:bg-[#181824]/60 border border-[#F8C8DC]/50 dark:border-white/5 flex flex-col justify-between h-full min-h-22 shadow-2xs hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors"
+                                        className="p-4 rounded-2xl bg-[#FFF5F7]/40 dark:bg-[#181824]/60 border border-[#F8C8DC]/50 dark:border-white/5 flex flex-col justify-between h-full min-h-23 shadow-2xs hover:border-[#E75480]/30 dark:hover:border-white/20 transition-colors"
                                     >
                                         <div className="flex items-start justify-between gap-2 min-w-0">
-                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={addon.name}>
+                                            <span className="font-bold text-sm text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word leading-snug flex-1" title={addon.name}>
                                                 {addon.name}
                                             </span>
                                             <Badge className="bg-[#E75480]/10 text-[#E75480] dark:text-[#FF4F81] border-none text-[10px] font-bold shrink-0">
                                                 #{index + 1}
                                             </Badge>
                                         </div>
-                                        <div className="mt-3 flex items-center justify-between text-xs pt-1 border-t border-[#F8C8DC]/20 dark:border-white/5">
-                                            <span className="text-[#7D6B6E] dark:text-[#94A3B8] font-medium">
+                                        <div className="mt-3 flex items-center justify-between text-xs pt-1 border-t border-[#F8C8DC]/20 dark:border-white/5 gap-2">
+                                            <span className="text-[#7D6B6E] dark:text-[#94A3B8] font-medium shrink-0">
                                                 {addon.total_qty} ordered
                                             </span>
-                                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 shrink-0 text-right">
                                                 {formatCurrency(addon.total_revenue)}
                                             </span>
                                         </div>
@@ -1178,7 +1178,7 @@ function AdminReports({
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#1C1C28] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-center shadow-2xs">
-                                <DollarSign className="size-5" />
+                                <PesoSign className="size-5" />
                             </div>
                             <div>
                                 <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC]">
@@ -1466,7 +1466,7 @@ function CashierReports({
                     <KPICard
                         title="Avg. Order Value"
                         value={formatCurrency(total_orders > 0 ? (total_revenue / total_orders) : 0)}
-                        icon={DollarSign}
+                        icon={PesoSign}
                         trend="neutral"
                         trendValue="AOV"
                         comparison="revenue per receipt"
@@ -1515,7 +1515,7 @@ function CashierReports({
                                     : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E] dark:hover:text-white'
                             )}
                         >
-                            <DollarSign className="size-3.5" />
+                            <PesoSign className="size-3.5" />
                             <span>Shift Balances</span>
                         </button>
                     </div>

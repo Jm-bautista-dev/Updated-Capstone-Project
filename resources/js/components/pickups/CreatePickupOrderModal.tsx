@@ -24,7 +24,6 @@ import {
     ChevronRight,
     ChevronUp,
     Clock,
-    DollarSign,
     MessageCircle,
     Minus,
     Plus,
@@ -48,6 +47,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PesoSign } from '@/components/ui/peso-sign';
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency, cn } from '@/lib/utils';
 
@@ -631,7 +631,7 @@ export default function CreatePickupOrderModal({
                         {/* ── SECTION C: Payment Method & Status (Section 14) ────── */}
                         <div className="bg-white dark:bg-[#16161E] p-5 rounded-2xl border border-[#F8C8DC]/60 dark:border-white/10 shadow-xs space-y-3.5">
                             <div className="flex items-center gap-2 pb-2 border-b border-[#F8C8DC]/30 dark:border-white/5">
-                                <DollarSign className="size-4 text-[#E75480]" />
+                                <PesoSign className="size-4 text-[#E75480]" />
                                 <h3 className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-zinc-200">
                                     Payment Configuration
                                 </h3>

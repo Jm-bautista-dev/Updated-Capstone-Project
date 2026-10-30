@@ -127,7 +127,7 @@ const mainNavItems: NavItem[] = [
         icon: MapPin,
     },
     {
-        title: 'Sales Data Management',
+        title: 'Data Sales Management',
         href: '/admin/sales-data',
         icon: Database,
     },
@@ -186,7 +186,7 @@ export function AppSidebar({ isPos: isPosProp }: { isPos?: boolean }) {
         }
 
         // Cashier restricted items (manage only via POS, view-only in main nav)
-        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions', 'Branches', 'Sales Data Management', 'Add-ons & Modifiers'];
+        const restrictedTitles = ['Dashboard', 'Riders', 'Employees', 'Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions', 'Branches', 'Sales Data Management', 'Data Sales Management', 'Add-ons & Modifiers'];
         return mainNavItems.filter(item => !restrictedTitles.includes(item.title));
     }, [user]);
 
@@ -195,7 +195,7 @@ export function AppSidebar({ isPos: isPosProp }: { isPos?: boolean }) {
         { label: 'Operations', titles: ['Products', 'Categories', 'Add-ons & Modifiers', 'Inventory', 'Reviews & Ratings'] },
         { label: 'Sales', titles: ['Sales', 'Reports'] },
         { label: 'Analytics', titles: ['Performance', 'Forecast', 'Forecast Benchmarking', 'Suggestions'] },
-        { label: 'Management', titles: ['Employees', 'Riders', 'Branches', 'Sales Data Management'] },
+        { label: 'Management', titles: ['Employees', 'Riders', 'Branches', 'Sales Data Management', 'Data Sales Management'] },
     ];
 
     if (!user) return null;

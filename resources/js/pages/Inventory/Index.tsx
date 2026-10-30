@@ -239,10 +239,13 @@ export default function InventoryIndex() {
     };
 
     const openMassRestockModal = (targetBranch?: Branch | null) => {
-        const branch = targetBranch
-            || (currentBranchId && currentBranchId !== 'all' ? branchList.find(b => String(b.id) === String(currentBranchId)) : null)
-            || branchList[0]
-            || { id: 1, name: 'Default Branch' };
+        if (!targetBranch || !targetBranch.id) {
+            return;
+        }
+        const branch = branchList.find(b => Number(b.id) === Number(targetBranch.id));
+        if (!branch) {
+            return;
+        }
         setActiveRestockBranch({ id: Number(branch.id), name: branch.name });
         setIsMassRestockModalOpen(true);
     };
@@ -799,7 +802,7 @@ export default function InventoryIndex() {
         <AppLayout breadcrumbs={[{ title: 'Inventory', href: '/inventory' }]}>
             <Head title="Inventory Command Center" />
 
-            <div className="p-6 sm:p-8 lg:p-10 space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
+            <div className="p-4 sm:p-6 lg:p-6 xl:p-8 space-y-6 sm:space-y-8 bg-[#FFFDFE] dark:bg-[#050505] text-[#5D4A4D] dark:text-[#E2E8F0] min-h-screen overflow-x-hidden font-['Outfit'] antialiased transition-colors duration-300">
                 
                 {/* ── ZONE 1: HERO & VALUATION STATISTICS ── */}
                 <InventoryHero
@@ -827,7 +830,6 @@ export default function InventoryIndex() {
                     onBranchFilter={handleBranchFilter}
                     selectedIds={selectedIds}
                     onOpenAddModal={handleAdd}
-                    onOpenMassRestockModal={openMassRestockModal}
                     onBulkDelete={() => setIsBulkDeleteModalOpen(true)}
                 />
 
@@ -915,7 +917,7 @@ export default function InventoryIndex() {
 
                     {/* Dual Branch Grid: Left (Victoria) & Right (Sta. Cruz) */}
                     <div className={cn(
-                        "grid gap-6 transition-all duration-300 items-start",
+                        "grid gap-4 xl:gap-5 2xl:gap-6 transition-all duration-300 items-start",
                         viewMode === 'split' ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
                     )}>
                         {/* ────────────────────────────────────────────────────────── */}
@@ -924,7 +926,7 @@ export default function InventoryIndex() {
                         {(viewMode === 'split' || viewMode === 'victoria' || viewMode === 'stacked') && (
                             <div className="flex flex-col space-y-4 min-w-0">
                                 {/* Victoria Header Card */}
-                                <div className="rounded-3xl bg-linear-to-r from-rose-500/10 via-rose-500/5 to-white/80 dark:from-rose-950/30 dark:via-rose-950/10 dark:to-[#121218]/80 border border-rose-200/80 dark:border-rose-900/30 p-5 backdrop-blur-xl shadow-xs space-y-4">
+                                <div className="rounded-3xl bg-linear-to-r from-rose-500/10 via-rose-500/5 to-white/80 dark:from-rose-950/30 dark:via-rose-950/10 dark:to-[#121218]/80 border border-rose-200/80 dark:border-rose-900/30 p-4 sm:p-5 backdrop-blur-xl shadow-xs space-y-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
                                             <div className="size-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0">
@@ -1049,7 +1051,7 @@ export default function InventoryIndex() {
                         {(viewMode === 'split' || viewMode === 'stacruz' || viewMode === 'stacked') && (
                             <div className="flex flex-col space-y-4 min-w-0">
                                 {/* Sta. Cruz Header Card */}
-                                <div className="rounded-3xl bg-linear-to-r from-indigo-500/10 via-indigo-500/5 to-white/80 dark:from-indigo-950/30 dark:via-indigo-950/10 dark:to-[#121218]/80 border border-indigo-200/80 dark:border-indigo-900/30 p-5 backdrop-blur-xl shadow-xs space-y-4">
+                                <div className="rounded-3xl bg-linear-to-r from-indigo-500/10 via-indigo-500/5 to-white/80 dark:from-indigo-950/30 dark:via-indigo-950/10 dark:to-[#121218]/80 border border-indigo-200/80 dark:border-indigo-900/30 p-4 sm:p-5 backdrop-blur-xl shadow-xs space-y-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
                                             <div className="size-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">

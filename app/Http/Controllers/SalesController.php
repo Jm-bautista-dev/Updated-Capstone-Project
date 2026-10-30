@@ -7,6 +7,8 @@ use App\Models\Sale;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SalesExport;
 
 class SalesController extends Controller
 {
@@ -240,6 +242,51 @@ class SalesController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to calculate export summary: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function export(Request $request)
+    {
+        $format = strtolower((string) $request->input('format', 'csv'));
+        if ($format === 'xlsx' || $format === 'excel') {
+            return $this->exportExcel($request);
+        }
+        return $this->exportCsv($request);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        $dateRange = $this->resolveExportDateRange($request);
+
+        $branchSlug = 'all';
+        $branchId   = $request->input('branch_id');
+        if (!$user->isAdmin()) {
+            $branchSlug = \Illuminate\Support\Str::slug($user->branch?->name ?? 'my_branch');
+        } elseif ($branchId && $branchId !== 'all') {
+            $b = Branch::find((int) $branchId);
+            if ($b) $branchSlug = \Illuminate\Support\Str::slug($b->name);
+        }
+
+        $filename = "sales_{$branchSlug}_{$dateRange['slug']}.xlsx";
+
+        $filters = [
+            'branch_id' => $branchId,
+            'status'    => $request->input('status', 'all'),
+            'search'    => $request->input('search', ''),
+            'from'      => $dateRange['from'],
+            'to'        => $dateRange['to'],
+            'date_from' => $dateRange['from']->format('Y-m-d H:i:s'),
+            'date_to'   => $dateRange['to']->format('Y-m-d H:i:s'),
+        ];
+
+        return Excel::download(
+            new SalesExport($filters),
+            $filename
+        );
     }
 
     public function exportCsv(Request $request)

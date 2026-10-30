@@ -58,7 +58,8 @@ class ProductsController extends Controller
             $query->where('category_id', $request->filter_category);
         }
 
-        $products = $query->orderBy('name')->get()->map(function (Product $product) use ($branchId, $branches, $user) {
+        $products = $query->orderBy('name')->get()->map(function ($product) use ($branchId, $branches, $user) {
+            /** @var Product $product */
             $availability = $product->dynamicAvailability($branchId, $branches);
             $product->stock = (float) $availability['available'];
             $product->is_available = (bool) $availability['is_available'];
@@ -535,6 +536,9 @@ class ProductsController extends Controller
 
         // Branch resolution & authorization
         if (!$isAdmin) {
+            if ($request->filled('branch_id') && (int) $request->input('branch_id') !== (int) $user->branch_id) {
+                return response()->json(['message' => 'You are only authorized to view stock for your assigned branch.'], 403);
+            }
             $branchId = (int) $user->branch_id;
             $branches = Branch::where('id', $branchId)->get(['id', 'name']);
         } else {
@@ -568,6 +572,22 @@ class ProductsController extends Controller
             $displayUnit = $ing->unit ?: 'pcs';
             $displayStock = UnitConverter::convertFromBaseQuantity($rawStockBase, $displayUnit);
 
+            $branchCostPerBaseUnit = ($stockRow && (float) $stockRow->cost_per_unit > 0)
+                ? (float) $stockRow->cost_per_unit
+                : null;
+            $masterCostPerBaseUnit = (float) $ing->cost_per_base_unit > 0
+                ? (float) $ing->cost_per_base_unit
+                : 0.0;
+            $effectiveCostPerBaseUnit = $branchCostPerBaseUnit ?? $masterCostPerBaseUnit;
+
+            $conversionFactor = UnitConverter::convertToBaseQuantity(1, $displayUnit);
+            $currentUnitCost = round($effectiveCostPerBaseUnit * $conversionFactor, 4);
+
+            $totalStockValue = $stockRow ? (float) $stockRow->total_stock_value : 0.0;
+            if ($totalStockValue <= 0 && $rawStockBase > 0 && $effectiveCostPerBaseUnit > 0) {
+                $totalStockValue = round($rawStockBase * $effectiveCostPerBaseUnit, 4);
+            }
+
             return [
                 'id'                           => $ing->id,
                 'name'                         => $ing->name,
@@ -578,7 +598,11 @@ class ProductsController extends Controller
                 'current_stock_base'           => $rawStockBase,
                 'requires_expiration_tracking' => (bool) $ing->requires_expiration_tracking,
                 'default_expiry_days'          => $ing->default_expiry_days,
-                'cost_per_base_unit'           => $isAdmin ? (float) $ing->cost_per_base_unit : null,
+                'cost_per_base_unit'           => round($effectiveCostPerBaseUnit, 4),
+                'current_unit_cost'            => $currentUnitCost,
+                'current_cost_per_base_unit'   => round($effectiveCostPerBaseUnit, 4),
+                'total_stock_value'            => round($totalStockValue, 2),
+                'last_purchase_price'          => $stockRow && $stockRow->last_purchase_price !== null ? (float) $stockRow->last_purchase_price : null,
                 'compatible_units'             => UnitConverter::getCompatibleUnits($displayUnit),
                 'is_composite'                 => (bool) $ing->is_composite,
             ];
@@ -739,15 +763,26 @@ class ProductsController extends Controller
                 }
             }
 
-            $price = isset($item['purchase_price']) && is_numeric($item['purchase_price'])
-                ? (float)$item['purchase_price']
-                : (isset($item['unit_cost']) && is_numeric($item['unit_cost']) ? (float)$item['unit_cost'] : 0.0);
+            $hasPurchasePrice = isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] >= 0;
+            $hasUnitCost = isset($item['unit_cost']) && is_numeric($item['unit_cost']) && (float)$item['unit_cost'] >= 0;
+
+            if ($hasPurchasePrice && (float)$item['purchase_price'] > 0) {
+                $batchPrice = (float) $item['purchase_price'];
+                $unitCost = $quantity > 0 ? ($batchPrice / $quantity) : 0.0;
+            } elseif ($hasUnitCost && (float)$item['unit_cost'] > 0) {
+                $unitCost = (float) $item['unit_cost'];
+                $batchPrice = round($unitCost * $quantity, 4);
+            } else {
+                $batchPrice = 0.0;
+                $unitCost = 0.0;
+            }
 
             $preparedItems[] = [
                 'ingredient'      => $ing,
                 'quantity'        => $quantity,
                 'unit'            => $unit,
-                'price'           => $price,
+                'price'           => $batchPrice,
+                'unit_cost'       => $unitCost,
                 'lot_number'      => !empty($item['lot_number']) ? trim($item['lot_number']) : null,
                 'batch_code'      => !empty($item['batch_code']) ? trim($item['batch_code']) : null,
                 'expiration_date' => $item['expiration_date'] ?? null,
@@ -803,16 +838,23 @@ class ProductsController extends Controller
 
                     $stockRow = IngredientStock::where('ingredient_id', $ing->id)->where('branch_id', $branchId)->first();
                     $newStock = $stockRow ? UnitConverter::convertFromBaseQuantity((float)$stockRow->stock, $ing->unit) : 0.0;
+                    $newWacBase = $stockRow ? (float)$stockRow->cost_per_unit : 0.0;
+                    $newWacDisplay = round($newWacBase * UnitConverter::convertToBaseQuantity(1, $ing->unit), 4);
 
                     $receipts[] = [
-                        'ingredient_id'   => $ing->id,
-                        'ingredient_name' => $ing->name,
-                        'quantity'        => $prep['quantity'],
-                        'unit'            => $prep['unit'],
-                        'new_stock'       => round($newStock, 3),
-                        'stock_unit'      => $ing->unit,
-                        'reference'       => $reference,
-                        'batch_code'      => $batchMeta['batch_code'] ?? null,
+                        'ingredient_id'        => $ing->id,
+                        'ingredient_name'      => $ing->name,
+                        'quantity'             => $prep['quantity'],
+                        'unit'                 => $prep['unit'],
+                        'unit_cost'            => round($prep['unit_cost'], 4),
+                        'purchase_price'       => round($prep['price'], 2),
+                        'new_stock'            => round($newStock, 3),
+                        'stock_unit'           => $ing->unit,
+                        'cost_per_unit'        => $newWacDisplay,
+                        'cost_per_base_unit'   => round($newWacBase, 4),
+                        'total_stock_value'    => round($stockRow ? (float)$stockRow->total_stock_value : 0.0, 2),
+                        'reference'            => $reference,
+                        'batch_code'           => $batchMeta['batch_code'] ?? null,
                     ];
                 }
             });

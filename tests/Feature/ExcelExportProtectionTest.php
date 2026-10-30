@@ -202,4 +202,162 @@ class ExcelExportProtectionTest extends TestCase
         // Verify workbook structure security
         $this->assertTrue($spreadsheet->getSecurity()->getLockStructure(), 'Workbook structure lock must be enabled');
     }
+
+    public function test_sales_export_http_endpoint_delivers_protected_xlsx_file()
+    {
+        $branch = Branch::create(['name' => 'Victoria Branch']);
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'branch_id' => $branch->id,
+        ]);
+
+        Sale::create([
+            'order_number' => 'POS-2026-X',
+            'user_id' => $admin->id,
+            'branch_id' => $branch->id,
+            'subtotal' => 1500.00,
+            'total' => 1500.00,
+            'paid_amount' => 1500.00,
+            'payment_method' => 'cash',
+            'status' => 'completed',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get('/sales/export/excel?date_preset=today&branch_id=' . $branch->id);
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('attachment;', $response->headers->get('content-disposition'));
+        $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+
+        $filePath = $response->getFile()->getPathname();
+        $this->assertFileExists($filePath);
+        $this->assertGreaterThan(0, filesize($filePath));
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $protection = $sheet->getProtection();
+
+        // Verify worksheet protection
+        $this->assertTrue($protection->getSheet(), 'HTTP exported .xlsx worksheet protection must be active');
+        $this->assertTrue($protection->getSelectLockedCells(), 'Viewing locked cells must be permitted');
+        $this->assertTrue($protection->getAutoFilter(), 'AutoFilter must remain permitted');
+        $this->assertFalse($protection->getInsertRows(), 'Inserting rows must be prevented');
+        $this->assertFalse($protection->getDeleteRows(), 'Deleting rows must be prevented');
+        $this->assertFalse($protection->getFormatCells(), 'Formatting cells must be prevented');
+
+        // Verify workbook structure lock
+        $this->assertTrue($spreadsheet->getSecurity()->getLockStructure(), 'Workbook structure must be locked against tab modifications');
+
+        // Verify content contains expected order number
+        $orderCellFound = false;
+        foreach ($sheet->getRowIterator() as $row) {
+            foreach ($row->getCellIterator() as $cell) {
+                if ($cell->getValue() === 'POS-2026-X') {
+                    $orderCellFound = true;
+                    break 2;
+                }
+            }
+        }
+        $this->assertTrue($orderCellFound, 'Exported .xlsx must contain the sales transaction order number');
+    }
+
+    public function test_sales_export_via_format_query_parameter_delivers_protected_xlsx()
+    {
+        $branch = Branch::create(['name' => 'Santa Cruz Branch']);
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'branch_id' => $branch->id,
+        ]);
+
+        Sale::create([
+            'order_number' => 'POS-FORMAT-PARAM',
+            'user_id' => $admin->id,
+            'branch_id' => $branch->id,
+            'subtotal' => 880.00,
+            'total' => 880.00,
+            'paid_amount' => 880.00,
+            'payment_method' => 'cash',
+            'status' => 'completed',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get('/sales/export?format=xlsx&date_preset=today&branch_id=' . $branch->id);
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+
+        $filePath = $response->getFile()->getPathname();
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+        $this->assertTrue($spreadsheet->getActiveSheet()->getProtection()->getSheet());
+        $this->assertTrue($spreadsheet->getSecurity()->getLockStructure());
+    }
+
+    public function test_cashier_sales_export_xlsx_respects_branch_isolation_and_masks_costs()
+    {
+        $branch1 = Branch::create(['name' => 'Branch One']);
+        $branch2 = Branch::create(['name' => 'Branch Two']);
+
+        $cashier = User::factory()->create([
+            'role' => 'cashier',
+            'branch_id' => $branch1->id,
+        ]);
+
+        Sale::create([
+            'order_number' => 'BRANCH-1-SALE',
+            'user_id' => $cashier->id,
+            'branch_id' => $branch1->id,
+            'subtotal' => 300.00,
+            'cost_total' => 150.00,
+            'profit' => 150.00,
+            'total' => 300.00,
+            'paid_amount' => 300.00,
+            'payment_method' => 'cash',
+            'status' => 'completed',
+            'created_at' => now(),
+        ]);
+
+        Sale::create([
+            'order_number' => 'BRANCH-2-SALE',
+            'user_id' => $cashier->id,
+            'branch_id' => $branch2->id,
+            'subtotal' => 500.00,
+            'cost_total' => 200.00,
+            'profit' => 300.00,
+            'total' => 500.00,
+            'paid_amount' => 500.00,
+            'payment_method' => 'cash',
+            'status' => 'completed',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($cashier)
+            ->get('/sales/export/excel?date_preset=today');
+
+        $response->assertStatus(200);
+
+        $filePath = $response->getFile()->getPathname();
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $allValues = [];
+        foreach ($sheet->getRowIterator() as $row) {
+            foreach ($row->getCellIterator() as $cell) {
+                $allValues[] = (string) $cell->getValue();
+            }
+        }
+
+        // Cashier sees own branch sale, but NOT other branch sale
+        $this->assertContains('BRANCH-1-SALE', $allValues);
+        $this->assertNotContains('BRANCH-2-SALE', $allValues);
+
+        // Cashier export headings must not leak Cost Total or Profit
+        $this->assertNotContains('Cost Total', $allValues);
+        $this->assertNotContains('Profit', $allValues);
+
+        // Protection is still active for cashier export
+        $this->assertTrue($sheet->getProtection()->getSheet());
+        $this->assertTrue($spreadsheet->getSecurity()->getLockStructure());
+    }
 }

@@ -64,11 +64,11 @@ export function ReportsAnalytics() {
                         <div className="min-w-0">
                             <div className="flex items-center gap-2">
                                 <TrendingUp className="size-4 text-[#10b981] shrink-0" />
-                                <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                                <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word">
                                     Weekly Revenue Telemetry
                                 </h3>
                             </div>
-                            <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
+                            <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] wrap-break-word">
                                 Realized revenue trajectory vs baseline projections
                             </p>
                         </div>
@@ -106,7 +106,7 @@ export function ReportsAnalytics() {
                                         fontSize: '12px',
                                         fontFamily: 'Outfit',
                                     }}
-                                    formatter={(value: any, name: any) => [
+                                    formatter={(value: unknown, name: unknown) => [
                                         formatCurrency(Number(value || 0)),
                                         name === 'revenue' || name === 'Actual Revenue' ? 'Actual Revenue' : 'Target Benchmark'
                                     ]}
@@ -128,11 +128,11 @@ export function ReportsAnalytics() {
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
                             <PieIcon className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
-                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word">
                                 Category Breakdown
                             </h3>
                         </div>
-                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
+                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] wrap-break-word">
                             Share of gross revenue by product category
                         </p>
                     </div>
@@ -176,7 +176,7 @@ export function ReportsAnalytics() {
                             <div key={cat.name} className="flex items-center justify-between gap-2 min-w-0">
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                                    <span className="text-[#3D2C2E] dark:text-[#F8FAFC] truncate" title={cat.name}>{cat.name}</span>
+                                    <span className="text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word flex-1" title={cat.name}>{cat.name}</span>
                                 </div>
                                 <span className="font-mono text-[#7D6B6E] dark:text-[#94A3B8] shrink-0">{cat.value}%</span>
                             </div>
@@ -198,11 +198,11 @@ export function ReportsAnalytics() {
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
                             <BarChart2 className="size-4 text-[#E75480] dark:text-[#FF4F81] shrink-0" />
-                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] truncate">
+                            <h3 className="text-lg font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] wrap-break-word">
                                 Peak Operational Hours
                             </h3>
                         </div>
-                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] truncate">
+                        <p className="text-xs font-medium text-[#7D6B6E] dark:text-[#94A3B8] wrap-break-word">
                             Hourly volume distribution for store staffing optimization
                         </p>
                     </div>

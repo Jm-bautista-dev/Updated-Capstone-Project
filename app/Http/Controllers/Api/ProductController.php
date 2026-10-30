@@ -79,6 +79,7 @@ class ProductController extends Controller
             $query->where('category_id', $request->integer('category_id'));
         }
 
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Product> $products */
         $products = $query->orderBy('name')->get();
 
         // ── Mode: merged — group by product name across branches ──────────
@@ -92,11 +93,14 @@ class ProductController extends Controller
                         'category'    => $first->category?->name ?? 'Uncategorized',
                         'image'       => $this->resolveImageUrl($first->image_path),
                         'description' => $first->description,
-                        'branches'    => $group->map(fn(Product $p) => [
-                            'branch_id'   => $p->branch_id,
-                            'price'       => (float) ($p->selling_price ?? 0),
-                            'selling_price' => (float) ($p->selling_price ?? 0),
-                        ])->values(),
+                        'branches'    => $group->map(function ($p) {
+                            /** @var Product $p */
+                            return [
+                                'branch_id'     => $p->branch_id,
+                                'price'         => (float) ($p->selling_price ?? 0),
+                                'selling_price' => (float) ($p->selling_price ?? 0),
+                            ];
+                        })->values(),
                     ];
                 })->values();
 
@@ -107,7 +111,10 @@ class ProductController extends Controller
         }
 
         // ── Default: Return scoped menu with location context ─────────────
-        $formatted = $products->map(fn(Product $p) => $this->formatProduct($p, $branchId));
+        $formatted = $products->map(function ($p) use ($branchId) {
+            /** @var Product $p */
+            return $this->formatProduct($p, $branchId);
+        });
 
         return response()->json([
             'success'     => true,

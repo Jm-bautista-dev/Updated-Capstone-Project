@@ -2,7 +2,6 @@ import {
     AlertCircle,
     BadgePercent,
     Check,
-    DollarSign,
     Layers,
     Percent,
     Tag,
@@ -14,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PesoSign } from '@/components/ui/peso-sign';
 import { cn, formatCurrency } from '@/lib/utils';
 
 export interface PosCartItem {
@@ -339,7 +339,7 @@ function ApplyDiscountForm({
                                         : 'text-[#7D6B6E] dark:text-[#94A3B8] hover:text-[#3D2C2E]'
                                 )}
                             >
-                                <DollarSign className="size-3" /> Fixed Amount (₱)
+                                <PesoSign className="size-3" /> Fixed Amount (₱)
                             </button>
                         </div>
                     </div>

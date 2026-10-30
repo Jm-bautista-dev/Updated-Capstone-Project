@@ -1,6 +1,5 @@
 import { Head, router } from '@inertiajs/react';
 import { 
-    DollarSign, 
     TrendingUp, 
     ShoppingBag, 
     AlertTriangle,
@@ -22,7 +21,9 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { PrescriptiveActionsCard } from '@/components/dashboard/PrescriptiveActionsCard';
 import { QuickActionCard } from '@/components/dashboard/QuickActionCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { SalesPerProductSection, type ProductSalesItem, type SalesPerProductMeta } from '@/components/dashboard/SalesPerProductSection';
 import { TopProductCostsChart, type TopProductCostItem } from '@/components/dashboard/TopProductCostsChart';
+import { PesoSign } from '@/components/ui/peso-sign';
 import AppLayout from '@/layouts/app-layout';
 
 const formatCurrency = (amount: number) =>
@@ -40,12 +41,6 @@ interface SalesOverTimeItem {
     date: string;
     revenue: number;
     profit: number;
-}
-
-interface SalesPerProductItem {
-    name: string;
-    total_sold: number;
-    revenue?: number;
 }
 
 interface PaymentMethodItem {
@@ -116,7 +111,8 @@ interface DashboardProps {
     };
     branchStats?: BranchStat[];
     salesOverTime?: SalesOverTimeItem[];
-    salesPerProduct?: SalesPerProductItem[];
+    salesPerProduct?: ProductSalesItem[];
+    salesPerProductMeta?: SalesPerProductMeta;
     topProductCosts?: TopProductCostItem[];
     salesByPaymentMethod?: PaymentMethodItem[];
     ingredientCostTrends?: IngredientCostTrendItem[];
@@ -133,7 +129,8 @@ export default function Dashboard({
     stats,
     branchStats,
     salesOverTime,
-    salesPerProduct,
+    salesPerProduct = [],
+    salesPerProductMeta,
     topProductCosts = [],
     salesByPaymentMethod,
     ingredientCostTrends = [],
@@ -196,7 +193,7 @@ export default function Dashboard({
                     <KPICard 
                         title="Aggregated Revenue"
                         value={formatCurrency(stats.total_revenue)}
-                        icon={DollarSign}
+                        icon={PesoSign}
                         trend={stats.revenue_delta?.trend || 'up'}
                         trendValue={stats.revenue_delta?.formatted_delta || (stats.total_revenue > 0 ? '+0.0%' : '0.0%')}
                         comparison={stats.revenue_delta?.comparison_label || 'Accumulated checkouts'}
@@ -265,6 +262,18 @@ export default function Dashboard({
                         <TopProductCostsChart 
                             topProductCosts={topProductCosts}
                             activeBranchName={activeBranchName}
+                        />
+
+                        {/* SALES PER PRODUCT Dashboard Section with Branch Filtering */}
+                        <SalesPerProductSection 
+                            initialProducts={salesPerProduct}
+                            initialMeta={salesPerProductMeta}
+                            branches={branches}
+                            currentRange={range}
+                            selectedBranchId={selectedBranch}
+                            onBranchChange={(newBranchId) => {
+                                setSelectedBranch(newBranchId);
+                            }}
                         />
 
                         {/* Ingredient Unit Cost Analytics Card */}

@@ -2,12 +2,14 @@ import { motion } from 'framer-motion';
 import {
     Calendar,
     CheckCircle2,
+    ChevronDown,
+    ChevronUp,
     Eye,
     EyeOff,
     MessageSquare,
     Trash2,
 } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CustomerAvatar } from './CustomerAvatar';
@@ -36,6 +38,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
     onOpenDelete,
     onMarkSeen,
 }) => {
+    const [isCommentExpanded, setIsCommentExpanded] = useState(false);
+    const [isResponseExpanded, setIsResponseExpanded] = useState(false);
+
     const formattedDate = review.created_at
         ? new Date(review.created_at).toLocaleDateString('en-US', {
               month: 'short',
@@ -52,39 +57,51 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           })
         : null;
 
+    const comment = review.comment || '';
+    const isLongComment = comment.trim().length > 220;
+    const displayedComment = isLongComment && !isCommentExpanded
+        ? `${comment.slice(0, 220).trim()}...`
+        : comment;
+
+    const adminResponse = review.admin_response || '';
+    const isLongResponse = adminResponse.trim().length > 220;
+    const displayedResponse = isLongResponse && !isResponseExpanded
+        ? `${adminResponse.slice(0, 220).trim()}...`
+        : adminResponse;
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-                'group flex flex-col justify-between p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-2xs',
+                'group flex flex-col justify-between p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-2xs w-full max-w-full overflow-hidden wrap-break-word',
                 !review.is_seen
                     ? 'bg-white dark:bg-[#151620] border-rose-400/50 dark:border-rose-900/60 ring-1 ring-rose-500/20'
                     : 'bg-white dark:bg-[#12131A] border-slate-200/80 dark:border-white/8 hover:border-slate-300 dark:hover:border-white/14'
             )}
         >
-            <div className="space-y-3.5">
+            <div className="space-y-3.5 min-w-0">
                 {/* ── HEADER ROW ── */}
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 min-w-0">
                     {/* Customer Identity */}
-                    <div className="flex items-center gap-3 min-w-0">
-                        <CustomerAvatar name={review.user?.name} size="md" />
-                        <div className="min-w-0">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <CustomerAvatar name={review.user?.name} size="md" className="shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
+                                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 wrap-break-word leading-snug">
                                     {review.user?.name || 'Anonymous Customer'}
                                 </h4>
 
                                 {!review.is_seen && (
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 shadow-2xs">
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 shadow-2xs shrink-0">
                                         <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
                                         Unread
                                     </span>
                                 )}
                             </div>
 
-                            <p className="text-xs text-slate-400 dark:text-slate-400 flex items-center gap-1.5 truncate mt-0.5">
-                                <span className="truncate">
+                            <p className="text-xs text-slate-400 dark:text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5 leading-tight">
+                                <span className="break-all font-medium">
                                     {review.user?.email || (review.order_number ? `Order #${review.order_number}` : 'Registered User')}
                                 </span>
                                 {review.branch && (
@@ -97,28 +114,50 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                     </div>
 
                     {/* Rating & Status Badge */}
-                    <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+                    <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center flex-wrap">
                         <RatingStars rating={review.rating} size="sm" showScore />
                         <StatusBadge status={review.status} />
                     </div>
                 </div>
 
                 {/* ── METADATA ROW (Badges) ── */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
                     {review.is_verified_purchase && <VerifiedBadge />}
 
                     {showProductBadge && review.product && (
                         <ProductRefBadge
                             productName={review.product.name}
                             orderNumber={review.order_number}
+                            imagePath={review.product.image_path}
                         />
                     )}
                 </div>
 
                 {/* ── CUSTOMER REVIEW CONTENT ── */}
-                <div className="bg-slate-50 dark:bg-[#181924] p-3.5 rounded-xl border border-slate-200/70 dark:border-white/6 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-                    {review.comment && review.comment.trim().length > 0 ? (
-                        <p className="italic font-medium">"{review.comment}"</p>
+                <div className="bg-slate-50 dark:bg-[#181924] p-3.5 rounded-xl border border-slate-200/70 dark:border-white/6 text-xs leading-relaxed text-slate-700 dark:text-slate-300 min-w-0">
+                    {comment.trim().length > 0 ? (
+                        <div>
+                            <p className="italic font-medium wrap-break-word whitespace-pre-wrap leading-relaxed">
+                                "{displayedComment}"
+                            </p>
+                            {isLongComment && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCommentExpanded(!isCommentExpanded)}
+                                    className="text-[#FF3366] dark:text-[#FF4F81] text-xs font-bold hover:underline cursor-pointer inline-flex items-center gap-1 mt-1.5 focus:outline-hidden"
+                                >
+                                    {isCommentExpanded ? (
+                                        <>
+                                            Show less <ChevronUp className="size-3" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            Read more <ChevronDown className="size-3" />
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                        </div>
                     ) : (
                         <p className="italic text-slate-400 dark:text-slate-400">
                             Rating submitted without written comment.
@@ -127,11 +166,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                 </div>
 
                 {/* ── OFFICIAL ADMIN RESPONSE / AUTO-REPLY ── */}
-                {review.admin_response && (
-                    <div className="bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400">
+                {adminResponse.length > 0 && (
+                    <div className="bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-xs space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400">
                             <span className="flex items-center gap-1.5 flex-wrap">
-                                <CheckCircle2 className="size-3 text-emerald-500" />
+                                <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />
                                 {review.is_auto_reply ? (
                                     <>
                                         <span>Automated System Response</span>
@@ -144,28 +183,45 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                                 )}
                             </span>
                             {formattedResponseDate && (
-                                <span className="font-mono text-emerald-600/80 dark:text-emerald-400/80">
+                                <span className="font-mono text-emerald-600/80 dark:text-emerald-400/80 shrink-0">
                                     {formattedResponseDate}
                                 </span>
                             )}
                         </div>
-                        <p className="text-slate-700 dark:text-slate-200 font-medium text-xs leading-relaxed">
-                            {review.admin_response}
+                        <p className="text-slate-700 dark:text-slate-200 font-medium text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">
+                            {displayedResponse}
                         </p>
+                        {isLongResponse && (
+                            <button
+                                type="button"
+                                onClick={() => setIsResponseExpanded(!isResponseExpanded)}
+                                className="text-emerald-600 dark:text-emerald-400 text-xs font-bold hover:underline cursor-pointer inline-flex items-center gap-1 mt-1 focus:outline-hidden"
+                            >
+                                {isResponseExpanded ? (
+                                    <>
+                                        Show less <ChevronUp className="size-3" />
+                                    </>
+                                ) : (
+                                    <>
+                                        Read more <ChevronDown className="size-3" />
+                                    </>
+                                )}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
 
             {/* ── FOOTER & ACTION BUTTONS ── */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3.5 mt-3 border-t border-slate-100 dark:border-white/6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3.5 mt-3 border-t border-slate-100 dark:border-white/6 min-w-0">
                 {/* Review Date */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-400 font-medium">
-                    <Calendar className="size-3.5 text-slate-400" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-400 font-medium shrink-0">
+                    <Calendar className="size-3.5 text-slate-400 shrink-0" />
                     <span>{formattedDate || 'Recent'}</span>
                 </div>
 
                 {/* Actions Toolbar */}
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end">
                     {/* Mark Seen Action (for unread items) */}
                     {!review.is_seen && onMarkSeen && (
                         <Button
@@ -234,6 +290,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
                         onClick={() => onOpenDelete(review)}
                         className="h-7.5 px-2 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer"
                         title="Delete review"
+                        aria-label="Delete review"
                     >
                         <Trash2 className="size-3.5" />
                     </Button>

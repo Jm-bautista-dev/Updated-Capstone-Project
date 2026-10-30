@@ -81,8 +81,8 @@ class InventoryBatchService
                 'ingredient_id'          => $batch->ingredient_id,
                 'branch_id'              => $batch->branch_id,
                 'supplier_name'          => $batch->supplier?->name ?? ($batch->supplier_name ?: 'General Delivery'),
-                'received_at'            => $batch->received_at ? $batch->received_at->toIso8601String() : null,
-                'received_at_formatted'  => $batch->received_at ? $batch->received_at->format('M d, Y h:i A') : 'N/A',
+                'received_at'            => $batch->received_at ? $batch->received_at->copy()->setTimezone(config('app.timezone') && config('app.timezone') !== 'UTC' ? config('app.timezone') : 'Asia/Manila')->toIso8601String() : null,
+                'received_at_formatted'  => $batch->received_at ? $batch->received_at->copy()->setTimezone(config('app.timezone') && config('app.timezone') !== 'UTC' ? config('app.timezone') : 'Asia/Manila')->format('M d, Y h:i A') : 'N/A',
                 'manufacture_date'       => $batch->manufacture_date ? Carbon::parse($batch->manufacture_date)->format('M d, Y') : null,
                 'expiration_date'        => $batch->expiration_date ? $batch->expiration_date->toIso8601String() : null,
                 'expiration_date_formatted' => $batch->expiration_date ? $batch->expiration_date->format('M d, Y') : 'No Expiry',
@@ -501,6 +501,11 @@ class InventoryBatchService
                 $batchCode .= '-' . strtoupper(Str::random(3));
             }
 
+            $tz = config('app.timezone', 'Asia/Manila');
+            $receivedAt = !empty($data['received_at'])
+                ? Carbon::parse($data['received_at'], $tz)->setTimezone($tz)
+                : Carbon::now($tz);
+
             $batch = IngredientBatch::create([
                 'batch_code'         => $batchCode,
                 'lot_number'         => !empty($data['lot_number']) ? trim($data['lot_number']) : null,
@@ -508,7 +513,7 @@ class InventoryBatchService
                 'branch_id'          => $branchId,
                 'supplier_id'        => !empty($data['supplier_id']) ? (int) $data['supplier_id'] : null,
                 'supplier_name'      => !empty($data['supplier_name']) ? trim($data['supplier_name']) : null,
-                'received_at'        => !empty($data['received_at']) ? Carbon::parse($data['received_at']) : Carbon::now(config('app.timezone', 'Asia/Manila')),
+                'received_at'        => $receivedAt,
                 'manufacture_date'   => !empty($data['manufacture_date']) ? Carbon::parse($data['manufacture_date']) : null,
                 'expiration_date'    => $expirationDate,
                 'expiration_type'    => $expirationType,
@@ -539,6 +544,7 @@ class InventoryBatchService
                 'cost_at_movement'        => $costPerBaseUnit,
                 'reference_number'        => $batch->reference ?: $batch->batch_code,
                 'notes'                   => "Initial receipt: {$quantity} {$unit}",
+                'created_at'              => $receivedAt,
             ]);
 
             // Sync with IngredientStock aggregate table

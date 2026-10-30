@@ -7,6 +7,7 @@ import {
     ArrowRight,
     Search,
     Store,
+    Building2,
     RefreshCw,
     X,
     Check,
@@ -40,6 +41,9 @@ import {
 } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 
+const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val || 0);
+
 interface RestockIngredient {
     id: number;
     name: string;
@@ -51,6 +55,10 @@ interface RestockIngredient {
     requires_expiration_tracking: boolean;
     default_expiry_days: number | null;
     cost_per_base_unit: number | null;
+    current_unit_cost?: number;
+    current_cost_per_base_unit?: number;
+    total_stock_value?: number;
+    last_purchase_price?: number | null;
     compatible_units: string[];
     is_composite: boolean;
 }
@@ -98,13 +106,12 @@ interface IngredientRowState {
     included: boolean;
     quantity: string;
     unit: string;
-    lot_number: string;
-    batch_code: string;
     expiration_date: string;
     expiration_type: 'use_by' | 'best_before' | 'none';
     supplier_id: string;
     supplier_name: string;
-    purchase_price: string;
+    unit_cost: string; // New unit acquisition cost per receipt unit (₱)
+    purchase_price: string; // Total batch acquisition cost (₱)
     notes: string;
 }
 
@@ -118,14 +125,16 @@ export function ProductIngredientRestockModal({
     onEditRecipe,
     initialSuggestedQuantities,
 }: ProductIngredientRestockModalProps) {
+    const [availableBranches, setAvailableBranches] = useState<Branch[]>(branches || []);
     const [selectedBranchId, setSelectedBranchId] = useState<number>(() => {
         if (currentBranchId && currentBranchId !== 'all') {
             return Number(currentBranchId);
         }
-        return branches[0]?.id ? Number(branches[0].id) : 1;
+        return branches?.[0]?.id ? Number(branches[0].id) : 1;
     });
 
     const [loading, setLoading] = useState(false);
+    const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -144,21 +153,46 @@ export function ProductIngredientRestockModal({
             ingredient_name: string;
             quantity: number;
             unit: string;
+            unit_cost?: number;
+            purchase_price?: number;
             new_stock: number;
             stock_unit: string;
+            cost_per_unit?: number;
+            cost_per_base_unit?: number;
             reference: string;
             batch_code?: string;
         }>;
     } | null>(null);
 
-    // Sync selected branch if external currentBranchId changes
+    // Sync available branches if props change
     useEffect(() => {
-        if (currentBranchId && currentBranchId !== 'all') {
-            setSelectedBranchId(Number(currentBranchId));
-        } else if (branches.length > 0 && !selectedBranchId) {
-            setSelectedBranchId(Number(branches[0].id));
+        if (branches && branches.length > 0) {
+            setAvailableBranches(branches);
         }
-    }, [currentBranchId, branches, selectedBranchId]);
+    }, [branches]);
+
+    // Sync selected branch if external currentBranchId changes when modal opens
+    useEffect(() => {
+        if (open) {
+            if (currentBranchId && currentBranchId !== 'all') {
+                setSelectedBranchId(Number(currentBranchId));
+            } else if (availableBranches.length > 0 && !selectedBranchId) {
+                setSelectedBranchId(Number(availableBranches[0].id));
+            }
+        }
+    }, [open, currentBranchId, availableBranches, selectedBranchId]);
+
+    // Reset modal state when opened for a new product
+    useEffect(() => {
+        if (open && product?.id) {
+            setStep('form');
+            setErrorMessage(null);
+            setValidationErrors({});
+            setSuccessData(null);
+            setRows({});
+            setIdempotencyToken(`restock_${product.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+        }
+    }, [open, product?.id]);
 
     // Fetch fresh authoritative ingredients whenever modal opens or branch changes
     useEffect(() => {
@@ -166,16 +200,15 @@ export function ProductIngredientRestockModal({
             return;
         }
 
-        setStep('form');
-        setErrorMessage(null);
-        setValidationErrors({});
-        setSuccessData(null);
-        setIdempotencyToken(`restock_${product.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
-
         let isMounted = true;
-        setLoading(true);
+        // Distinguish initial modal load vs switching destination branch
+        if (ingredients.length === 0) {
+            setLoading(true);
+        } else {
+            setIsSwitchingBranch(true);
+        }
 
-        const targetBranch = selectedBranchId || (branches[0]?.id ? Number(branches[0].id) : 1);
+        const targetBranch = selectedBranchId || (availableBranches[0]?.id ? Number(availableBranches[0].id) : 1);
 
         fetch(`/products/${product.id}/restock-ingredients?branch_id=${targetBranch}`, {
             headers: {
@@ -193,35 +226,58 @@ export function ProductIngredientRestockModal({
             .then((data) => {
                 if (!isMounted) return;
                 setIngredients(data.ingredients || []);
+                if (Array.isArray(data.branches) && data.branches.length > 0) {
+                    setAvailableBranches(data.branches);
+                }
 
-                // Initialize row state
-                const initialRows: Record<number, IngredientRowState> = {};
-                (data.ingredients || []).forEach((ing: RestockIngredient) => {
-                    const defaultExpDate = ing.default_expiry_days
-                        ? new Date(Date.now() + ing.default_expiry_days * 86400000).toISOString().slice(0, 10)
-                        : '';
+                // Preserve user-typed restock quantities, prices and notes when switching branches,
+                // while updating to the newly selected branch's authoritative balances and unit costs
+                setRows((prev) => {
+                    const next: Record<number, IngredientRowState> = {};
+                    (data.ingredients || []).forEach((ing: RestockIngredient) => {
+                        const existing = prev[ing.id];
+                        const defaultExpDate = ing.default_expiry_days
+                            ? new Date(Date.now() + ing.default_expiry_days * 86400000).toISOString().slice(0, 10)
+                            : '';
 
-                    const suggestedQty = initialSuggestedQuantities?.[ing.id];
-                    const prefilledQuantity = suggestedQty != null && Number(suggestedQty) > 0
-                        ? String(suggestedQty)
-                        : '';
+                        const suggestedQty = initialSuggestedQuantities?.[ing.id];
+                        const prefilledQuantity = suggestedQty != null && Number(suggestedQty) > 0
+                            ? String(suggestedQty)
+                            : '';
 
-                    initialRows[ing.id] = {
-                        ingredient_id: ing.id,
-                        included: true,
-                        quantity: prefilledQuantity,
-                        unit: ing.unit || 'g',
-                        lot_number: '',
-                        batch_code: '',
-                        expiration_date: defaultExpDate,
-                        expiration_type: ing.requires_expiration_tracking ? 'use_by' : 'none',
-                        supplier_id: '',
-                        supplier_name: '',
-                        purchase_price: '',
-                        notes: '',
-                    };
+                        const unit = existing?.unit || ing.unit || 'g';
+                        const receiptFactor = convertToBaseQuantity(1, unit);
+                        const baseCost = ing.current_cost_per_base_unit ?? ing.cost_per_base_unit ?? 0;
+                        const defaultUnitCost = baseCost > 0 ? Number((baseCost * receiptFactor).toFixed(4)) : 0;
+
+                        const initUnitCost = existing?.unit_cost !== undefined && existing?.unit_cost !== ''
+                            ? existing.unit_cost
+                            : (defaultUnitCost > 0 ? String(defaultUnitCost) : '');
+
+                        const initQuantity = existing?.quantity !== undefined && existing?.quantity !== ''
+                            ? existing.quantity
+                            : prefilledQuantity;
+
+                        const calcBatchCost = initQuantity && initUnitCost && Number(initQuantity) > 0 && Number(initUnitCost) >= 0
+                            ? String(Number((Number(initQuantity) * Number(initUnitCost)).toFixed(2)))
+                            : (existing?.purchase_price || '');
+
+                        next[ing.id] = {
+                            ingredient_id: ing.id,
+                            included: existing ? existing.included : true,
+                            quantity: initQuantity,
+                            unit: unit,
+                            expiration_date: existing?.expiration_date || defaultExpDate,
+                            expiration_type: existing?.expiration_type || (ing.requires_expiration_tracking ? 'use_by' : 'none'),
+                            supplier_id: existing?.supplier_id || '',
+                            supplier_name: existing?.supplier_name || '',
+                            unit_cost: initUnitCost,
+                            purchase_price: calcBatchCost,
+                            notes: existing?.notes || '',
+                        };
+                    });
+                    return next;
                 });
-                setRows(initialRows);
             })
             .catch((err) => {
                 if (!isMounted) return;
@@ -229,13 +285,25 @@ export function ProductIngredientRestockModal({
                 setErrorMessage(err.message || 'Error loading product recipe.');
             })
             .finally(() => {
-                if (isMounted) setLoading(false);
+                if (isMounted) {
+                    setLoading(false);
+                    setIsSwitchingBranch(false);
+                }
             });
 
         return () => {
             isMounted = false;
         };
-    }, [open, product?.id, selectedBranchId, branches, initialSuggestedQuantities]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, product?.id, selectedBranchId]);
+
+    // Handle user switching destination branch
+    const handleBranchChange = (newBranchId: number) => {
+        if (Number(newBranchId) === Number(selectedBranchId) || loading || submitting || isSwitchingBranch) {
+            return;
+        }
+        setSelectedBranchId(Number(newBranchId));
+    };
 
     // Filtered ingredients
     const filteredIngredients = useMemo(() => {
@@ -244,12 +312,17 @@ export function ProductIngredientRestockModal({
         return ingredients.filter((ing) => ing.name.toLowerCase().includes(q));
     }, [ingredients, searchQuery]);
 
-    // Active branch object
+    // Active destination branch object
     const currentBranch = useMemo(() => {
-        return branches.find((b) => Number(b.id) === Number(selectedBranchId)) || branches[0];
-    }, [branches, selectedBranchId]);
+        return (
+            availableBranches.find((b) => Number(b.id) === Number(selectedBranchId)) ||
+            branches.find((b) => Number(b.id) === Number(selectedBranchId)) ||
+            availableBranches[0] ||
+            branches[0]
+        );
+    }, [availableBranches, branches, selectedBranchId]);
 
-    // Included rows with positive quantity
+    // Included rows with positive quantity and authoritative costing model
     const preparedReceipts = useMemo(() => {
         return ingredients
             .map((ing) => {
@@ -264,18 +337,54 @@ export function ProductIngredientRestockModal({
                 const resultingBase = currentStockBase + receivedBase;
                 const resultingDisplay = convertFromBaseQuantity(resultingBase, ing.unit);
 
+                // Costing Calculations
+                const parsedUnitCost = parseFloat(row.unit_cost);
+                const parsedPurchasePrice = parseFloat(row.purchase_price);
+
+                const totalBatchCost = !isNaN(parsedPurchasePrice) && parsedPurchasePrice >= 0
+                    ? parsedPurchasePrice
+                    : (!isNaN(parsedUnitCost) && parsedUnitCost >= 0 ? parsedUnitCost * qty : 0);
+
+                const effectiveUnitCost = !isNaN(parsedUnitCost) && parsedUnitCost >= 0
+                    ? parsedUnitCost
+                    : (qty > 0 && totalBatchCost > 0 ? totalBatchCost / qty : 0);
+
+                // Current authoritative branch cost
+                const effectiveBaseCost = ing.current_cost_per_base_unit ?? ing.cost_per_base_unit ?? 0;
+                const receiptFactor = convertToBaseQuantity(1, row.unit);
+                const currentCostPerReceiptUnit = effectiveBaseCost * receiptFactor;
+
+                const ingDisplayFactor = convertToBaseQuantity(1, ing.unit);
+                const currentCostPerDisplayUnit = effectiveBaseCost * ingDisplayFactor;
+
+                // Real-time WAC Simulation (reusing backend InventoryBatchService formula)
+                const currentTotalVal = ing.total_stock_value && ing.total_stock_value > 0
+                    ? ing.total_stock_value
+                    : (currentStockBase * effectiveBaseCost);
+
+                const newTotalVal = currentTotalVal + totalBatchCost;
+                const newWacBase = resultingBase > 0
+                    ? (newTotalVal / resultingBase)
+                    : (totalBatchCost > 0 && receivedBase > 0 ? (totalBatchCost / receivedBase) : effectiveBaseCost);
+
+                const newWacDisplay = newWacBase * ingDisplayFactor;
+
                 return {
                     ingredient: ing,
                     row,
                     quantity: qty,
                     unit: row.unit,
+                    unit_cost: effectiveUnitCost,
+                    total_batch_cost: Number(totalBatchCost.toFixed(2)),
+                    current_cost_per_receipt_unit: currentCostPerReceiptUnit,
+                    current_cost_per_display_unit: currentCostPerDisplayUnit,
                     current_stock: ing.current_stock,
                     resulting_stock: Number(resultingDisplay.toFixed(3)),
-                    lot_number: row.lot_number,
+                    new_wac_display: Number(newWacDisplay.toFixed(4)),
+                    new_wac_base: Number(newWacBase.toFixed(4)),
                     expiration_date: row.expiration_date,
                     expiration_type: row.expiration_type,
                     supplier_id: row.supplier_id,
-                    purchase_price: row.purchase_price,
                 };
             })
             .filter(Boolean) as Array<{
@@ -283,25 +392,90 @@ export function ProductIngredientRestockModal({
             row: IngredientRowState;
             quantity: number;
             unit: string;
+            unit_cost: number;
+            total_batch_cost: number;
+            current_cost_per_receipt_unit: number;
+            current_cost_per_display_unit: number;
             current_stock: number;
             resulting_stock: number;
-            lot_number: string;
+            new_wac_display: number;
+            new_wac_base: number;
             expiration_date: string;
             expiration_type: 'use_by' | 'best_before' | 'none';
             supplier_id: string;
-            purchase_price: string;
         }>;
     }, [ingredients, rows]);
 
-    // Field updater helper
+    const totalAcquisitionCost = useMemo(() => {
+        return preparedReceipts.reduce((acc, item) => acc + (item.total_batch_cost || 0), 0);
+    }, [preparedReceipts]);
+
+    // Field updater helper with unit conversion and cost synchronization
     const updateRow = (ingredientId: number, patch: Partial<IngredientRowState>) => {
-        setRows((prev) => ({
-            ...prev,
-            [ingredientId]: {
-                ...prev[ingredientId],
+        setRows((prev) => {
+            const current = prev[ingredientId] || {
+                ingredient_id: ingredientId,
+                included: true,
+                quantity: '',
+                unit: 'g',
+                expiration_date: '',
+                expiration_type: 'use_by',
+                supplier_id: '',
+                supplier_name: '',
+                unit_cost: '',
+                purchase_price: '',
+                notes: '',
+            };
+
+            const merged: IngredientRowState = {
+                ...current,
                 ...patch,
-            },
-        }));
+            };
+
+            // If unit changed, convert unit_cost appropriately so total cost remains preserved
+            if (patch.unit && patch.unit !== current.unit) {
+                const oldFactor = convertToBaseQuantity(1, current.unit);
+                const newFactor = convertToBaseQuantity(1, patch.unit);
+                const factorRatio = newFactor / (oldFactor > 0 ? oldFactor : 1);
+                const currentNumericCost = parseFloat(current.unit_cost);
+                if (!isNaN(currentNumericCost) && currentNumericCost > 0) {
+                    const convertedUnitCost = currentNumericCost * factorRatio;
+                    merged.unit_cost = String(Number(convertedUnitCost.toFixed(4)));
+                }
+            }
+
+            const qtyNum = parseFloat(merged.quantity);
+            const hasValidQty = !isNaN(qtyNum) && qtyNum > 0;
+
+            // Synchronize unit_cost and purchase_price
+            if (patch.unit_cost !== undefined && patch.purchase_price === undefined) {
+                const unitCostNum = parseFloat(patch.unit_cost);
+                if (hasValidQty && !isNaN(unitCostNum) && unitCostNum >= 0) {
+                    merged.purchase_price = (qtyNum * unitCostNum).toFixed(2);
+                }
+            } else if (patch.purchase_price !== undefined && patch.unit_cost === undefined) {
+                const purchasePriceNum = parseFloat(patch.purchase_price);
+                if (hasValidQty && !isNaN(purchasePriceNum) && purchasePriceNum >= 0) {
+                    merged.unit_cost = (purchasePriceNum / qtyNum).toFixed(4);
+                }
+            } else if (patch.quantity !== undefined && patch.purchase_price === undefined) {
+                const unitCostNum = parseFloat(merged.unit_cost);
+                if (hasValidQty && !isNaN(unitCostNum) && unitCostNum >= 0) {
+                    merged.purchase_price = (qtyNum * unitCostNum).toFixed(2);
+                } else {
+                    const purchasePriceNum = parseFloat(merged.purchase_price);
+                    if (hasValidQty && !isNaN(purchasePriceNum) && purchasePriceNum >= 0) {
+                        merged.unit_cost = (purchasePriceNum / qtyNum).toFixed(4);
+                    }
+                }
+            }
+
+            return {
+                ...prev,
+                [ingredientId]: merged,
+            };
+        });
+
         // Clear specific validation error
         setValidationErrors((prev) => {
             const next = { ...prev };
@@ -374,9 +548,8 @@ export function ProductIngredientRestockModal({
                 included: true,
                 quantity: item.quantity,
                 unit: item.unit,
-                purchase_price: item.purchase_price ? parseFloat(item.purchase_price) : 0,
-                lot_number: item.row.lot_number || null,
-                batch_code: item.row.batch_code || null,
+                unit_cost: item.unit_cost,
+                purchase_price: item.total_batch_cost,
                 expiration_date: item.row.expiration_date || null,
                 expiration_type: item.row.expiration_type,
                 supplier_id: item.row.supplier_id ? Number(item.row.supplier_id) : null,
@@ -467,24 +640,24 @@ export function ProductIngredientRestockModal({
                             </div>
                         </div>
 
-                        {/* Branch Selector / Display */}
+                        {/* Branch Selector / Display in Header */}
                         <div className="flex items-center gap-2 self-start sm:self-center">
                             <span className="text-xs font-bold text-[#5D4A4D] dark:text-[#94A3B8] flex items-center gap-1.5 shrink-0">
                                 <Store className="size-3.5 text-[#E75480] dark:text-[#FF4F81]" />
-                                <span>Branch:</span>
+                                <span>Destination:</span>
                             </span>
 
-                            {isAdmin && branches.length > 1 ? (
+                            {isAdmin && availableBranches.length > 1 ? (
                                 <Select
                                     value={String(selectedBranchId)}
-                                    onValueChange={(val) => setSelectedBranchId(Number(val))}
-                                    disabled={step !== 'form' || loading || submitting}
+                                    onValueChange={(val) => handleBranchChange(Number(val))}
+                                    disabled={step !== 'form' || loading || submitting || isSwitchingBranch}
                                 >
-                                    <SelectTrigger className="h-9 min-w-40 rounded-xl bg-white dark:bg-[#181824] border-[#F8C8DC] dark:border-white/10 text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
-                                        <SelectValue placeholder="Select Branch" />
+                                    <SelectTrigger className="h-9 min-w-44 rounded-xl bg-white dark:bg-[#181824] border-[#F8C8DC] dark:border-white/10 text-xs font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                        <SelectValue placeholder="Select Destination Branch" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl border-[#F8C8DC] dark:border-white/10">
-                                        {branches.map((b) => (
+                                        {availableBranches.map((b) => (
                                             <SelectItem key={b.id} value={String(b.id)} className="text-xs font-semibold">
                                                 {b.name}
                                             </SelectItem>
@@ -569,6 +742,138 @@ export function ProductIngredientRestockModal({
                     ) : step === 'form' ? (
                         /* Step 3: Interactive Restock Form */
                         <div className="space-y-4">
+                            {/* Explicit Destination Branch Selector */}
+                            <div className="p-4 rounded-2xl bg-linear-to-r from-[#FFF5F7] via-white to-[#FFF5F7] dark:from-[#181822] dark:via-[#13131A] dark:to-[#181822] border-2 border-[#F8C8DC]/70 dark:border-white/10 shadow-xs">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-2 rounded-xl bg-[#E75480]/10 text-[#E75480] dark:bg-[#FF4F81]/15 dark:text-[#FF4F81]">
+                                            <Store className="size-4.5" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-black uppercase tracking-wider text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                    Destination Branch
+                                                </span>
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-[10px] font-extrabold border-[#E75480]/40 text-[#E75480] bg-white/80 dark:bg-black/30 px-2 py-0"
+                                                >
+                                                    Required
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[11px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                Choose target branch. Only the selected branch will receive inventory stock.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Real-time Status Indicator */}
+                                    <div className="sm:text-right shrink-0">
+                                        <span className="text-[10px] uppercase font-bold text-[#9E8B8E] dark:text-[#64748B] block">
+                                            Current Destination
+                                        </span>
+                                        <span className="text-xs font-black text-[#E75480] dark:text-[#FF4F81] flex items-center gap-1 sm:justify-end">
+                                            {isSwitchingBranch ? (
+                                                <RefreshCw className="size-3 animate-spin text-[#E75480]" />
+                                            ) : (
+                                                <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                            )}
+                                            <span>{currentBranch?.name || 'Selected Branch'}</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Branch Selection Buttons: Victoria & Sta. Cruz */}
+                                {isAdmin && availableBranches.length > 1 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        {availableBranches.map((b) => {
+                                            const isSelected = Number(selectedBranchId) === Number(b.id);
+                                            return (
+                                                <button
+                                                    key={b.id}
+                                                    type="button"
+                                                    onClick={() => handleBranchChange(Number(b.id))}
+                                                    disabled={loading || submitting || isSwitchingBranch}
+                                                    className={cn(
+                                                        "relative flex items-center justify-between p-3.5 rounded-xl border-2 transition-all duration-200 text-left cursor-pointer",
+                                                        isSelected
+                                                            ? "border-[#E75480] bg-white dark:bg-[#1C1C28] shadow-md ring-2 ring-[#E75480]/20"
+                                                            : "border-[#F8C8DC]/60 dark:border-white/10 bg-white/60 dark:bg-white/5 hover:border-[#E75480]/50 hover:bg-white dark:hover:bg-white/10"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className={cn(
+                                                                "p-2 rounded-xl transition-colors",
+                                                                isSelected
+                                                                    ? "bg-[#E75480] text-white shadow-xs"
+                                                                    : "bg-[#FFF0F4] dark:bg-white/10 text-[#7D6B6E] dark:text-[#94A3B8]"
+                                                            )}
+                                                        >
+                                                            <Building2 className="size-4" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                                {b.name}
+                                                            </div>
+                                                            <div className="text-[10px] font-medium text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                                {isSelected
+                                                                    ? "Active Destination • Balances Loaded"
+                                                                    : "Click to restock this branch instead"}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="shrink-0 ml-2">
+                                                        {isSelected ? (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-black text-[#E75480] dark:text-[#FF4F81] bg-[#FFF0F4] dark:bg-[#E75480]/20 px-2.5 py-1 rounded-full border border-[#E75480]/30 shadow-2xs">
+                                                                <Check className="size-3 stroke-3" />
+                                                                <span>Selected</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] font-bold text-[#9E8B8E] hover:text-[#5D4A4D] px-2 py-0.5">
+                                                                Switch
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    /* Single Branch Authorized (e.g. Cashier) */
+                                    <div className="p-3.5 rounded-xl bg-white dark:bg-[#1C1C28] border border-[#F8C8DC]/60 dark:border-white/10 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-xl bg-[#E75480] text-white shadow-xs">
+                                                <Building2 className="size-4" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                                    {currentBranch?.name || 'Assigned Branch'}
+                                                </div>
+                                                <div className="text-[10px] text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                    Authorized Staff Destination (Restricted to Assigned Location)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Badge
+                                            variant="outline"
+                                            className="border-[#E75480]/40 text-[#E75480] bg-[#FFF0F4] dark:bg-[#E75480]/20 text-xs font-bold"
+                                        >
+                                            Single Branch Authorized
+                                        </Badge>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Switching Branch Live Feedback */}
+                            {isSwitchingBranch && (
+                                <div className="p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300 text-xs font-bold animate-pulse">
+                                    <RefreshCw className="size-3.5 animate-spin" />
+                                    <span>Updating ingredient inventory balances for {currentBranch?.name}...</span>
+                                </div>
+                            )}
+
                             {/* Toolbar: Search & Batch Action */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#F8C8DC]/30 dark:border-white/5">
                                 <div className="relative flex-1 max-w-sm">
@@ -623,12 +928,11 @@ export function ProductIngredientRestockModal({
                                         included: true,
                                         quantity: '',
                                         unit: ing.unit,
-                                        lot_number: '',
-                                        batch_code: '',
                                         expiration_date: '',
                                         expiration_type: 'use_by',
                                         supplier_id: '',
                                         supplier_name: '',
+                                        unit_cost: '',
                                         purchase_price: '',
                                         notes: '',
                                     };
@@ -645,6 +949,31 @@ export function ProductIngredientRestockModal({
                                         resultingStock = Number(convertFromBaseQuantity(totalBase, ing.unit).toFixed(3));
                                     }
 
+                                    // Unit acquisition cost calculation for current branch
+                                    const effectiveBaseCost = ing.current_cost_per_base_unit ?? ing.cost_per_base_unit ?? 0;
+                                    const receiptFactor = convertToBaseQuantity(1, row.unit);
+                                    const currentCostPerReceiptUnit = effectiveBaseCost * receiptFactor;
+                                    const ingDisplayFactor = convertToBaseQuantity(1, ing.unit);
+                                    const currentCostPerDisplayUnit = effectiveBaseCost * ingDisplayFactor;
+
+                                    // Real-time WAC simulation
+                                    const parsedUnitCost = parseFloat(row.unit_cost);
+                                    const parsedPurchasePrice = parseFloat(row.purchase_price);
+                                    const totalBatchCost = !isNaN(parsedPurchasePrice) && parsedPurchasePrice >= 0
+                                        ? parsedPurchasePrice
+                                        : (!isNaN(parsedUnitCost) && parsedUnitCost >= 0 && hasValidQty ? parsedUnitCost * qty : 0);
+
+                                    const receivedBase = hasValidQty ? convertToBaseQuantity(qty, row.unit) : 0;
+                                    const resultingBase = ing.current_stock_base + receivedBase;
+                                    const currentTotalVal = ing.total_stock_value && ing.total_stock_value > 0
+                                        ? ing.total_stock_value
+                                        : (ing.current_stock_base * effectiveBaseCost);
+                                    const newTotalVal = currentTotalVal + (hasValidQty ? totalBatchCost : 0);
+                                    const newWacBase = resultingBase > 0
+                                        ? (newTotalVal / resultingBase)
+                                        : (totalBatchCost > 0 && receivedBase > 0 ? (totalBatchCost / receivedBase) : effectiveBaseCost);
+                                    const newWacDisplay = newWacBase * ingDisplayFactor;
+
                                     const isRowError = Object.keys(validationErrors).some((k) =>
                                         k.includes(`items.`) && k.includes(String(ing.id))
                                     );
@@ -660,9 +989,9 @@ export function ProductIngredientRestockModal({
                                                 isRowError && "border-rose-400 dark:border-rose-800 bg-rose-50/30 dark:bg-rose-950/20"
                                             )}
                                         >
-                                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                                {/* Left Column: Checkbox, Name, Recipe spec & Current Stock */}
-                                                <div className="flex items-start gap-3 min-w-60">
+                                            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                                                {/* Left Column: Checkbox, Name, Recipe spec, Current Stock & Current Unit Cost */}
+                                                <div className="flex items-start gap-3 min-w-64">
                                                     <input
                                                         type="checkbox"
                                                         checked={row.included}
@@ -696,27 +1025,57 @@ export function ProductIngredientRestockModal({
                                                             </span>
                                                         </div>
 
-                                                        <div className="flex items-center gap-1.5 mt-1 text-[11px] font-bold">
-                                                            <span className="text-[#9E8B8E] dark:text-[#64748B]">Current Branch Stock:</span>
+                                                        <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] font-bold">
+                                                            <span className="text-[#9E8B8E] dark:text-[#64748B]">
+                                                                Stock at <span className="text-[#3D2C2E] dark:text-[#F8FAFC]">{currentBranch?.name || 'Selected Branch'}</span>:
+                                                            </span>
                                                             <span className={cn(
                                                                 "font-mono px-1.5 py-0.2 rounded border text-[11px]",
                                                                 ing.current_stock <= 0
                                                                     ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200"
+                                                                    : ing.current_stock <= (ing.recipe_quantity * 5)
+                                                                    ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200"
                                                                     : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200"
                                                             )}>
                                                                 {ing.current_stock} {ing.unit}
+                                                            </span>
+                                                            {ing.current_stock <= 0 ? (
+                                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-rose-300 bg-rose-50 dark:bg-rose-950/30 text-rose-700 font-bold">
+                                                                    Out of Stock
+                                                                </Badge>
+                                                            ) : ing.current_stock <= (ing.recipe_quantity * 5) ? (
+                                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-700 font-bold">
+                                                                    Low Stock
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 font-bold">
+                                                                    In Stock
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Current Unit Acquisition Cost */}
+                                                        <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] font-bold">
+                                                            <span className="text-[#9E8B8E] dark:text-[#64748B]">Current Unit Cost:</span>
+                                                            <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-[#FFF5F7] dark:bg-white/5 border border-[#F8C8DC]/60 dark:border-white/10 text-[#5D4A4D] dark:text-[#CBD5E1]">
+                                                                {formatCurrency(currentCostPerReceiptUnit)} / {row.unit}
+                                                                {row.unit !== ing.unit && (
+                                                                    <span className="opacity-70 ml-1.5 text-[10px]">
+                                                                        ({formatCurrency(currentCostPerDisplayUnit)} / {ing.unit})
+                                                                    </span>
+                                                                )}
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Center/Right Inputs: Received Quantity, Unit, Resulting Stock Preview */}
-                                                <div className="flex flex-wrap items-center gap-3 flex-1 justify-end">
+                                                {/* Center/Right Inputs: Received Quantity, Unit, Unit Cost, Total Cost, Resulting WAC, Expiration, Resulting Stock */}
+                                                <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
                                                     {/* Quantity Input */}
-                                                    <div className="space-y-1 w-28">
+                                                    <div className="space-y-1 w-24">
                                                         <div className="flex items-center justify-between">
                                                             <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
-                                                                Quantity <span className="text-rose-500">*</span>
+                                                                Qty <span className="text-rose-500">*</span>
                                                             </Label>
                                                             {initialSuggestedQuantities?.[ing.id] != null && Number(initialSuggestedQuantities[ing.id]) > 0 && (
                                                                 <span className="text-[9px] font-bold text-[#E75480] dark:text-[#FF4F81] font-mono" title="Suggested from Prescriptive Analytics">
@@ -737,7 +1096,7 @@ export function ProductIngredientRestockModal({
                                                     </div>
 
                                                     {/* Unit Dropdown */}
-                                                    <div className="space-y-1 w-24">
+                                                    <div className="space-y-1 w-20">
                                                         <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
                                                             Unit
                                                         </Label>
@@ -746,7 +1105,7 @@ export function ProductIngredientRestockModal({
                                                             onValueChange={(val) => updateRow(ing.id, { unit: val })}
                                                             disabled={!row.included}
                                                         >
-                                                            <SelectTrigger className="h-9 rounded-xl border-[#F8C8DC]/80 dark:border-white/10 text-xs font-semibold">
+                                                            <SelectTrigger className="h-9 rounded-xl border-[#F8C8DC]/80 dark:border-white/10 text-xs font-semibold px-2">
                                                                 <SelectValue placeholder="Unit" />
                                                             </SelectTrigger>
                                                             <SelectContent className="rounded-xl border-[#F8C8DC]">
@@ -759,8 +1118,65 @@ export function ProductIngredientRestockModal({
                                                         </Select>
                                                     </div>
 
+                                                    {/* Unit Acquisition Cost */}
+                                                    <div className="space-y-1 w-28">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] truncate block" title={`Cost in ₱ per ${row.unit}`}>
+                                                            Unit Cost (₱/{row.unit})
+                                                        </Label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#9E8B8E] pointer-events-none">₱</span>
+                                                            <Input
+                                                                type="number"
+                                                                step="any"
+                                                                min="0"
+                                                                placeholder="0.00"
+                                                                disabled={!row.included}
+                                                                value={row.unit_cost}
+                                                                onChange={(e) => updateRow(ing.id, { unit_cost: e.target.value })}
+                                                                className="h-9 pl-6 font-mono font-bold text-xs rounded-xl border-[#F8C8DC]/80 dark:border-white/10"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Total Batch Acquisition Cost */}
+                                                    <div className="space-y-1 w-28">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] truncate block">
+                                                            Total Cost (₱)
+                                                        </Label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#9E8B8E] pointer-events-none">₱</span>
+                                                            <Input
+                                                                type="number"
+                                                                step="any"
+                                                                min="0"
+                                                                placeholder="0.00"
+                                                                disabled={!row.included}
+                                                                value={row.purchase_price}
+                                                                onChange={(e) => updateRow(ing.id, { purchase_price: e.target.value })}
+                                                                className="h-9 pl-6 font-mono font-bold text-xs rounded-xl border-[#F8C8DC]/80 dark:border-white/10"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Live Resulting WAC Preview */}
+                                                    <div className="space-y-1 min-w-26 text-right">
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block truncate" title="Updated weighted-average cost after receipt">
+                                                            Est. New WAC
+                                                        </span>
+                                                        <div className="flex items-center justify-end font-mono">
+                                                            <span className={cn(
+                                                                "text-xs font-bold px-1.5 py-1 rounded-lg border",
+                                                                hasValidQty && row.included
+                                                                    ? "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200"
+                                                                    : "bg-slate-100 dark:bg-white/5 text-[#7D6B6E] border-slate-200"
+                                                            )}>
+                                                                {formatCurrency(newWacDisplay)} / {ing.unit}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
                                                     {/* Expiration Date Input (if applicable) */}
-                                                    <div className="space-y-1 w-34">
+                                                    <div className="space-y-1 w-32">
                                                         <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] flex items-center justify-between">
                                                             <span>Expiration</span>
                                                             {ing.requires_expiration_tracking && <span className="text-rose-500">*</span>}
@@ -774,42 +1190,8 @@ export function ProductIngredientRestockModal({
                                                         />
                                                     </div>
 
-                                                    {/* Lot/Batch Number */}
-                                                    <div className="space-y-1 w-28">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
-                                                            Lot / Batch #
-                                                        </Label>
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="LOT-2026..."
-                                                            disabled={!row.included}
-                                                            value={row.lot_number}
-                                                            onChange={(e) => updateRow(ing.id, { lot_number: e.target.value })}
-                                                            className="h-9 text-xs font-mono rounded-xl border-[#F8C8DC]/80 dark:border-white/10"
-                                                        />
-                                                    </div>
-
-                                                    {/* Acquisition Cost (Admin only) */}
-                                                    {isAdmin && (
-                                                        <div className="space-y-1 w-26">
-                                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B]">
-                                                                Total Cost (₱)
-                                                            </Label>
-                                                            <Input
-                                                                type="number"
-                                                                step="any"
-                                                                min="0"
-                                                                placeholder="0.00"
-                                                                disabled={!row.included}
-                                                                value={row.purchase_price}
-                                                                onChange={(e) => updateRow(ing.id, { purchase_price: e.target.value })}
-                                                                className="h-9 font-mono text-xs rounded-xl border-[#F8C8DC]/80 dark:border-white/10"
-                                                            />
-                                                        </div>
-                                                    )}
-
                                                     {/* Live Resulting Stock Preview */}
-                                                    <div className="space-y-1 min-w-30 text-right pl-2">
+                                                    <div className="space-y-1 min-w-28 text-right pl-1">
                                                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#9E8B8E] dark:text-[#64748B] block">
                                                             Resulting Stock
                                                         </span>
@@ -838,41 +1220,75 @@ export function ProductIngredientRestockModal({
                     ) : step === 'confirm' ? (
                         /* Step 4: Confirmation Summary View */
                         <div className="space-y-5">
-                            <div className="p-4 rounded-2xl bg-[#FFF5F7] dark:bg-[#181824] border border-[#F8C8DC]/80 dark:border-white/10 flex items-center justify-between">
-                                <div>
-                                    <div className="text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
-                                        Restocking Destination:
+                            {/* Prominent Destination Branch & Total Acquisition Cost Card */}
+                            <div className="p-4 rounded-2xl bg-linear-to-r from-[#FFF5F7] via-white to-[#FFF5F7] dark:from-[#181822] dark:via-[#13131A] dark:to-[#181822] border-2 border-[#E75480]/60 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="p-3 rounded-2xl bg-[#E75480] text-white shadow-md">
+                                        <Building2 className="size-6" />
                                     </div>
-                                    <div className="text-base font-black text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-1.5 mt-0.5">
-                                        <Store className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                                        <span>{currentBranch?.name}</span>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-black uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                                Target Destination Branch
+                                            </span>
+                                            <Badge className="bg-[#E75480] text-white text-[10px] font-extrabold uppercase">
+                                                Restock Destination
+                                            </Badge>
+                                        </div>
+                                        <div className="text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC] flex items-center gap-1.5 mt-0.5">
+                                            <span>{currentBranch?.name}</span>
+                                        </div>
+                                        <div className="text-xs text-[#7D6B6E] dark:text-[#94A3B8]">
+                                            Stock and inventory valuations will be received exclusively into this branch ledger.
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="text-right">
-                                    <div className="text-xs font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
-                                        Ingredients to Restock:
+                                <div className="flex items-center gap-4">
+                                    <div className="sm:text-right p-3 rounded-xl bg-white/80 dark:bg-black/30 border border-[#F8C8DC]/60 dark:border-white/10">
+                                        <div className="text-[11px] font-bold text-[#7D6B6E] dark:text-[#94A3B8]">
+                                            Items to Restock
+                                        </div>
+                                        <div className="text-lg font-black text-[#3D2C2E] dark:text-[#F8FAFC]">
+                                            {preparedReceipts.length} Item{preparedReceipts.length > 1 ? 's' : ''}
+                                        </div>
                                     </div>
-                                    <div className="text-lg font-black text-[#E75480] dark:text-[#FF4F81]">
-                                        {preparedReceipts.length} Item{preparedReceipts.length > 1 ? 's' : ''}
+
+                                    <div className="sm:text-right p-3 rounded-xl bg-linear-to-br from-[#FFF0F4] to-white dark:from-[#1E1E2C] dark:to-[#14141E] border-2 border-[#E75480]/40 shadow-xs">
+                                        <div className="text-[11px] font-black uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">
+                                            Total Restock Cost
+                                        </div>
+                                        <div className="text-xl font-black text-[#E75480] dark:text-[#FF4F81] font-mono">
+                                            {formatCurrency(totalAcquisitionCost)}
+                                        </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Isolation Notice Alert */}
+                            <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+                                <ShieldAlert className="size-4.5 shrink-0 text-amber-600 mt-0.5" />
+                                <div>
+                                    <strong className="font-extrabold">Branch Isolation Protected:</strong> This restock operation will record inventory batches only for <span className="font-black underline">{currentBranch?.name}</span>. Other branch inventories and customer selling prices will remain untouched.
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <h5 className="text-xs font-extrabold uppercase tracking-wider text-[#5D4A4D] dark:text-[#94A3B8]">
-                                    Summary of Incoming Inventory Receipts
+                                    Summary of Incoming Inventory Receipts & Cost Valuation
                                 </h5>
 
-                                <div className="border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl overflow-hidden">
+                                <div className="border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl overflow-hidden shadow-2xs">
                                     <table className="w-full text-left text-xs">
                                         <thead className="bg-[#FFF5F7] dark:bg-white/5 border-b border-[#F8C8DC]/40 text-[#5D4A4D] dark:text-[#94A3B8] font-bold">
                                             <tr>
                                                 <th className="p-3 pl-4">Ingredient</th>
                                                 <th className="p-3">Received Qty</th>
-                                                <th className="p-3">Current Stock</th>
+                                                <th className="p-3">Unit Acquisition Cost</th>
+                                                <th className="p-3">Total Batch Cost</th>
                                                 <th className="p-3">Resulting Stock</th>
-                                                <th className="p-3">Lot / Expiration</th>
+                                                <th className="p-3">Est. New WAC</th>
+                                                <th className="p-3">Expiration Date</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#F8C8DC]/30 dark:divide-white/5 font-medium text-[#3D2C2E] dark:text-[#F8FAFC]">
@@ -884,11 +1300,21 @@ export function ProductIngredientRestockModal({
                                                     <td className="p-3 font-mono font-extrabold text-[#E75480] dark:text-[#FF4F81]">
                                                         +{item.quantity} {item.unit}
                                                     </td>
-                                                    <td className="p-3 font-mono text-[#7D6B6E]">
-                                                        {item.current_stock} {item.ingredient.unit}
+                                                    <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">
+                                                        {formatCurrency(item.unit_cost)} / {item.unit}
                                                     </td>
-                                                    <td className="p-3 font-mono font-black text-emerald-600 dark:text-emerald-400">
-                                                        {item.resulting_stock} {item.ingredient.unit}
+                                                    <td className="p-3 font-mono font-black text-[#E75480] dark:text-[#FF4F81]">
+                                                        {formatCurrency(item.total_batch_cost)}
+                                                    </td>
+                                                    <td className="p-3 font-mono">
+                                                        <span className="text-[#7D6B6E]">{item.current_stock}</span>
+                                                        <span className="mx-1 text-[#E75480]">&rarr;</span>
+                                                        <span className="font-black text-emerald-600 dark:text-emerald-400">
+                                                            {item.resulting_stock} {item.ingredient.unit}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3 font-mono font-bold text-purple-700 dark:text-purple-300">
+                                                        {formatCurrency(item.new_wac_display)} / {item.ingredient.unit}
                                                     </td>
                                                     <td className="p-3 font-mono text-[11px] text-[#7D6B6E]">
                                                         {item.expiration_date ? (
@@ -899,15 +1325,23 @@ export function ProductIngredientRestockModal({
                                                         ) : (
                                                             'Standard Non-expiring'
                                                         )}
-                                                        {item.lot_number && (
-                                                            <span className="block text-[10px] text-[#9E8B8E]">
-                                                                Lot: {item.lot_number}
-                                                            </span>
-                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}
                                         </tbody>
+                                        <tfoot className="bg-[#FFF5F7]/80 dark:bg-white/5 border-t border-[#F8C8DC]/60 font-bold">
+                                            <tr>
+                                                <td colSpan={3} className="p-3 pl-4 text-[#5D4A4D] uppercase text-[11px]">
+                                                    Total Batch Investment
+                                                </td>
+                                                <td className="p-3 font-mono font-black text-sm text-[#E75480] dark:text-[#FF4F81]">
+                                                    {formatCurrency(totalAcquisitionCost)}
+                                                </td>
+                                                <td colSpan={3} className="p-3 text-right text-[11px] text-[#7D6B6E]">
+                                                    {preparedReceipts.length} recipe item{preparedReceipts.length > 1 ? 's' : ''} to replenish
+                                                </td>
+                                            </tr>
+                                        </tfoot>
                                     </table>
                                 </div>
                             </div>
@@ -915,7 +1349,7 @@ export function ProductIngredientRestockModal({
                             <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 text-blue-900 dark:text-blue-200 text-xs flex items-center gap-2">
                                 <Info className="size-4 shrink-0 text-blue-600" />
                                 <span>
-                                    These items will be recorded as traceable FIFO/FEFO batches in {currentBranch?.name}'s shared inventory, making them available to all products that use these ingredients.
+                                    These items will be recorded as traceable FIFO/FEFO batches in {currentBranch?.name}'s shared inventory with authoritative acquisition costs and updated weighted average costs.
                                 </span>
                             </div>
                         </div>
@@ -933,31 +1367,54 @@ export function ProductIngredientRestockModal({
                                 <p className="text-xs text-[#7D6B6E] dark:text-[#94A3B8] mt-1 max-w-md mx-auto">
                                     {successData?.message || `Successfully replenished raw ingredients for ${product?.name}.`}
                                 </p>
+                                <div className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#FFF0F4] dark:bg-white/10 border border-[#E75480]/30 text-xs font-bold text-[#E75480] dark:text-[#FF4F81]">
+                                    <Store className="size-3.5" />
+                                    <span>Restocked Destination: <strong>{successData?.branch_name || currentBranch?.name}</strong></span>
+                                </div>
                             </div>
 
                             {successData?.receipts && successData.receipts.length > 0 && (
-                                <div className="w-full max-w-lg border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl overflow-hidden text-left text-xs mt-2">
-                                    <div className="p-3 bg-[#FFF5F7] dark:bg-white/5 border-b border-[#F8C8DC]/40 font-bold text-[#5D4A4D]">
-                                        Recorded Receipts & Updated Batch Stock
+                                <div className="w-full max-w-xl border border-[#F8C8DC]/60 dark:border-white/10 rounded-2xl overflow-hidden text-left text-xs mt-2 shadow-sm">
+                                    <div className="p-3 bg-[#FFF5F7] dark:bg-white/5 border-b border-[#F8C8DC]/40 font-bold text-[#5D4A4D] flex items-center justify-between">
+                                        <span>Recorded Receipts & Inventory Valuation</span>
+                                        <span className="text-[11px] font-mono text-[#E75480]">
+                                            {successData.receipts.length} Item{successData.receipts.length > 1 ? 's' : ''} Received
+                                        </span>
                                     </div>
-                                    <div className="divide-y divide-[#F8C8DC]/30 max-h-52 overflow-y-auto">
+                                    <div className="divide-y divide-[#F8C8DC]/30 max-h-60 overflow-y-auto">
                                         {successData.receipts.map((r, i) => (
-                                            <div key={i} className="p-3 flex items-center justify-between">
+                                            <div key={i} className="p-3 flex items-center justify-between gap-3">
                                                 <div>
                                                     <span className="font-bold text-[#3D2C2E] dark:text-[#F8FAFC]">
                                                         {r.ingredient_name}
                                                     </span>
-                                                    <span className="text-[11px] text-[#9E8B8E] block">
-                                                        Batch: {r.batch_code || 'Auto-generated'}
-                                                    </span>
+                                                    <div className="text-[11px] text-[#9E8B8E] flex items-center gap-2 mt-0.5">
+                                                        <span>Batch: {r.batch_code || 'Auto-generated'}</span>
+                                                        {r.purchase_price !== undefined && Number(r.purchase_price) > 0 && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <span className="font-mono text-[#5D4A4D] dark:text-[#CBD5E1]">
+                                                                    Batch Cost: {formatCurrency(Number(r.purchase_price))}
+                                                                    {r.unit_cost !== undefined && Number(r.unit_cost) > 0 && (
+                                                                        <span className="ml-1 opacity-80">({formatCurrency(Number(r.unit_cost))} / {r.unit})</span>
+                                                                    )}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="text-right font-mono">
-                                                    <span className="font-bold text-emerald-600">
+                                                    <span className="font-bold text-emerald-600 block">
                                                         +{r.quantity} {r.unit}
                                                     </span>
                                                     <span className="text-[11px] text-[#7D6B6E] block">
                                                         New Stock: {r.new_stock} {r.stock_unit}
                                                     </span>
+                                                    {r.cost_per_unit !== undefined && Number(r.cost_per_unit) > 0 && (
+                                                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block">
+                                                            New WAC: {formatCurrency(Number(r.cost_per_unit))} / {r.stock_unit}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -1018,7 +1475,7 @@ export function ProductIngredientRestockModal({
                                 ) : (
                                     <>
                                         <Check className="size-4" />
-                                        <span>Confirm Restock ({preparedReceipts.length} Items)</span>
+                                        <span>Confirm Restock to {currentBranch?.name} ({preparedReceipts.length} Items)</span>
                                     </>
                                 )}
                             </Button>

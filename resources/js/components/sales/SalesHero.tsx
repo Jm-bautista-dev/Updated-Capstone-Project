@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { DollarSign, ShoppingBag, TrendingUp, CheckCircle, Clock, Store } from 'lucide-react';
+import { ShoppingBag, TrendingUp, CheckCircle, Clock, Store } from 'lucide-react';
 import { useMemo } from 'react';
+import { PesoSign } from '@/components/ui/peso-sign';
 import { cn } from '@/lib/utils';
 
 export type SaleItem = {
@@ -191,7 +192,7 @@ export function SalesHero({ stats, activeBranchName }: SalesHeroProps) {
                                 <span className="text-[10px] text-(--ops-text-muted) cursor-help" title={stats?.definition || "Recognized net food revenue from completed transactions today (after discounts, excluding delivery fees)"}>ⓘ</span>
                             </div>
                             <div className="size-10 rounded-2xl bg-[#FFF5F7] dark:bg-[#20202C] text-[#E75480] dark:text-[#FF4F81] border border-[#F8C8DC]/50 dark:border-white/10 flex items-center justify-center shadow-2xs">
-                                <DollarSign className="size-5" />
+                                <PesoSign className="size-5" />
                             </div>
                         </div>
                         <div className="mt-3 space-y-1">

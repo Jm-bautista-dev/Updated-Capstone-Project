@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Layers, Plus, Trash2, ShieldCheck, DollarSign, Loader2, Sparkles } from 'lucide-react';
+import { Layers, Plus, Trash2, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
@@ -14,6 +14,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { PesoSign } from '@/components/ui/peso-sign';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount ?? 0);
@@ -348,7 +349,7 @@ export function CompositeSubrecipeModal({
                         <div className="p-4 rounded-2xl bg-linear-to-r from-emerald-50/70 to-teal-50/70 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                    <DollarSign className="size-5" />
+                                    <PesoSign className="size-5" />
                                 </div>
                                 <div>
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">

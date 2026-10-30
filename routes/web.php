@@ -96,6 +96,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/inventory/mass-stock-in', [App\Http\Controllers\StockInController::class, 'massStore'])->name('inventory.mass-stock-in');
 
+        // Branch-filterable sales per product JSON API (Admin and Cashier)
+        Route::middleware(['role:admin,cashier'])->get('analytics/sales-per-product', [AnalyticsController::class, 'salesPerProductJson'])->name('analytics.sales-per-product');
+
         // Admin ONLY Routes
         Route::middleware(['role:admin'])->group(function () {
             Route::get('dashboard', [AnalyticsController::class, 'index'])->name('dashboard');
@@ -150,6 +153,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Sales Data Management (Admin only)
             Route::get('admin/sales-data', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'index'])->name('admin.sales-data.index');
+            Route::get('admin/sales-data/export', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'export'])->name('admin.sales-data.export');
             Route::get('admin/sales-data/template', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'downloadTemplate'])->name('admin.sales-data.template');
             Route::post('admin/sales-data/validate', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'validateFile'])->name('admin.sales-data.validate');
             Route::post('admin/sales-data/import', [App\Http\Controllers\Admin\SalesDataManagementController::class, 'import'])->name('admin.sales-data.import');
@@ -227,7 +231,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Sales
             Route::get('sales', [App\Http\Controllers\SalesController::class, 'index'])->name('sales.index');
             Route::get('sales/export/summary', [App\Http\Controllers\SalesController::class, 'exportSummary'])->name('sales.export.summary');
-            Route::get('sales/export', [App\Http\Controllers\SalesController::class, 'exportCsv'])->name('sales.export');
+            Route::get('sales/export/excel', [App\Http\Controllers\SalesController::class, 'exportExcel'])->name('sales.export.excel');
+            Route::get('sales/export', [App\Http\Controllers\SalesController::class, 'export'])->name('sales.export');
             Route::match(['put', 'patch'], 'sales/{sale}/status', [App\Http\Controllers\SalesController::class, 'updateStatus'])->name('sales.updateStatus');
 
             // Deliveries

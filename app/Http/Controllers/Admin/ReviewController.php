@@ -261,8 +261,9 @@ class ReviewController extends Controller
         // Execute server-side pagination with sanitized page parameter
         $paginator = $reviewsQuery->latest('id')->paginate($perPage, ['*'], 'page', $page)->withQueryString();
 
-        // If requested page is beyond last page (e.g. after deletion), fetch the last valid page
-        if ($paginator->isEmpty() && $paginator->total() > 0 && $page > $paginator->lastPage()) {
+        // If requested page is beyond last page (e.g. after deletion), fetch the last valid page only for non-JSON requests
+        $isJsonRequest = request()->wantsJson() && !request()->header('X-Inertia');
+        if (!$isJsonRequest && $paginator->isEmpty() && $paginator->total() > 0 && $page > $paginator->lastPage()) {
             $paginator = $reviewsQuery->latest('id')->paginate($perPage, ['*'], 'page', $paginator->lastPage())->withQueryString();
         }
 

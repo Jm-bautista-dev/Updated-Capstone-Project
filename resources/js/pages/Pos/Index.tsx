@@ -16,9 +16,7 @@ import {
   FiPrinter, 
   FiArrowLeft,
   FiCreditCard,
-  FiDollarSign,
   FiSmartphone,
-  FiChevronRight,
   FiRefreshCw,
   FiX,
   FiMenu,
@@ -45,6 +43,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { PesoSign } from '@/components/ui/peso-sign';
 import { useSidebar } from '@/components/ui/sidebar';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
@@ -354,7 +353,7 @@ export default function PosIndex() {
         });
       }
     }
-  }, []);
+  }, [initialHydration.cart.length, initialHydration.isRestored, initialHydration.notices]);
 
   // --- Auto-persist Cart State to Scoped Browser Storage ---
   useEffect(() => {
@@ -387,7 +386,9 @@ export default function PosIndex() {
           setActiveDiscount(fresh.activeDiscount);
           setDeliveryInfo(fresh.deliveryInfo);
           setCalculatedDeliveryFee(fresh.calculatedDeliveryFee);
-        } catch {}
+        } catch {
+          // ignore storage read / parse errors
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -1783,7 +1784,7 @@ export default function PosIndex() {
                   <label className="text-xs font-bold uppercase text-[#7D6B6E] dark:text-zinc-400 block">Payment Method</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
-                      { id: 'cash', label: 'CASH', icon: FiDollarSign, desc: 'Pay with cash bill' },
+                      { id: 'cash', label: 'CASH', icon: PesoSign, desc: 'Pay with cash bill' },
                       { id: 'card', label: 'CARD', icon: FiCreditCard, desc: 'Credit / Debit terminal' },
                       { id: 'e-wallet', label: 'E-WALLET', icon: FiSmartphone, desc: 'GCash / PayMaya QR' },
                     ].map(pm => {

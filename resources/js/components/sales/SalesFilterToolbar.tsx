@@ -3,8 +3,7 @@ import {
     Filter,
     LayoutGrid,
     Table as TableIcon,
-    Download,
-    Printer
+    Download
 } from 'lucide-react';
 import React from 'react';
 
@@ -35,7 +34,6 @@ interface SalesFilterToolbarProps {
     branches: Branch[];
     isAdmin?: boolean;
     onExportSales: () => void;
-    onPrintReport: () => void;
 }
 
 export function SalesFilterToolbar({
@@ -52,7 +50,6 @@ export function SalesFilterToolbar({
     branches,
     isAdmin = false,
     onExportSales,
-    onPrintReport,
 }: SalesFilterToolbarProps) {
     return (
         <div className="rounded-3xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 p-5 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-colors duration-300 space-y-4 font-['Outfit']">
@@ -80,7 +77,7 @@ export function SalesFilterToolbar({
                     )}
                 </div>
 
-                {/* Export CSV & Print Report Actions */}
+                {/* Export CSV Action */}
                 <div className="flex items-center gap-2.5 flex-wrap self-end md:self-auto">
                     
                     <Button
@@ -90,16 +87,6 @@ export function SalesFilterToolbar({
                     >
                         <Download className="size-4" />
                         <span>Export CSV</span>
-                    </Button>
-
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onPrintReport}
-                        className="h-11 px-4 rounded-2xl border-[#F8C8DC]/60 dark:border-white/10 bg-white dark:bg-[#181820] text-[#3D2C2E] dark:text-[#E2E8F0] hover:bg-[#FFF5F7] dark:hover:bg-white/10 text-xs font-bold gap-2 cursor-pointer shadow-2xs"
-                    >
-                        <Printer className="size-4 text-[#E75480] dark:text-[#FF4F81]" />
-                        <span>Print Report</span>
                     </Button>
 
                 </div>

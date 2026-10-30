@@ -1,11 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft, Mail, Phone, MapPin, User, Package, AlertTriangle, Calendar,
-    Truck, ExternalLink, DollarSign, Info, ShieldCheck, Clock
+    Truck, ExternalLink, Info, ShieldCheck, Clock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PesoSign } from '@/components/ui/peso-sign';
 import AppLayout from '@/layouts/app-layout';
 
 /* ─── Types ──────────────────────────────────────────────────── */
@@ -228,7 +229,7 @@ export default function SupplierShow({ supplier }: Props) {
                                                         </td>
                                                         <td className="px-5 py-3.5 text-right font-mono font-bold">
                                                             <span className="flex items-center justify-end gap-0.5">
-                                                                <DollarSign className="size-3 text-muted-foreground" />
+                                                                <PesoSign className="size-3 text-muted-foreground" />
                                                                 {Number(item.cost_price).toFixed(2)}
                                                             </span>
                                                         </td>

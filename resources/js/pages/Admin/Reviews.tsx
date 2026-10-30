@@ -84,9 +84,13 @@ export default function Reviews({
     const [branchFilter, setBranchFilter] = useState(filters.branch_id || 'all');
     const [perPage, setPerPage] = useState(filters.per_page || 10);
 
-    // Progressive Pagination & Loading States
+    // Progressive Pagination & Loading States (Server-authoritative)
     const [currentPage, setCurrentPage] = useState<number>(reviews.current_page || 1);
-    const [hasMore, setHasMore] = useState<boolean>(() => reviews.current_page < reviews.last_page);
+    const [lastPage, setLastPage] = useState<number>(reviews.last_page || 1);
+    const [totalReviews, setTotalReviews] = useState<number>(reviews.total || 0);
+    const [hasMore, setHasMore] = useState<boolean>(() =>
+        Boolean(reviews.has_more !== undefined ? reviews.has_more : reviews.current_page < reviews.last_page)
+    );
     const [isPageLoading, setIsPageLoading] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [pageError, setPageError] = useState<string | null>(null);
@@ -94,6 +98,8 @@ export default function Reviews({
 
     const isFetchingRef = useRef<boolean>(false);
     const fetchedPagesRef = useRef<Set<number>>(new Set([reviews.current_page || 1]));
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const requestIdRef = useRef<number>(0);
     const observerRef = useRef<IntersectionObserver | null>(null);
     const sentinelNodeRef = useRef<HTMLDivElement | null>(null);
     const reviewsListRef = useRef<HTMLDivElement>(null);
@@ -105,6 +111,8 @@ export default function Reviews({
     isLoadingMoreRef.current = isLoadingMore;
     const isPageLoadingRef = useRef(isPageLoading);
     isPageLoadingRef.current = isPageLoading;
+    const loadMoreErrorRef = useRef(loadMoreError);
+    loadMoreErrorRef.current = loadMoreError;
 
     // Modals
     const [activeReviewDetail, setActiveReviewDetail] = useState<ReviewItem | null>(null);
@@ -129,6 +137,18 @@ export default function Reviews({
         return [...prev, ...uniqueIncoming];
     };
 
+    // Cancel in-flight progressive pagination requests
+    const cancelPendingRequests = useCallback(() => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        requestIdRef.current++;
+        isFetchingRef.current = false;
+        setIsLoadingMore(false);
+        setLoadMoreError(null);
+    }, []);
+
     // Sync props updates during render (e.g. after filter, search, or product change via Inertia)
     const [prevProps, setPrevProps] = useState({ productList, reviews, selectedProductId });
     if (
@@ -136,11 +156,18 @@ export default function Reviews({
         prevProps.reviews !== reviews ||
         prevProps.selectedProductId !== selectedProductId
     ) {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        requestIdRef.current++;
         setPrevProps({ productList, reviews, selectedProductId });
         setLocalProductList(productList);
         setLocalReviews(reviews.data);
         setCurrentPage(reviews.current_page || 1);
-        setHasMore(reviews.current_page < reviews.last_page);
+        setLastPage(reviews.last_page || 1);
+        setTotalReviews(reviews.total || 0);
+        setHasMore(Boolean(reviews.has_more !== undefined ? reviews.has_more : reviews.current_page < reviews.last_page));
         setIsLoadingMore(false);
         setLoadMoreError(null);
         fetchedPagesRef.current = new Set([reviews.current_page || 1]);
@@ -154,12 +181,12 @@ export default function Reviews({
 
     // Progressive Load More for next page
     const loadMore = useCallback(async () => {
-        if (!hasMore || isLoadingMore || isPageLoading || isFetchingRef.current) {
+        if (!hasMore || isLoadingMore || isPageLoading || isFetchingRef.current || loadMoreErrorRef.current) {
             return;
         }
 
         const nextPage = currentPage + 1;
-        if (nextPage > reviews.last_page) {
+        if (nextPage > lastPage) {
             setHasMore(false);
             return;
         }
@@ -167,6 +194,13 @@ export default function Reviews({
         if (fetchedPagesRef.current.has(nextPage)) {
             return;
         }
+
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        const reqId = ++requestIdRef.current;
 
         isFetchingRef.current = true;
         setIsLoadingMore(true);
@@ -189,32 +223,57 @@ export default function Reviews({
             const response = await axios.get('/admin/reviews', {
                 params,
                 headers: { Accept: 'application/json' },
+                signal: controller.signal,
             });
 
+            if (reqId !== requestIdRef.current) {
+                return; // Stale request, discard
+            }
+
             if (response.data?.success && response.data?.reviews) {
-                const incomingReviews: ReviewItem[] = response.data.reviews.data || [];
+                const backendReviews = response.data.reviews;
+                const incomingReviews: ReviewItem[] = backendReviews.data || [];
                 setLocalReviews((prev) => mergeReviews(prev, incomingReviews));
-                const newCurrentPage = response.data.reviews.current_page || nextPage;
-                const newLastPage = response.data.reviews.last_page;
+
+                const newCurrentPage = Number(backendReviews.current_page) || nextPage;
+                const newLastPage = Number(backendReviews.last_page) || lastPage;
+                const newTotal = backendReviews.total !== undefined && !Number.isNaN(Number(backendReviews.total))
+                    ? Number(backendReviews.total)
+                    : totalReviews;
+                const serverHasMore = backendReviews.has_more !== undefined
+                    ? Boolean(backendReviews.has_more)
+                    : newCurrentPage < newLastPage;
+
                 setCurrentPage(newCurrentPage);
-                setHasMore(newCurrentPage < newLastPage);
+                setLastPage(newLastPage);
+                setTotalReviews(newTotal);
+                setHasMore(serverHasMore);
             } else {
                 throw new Error('Invalid response structure received from server.');
             }
         } catch (err: unknown) {
+            if (axios.isCancel(err) || (err instanceof Error && err.name === 'CanceledError')) {
+                return; // Request was aborted cleanly
+            }
+            if (reqId !== requestIdRef.current) {
+                return; // Stale request, ignore
+            }
             fetchedPagesRef.current.delete(nextPage);
             const msg = err instanceof Error ? err.message : 'Unable to load additional reviews.';
             setLoadMoreError(msg);
         } finally {
-            isFetchingRef.current = false;
-            setIsLoadingMore(false);
+            if (reqId === requestIdRef.current) {
+                isFetchingRef.current = false;
+                setIsLoadingMore(false);
+            }
         }
     }, [
         hasMore,
         isLoadingMore,
         isPageLoading,
         currentPage,
-        reviews.last_page,
+        lastPage,
+        totalReviews,
         search,
         statusFilter,
         ratingFilter,
@@ -227,6 +286,12 @@ export default function Reviews({
 
     const loadMoreRef = useRef(loadMore);
     loadMoreRef.current = loadMore;
+
+    // Retry failed loadMore page preserving existing reviews
+    const retryLoadMore = useCallback(() => {
+        setLoadMoreError(null);
+        loadMoreRef.current();
+    }, []);
 
     // Stable IntersectionObserver sentinel ref
     const sentinelRef = useCallback((node: HTMLDivElement | null) => {
@@ -247,7 +312,8 @@ export default function Reviews({
                     !isFetchingRef.current &&
                     hasMoreRef.current &&
                     !isLoadingMoreRef.current &&
-                    !isPageLoadingRef.current
+                    !isPageLoadingRef.current &&
+                    !loadMoreErrorRef.current
                 ) {
                     loadMoreRef.current();
                 }
@@ -261,6 +327,9 @@ export default function Reviews({
 
     useEffect(() => {
         return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
             if (observerRef.current) {
                 observerRef.current.disconnect();
                 observerRef.current = null;
@@ -270,6 +339,7 @@ export default function Reviews({
 
     // Initial page refresh / retry
     const handleInitialRefresh = () => {
+        cancelPendingRequests();
         setIsPageLoading(true);
         setPageError(null);
         setLoadMoreError(null);
@@ -307,6 +377,8 @@ export default function Reviews({
 
     // Apply Filter
     const applyFilter = (key: string, val: string) => {
+        cancelPendingRequests();
+        setIsPageLoading(true);
         setPageError(null);
         const newFilters = {
             search,
@@ -325,6 +397,7 @@ export default function Reviews({
             preserveState: true,
             preserveScroll: true,
             replace: true,
+            onFinish: () => setIsPageLoading(false),
         });
     };
 
@@ -334,6 +407,8 @@ export default function Reviews({
     };
 
     const clearFilters = () => {
+        cancelPendingRequests();
+        setIsPageLoading(true);
         setSearch('');
         setProductSearch('');
         setProductListPage(1);
@@ -345,11 +420,20 @@ export default function Reviews({
         setSelectedProduct(null);
         setPerPage(10);
         setPageError(null);
-        router.get('/admin/reviews', { page: 1, per_page: 10 }, { replace: true });
+        router.get(
+            '/admin/reviews',
+            { page: 1, per_page: 10 },
+            {
+                replace: true,
+                onFinish: () => setIsPageLoading(false),
+            }
+        );
     };
 
     // Selecting a Product
     const handleSelectProduct = (product: ProductItem | null) => {
+        cancelPendingRequests();
+        setIsPageLoading(true);
         setSelectedProduct(product);
         setPageError(null);
         const pid = product ? String(product.id) : 'all';
@@ -371,6 +455,7 @@ export default function Reviews({
                 preserveState: true,
                 preserveScroll: true,
                 replace: true,
+                onFinish: () => setIsPageLoading(false),
             }
         );
 
@@ -956,7 +1041,7 @@ export default function Reviews({
                                     Customer Feedback & Reviews
                                 </h2>
                                 <span className="text-xs text-slate-400 font-medium">
-                                    Showing {localReviews.length} of {reviews.total} review{reviews.total !== 1 ? 's' : ''}
+                                    Showing {localReviews.length} of {totalReviews} review{totalReviews !== 1 ? 's' : ''}
                                 </span>
                             </div>
                         )}
@@ -1030,7 +1115,7 @@ export default function Reviews({
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={loadMore}
+                                    onClick={retryLoadMore}
                                     className="rounded-xl text-xs font-bold border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/30 h-7 cursor-pointer"
                                 >
                                     <RefreshCw className="size-3 mr-1.5" /> Retry Loading
@@ -1050,13 +1135,13 @@ export default function Reviews({
                         {!hasMore && localReviews.length > 0 && !isPageLoading && (
                             <div className="text-center py-4 border-t border-slate-100 dark:border-white/6">
                                 <p className="text-[11px] font-medium text-slate-400">
-                                    ✓ You have reached the end of reviews ({localReviews.length} of {reviews.total}).
+                                    ✓ You have reached the end of reviews ({localReviews.length} of {totalReviews}).
                                 </p>
                             </div>
                         )}
 
                         {/* Progressive Pagination Sentinel & Manual Fallback Button */}
-                        {hasMore && !isPageLoading && (
+                        {hasMore && !isPageLoading && !loadMoreError && (
                             <div className="pt-2 pb-4 space-y-2">
                                 <div ref={sentinelRef} className="h-6 w-full pointer-events-none" aria-hidden="true" />
                                 <div className="text-center">
@@ -1064,7 +1149,7 @@ export default function Reviews({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={loadMore}
+                                        onClick={retryLoadMore}
                                         disabled={isLoadingMore}
                                         className="rounded-xl text-xs font-bold border-slate-200/80 dark:border-white/8 hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer text-slate-700 dark:text-slate-300 h-8 px-4"
                                     >
@@ -1074,7 +1159,7 @@ export default function Reviews({
                                                 Loading...
                                             </>
                                         ) : (
-                                            <>Load More Reviews ({localReviews.length} of {reviews.total})</>
+                                            <>Load More Reviews ({localReviews.length} of {totalReviews})</>
                                         )}
                                     </Button>
                                 </div>

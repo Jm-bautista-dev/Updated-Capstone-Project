@@ -18,10 +18,42 @@ use App\Models\ForecastBenchmark;
 use App\Models\ForecastModel;
 use App\Models\ForecastRecord;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\DynamicExport;
 
 class AnalyticsController extends Controller
 {
     public function index(Request $request)
+    {
+        [$range, $startDate, $endDate] = $this->resolveDateRange($request);
+
+        $branchId  = $request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int)$request->input('branch_id') : null;
+        $branches  = Branch::orderBy('name')->get();
+
+        $forecastIntel = $this->buildForecastIntel();
+        $salesPerProductData = $this->getSalesPerProductData($startDate, $endDate, $branchId);
+
+        return Inertia::render('Admin/Dashboard', [
+            'stats'                => $this->getGlobalStats($startDate, $endDate, $branchId, $range),
+            'branchStats'          => $this->getBranchStats($branches, $startDate, $endDate),
+            'salesOverTime'        => $this->getSalesOverTime($range, $startDate, $endDate, $branchId),
+            'salesPerProduct'      => $salesPerProductData['products'],
+            'salesPerProductMeta'  => $salesPerProductData,
+            'topProductCosts'      => $this->getTopProductCosts($branchId),
+            'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $endDate, $branchId),
+            'ingredientCostTrends' => $this->getIngredientCostTrends($branchId),
+            'range'                => $range,
+            'branches'             => $branches,
+            'filters'              => ['branch_id' => $branchId ? (string)$branchId : 'all', 'range' => $range],
+            'recentActivity'       => $this->buildRecentActivity(),
+            'forecastIntel'        => $forecastIntel,
+            'suggestions'          => $this->buildSuggestions(),
+            'alerts'               => $this->buildAlerts($forecastIntel),
+            'heatmapData'          => $this->buildHeatmapData($startDate, $endDate),
+        ]);
+    }
+
+    private function resolveDateRange(Request $request): array
     {
         $rawRange = $request->input('range');
         if ($rawRange === null || $rawRange === '' || $rawRange === 'today' || $rawRange === '1' || $rawRange === 1) {
@@ -36,8 +68,6 @@ class AnalyticsController extends Controller
 
         $tz        = 'Asia/Manila';
         $manilaNow = Carbon::now($tz);
-        $branchId  = $request->input('branch_id') && $request->input('branch_id') !== 'all' ? (int)$request->input('branch_id') : null;
-        $branches  = Branch::orderBy('name')->get();
 
         if ($range === 'today') {
             $startDate = $manilaNow->copy()->startOfDay()->utc();
@@ -48,25 +78,7 @@ class AnalyticsController extends Controller
             $endDate   = $manilaNow->copy()->endOfDay()->utc();
         }
 
-        $forecastIntel = $this->buildForecastIntel();
-
-        return Inertia::render('Admin/Dashboard', [
-            'stats'                => $this->getGlobalStats($startDate, $endDate, $branchId, $range),
-            'branchStats'          => $this->getBranchStats($branches, $startDate, $endDate),
-            'salesOverTime'        => $this->getSalesOverTime($range, $startDate, $endDate, $branchId),
-            'salesPerProduct'      => $this->getTopProducts($startDate, $endDate, $branchId),
-            'topProductCosts'      => $this->getTopProductCosts($branchId),
-            'salesByPaymentMethod' => $this->getSalesByPayment($startDate, $endDate, $branchId),
-            'ingredientCostTrends' => $this->getIngredientCostTrends($branchId),
-            'range'                => $range,
-            'branches'             => $branches,
-            'filters'              => ['branch_id' => $branchId ? (string)$branchId : 'all', 'range' => $range],
-            'recentActivity'       => $this->buildRecentActivity(),
-            'forecastIntel'        => $forecastIntel,
-            'suggestions'          => $this->buildSuggestions(),
-            'alerts'               => $this->buildAlerts($forecastIntel),
-            'heatmapData'          => $this->buildHeatmapData($startDate, $endDate),
-        ]);
+        return [$range, $startDate, $endDate];
     }
 
     private function buildRecentActivity(): \Illuminate\Support\Collection
@@ -263,8 +275,13 @@ class AnalyticsController extends Controller
         return $metricsService->getDailySalesTrajectory($range, $branchId);
     }
 
-    private function getTopProducts($startDate, $endDate = null, ?int $branchId = null)
+    public function getSalesPerProductData($startDate, $endDate = null, ?int $branchId = null, ?\App\Models\User $user = null): array
     {
+        $user = $user ?? Auth::user();
+        if ($user && method_exists($user, 'isAdmin') && !$user->isAdmin() && $user->branch_id) {
+            $branchId = (int) $user->branch_id;
+        }
+
         $query = DB::table('sale_items')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
@@ -279,16 +296,78 @@ class AnalyticsController extends Controller
             $query->where('sales.branch_id', $branchId);
         }
 
-        return $query->select('products.name', DB::raw('SUM(sale_items.quantity) as total_sold'), DB::raw('SUM(sale_items.subtotal) as revenue'))
-            ->groupBy('products.id', 'products.name')
-            ->orderByDesc('total_sold')
-            ->limit(10)
-            ->get()
-            ->map(function ($item) {
-                $item->total_sold = (float) $item->total_sold;
-                $item->revenue = (float) $item->revenue;
-                return $item;
-            });
+        $items = $query->select(
+            'products.id as product_id',
+            'products.name',
+            DB::raw('SUM(sale_items.quantity) as total_sold'),
+            DB::raw('SUM(sale_items.subtotal) as revenue'),
+            DB::raw('COUNT(DISTINCT sales.id) as orders_count')
+        )
+        ->groupBy('products.id', 'products.name')
+        ->orderByDesc('revenue')
+        ->get();
+
+        $totalRevenue = (float) $items->sum('revenue');
+        $totalUnits   = (float) $items->sum('total_sold');
+
+        $products = $items->map(function ($item, $index) use ($totalRevenue) {
+            $rev = round((float) $item->revenue, 2);
+            $sold = round((float) $item->total_sold, 2);
+            $pct = $totalRevenue > 0 ? round(($rev / $totalRevenue) * 100, 2) : 0.0;
+
+            return [
+                'rank'         => $index + 1,
+                'product_id'   => $item->product_id,
+                'name'         => $item->name,
+                'total_sold'   => $sold,
+                'revenue'      => $rev,
+                'orders_count' => (int) $item->orders_count,
+                'percentage'   => $pct,
+            ];
+        })->values()->all();
+
+        return [
+            'products'           => $products,
+            'total_revenue'      => round($totalRevenue, 2),
+            'total_units'        => round($totalUnits, 2),
+            'products_count'     => count($products),
+            'selected_branch_id' => $branchId,
+        ];
+    }
+
+    public function salesPerProductJson(Request $request)
+    {
+        [$range, $startDate, $endDate] = $this->resolveDateRange($request);
+        $branchId = $request->input('branch_id') && $request->input('branch_id') !== 'all'
+            ? (int) $request->input('branch_id')
+            : null;
+
+        $user = Auth::user();
+        if ($user && method_exists($user, 'isAdmin') && !$user->isAdmin() && $user->branch_id) {
+            $branchId = (int) $user->branch_id;
+        }
+
+        $data = $this->getSalesPerProductData($startDate, $endDate, $branchId, $user);
+
+        return response()->json(array_merge($data, [
+            'range'       => $range,
+            'range_label' => match ($range) {
+                'today'  => 'Today',
+                '30'     => '30 Days',
+                '365'    => 'Annual',
+                default  => '7 Days',
+            },
+        ]));
+    }
+
+    private function getTopProducts($startDate, $endDate = null, ?int $branchId = null)
+    {
+        $data = $this->getSalesPerProductData($startDate, $endDate, $branchId);
+        return collect(array_slice($data['products'], 0, 10))->map(fn($p) => (object)[
+            'name'       => $p['name'],
+            'total_sold' => $p['total_sold'],
+            'revenue'    => $p['revenue'],
+        ]);
     }
 
     private function getTopProductCosts(?int $branchId = null): array
@@ -305,9 +384,11 @@ class AnalyticsController extends Controller
             });
         }
 
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Product> $products */
         $products = $query->get();
 
-        $ranked = $products->map(function (Product $product) use ($branchId) {
+        $ranked = $products->map(function ($product) use ($branchId) {
+            /** @var Product $product */
             $cost = (float) $product->computeProductCost($branchId);
             return [
                 'id'            => $product->id,
@@ -484,6 +565,60 @@ class AnalyticsController extends Controller
         ->groupBy('users.id', 'users.name', 'branches.name')
         ->orderByDesc('total_sales')
         ->get();
+
+        if ($request->input('format') === 'xlsx' || $request->input('format') === 'excel') {
+            $branchName = 'All Branches';
+            if ($branchId && $branchId !== 'all') {
+                $b = Branch::find($branchId);
+                if ($b) $branchName = $b->name;
+            }
+
+            $dateLabel = match ($range) {
+                'today'     => 'Today',
+                'yesterday' => 'Yesterday',
+                '30'        => 'Last 30 Days',
+                'all'       => 'All Time',
+                default     => "Last {$range} Days",
+            };
+
+            $totalRevenue = $data->sum('total_sales');
+            $totalTx = $data->sum('transactions');
+
+            $rows = [];
+            foreach ($data as $row) {
+                $rows[] = [
+                    'cashier'      => $row->cashier,
+                    'branch'       => $row->branch,
+                    'transactions' => $row->transactions,
+                    'total_sales'  => number_format((float)$row->total_sales, 2, '.', ''),
+                    'avg_order'    => number_format((float)$row->avg_order, 2, '.', ''),
+                ];
+            }
+
+            $payload = [
+                'reportName'  => 'Performance Log',
+                'branch'      => $branchName,
+                'dateRange'   => $dateLabel,
+                'generatedBy' => auth()->user()?->name ?? 'System Administrator',
+                'kpis'        => [
+                    ['title' => 'Completed Transactions', 'value' => (string) $totalTx],
+                    ['title' => 'Gross Inflow', 'value' => 'PHP ' . number_format((float)$totalRevenue, 2, '.', ',')],
+                ],
+                'columns'     => [
+                    ['title' => 'Cashier / Employee', 'key' => 'cashier'],
+                    ['title' => 'Assigned Branch', 'key' => 'branch'],
+                    ['title' => 'Completed Orders', 'key' => 'transactions'],
+                    ['title' => 'Gross Sales (PHP)', 'key' => 'total_sales'],
+                    ['title' => 'Avg Order Value (PHP)', 'key' => 'avg_order'],
+                ],
+                'rows'        => $rows,
+            ];
+
+            return Excel::download(
+                new DynamicExport($payload),
+                "cashier-performance-" . now()->format('Y-m-d') . ".xlsx"
+            );
+        }
 
         $filename = "cashier-performance-" . now()->format('Y-m-d') . ".csv";
         $headers = [

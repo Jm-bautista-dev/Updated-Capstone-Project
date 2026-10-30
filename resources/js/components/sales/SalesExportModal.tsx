@@ -8,7 +8,8 @@ import {
   FiFilter,
   FiShoppingBag,
   FiCheckCircle,
-  FiFileText
+  FiFileText,
+  FiShield
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,6 +66,7 @@ export function SalesExportModal({
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<string>(activeBranch || 'all');
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
   
   const [summary, setSummary] = useState<ExportSummaryResponse | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
@@ -140,6 +142,7 @@ export function SalesExportModal({
       status: activeStatus,
       branch_id: selectedBranch,
       search: activeSearch,
+      format: exportFormat,
     });
 
     if (datePreset === 'custom') {
@@ -175,12 +178,65 @@ export function SalesExportModal({
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground font-medium">
-            Select a date range preset and filter options to download a comprehensive CSV report.
+            Select an export format, date range preset, and branch scope to generate your sales report.
           </DialogDescription>
         </DialogHeader>
 
         {/* Configuration Controls */}
         <div className="space-y-4">
+
+          {/* Export Format Selector */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <FiFileText className="size-3.5 text-primary" />
+              Export Format
+            </Label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setExportFormat('xlsx')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  exportFormat === 'xlsx'
+                    ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary/40'
+                    : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 hover:border-slate-300 dark:hover:border-zinc-700 text-muted-foreground'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-black uppercase tracking-tight text-foreground flex items-center gap-1.5">
+                    Excel (.xlsx)
+                  </span>
+                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <FiShield className="size-2.5" /> Protected
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Protected worksheet against accidental modifications while preserving filtering and readability.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExportFormat('csv')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  exportFormat === 'csv'
+                    ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary/40'
+                    : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 hover:border-slate-300 dark:hover:border-zinc-700 text-muted-foreground'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-black uppercase tracking-tight text-foreground">
+                    CSV (.csv)
+                  </span>
+                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-400">
+                    Raw Data
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Standard comma-separated table data for external importing or raw data processing.
+                </p>
+              </button>
+            </div>
+          </div>
           
           {/* Preset Selector */}
           <div className="space-y-1.5">
@@ -326,10 +382,10 @@ export function SalesExportModal({
             type="button"
             onClick={handleExecuteExport}
             disabled={isLoadingSummary || !!validationError || (summary !== null && summary.count === 0)}
-            className="h-9.5 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md shadow-primary/10"
+            className="h-9.5 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md shadow-primary/10 cursor-pointer"
           >
             <FiDownload className="size-4" />
-            Export CSV
+            {exportFormat === 'xlsx' ? 'Export Excel (.xlsx)' : 'Export CSV'}
           </Button>
         </DialogFooter>
 

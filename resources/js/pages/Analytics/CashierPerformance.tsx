@@ -2,7 +2,6 @@ import { Head, usePage, router } from '@inertiajs/react';
 import {
     Award,
     BarChart2,
-    DollarSign,
     Search,
     ShoppingCart,
     TrendingUp,
@@ -30,6 +29,7 @@ import { PerformanceSummary } from '@/components/performance/PerformanceSummary'
 import { TopPerformersCard } from '@/components/performance/TopPerformersCard';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { PesoSign } from '@/components/ui/peso-sign';
 import AppLayout from '@/layouts/app-layout';
 
 export type PerformanceData = {
@@ -94,7 +94,7 @@ export default function CashierPerformance() {
     };
 
     const handleExport = () => {
-        window.open(`/analytics/cashier-performance/export?range=${range}&branch_id=${branchId}`, '_blank');
+        window.open(`/analytics/cashier-performance/export?range=${range}&branch_id=${branchId}&format=xlsx`, '_blank');
     };
 
     const formatCurrency = (amount: string | number) => {
@@ -177,7 +177,7 @@ export default function CashierPerformance() {
                     <KPICard
                         title="Total Sales Revenue"
                         value={formatCurrency(stats.totalSales)}
-                        icon={DollarSign}
+                        icon={PesoSign}
                         trend="neutral"
                         trendValue="Active"
                         comparison="filtered period"

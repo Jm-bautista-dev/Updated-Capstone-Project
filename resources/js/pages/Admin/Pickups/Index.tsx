@@ -12,7 +12,6 @@ import {
     PhoneCall,
     UserCheck,
     QrCode,
-    DollarSign,
     AlertTriangle,
     Flame,
     Hourglass,
@@ -20,6 +19,7 @@ import {
     Filter,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+
 import CreatePickupOrderModal, { type PickupBranch, type PickupProduct } from '@/components/pickups/CreatePickupOrderModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PesoSign } from '@/components/ui/peso-sign';
 import {
     Select,
     SelectContent,
@@ -915,7 +916,7 @@ export default function PickupDashboard({
                             {selectedOrder.payment_status === 'unpaid' && (
                                 <div className="space-y-2 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
                                     <Label htmlFor="cash-amount" className="text-yellow-800 dark:text-yellow-300 font-semibold flex items-center gap-1">
-                                        <DollarSign className="w-4 h-4" />
+                                        <PesoSign className="w-4 h-4" />
                                         Cash Collected (₱)
                                     </Label>
                                     <Input

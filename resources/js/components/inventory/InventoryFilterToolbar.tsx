@@ -1,4 +1,4 @@
-import { Search, Plus, MapPin, Filter, RefreshCw, Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { Search, Plus, MapPin, Filter, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -41,7 +41,6 @@ interface InventoryFilterToolbarProps {
     onBranchFilter: (value: string) => void;
     selectedIds: number[];
     onOpenAddModal: () => void;
-    onOpenMassRestockModal: () => void;
     onBulkDelete: () => void;
 }
 
@@ -62,7 +61,6 @@ export function InventoryFilterToolbar({
     onBranchFilter,
     selectedIds,
     onOpenAddModal,
-    onOpenMassRestockModal,
     onBulkDelete,
 }: InventoryFilterToolbarProps) {
     return (
@@ -218,17 +216,6 @@ export function InventoryFilterToolbar({
                             <Maximize2 className="size-4" />
                         </button>
                     </div>
-
-                    {/* Mass Restock Button */}
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onOpenMassRestockModal}
-                        className="h-11 px-4 bg-white/90 dark:bg-[#181820]/90 border-[#F8C8DC]/60 dark:border-white/10 text-[#E75480] dark:text-[#FF4F81] hover:bg-[#FFF5F7] dark:hover:bg-white/10 rounded-2xl font-bold text-xs uppercase tracking-wider gap-2 cursor-pointer shadow-2xs"
-                    >
-                        <RefreshCw className="size-4" />
-                        <span className="hidden xl:inline">Mass Restock</span>
-                    </Button>
                 </div>
             </div>
 

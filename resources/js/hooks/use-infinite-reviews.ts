@@ -78,6 +78,8 @@ export function useInfiniteReviews({
     isLoadingRef.current = isLoading;
     const isLoadingMoreRef = useRef<boolean>(isLoadingMore);
     isLoadingMoreRef.current = isLoadingMore;
+    const errorRef = useRef<string | null>(error);
+    errorRef.current = error;
 
     // Helper to merge and deduplicate review records by id
     const mergeReviews = (prev: PublicReviewItem[], incoming: PublicReviewItem[]): PublicReviewItem[] => {
@@ -291,7 +293,8 @@ export function useInfiniteReviews({
                     !isFetchingRef.current &&
                     hasMoreRef.current &&
                     !isLoadingRef.current &&
-                    !isLoadingMoreRef.current
+                    !isLoadingMoreRef.current &&
+                    !errorRef.current
                 ) {
                     loadMoreRef.current();
                 }

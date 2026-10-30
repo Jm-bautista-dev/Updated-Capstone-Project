@@ -4,12 +4,15 @@ namespace App\Services;
 
 use App\Models\Ingredient;
 use App\Models\IngredientStock;
+use App\Models\IngredientLog;
 use App\Models\Product;
 use App\Models\StockLog;
 use App\Models\Wastage;
 use App\Models\Order;
 use App\Events\StockUpdated;
 use App\Utils\UnitConverter;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
@@ -81,6 +84,16 @@ class InventoryService
 
         $refText = $reference ?: "Batch {$batch->batch_code} @{$purchasePrice}/{$rawUnit}";
 
+        // 2. Record in general audit log (IngredientLog) for activity logs & inventory drawer history
+        IngredientLog::create([
+            'ingredient_id' => $ingredientId,
+            'user_id'       => $userId,
+            'branch_id'     => $branchId,
+            'change_qty'    => $quantityBase,
+            'reason'        => $reference ? "Restocked ({$reference})" : "Stock In (Batch {$batch->batch_code})",
+            'created_at'    => $batch->received_at ?? Carbon::now(config('app.timezone', 'Asia/Manila')),
+        ]);
+
         return StockLog::create([
             'storable_type'  => Ingredient::class,
             'storable_id'    => $ingredientId,
@@ -97,13 +110,31 @@ class InventoryService
     }
 
     /**
-     * Perform bulk stock-in for multiple items in a single transaction with batch metadata.
+     * Perform bulk stock-in for multiple items in a single transaction with batch metadata,
+     * authoritative restock timestamp, and traceable operation reference.
      */
-    public function massStockIn(array $items, int $branchId, ?int $userId = null)
-    {
-        return DB::transaction(function () use ($items, $branchId, $userId) {
+    public function massStockIn(
+        array $items, 
+        int $branchId, 
+        ?int $userId = null, 
+        ?string $receivedAt = null, 
+        ?string $reference = null
+    ) {
+        return DB::transaction(function () use ($items, $branchId, $userId, $receivedAt, $reference) {
+            $tz = config('app.timezone', 'Asia/Manila');
+            $opTimestamp = $receivedAt 
+                ? Carbon::parse($receivedAt, $tz) 
+                : Carbon::now($tz);
+            $opRef = $reference 
+                ?: ('MASS-RESTOCK-' . $opTimestamp->format('YmdHis') . '-' . strtoupper(Str::random(4)));
+
             $results = [];
             foreach ($items as $item) {
+                $itemReceivedAt = !empty($item['received_at'])
+                    ? Carbon::parse($item['received_at'], $tz)
+                    : $opTimestamp;
+                $itemRef = $item['reference'] ?? $opRef;
+
                 $batchMeta = [
                     'batch_code'      => $item['batch_code'] ?? null,
                     'lot_number'      => $item['lot_number'] ?? null,
@@ -111,6 +142,7 @@ class InventoryService
                     'expiration_type' => $item['expiration_type'] ?? 'use_by',
                     'supplier_id'     => $item['supplier_id'] ?? null,
                     'supplier_name'   => $item['supplier_name'] ?? null,
+                    'received_at'     => $itemReceivedAt,
                     'notes'           => $item['notes'] ?? null,
                 ];
 
@@ -122,7 +154,7 @@ class InventoryService
                     $branchId,
                     (float) ($item['purchase_price'] ?? $item['unit_cost'] ?? 0),
                     $userId,
-                    $item['reference'] ?? null,
+                    $itemRef,
                     $batchMeta
                 );
             }

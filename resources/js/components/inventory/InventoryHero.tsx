@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { Package, AlertTriangle, Slash, DollarSign, Sparkles, RefreshCw, Clock, Layers, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Package, AlertTriangle, Slash, Sparkles, RefreshCw, Clock, Layers, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
+import { PesoSign } from '@/components/ui/peso-sign';
 import { cn } from '@/lib/utils';
 
 const formatCurrency = (amount: number) =>
@@ -120,7 +121,7 @@ export function InventoryHero({ inventory, stats: serverStats, activeBranchName 
                         className="p-5 rounded-2xl bg-white/80 dark:bg-[#181820]/80 border border-[#F8C8DC]/50 dark:border-white/10 shadow-xs backdrop-blur-xl flex items-center gap-4 transition-all"
                     >
                         <div className="p-3 rounded-2xl bg-emerald-100/60 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
-                            <DollarSign className="size-5" />
+                            <PesoSign className="size-5" />
                         </div>
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8]">Est. Stock Valuation</p>

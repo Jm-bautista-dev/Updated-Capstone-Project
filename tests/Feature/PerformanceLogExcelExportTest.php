@@ -242,4 +242,101 @@ class PerformanceLogExcelExportTest extends TestCase
         $response = $this->get('/reports/excel?token=non_existent');
         $response->assertRedirect('/login');
     }
+
+    /**
+     * TEST 6: Cashier Performance endpoint delivers a protected .xlsx file with correct figures.
+     */
+    public function test_cashier_performance_endpoint_exports_protected_xlsx(): void
+    {
+        \App\Models\Sale::create([
+            'order_number'   => 'PERF-ORDER-001',
+            'user_id'        => $this->cashier->id,
+            'branch_id'      => $this->branch->id,
+            'subtotal'       => 1250.00,
+            'total'          => 1250.00,
+            'paid_amount'    => 1250.00,
+            'payment_method' => 'cash',
+            'status'         => 'completed',
+            'created_at'     => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->get('/analytics/cashier-performance/export?range=today&branch_id=' . $this->branch->id . '&format=xlsx');
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+
+        $filePath = $response->getFile()->getPathname();
+        $this->assertFileExists($filePath);
+
+        $spreadsheet = IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Protection assertions
+        $this->assertTrue($sheet->getProtection()->getSheet(), 'Worksheet protection must be enabled');
+        $this->assertTrue($sheet->getProtection()->getSelectLockedCells(), 'Selecting locked cells must be allowed');
+        $this->assertTrue($sheet->getProtection()->getAutoFilter(), 'AutoFilter must be permitted');
+        $this->assertTrue($sheet->getProtection()->getSort(), 'Sort must be permitted');
+        $this->assertFalse($sheet->getProtection()->getInsertRows(), 'Insert rows must be blocked');
+        $this->assertFalse($sheet->getProtection()->getDeleteRows(), 'Delete rows must be blocked');
+        $this->assertFalse($sheet->getProtection()->getFormatCells(), 'Format cells must be blocked');
+        $this->assertTrue($spreadsheet->getSecurity()->getLockStructure(), 'Workbook structure lock must be active');
+
+        // Data verification: Maria Cashier must be present
+        $foundCashier = false;
+        foreach ($sheet->getRowIterator() as $row) {
+            foreach ($row->getCellIterator() as $cell) {
+                if ($cell->getValue() === 'Maria Cashier') {
+                    $foundCashier = true;
+                    break 2;
+                }
+            }
+        }
+        $this->assertTrue($foundCashier, 'Performance export must include cashier name');
+    }
+
+    /**
+     * TEST 7: Shared ExcelProtectionService protects all sheets consistently in multi-sheet workbooks.
+     */
+    public function test_shared_excel_protection_service_protects_multi_sheet_and_structures(): void
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Performance Summary');
+        $sheet1->fromArray([['Employee', 'Transactions'], ['Cashier A', 50]], null, 'A1');
+
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Audited Metrics');
+        $sheet2->fromArray([['Metric', 'Score'], ['Attendance', '100%']], null, 'A1');
+
+        \App\Services\ExcelProtectionService::protect($sheet1);
+
+        // Verify sheet 1
+        $this->assertTrue($sheet1->getProtection()->getSheet());
+        $this->assertTrue($sheet1->getProtection()->getSelectLockedCells());
+        $this->assertFalse($sheet1->getProtection()->getInsertRows());
+
+        // Verify sheet 2
+        $this->assertTrue($sheet2->getProtection()->getSheet());
+        $this->assertTrue($sheet2->getProtection()->getSelectLockedCells());
+        $this->assertFalse($sheet2->getProtection()->getInsertRows());
+
+        // Verify structure
+        $this->assertTrue($spreadsheet->getSecurity()->getLockStructure());
+    }
+
+    /**
+     * TEST 8: Sales export protection remains functional alongside Performance Log.
+     */
+    public function test_sales_export_protection_remains_functional_alongside_performance_log(): void
+    {
+        $saleExport = new \App\Exports\SalesExport(['branch_id' => $this->branch->id]);
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $saleExport->styles($sheet);
+
+        $this->assertTrue($sheet->getProtection()->getSheet(), 'Sales export protection must remain active');
+        $this->assertTrue($spreadsheet->getSecurity()->getLockStructure(), 'Sales export workbook structure must remain locked');
+    }
 }

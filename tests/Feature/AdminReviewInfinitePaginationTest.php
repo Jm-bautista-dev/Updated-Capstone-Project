@@ -197,4 +197,50 @@ class AdminReviewInfinitePaginationTest extends TestCase
         $res = $this->getJson('/admin/reviews?page=1');
         $res->assertStatus(401);
     }
+
+    /**
+     * Test requesting beyond the last page returns empty data and has_more=false without re-serving previous pages.
+     */
+    public function test_admin_reviews_json_request_beyond_last_page_returns_empty_and_no_more()
+    {
+        for ($i = 1; $i <= 15; $i++) {
+            $this->createReview(5, "Review #{$i}");
+        }
+
+        // 15 items with per_page = 10 -> last_page is 2.
+        // Request page 3 (beyond last page)
+        $res = $this->actingAs($this->admin)->getJson('/admin/reviews?page=3&per_page=10');
+        $res->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'reviews' => [
+                    'current_page' => 3,
+                    'last_page'    => 2,
+                    'total'        => 15,
+                    'has_more'     => false,
+                    'next_page'    => null,
+                ]
+            ]);
+
+        // Must not return duplicate records or rewind to page 2
+        $this->assertCount(0, $res->json('reviews.data'));
+    }
+
+    /**
+     * Test that long reviews and comments are preserved accurately without truncation or data modification.
+     */
+    public function test_admin_reviews_preserves_order_and_long_comments()
+    {
+        $longComment = str_repeat('This is an extensive and detailed customer review describing the food quality. ', 10);
+        $review = $this->createReview(5, $longComment);
+
+        $res = $this->actingAs($this->admin)->getJson('/admin/reviews?page=1&per_page=10');
+        $res->assertStatus(200);
+
+        $firstReview = $res->json('reviews.data.0');
+        $this->assertEquals($review->id, $firstReview['id']);
+        $this->assertEquals($longComment, $firstReview['comment']);
+        $this->assertNotEmpty($firstReview['comment']);
+        $this->assertGreaterThan(500, strlen($firstReview['comment']));
+    }
 }

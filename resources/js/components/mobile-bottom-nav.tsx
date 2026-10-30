@@ -56,7 +56,7 @@ const allNavItems: NavItem[] = [
     { title: 'Riders', href: '/riders', icon: Bike },
     { title: 'Employees', href: '/employees', icon: Users },
     { title: 'Branches', href: '/branches', icon: MapPin },
-    { title: 'Sales Data Management', href: '/admin/sales-data', icon: Database },
+    { title: 'Data Sales Management', href: '/admin/sales-data', icon: Database },
 ];
 
 const getHrefString = (href: NavItem['href'] | unknown): string => {
@@ -107,6 +107,7 @@ export function MobileBottomNav() {
             'Suggestions',
             'Branches',
             'Sales Data Management',
+            'Data Sales Management',
             'Add-ons & Modifiers',
         ];
         return allNavItems.filter((item) => !restrictedTitles.includes(item.title));
@@ -154,7 +155,7 @@ export function MobileBottomNav() {
             },
             {
                 label: 'Management & Team',
-                titles: ['Employees', 'Riders', 'Branches', 'Sales Data Management'],
+                titles: ['Employees', 'Riders', 'Branches', 'Sales Data Management', 'Data Sales Management'],
             },
         ];
 

@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import {
     ArrowUpRight,
     ArrowDownRight,
-    DollarSign,
     Receipt,
     TrendingUp,
     ShoppingBag,
@@ -34,6 +33,7 @@ import type { LucideIcon } from 'lucide-react';
 import React, { isValidElement } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
+import { PesoSign } from '@/components/ui/peso-sign';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -41,13 +41,20 @@ export interface SparklineItem {
     value: number;
 }
 
-const DYNAMIC_ICON_MAP: Record<string, LucideIcon> = {
-    dollarsign: DollarSign,
-    dollar: DollarSign,
-    revenue: DollarSign,
-    sales: DollarSign,
-    gross: DollarSign,
-    price: DollarSign,
+type DynamicIconComponent =
+    | LucideIcon
+    | React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+
+const DYNAMIC_ICON_MAP: Record<string, DynamicIconComponent> = {
+    pesosign: PesoSign,
+    peso: PesoSign,
+    php: PesoSign,
+    dollarsign: PesoSign,
+    dollar: PesoSign,
+    revenue: PesoSign,
+    sales: PesoSign,
+    gross: PesoSign,
+    price: PesoSign,
     receipt: Receipt,
     expenses: Receipt,
     cogs: Receipt,
@@ -197,9 +204,9 @@ export function KPICard({
                 isInteractive && "group-hover:via-[#E75480] dark:group-hover:via-[#E1062C]"
             )} />
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 flex flex-col justify-between">
                 {/* Header Row: Icon & Trend/Status Badges */}
-                <div className="flex items-start justify-between gap-2 mb-3 sm:mb-4">
+                <div className="flex items-start justify-between gap-2.5 mb-3 sm:mb-4">
                     <div className={cn(
                         "size-10 sm:size-11 rounded-2xl bg-[#FADADD]/35 dark:bg-[#E1062C]/15 text-[#E75480] dark:text-[#FF4F81] transition-colors duration-300 shadow-xs flex items-center justify-center shrink-0",
                         isInteractive && "group-hover:bg-[#E75480] dark:group-hover:bg-[#E1062C] group-hover:text-white"
@@ -208,11 +215,11 @@ export function KPICard({
                     </div>
 
                     {(trendValue || badgeText) && (
-                        <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0 max-w-[70%]">
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end min-w-0 flex-1">
                             {trendValue && (
                                 <div
                                     className={cn(
-                                        'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-2xs shrink-0',
+                                        'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-2xs shrink-0 whitespace-nowrap',
                                         isUp
                                             ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50'
                                             : isDown
@@ -221,12 +228,12 @@ export function KPICard({
                                     )}
                                 >
                                     {isUp ? <ArrowUpRight className="size-3.5 shrink-0" /> : isDown ? <ArrowDownRight className="size-3.5 shrink-0" /> : null}
-                                    <span className="truncate max-w-24 sm:max-w-28">{trendValue}</span>
+                                    <span>{trendValue}</span>
                                 </div>
                             )}
 
                             {badgeText && (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#E75480] dark:text-[#FF4F81] bg-[#E75480]/10 dark:bg-[#E1062C]/15 px-2.5 py-1 rounded-full border border-[#E75480]/20 dark:border-[#E1062C]/30 shrink-0 truncate max-w-28 sm:max-w-32" title={badgeText}>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#E75480] dark:text-[#FF4F81] bg-[#E75480]/10 dark:bg-[#E1062C]/15 px-2.5 py-1 rounded-full border border-[#E75480]/20 dark:border-[#E1062C]/30 shrink-0 whitespace-nowrap" title={badgeText}>
                                     {badgeText}
                                 </span>
                             )}
@@ -235,21 +242,21 @@ export function KPICard({
                 </div>
 
                 {/* KPI Title & Metric */}
-                <div className="space-y-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] truncate" title={title}>
+                <div className="space-y-1.5 min-w-0 flex-1 flex flex-col justify-center">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#7D6B6E] dark:text-[#94A3B8] wrap-break-word leading-snug" title={title}>
                         {title}
                     </p>
 
                     {loading ? (
                         <Skeleton className="h-9 w-32 rounded-xl dark:bg-white/10" />
                     ) : (
-                        <h3 className="text-xl sm:text-2xl 2xl:text-3xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight font-mono truncate" title={String(value)}>
+                        <h3 className="text-xl sm:text-2xl xl:text-3xl font-extrabold text-[#3D2C2E] dark:text-[#F8FAFC] tracking-tight font-mono wrap-break-word leading-tight" title={String(value)}>
                             {value}
                         </h3>
                     )}
 
                     {comparison && (
-                        <p className="text-xs font-medium text-[#9E8B8E] dark:text-[#64748B] truncate" title={comparison}>
+                        <p className="text-xs font-medium text-[#9E8B8E] dark:text-[#64748B] wrap-break-word leading-tight" title={comparison}>
                             {comparison}
                         </p>
                     )}
@@ -285,7 +292,7 @@ export function KPICard({
     );
 
     const baseClasses = cn(
-        "relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] p-5 sm:p-6 backdrop-blur-xl flex flex-col justify-between overflow-hidden select-none min-w-0",
+        "relative rounded-4xl bg-white/80 dark:bg-[#121218]/80 border border-white/90 dark:border-white/10 shadow-[0_15px_35px_-10px_rgba(231,84,128,0.07)] dark:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)] p-5 sm:p-6 backdrop-blur-xl flex flex-col justify-between overflow-hidden select-none min-w-0 min-h-[170px]",
         isInteractive ? (
             "group cursor-pointer hover:border-[#E75480]/40 dark:hover:border-[#E1062C]/50 hover:shadow-[0_20px_40px_-10px_rgba(231,84,128,0.15)] dark:hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.7)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E75480] dark:focus-visible:ring-[#FF4F81] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#121218] transition-all duration-300"
         ) : (

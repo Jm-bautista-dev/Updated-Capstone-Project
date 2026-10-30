@@ -59,7 +59,7 @@ class BranchController extends Controller
             $branches = Branch::orderBy('name')->get();
         }
 
-        $formattedBranches = $branches->map(function (Branch $b) {
+        $formattedBranches = $branches->map(function ($b) {
             try {
                 $status = $this->scheduleService->getBranchOperatingStatus($b);
             } catch (\Throwable $e) {
@@ -571,7 +571,8 @@ class BranchController extends Controller
      */
     public function apiIndex(): JsonResponse
     {
-        $branches = Branch::orderBy('name')->get()->map(function (Branch $b) {
+        $branches = Branch::orderBy('name')->get()->map(function ($b) {
+            /** @var Branch $b */
             $status = $this->scheduleService->getBranchOperatingStatus($b);
 
             return [

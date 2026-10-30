@@ -53,6 +53,84 @@ class SalesDataManagementController extends Controller
         $branches = Branch::orderBy('name')->get(['id', 'name']);
         $products = Product::orderBy('name')->get(['id', 'name', 'sku']);
 
+        // 2. Filter & browse authoritative sales records
+        $search = trim((string) $request->input('search', ''));
+        $rawBranchId = $request->input('branch_id');
+        $branchId = ($rawBranchId === '' || $rawBranchId === 'all' || $rawBranchId === null) ? null : (int) $rawBranchId;
+        $dateFromRaw = $request->input('date_from');
+        $dateToRaw = $request->input('date_to');
+        $status = $request->input('status', 'all');
+        $source = $request->input('source', 'all');
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $perPage = max(10, min(100, (int) $request->input('per_page', 15)));
+
+        // Safe Date Parsing
+        $dateFrom = null;
+        if (!empty($dateFromRaw)) {
+            try {
+                $dateFrom = Carbon::parse($dateFromRaw)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                $dateFrom = null;
+            }
+        }
+
+        $dateTo = null;
+        if (!empty($dateToRaw)) {
+            try {
+                $dateTo = Carbon::parse($dateToRaw)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                $dateTo = null;
+            }
+        }
+
+        if ($dateFrom && $dateTo && $dateFrom > $dateTo) {
+            $tmp = $dateFrom;
+            $dateFrom = $dateTo;
+            $dateTo = $tmp;
+        }
+
+        $salesQuery = Sale::query()
+            ->with(['items.product', 'branch', 'cashier', 'delivery', 'order.branch', 'salesImport'])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
+            ->when($source && $source !== 'all', function ($q) use ($source) {
+                if ($source === 'historical_import') {
+                    return $q->where(fn($sub) => $sub->where('source', 'historical_import')->orWhereNotNull('sales_import_id'));
+                } elseif ($source === 'pos') {
+                    return $q->where(fn($sub) => $sub->where('source', 'pos')->orWhere(fn($s) => $s->whereNull('source')->whereNull('order_id')));
+                } elseif ($source === 'online') {
+                    return $q->where(fn($sub) => $sub->where('source', 'online')->orWhereNotNull('order_id'));
+                }
+                return $q->where('source', $source);
+            })
+            ->when($dateFrom, fn($q) => $q->where('created_at', '>=', Carbon::parse($dateFrom)->startOfDay()))
+            ->when($dateTo, fn($q) => $q->where('created_at', '<=', Carbon::parse($dateTo)->endOfDay()))
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('order_number', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhere('payment_method', 'like', "%{$search}%")
+                        ->orWhere('source', 'like', "%{$search}%")
+                        ->orWhere('source_system', 'like', "%{$search}%")
+                        ->orWhereHas('branch', fn($bq) => $bq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('cashier', fn($cq) => $cq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('delivery', fn($dq) => $dq->where('customer_name', 'like', "%{$search}%")->orWhere('customer_phone', 'like', "%{$search}%"))
+                        ->orWhereHas('order', fn($oq) => $oq->where('customer_name', 'like', "%{$search}%")->orWhere('contact_number', 'like', "%{$search}%"))
+                        ->orWhereHas('items.product', fn($pq) => $pq->where('name', 'like', "%{$search}%"));
+                });
+            });
+
+        // Filtered aggregate metrics
+        $filteredTotalRevenue = (float) (clone $salesQuery)->sum('total');
+        $filteredOrdersCount = (int) (clone $salesQuery)->count();
+
+        // Safe sorting columns
+        $allowedSorts = ['created_at', 'total', 'order_number', 'id', 'branch_id', 'status'];
+        $cleanSortBy = in_array($sortBy, $allowedSorts, true) ? $sortBy : 'created_at';
+
+        $sales = $salesQuery->orderBy($cleanSortBy, $sortDir)->paginate($perPage)->withQueryString();
+
         return Inertia::render('Admin/SalesDataManagement/Index', [
             'stats' => [
                 'total_sales_records' => $totalSales,
@@ -61,6 +139,22 @@ class SalesDataManagementController extends Controller
                 'duplicate_records_detected' => $duplicatesCount,
                 'data_integrity_status' => $integrityStatus,
             ],
+            'sales' => $sales,
+            'filteredSummary' => [
+                'total_revenue' => $filteredTotalRevenue,
+                'orders_count' => $filteredOrdersCount,
+            ],
+            'filters' => [
+                'search' => $search,
+                'branch_id' => $branchId ? (string) $branchId : 'all',
+                'date_from' => $dateFrom ?: '',
+                'date_to' => $dateTo ?: '',
+                'status' => $status,
+                'source' => $source,
+                'sort_by' => $cleanSortBy,
+                'sort_dir' => $sortDir,
+                'per_page' => $perPage,
+            ],
             'importsHistory' => $importsHistory,
             'auditLogs' => $auditLogs,
             'backups' => $backups,
@@ -68,6 +162,142 @@ class SalesDataManagementController extends Controller
             'products' => $products,
             'isAdmin' => $user->isAdmin(),
         ]);
+    }
+
+    public function export(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $rawBranchId = $request->input('branch_id');
+        $branchId = ($rawBranchId === '' || $rawBranchId === 'all' || $rawBranchId === null) ? null : (int) $rawBranchId;
+        $dateFromRaw = $request->input('date_from');
+        $dateToRaw = $request->input('date_to');
+        $status = $request->input('status', 'all');
+        $source = $request->input('source', 'all');
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortDir = strtolower((string) $request->input('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $dateFrom = null;
+        if (!empty($dateFromRaw)) {
+            try {
+                $dateFrom = Carbon::parse($dateFromRaw)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                $dateFrom = null;
+            }
+        }
+
+        $dateTo = null;
+        if (!empty($dateToRaw)) {
+            try {
+                $dateTo = Carbon::parse($dateToRaw)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                $dateTo = null;
+            }
+        }
+
+        if ($dateFrom && $dateTo && $dateFrom > $dateTo) {
+            $tmp = $dateFrom;
+            $dateFrom = $dateTo;
+            $dateTo = $tmp;
+        }
+
+        $salesQuery = Sale::query()
+            ->with(['items.product', 'branch', 'cashier', 'delivery', 'order'])
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
+            ->when($source && $source !== 'all', function ($q) use ($source) {
+                if ($source === 'historical_import') {
+                    return $q->where(fn($sub) => $sub->where('source', 'historical_import')->orWhereNotNull('sales_import_id'));
+                } elseif ($source === 'pos') {
+                    return $q->where(fn($sub) => $sub->where('source', 'pos')->orWhere(fn($s) => $s->whereNull('source')->whereNull('order_id')));
+                } elseif ($source === 'online') {
+                    return $q->where(fn($sub) => $sub->where('source', 'online')->orWhereNotNull('order_id'));
+                }
+                return $q->where('source', $source);
+            })
+            ->when($dateFrom, fn($q) => $q->where('created_at', '>=', Carbon::parse($dateFrom)->startOfDay()))
+            ->when($dateTo, fn($q) => $q->where('created_at', '<=', Carbon::parse($dateTo)->endOfDay()))
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('order_number', 'like', "%{$search}%")
+                        ->orWhere('id', 'like', "%{$search}%")
+                        ->orWhere('payment_method', 'like', "%{$search}%")
+                        ->orWhere('source', 'like', "%{$search}%")
+                        ->orWhere('source_system', 'like', "%{$search}%")
+                        ->orWhereHas('branch', fn($bq) => $bq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('cashier', fn($cq) => $cq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('delivery', fn($dq) => $dq->where('customer_name', 'like', "%{$search}%")->orWhere('customer_phone', 'like', "%{$search}%"))
+                        ->orWhereHas('order', fn($oq) => $oq->where('customer_name', 'like', "%{$search}%")->orWhere('contact_number', 'like', "%{$search}%"))
+                        ->orWhereHas('items.product', fn($pq) => $pq->where('name', 'like', "%{$search}%"));
+                });
+            });
+
+        $allowedSorts = ['created_at', 'total', 'order_number', 'id'];
+        $cleanSortBy = in_array($sortBy, $allowedSorts, true) ? $sortBy : 'created_at';
+        $sales = $salesQuery->orderBy($cleanSortBy, $sortDir)->get();
+
+        $filename = 'sales_data_export_' . date('Y-m-d_His') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $callback = function () use ($sales) {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, [
+                'Order Number',
+                'Date',
+                'Branch',
+                'Source / Channel',
+                'Status',
+                'Customer',
+                'Cashier',
+                'Payment Method',
+                'Items Summary',
+                'Subtotal (PHP)',
+                'Discount (PHP)',
+                'Delivery Fee (PHP)',
+                'Total (PHP)',
+            ]);
+
+            foreach ($sales as $sale) {
+                $itemsStr = $sale->items->map(function ($item) {
+                    $pName = $item->product ? $item->product->name : 'Item';
+                    return "{$item->quantity}x {$pName} (@{$item->unit_price})";
+                })->implode('; ');
+
+                $channel = $sale->sales_import_id ? 'Loyverse Historical Import' : ($sale->order_id ? 'Online Order' : 'POS Counter');
+
+                fputcsv($handle, [
+                    $sale->order_number,
+                    $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : 'N/A',
+                    $sale->branch ? $sale->branch->name : 'N/A',
+                    $channel,
+                    ucfirst((string) $sale->status),
+                    $sale->customer_name,
+                    $sale->cashier_name,
+                    strtoupper((string) $sale->payment_method),
+                    $itemsStr,
+                    number_format((float) ($sale->subtotal ?? $sale->total), 2, '.', ''),
+                    number_format((float) ($sale->discount ?? 0), 2, '.', ''),
+                    number_format((float) ($sale->delivery_fee ?? 0), 2, '.', ''),
+                    number_format((float) $sale->total, 2, '.', ''),
+                ]);
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function downloadTemplate(Request $request)
@@ -986,16 +1216,8 @@ class SalesDataManagementController extends Controller
             $unitPrice = round($total / $qty, 2);
         }
 
-        // Historical timestamp: strictly between 10:00:00 AM and 7:00:00 PM (10:00 - 19:00)
-        $startSeconds = 10 * 3600;
-        $spanSeconds = 9 * 3600;
-        $seedStr = "{$parsedDate}-{$branch->id}-{$product->id}-{$qty}-" . ($occurrence ?? 1);
-        $secondOffset = abs(crc32($seedStr)) % ($spanSeconds + 1);
-        $totalSeconds = $startSeconds + $secondOffset;
-        $hours = floor($totalSeconds / 3600);
-        $minutes = floor(($totalSeconds % 3600) / 60);
-        $seconds = $totalSeconds % 60;
-        $createdAt = Carbon::parse($parsedDate)->setTime((int)$hours, (int)$minutes, (int)$seconds);
+        // Historical timestamp: preserve exact historical calendar date without inventing fake time
+        $createdAt = Carbon::parse($parsedDate)->startOfDay();
 
         // Check existing database duplicate
         /** @var Sale|null $existingSale */

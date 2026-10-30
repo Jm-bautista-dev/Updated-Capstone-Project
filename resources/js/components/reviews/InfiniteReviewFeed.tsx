@@ -1,4 +1,4 @@
-import { Star, RefreshCw, AlertCircle, MessageSquare, Loader2 } from 'lucide-react';
+import { RefreshCw, AlertCircle, MessageSquare, Loader2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { RatingStars } from '@/components/reviews/RatingStars';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,6 @@ export const InfiniteReviewFeed: React.FC<InfiniteReviewFeedProps> = ({
         isLoadingMore,
         hasMore,
         error,
-        refresh,
         retryLastPage,
         sentinelRef,
     } = useInfiniteReviews({
@@ -126,47 +125,7 @@ export const InfiniteReviewFeed: React.FC<InfiniteReviewFeedProps> = ({
             {reviews.length > 0 && (
                 <div className="space-y-3">
                     {reviews.map((r) => (
-                        <Card
-                            key={r.id}
-                            className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/8 bg-white dark:bg-[#12131A] shadow-2xs space-y-2.5"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                                        {r.customer_name}
-                                    </h4>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <RatingStars rating={r.rating} size="xs" showScore={false} />
-                                        {r.created_at && (
-                                            <span className="text-[10px] text-slate-400">
-                                                • {new Date(r.created_at).toLocaleDateString()}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {r.comment ? (
-                                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                    {r.comment}
-                                </p>
-                            ) : (
-                                <p className="text-xs text-slate-400 italic">
-                                    Rating submitted without written comment.
-                                </p>
-                            )}
-
-                            {r.admin_response && (
-                                <div className="mt-2 pl-3 py-1.5 border-l-2 border-[#FF3366] bg-rose-50/50 dark:bg-rose-950/20 rounded-r-xl">
-                                    <p className="text-[10px] font-bold text-[#FF3366] dark:text-[#FF4F81] uppercase tracking-wider">
-                                        Store Response
-                                    </p>
-                                    <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
-                                        {r.admin_response}
-                                    </p>
-                                </div>
-                            )}
-                        </Card>
+                        <PublicReviewCard key={r.id} review={r} />
                     ))}
                 </div>
             )}
@@ -204,10 +163,80 @@ export const InfiniteReviewFeed: React.FC<InfiniteReviewFeedProps> = ({
                 </p>
             )}
 
-            {/* Invisible Intersection Sentinel */}
-            {hasMore && !isLoading && (
+            {/* Invisible Intersection Sentinel (disabled if error is present to prevent retry loops) */}
+            {hasMore && !isLoading && !error && (
                 <div ref={sentinelRef} className="h-6 w-full pointer-events-none" aria-hidden="true" />
             )}
         </div>
+    );
+};
+
+interface PublicReviewCardProps {
+    review: {
+        id: number;
+        customer_name: string;
+        rating: number;
+        comment: string | null;
+        admin_response: string | null;
+        created_at: string | null;
+    };
+}
+
+const PublicReviewCard: React.FC<PublicReviewCardProps> = ({ review: r }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const comment = r.comment || '';
+    const isLongComment = comment.length > 220;
+    const displayedComment = isLongComment && !isExpanded ? `${comment.slice(0, 220).trim()}...` : comment;
+
+    return (
+        <Card className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/8 bg-white dark:bg-[#12131A] shadow-2xs space-y-2.5 overflow-hidden wrap-break-word">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 min-w-0">
+                <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 wrap-break-word leading-snug">
+                        {r.customer_name}
+                    </h4>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <RatingStars rating={r.rating} size="xs" showScore={false} />
+                        {r.created_at && (
+                            <span className="text-[10px] text-slate-400 font-mono">
+                                • {new Date(r.created_at).toLocaleDateString()}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {comment.trim().length > 0 ? (
+                <div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed wrap-break-word whitespace-pre-wrap">
+                        {displayedComment}
+                    </p>
+                    {isLongComment && (
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="text-[#FF3366] dark:text-[#FF4F81] text-xs font-bold hover:underline cursor-pointer inline-flex items-center gap-1 mt-1 focus:outline-hidden"
+                        >
+                            {isExpanded ? 'Show less' : 'Read more'}
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <p className="text-xs text-slate-400 italic">
+                    Rating submitted without written comment.
+                </p>
+            )}
+
+            {r.admin_response && (
+                <div className="mt-2 pl-3 py-1.5 border-l-2 border-[#FF3366] bg-rose-50/50 dark:bg-rose-950/20 rounded-r-xl">
+                    <p className="text-[10px] font-bold text-[#FF3366] dark:text-[#FF4F81] uppercase tracking-wider">
+                        Store Response
+                    </p>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 wrap-break-word whitespace-pre-wrap leading-relaxed">
+                        {r.admin_response}
+                    </p>
+                </div>
+            )}
+        </Card>
     );
 };

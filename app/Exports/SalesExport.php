@@ -8,17 +8,24 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Protection;
 
-class SalesExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize
+class SalesExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize, WithTitle
 {
     protected $filters;
 
     public function __construct($filters)
     {
         $this->filters = $filters;
+    }
+
+    public function title(): string
+    {
+        return 'Sales Report';
     }
 
     public function collection()
@@ -29,14 +36,19 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping, WithStyl
             : null;
 
         return Sale::with(['cashier', 'branch', 'order.user', 'delivery', 'items.product'])
-            ->when(!$user->isAdmin(), function ($q) use ($user) {
+            ->when($user && !$user->isAdmin(), function ($q) use ($user) {
                 return $q->where('branch_id', $user->branch_id);
             })
-            ->when($branchId && $user->isAdmin(), fn($q) => $q->where('branch_id', $branchId))
-            ->when($this->filters['date_from'] ?? null, fn($q) => $q->whereDate('created_at', '>=', $this->filters['date_from']))
-            ->when($this->filters['date_to'] ?? null, fn($q) => $q->whereDate('created_at', '<=', $this->filters['date_to']))
-            ->when(($this->filters['cashier_id'] ?? null) && $this->filters['cashier_id'] !== 'all' && $user->isAdmin(), fn($q) => $q->where('user_id', $this->filters['cashier_id']))
+            ->when($branchId && (!$user || $user->isAdmin()), fn($q) => $q->where('branch_id', $branchId))
+            ->when(isset($this->filters['from']) && isset($this->filters['to']), function ($q) {
+                return $q->whereBetween('created_at', [$this->filters['from'], $this->filters['to']]);
+            }, function ($q) {
+                return $q->when($this->filters['date_from'] ?? null, fn($sub) => $sub->whereDate('created_at', '>=', $this->filters['date_from']))
+                         ->when($this->filters['date_to'] ?? null, fn($sub) => $sub->whereDate('created_at', '<=', $this->filters['date_to']));
+            })
+            ->when(($this->filters['cashier_id'] ?? null) && $this->filters['cashier_id'] !== 'all' && (!$user || $user->isAdmin()), fn($q) => $q->where('user_id', $this->filters['cashier_id']))
             ->when(($this->filters['status'] ?? null) && $this->filters['status'] !== 'all', fn($q) => $q->where('status', $this->filters['status']))
+            ->when($this->filters['search'] ?? null, fn($q, $search) => $q->where('order_number', 'like', "%{$search}%"))
             ->latest()
             ->get();
     }
@@ -160,58 +172,7 @@ class SalesExport implements FromCollection, WithHeadings, WithMapping, WithStyl
             $sheet->setAutoFilter("A1:{$highestColumn}{$highestRow}");
         }
 
-        // Worksheet Protection against accidental editing
-        $protection = $sheet->getProtection();
-        $protection->setSheet(true);
-        $protection->setSelectLockedCells(true);
-        $protection->setSelectUnlockedCells(true);
-        $protection->setAutoFilter(true);
-        $protection->setSort(true);
-        $protection->setFormatCells(false);
-        $protection->setInsertRows(false);
-        $protection->setInsertColumns(false);
-        $protection->setDeleteRows(false);
-        $protection->setDeleteColumns(false);
-        $protection->setObjects(true);
-        $protection->setScenarios(true);
-
-        $password = config('app.excel_export_password', 'MakiDesuSales');
-        if (!empty($password)) {
-            $protection->setPassword((string) $password);
-        }
-
-        // Protect all sheets consistently if multiple sheets exist in workbook
-        try {
-            if ($sheet->getParent()) {
-                foreach ($sheet->getParent()->getAllSheets() as $wkSheet) {
-                    $wkProtection = $wkSheet->getProtection();
-                    $wkProtection->setSheet(true);
-                    $wkProtection->setSelectLockedCells(true);
-                    $wkProtection->setSelectUnlockedCells(true);
-                    $wkProtection->setAutoFilter(true);
-                    $wkProtection->setSort(true);
-                    $wkProtection->setFormatCells(false);
-                    $wkProtection->setInsertRows(false);
-                    $wkProtection->setInsertColumns(false);
-                    $wkProtection->setDeleteRows(false);
-                    $wkProtection->setDeleteColumns(false);
-                    $wkProtection->setObjects(true);
-                    $wkProtection->setScenarios(true);
-
-                    if (!empty($password)) {
-                        $wkProtection->setPassword((string) $password);
-                    }
-                }
-
-                if ($sheet->getParent()->getSecurity()) {
-                    $sheet->getParent()->getSecurity()->setLockStructure(true);
-                    if (!empty($password)) {
-                        $sheet->getParent()->getSecurity()->setWorkbookPassword((string) $password);
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // Safe fallback if workbook security is not supported in current context
-        }
+        // Apply shared Excel protection service
+        \App\Services\ExcelProtectionService::protect($sheet);
     }
 }
