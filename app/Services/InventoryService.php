@@ -320,7 +320,7 @@ class InventoryService
 
             // Create a general audit log entry so it appears in the Activity Log page
             if ($type === 'ingredient') {
-                \App\Models\IngredientLog::create([
+                IngredientLog::create([
                     'ingredient_id' => $id,
                     'user_id'       => Auth::id(),
                     'branch_id'     => $branchId,

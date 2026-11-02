@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Command\Command as SymfonyCommand;
 use App\Services\IprogSmsService;
 use App\Services\PhoneNumberService;
 
@@ -36,20 +37,20 @@ class TestIprogSmsCommand extends Command
 
         if (!$smsService->isConfigured()) {
             $this->error('[FAIL] IPROG_SMS_API_TOKEN is not configured in .env or services.php');
-            return Command::FAILURE;
+            return SymfonyCommand::FAILURE;
         }
 
         $this->line('[1/3] Checking provider balance & account status...');
         $credits = $smsService->getCredits();
         if (!$credits['success']) {
             $this->error('[FAIL] Unable to connect to IPROG API: ' . $credits['message']);
-            return Command::FAILURE;
+            return SymfonyCommand::FAILURE;
         }
 
         $this->info(" -> Account Verified. Available SMS Credits: {$credits['balance']}");
 
         if ($this->option('check-credits')) {
-            return Command::SUCCESS;
+            return SymfonyCommand::SUCCESS;
         }
 
         $phone = $this->argument('phone');
@@ -60,7 +61,7 @@ class TestIprogSmsCommand extends Command
         $normalized = PhoneNumberService::normalize($phone);
         if (!$normalized || !PhoneNumberService::isValidPhMobile($normalized)) {
             $this->error("[FAIL] Invalid Philippine mobile number: '{$phone}'. Must be 11 digits starting with 09.");
-            return Command::INVALID;
+            return SymfonyCommand::INVALID;
         }
 
         $masked = PhoneNumberService::mask($normalized);
@@ -73,10 +74,10 @@ class TestIprogSmsCommand extends Command
 
             if ($verifyResult['success']) {
                 $this->info("[SUCCESS] OTP Verified Successfully by IPROG provider!");
-                return Command::SUCCESS;
+                return SymfonyCommand::SUCCESS;
             } else {
                 $this->error("[FAIL] OTP verification rejected: " . $verifyResult['message']);
-                return Command::FAILURE;
+                return SymfonyCommand::FAILURE;
             }
         }
 
@@ -86,7 +87,7 @@ class TestIprogSmsCommand extends Command
 
         if (!$sendResult['success']) {
             $this->error("[FAIL] Provider rejected OTP dispatch: " . $sendResult['message']);
-            return Command::FAILURE;
+            return SymfonyCommand::FAILURE;
         }
 
         $this->info(" -> SMS OTP dispatched to carrier queue successfully!");
@@ -97,7 +98,7 @@ class TestIprogSmsCommand extends Command
         $enteredCode = $this->ask('Please enter the 6-digit OTP code received on your phone (or press Enter to skip)');
         if (empty($enteredCode)) {
             $this->warn('OTP verification prompt skipped by user. Send test was successful.');
-            return Command::SUCCESS;
+            return SymfonyCommand::SUCCESS;
         }
 
         $this->line("[3/3] Verifying code with IPROG verify_otp endpoint...");
@@ -108,10 +109,10 @@ class TestIprogSmsCommand extends Command
             $this->info(' [PASS] Live end-to-end SMS OTP delivery & verification');
             $this->info('        confirmed working via official IPROG API!      ');
             $this->info('=====================================================');
-            return Command::SUCCESS;
+            return SymfonyCommand::SUCCESS;
         } else {
             $this->error('[FAIL] OTP verification failed: ' . $verifyResult['message']);
-            return Command::FAILURE;
+            return SymfonyCommand::FAILURE;
         }
     }
 }
