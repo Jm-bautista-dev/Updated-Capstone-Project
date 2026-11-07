@@ -15,7 +15,7 @@ import { playOrderNotificationSound } from './order-audio';
 
 export interface GlobalNotificationItem {
     id: string | number; // Unique identifier (e.g., order_id, "order_101", "cancel_req_42", "log_123")
-    type: 'order' | 'pickup' | 'pickup_prep_due' | 'cancellation' | 'info' | 'warning' | 'low_stock' | 'out_of_stock';
+    type: 'order' | 'pickup' | 'pickup_prep_due' | 'cancellation' | 'info' | 'warning' | 'low_stock' | 'out_of_stock' | 'expired_ingredient';
     fulfillment_type?: 'pickup' | 'delivery' | string;
     is_pickup?: boolean;
     order_id?: number | string;
@@ -36,6 +36,17 @@ export interface GlobalNotificationItem {
     threshold?: string | number;
     unit?: string;
     severity?: 'low_stock' | 'out_of_stock';
+    // Expired ingredient disposal specific fields
+    disposed_quantity_formatted?: string;
+    expiration_date_formatted?: string;
+    disposal_status?: string;
+    affected_products?: Array<{
+        product_id?: number;
+        product_name?: string;
+        name?: string;
+        previous_servings?: number;
+        recalculated_servings?: number;
+    }>;
     auto_dismiss?: boolean; // default true
     duration_ms?: number; // default 5000ms
     created_at: number; // timestamp

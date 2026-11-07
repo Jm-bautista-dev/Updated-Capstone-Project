@@ -34,7 +34,7 @@ class ReceiptController extends Controller
     public function upload(Request $request)
     {
         $request->validate([
-            'file'      => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:10240',
+            'file' => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:10240',
             'branch_id' => 'required|exists:branches,id',
         ]);
 
@@ -67,16 +67,16 @@ class ReceiptController extends Controller
                 'file_path' => $publicUrl,
                 'file_hash' => $fileHash,
                 'branch_id' => (int) $request->branch_id,
-                'user_id'   => $userId,
-                'status'    => 'pending',
+                'user_id' => $userId,
+                'status' => 'pending',
             ]);
 
             return response()->json([
-                'success'    => true,
-                'message'    => 'Receipt uploaded successfully.',
+                'success' => true,
+                'message' => 'Receipt uploaded successfully.',
                 'receipt_id' => $receipt->id,
-                'file_path'  => $receipt->file_path,
-                'file_hash'  => $fileHash,
+                'file_path' => $receipt->file_path,
+                'file_hash' => $fileHash,
             ]);
         } catch (\Exception $e) {
             Log::error('Receipt upload failed: ' . $e->getMessage());
@@ -95,7 +95,7 @@ class ReceiptController extends Controller
     {
         $request->validate([
             'receipt_id' => 'required|exists:scanned_receipts,id',
-            'branch_id'  => 'nullable|exists:branches,id',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         try {
@@ -156,23 +156,23 @@ class ReceiptController extends Controller
 
             // Save DRAFT state to database
             $receipt->update([
-                'supplier_name'               => $parsedData['supplier_name'],
-                'supplier_id'                 => $matchedSupplier?->id,
-                'invoice_number'              => $parsedData['invoice_number'],
-                'receipt_date'                => $parsedData['receipt_date'],
-                'currency'                    => $parsedData['currency'],
-                'subtotal'                    => $parsedData['subtotal'],
-                'tax'                         => $parsedData['tax'],
-                'discount'                    => $parsedData['discount'],
-                'grand_total'                 => $parsedData['grand_total'],
-                'calculated_total'            => $parsedData['calculated_total'],
-                'is_arithmetic_valid'         => $isArithmeticValid,
-                'is_duplicate_warning'        => $duplicateCheck['is_duplicate'],
-                'duplicate_matched_receipt_id'=> $duplicateCheck['matched_id'],
-                'raw_ocr_text'                => $rawText,
-                'parsed_data'                 => $matchedItems,
-                'branch_id'                   => $targetBranchId,
-                'status'                      => 'processed', // DRAFT awaiting admin review
+                'supplier_name' => $parsedData['supplier_name'],
+                'supplier_id' => $matchedSupplier?->id,
+                'invoice_number' => $parsedData['invoice_number'],
+                'receipt_date' => $parsedData['receipt_date'],
+                'currency' => $parsedData['currency'],
+                'subtotal' => $parsedData['subtotal'],
+                'tax' => $parsedData['tax'],
+                'discount' => $parsedData['discount'],
+                'grand_total' => $parsedData['grand_total'],
+                'calculated_total' => $parsedData['calculated_total'],
+                'is_arithmetic_valid' => $isArithmeticValid,
+                'is_duplicate_warning' => $duplicateCheck['is_duplicate'],
+                'duplicate_matched_receipt_id' => $duplicateCheck['matched_id'],
+                'raw_ocr_text' => $rawText,
+                'parsed_data' => $matchedItems,
+                'branch_id' => $targetBranchId,
+                'status' => 'processed', // DRAFT awaiting admin review
             ]);
 
             // Low-confidence / review required calculation
@@ -185,28 +185,28 @@ class ReceiptController extends Controller
             }
 
             return response()->json([
-                'success'               => true,
-                'receipt_id'            => $receipt->id,
-                'file_path'             => $receipt->file_path,
-                'supplier_name'         => $receipt->supplier_name,
-                'supplier_id'           => $receipt->supplier_id,
+                'success' => true,
+                'receipt_id' => $receipt->id,
+                'file_path' => $receipt->file_path,
+                'supplier_name' => $receipt->supplier_name,
+                'supplier_id' => $receipt->supplier_id,
                 'matched_supplier_name' => $matchedSupplier?->name,
-                'invoice_number'        => $receipt->invoice_number,
-                'receipt_date'          => $receipt->receipt_date ? \Carbon\Carbon::parse($receipt->receipt_date)->format('Y-m-d') : date('Y-m-d'),
-                'branch_id'             => $receipt->branch_id,
-                'currency'              => $receipt->currency,
-                'subtotal'              => (float) $receipt->subtotal,
-                'tax'                   => (float) $receipt->tax,
-                'discount'              => (float) $receipt->discount,
-                'grand_total'           => (float) $receipt->grand_total,
-                'calculated_total'      => (float) $receipt->calculated_total,
-                'is_arithmetic_valid'   => $isArithmeticValid,
-                'is_duplicate_warning'  => $duplicateCheck['is_duplicate'],
-                'duplicate_reason'      => $duplicateCheck['reason'],
-                'duplicate_matched_id'  => $duplicateCheck['matched_id'],
-                'items'                 => $matchedItems,
-                'low_confidence'        => $lowConfidence,
-                'raw_text'              => $rawText,
+                'invoice_number' => $receipt->invoice_number,
+                'receipt_date' => $receipt->receipt_date ? \Carbon\Carbon::parse($receipt->receipt_date)->format('Y-m-d') : date('Y-m-d'),
+                'branch_id' => $receipt->branch_id,
+                'currency' => $receipt->currency,
+                'subtotal' => (float) $receipt->subtotal,
+                'tax' => (float) $receipt->tax,
+                'discount' => (float) $receipt->discount,
+                'grand_total' => (float) $receipt->grand_total,
+                'calculated_total' => (float) $receipt->calculated_total,
+                'is_arithmetic_valid' => $isArithmeticValid,
+                'is_duplicate_warning' => $duplicateCheck['is_duplicate'],
+                'duplicate_reason' => $duplicateCheck['reason'],
+                'duplicate_matched_id' => $duplicateCheck['matched_id'],
+                'items' => $matchedItems,
+                'low_confidence' => $lowConfidence,
+                'raw_text' => $rawText,
             ]);
         } catch (\Exception $e) {
             Log::error('Receipt OCR processing failed: ' . $e->getMessage());
@@ -225,19 +225,20 @@ class ReceiptController extends Controller
     public function stockIn(Request $request)
     {
         $request->validate([
-            'branch_id'               => 'required|exists:branches,id',
-            'receipt_id'              => 'nullable|exists:scanned_receipts,id',
-            'supplier_name'           => 'nullable|string|max:255',
-            'invoice_number'          => 'nullable|string|max:255',
-            'receipt_date'            => 'nullable|date',
-            'items'                   => 'required|array|min:1',
-            'items.*.id'              => 'nullable|integer',
-            'items.*.ingredient_id'   => 'nullable|integer',
-            'items.*.type'            => 'nullable|string|in:ingredient,product',
-            'items.*.quantity'        => 'required|numeric|gt:0',
-            'items.*.unit'            => 'required|string',
-            'items.*.purchase_price'  => 'nullable|numeric|min:0',
-            'items.*.unit_price'      => 'nullable|numeric|min:0',
+            'branch_id' => 'required|exists:branches,id',
+            'receipt_id' => 'nullable|exists:scanned_receipts,id',
+            'supplier_name' => 'nullable|string|max:255',
+            'invoice_number' => 'nullable|string|max:255',
+            'receipt_date' => 'nullable|date',
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'nullable|integer',
+            'items.*.ingredient_id' => 'nullable|integer',
+            'items.*.type' => 'nullable|string|in:ingredient,product',
+            'items.*.quantity' => 'required|numeric|gt:0',
+            'items.*.unit' => 'required|string',
+            'items.*.purchase_price' => 'nullable|numeric|min:0',
+            'items.*.unit_price' => 'nullable|numeric|min:0',
+            'items.*.expiration_date' => ['nullable', 'date', new \App\Rules\UnexpiredExpirationDate()],
         ]);
 
         try {
@@ -265,14 +266,35 @@ class ReceiptController extends Controller
             }
 
             // Validate all items exist before starting transaction
-            foreach ($request->items as $item) {
+            $expirationService = app(\App\Services\InventoryExpirationService::class);
+            foreach ($request->items as $idx => $item) {
                 $itemType = $item['type'] ?? 'ingredient';
                 $itemId = (int) ($item['ingredient_id'] ?? $item['id']);
-                if ($itemType === 'ingredient' && !Ingredient::where('id', $itemId)->exists()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Ingredient ID {$itemId} does not exist in the database.",
-                    ], 422);
+                if ($itemType === 'ingredient') {
+                    $ing = Ingredient::find($itemId);
+                    if (!$ing) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Ingredient ID {$itemId} does not exist in the database.",
+                        ], 422);
+                    }
+
+                    if (!empty($item['expiration_date'])) {
+                        $expiryValidation = $expirationService->validateRestockExpirationDate(
+                            $item['expiration_date'],
+                            $ing,
+                            $item['expiration_type'] ?? 'use_by'
+                        );
+                        if (!$expiryValidation['valid']) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => $expiryValidation['message'],
+                                'errors' => [
+                                    "items.{$idx}.expiration_date" => [$expiryValidation['message']],
+                                ],
+                            ], 422);
+                        }
+                    }
                 }
                 if ($itemType === 'product' && !\App\Models\Product::where('id', $itemId)->exists()) {
                     return response()->json([
@@ -295,15 +317,15 @@ class ReceiptController extends Controller
                 $origItem = $originalParsed[$idx] ?? null;
 
                 $auditTrail[] = [
-                    'ingredient_id'         => $ingId,
-                    'original_description'  => $origItem['description'] ?? $origItem['item_name'] ?? null,
-                    'original_qty'          => isset($origItem['quantity']) ? (float) $origItem['quantity'] : (isset($origItem['detected_qty']) ? (float) $origItem['detected_qty'] : null),
-                    'original_unit'         => $origItem['unit'] ?? $origItem['detected_unit'] ?? null,
-                    'original_price'        => isset($origItem['line_total']) ? (float) $origItem['line_total'] : null,
-                    'confirmed_qty'         => (float) $confirmedItem['quantity'],
-                    'confirmed_unit'        => $confirmedItem['unit'],
-                    'confirmed_price'       => (float) ($confirmedItem['purchase_price'] ?? $confirmedItem['unit_price'] ?? 0),
-                    'is_overridden'         => $origItem ? (
+                    'ingredient_id' => $ingId,
+                    'original_description' => $origItem['description'] ?? $origItem['item_name'] ?? null,
+                    'original_qty' => isset($origItem['quantity']) ? (float) $origItem['quantity'] : (isset($origItem['detected_qty']) ? (float) $origItem['detected_qty'] : null),
+                    'original_unit' => $origItem['unit'] ?? $origItem['detected_unit'] ?? null,
+                    'original_price' => isset($origItem['line_total']) ? (float) $origItem['line_total'] : null,
+                    'confirmed_qty' => (float) $confirmedItem['quantity'],
+                    'confirmed_unit' => $confirmedItem['unit'],
+                    'confirmed_price' => (float) ($confirmedItem['purchase_price'] ?? $confirmedItem['unit_price'] ?? 0),
+                    'is_overridden' => $origItem ? (
                         (float) ($origItem['quantity'] ?? $origItem['detected_qty'] ?? 0) !== (float) $confirmedItem['quantity'] ||
                         ($origItem['unit'] ?? $origItem['detected_unit'] ?? '') !== $confirmedItem['unit']
                     ) : true,
@@ -339,15 +361,15 @@ class ReceiptController extends Controller
 
                 if ($receipt) {
                     $receipt->update([
-                        'status'         => 'completed',
-                        'branch_id'      => (int) $request->branch_id,
-                        'supplier_name'  => $supplierName,
+                        'status' => 'completed',
+                        'branch_id' => (int) $request->branch_id,
+                        'supplier_name' => $supplierName,
                         'invoice_number' => $invoiceNo,
-                        'receipt_date'   => $request->receipt_date ?: $receipt->receipt_date,
+                        'receipt_date' => $request->receipt_date ?: $receipt->receipt_date,
                         'confirmed_data' => $request->items,
-                        'audit_trail'    => $auditTrail,
-                        'processed_by'   => $userId,
-                        'confirmed_at'   => now(),
+                        'audit_trail' => $auditTrail,
+                        'processed_by' => $userId,
+                        'confirmed_at' => now(),
                     ]);
                 }
 
@@ -355,12 +377,12 @@ class ReceiptController extends Controller
             });
 
             return response()->json([
-                'success'      => true,
-                'message'      => 'Inventory restocked successfully.',
-                'receipt_id'   => $receipt?->id,
-                'items_count'  => count($request->items),
-                'branch_id'    => (int) $request->branch_id,
-                'audit_summary'=> $auditTrail,
+                'success' => true,
+                'message' => 'Inventory restocked successfully.',
+                'receipt_id' => $receipt?->id,
+                'items_count' => count($request->items),
+                'branch_id' => (int) $request->branch_id,
+                'audit_summary' => $auditTrail,
             ]);
         } catch (\Exception $e) {
             Log::error('Receipt inventory stock-in failed: ' . $e->getMessage());
@@ -390,7 +412,7 @@ class ReceiptController extends Controller
         $receipts = $query->paginate(15);
 
         return response()->json([
-            'success'  => true,
+            'success' => true,
             'receipts' => $receipts,
         ]);
     }

@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue
 } from '@/components/ui/select';
+import { getBusinessTodayManila, isExpirationDateExpired, EXPIRED_DATE_ERROR_MESSAGE } from '@/lib/inventory-expiry-validator';
 import { getCompatibleUnits, convertToBaseQuantity, normalizeUnit } from '@/lib/unit-converter';
 import { cn } from '@/lib/utils';
 import inventory from '@/routes/inventory';
@@ -121,9 +122,11 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
 
     const isPerishable = data.expiration_type !== 'none';
     const requiresExpiry = Boolean(item?.requires_expiration_tracking);
+    const isDateExpired = isPerishable && isExpirationDateExpired(data.expiration_date);
 
     const onSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isDateExpired) return;
         post(inventory.stockIn.url(), {
             onSuccess: () => {
                 reset();
@@ -256,16 +259,26 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                             </label>
                             <Input
                                 type="date"
+                                min={getBusinessTodayManila()}
                                 disabled={!isPerishable}
                                 value={data.expiration_date}
                                 onChange={(e) => setData('expiration_date', e.target.value)}
                                 className={cn(
                                     "h-11 rounded-xl bg-white dark:bg-[#181822] border-[#F8C8DC]/40 dark:border-white/10 font-bold text-xs",
                                     !isPerishable && "opacity-50 cursor-not-allowed bg-muted/40",
-                                    errors.expiration_date ? "border-rose-500 ring-rose-500/20" : ""
+                                    (errors.expiration_date || isDateExpired) ? "border-rose-500 ring-rose-500/20" : ""
                                 )}
                             />
-                            {errors.expiration_date && (
+                            {isDateExpired && (
+                                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-start gap-2 mt-1">
+                                    <FiAlertCircle className="size-4 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-extrabold uppercase text-[11px]">⚠️ Cannot Restock Expired Ingredient</p>
+                                        <p className="font-normal text-[10px] mt-0.5 leading-snug">{EXPIRED_DATE_ERROR_MESSAGE}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {errors.expiration_date && !isDateExpired && (
                                 <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.expiration_date}</p>
                             )}
                         </div>
@@ -385,7 +398,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                             <Button
                                 type="button"
                                 onClick={() => setReviewedItemId(item.id)}
-                                disabled={!data.quantity || Number(data.quantity) <= 0 || (isPerishable && requiresExpiry && !data.expiration_date)}
+                                disabled={!data.quantity || Number(data.quantity) <= 0 || (isPerishable && requiresExpiry && !data.expiration_date) || isDateExpired}
                                 className="rounded-2xl h-12 flex-1 bg-[#E75480] dark:bg-[#E1062C] hover:bg-[#D43F6B] dark:hover:bg-[#C00525] text-white font-bold cursor-pointer shadow-xs gap-2"
                             >
                                 <FiArrowRight className="size-4" />
@@ -403,7 +416,7 @@ export function StockInModal({ open, onOpenChange, item, type }: StockInModalPro
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={processing || !data.quantity || Number(data.quantity) <= 0}
+                                    disabled={processing || !data.quantity || Number(data.quantity) <= 0 || isDateExpired}
                                     className="rounded-2xl h-12 flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shadow-md gap-2"
                                 >
                                     {processing ? (

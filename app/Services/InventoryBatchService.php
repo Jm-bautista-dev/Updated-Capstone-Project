@@ -21,6 +21,12 @@ class InventoryBatchService
      */
     public function getQueueForIngredient(int $ingredientId, int $branchId, bool $includeIneligible = true): array
     {
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
+        }
+
         $this->ensureBatchCoverage($ingredientId, $branchId);
 
         $ingredient = Ingredient::findOrFail($ingredientId);
@@ -139,6 +145,12 @@ class InventoryBatchService
      */
     public function getAvailableEligibleStock(int $ingredientId, int $branchId): float
     {
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
+        }
+
         $this->ensureBatchCoverage($ingredientId, $branchId);
 
         $now = Carbon::now(config('app.timezone', 'Asia/Manila'));
@@ -176,6 +188,12 @@ class InventoryBatchService
     ): array {
         if ($requiredQuantityBase <= 0) {
             return [];
+        }
+
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
         }
 
         $this->ensureBatchCoverage($ingredientId, $branchId);
@@ -479,9 +497,24 @@ class InventoryBatchService
 
             $ingredient = Ingredient::findOrFail($ingredientId);
 
-            // Validate expiration tracking requirement
-            $expirationDate = !empty($data['expiration_date']) ? Carbon::parse($data['expiration_date']) : null;
-            $expirationType = $data['expiration_type'] ?? ($expirationDate ? 'use_by' : 'none');
+            // Validate expiration tracking requirement & unexpired date enforcement
+            $rawExpDate = $data['expiration_date'] ?? null;
+            $expirationType = $data['expiration_type'] ?? ($rawExpDate ? 'use_by' : 'none');
+
+            // Strict backend check: incoming batch must not have an expired expiration date
+            if (!empty($rawExpDate)) {
+                $expVal = app(\App\Services\InventoryExpirationService::class)->validateRestockExpirationDate(
+                    $rawExpDate,
+                    $ingredient,
+                    $expirationType
+                );
+                if (!$expVal['valid']) {
+                    throw new \InvalidArgumentException($expVal['message'] ?? \App\Services\InventoryExpirationService::EXPIRED_DATE_ERROR_MESSAGE);
+                }
+                $expirationDate = $expVal['date'];
+            } else {
+                $expirationDate = null;
+            }
 
             if ($ingredient->requires_expiration_tracking && !$expirationDate && $expirationType !== 'none') {
                 if ($ingredient->default_expiry_days) {

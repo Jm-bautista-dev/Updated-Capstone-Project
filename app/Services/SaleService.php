@@ -97,6 +97,12 @@ class SaleService
         $orderType = $data['type'] ?? 'dine-in';
         $paymentMethod = $data['payment_method'] ?? 'cash';
 
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking safety check
+        }
+
         // 1. Process items, modifier groups, and inventory requirements
         [
             $saleItemsData,

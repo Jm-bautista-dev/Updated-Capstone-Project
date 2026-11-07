@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('inventory:daily-report')->dailyAt('19:00');
 Schedule::command('pickups:process-prep-reminders')->everyMinute();
+Schedule::command('inventory:process-expired')->everyMinute();
 
 // Prune personal access tokens that haven't been used in 90 days
 Schedule::call(function () {

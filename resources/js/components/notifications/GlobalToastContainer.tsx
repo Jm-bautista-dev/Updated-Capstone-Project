@@ -95,6 +95,7 @@ export const GlobalToastContainer: React.FC = () => {
                     const isCancellation = item.type === 'cancellation';
                     const isOutOfStock = item.type === 'out_of_stock';
                     const isLowStock = item.type === 'low_stock';
+                    const isExpiredIngredient = item.type === 'expired_ingredient';
                     const isInventoryAlert = isOutOfStock || isLowStock;
 
                     const displayOrderNum = item.order_number || (item.id ? `ORD-${item.id}` : 'ORD-NEW');
@@ -104,7 +105,9 @@ export const GlobalToastContainer: React.FC = () => {
                         ? `₱${item.total_amount}`
                         : '';
 
-                    const badgeColor = isOutOfStock
+                    const badgeColor = isExpiredIngredient
+                        ? 'text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/80 border-rose-300 dark:border-rose-800 font-black animate-pulse'
+                        : isOutOfStock
                         ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900/60 font-black animate-pulse'
                         : isLowStock
                         ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900/60 font-black animate-pulse'
@@ -116,7 +119,9 @@ export const GlobalToastContainer: React.FC = () => {
                         ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 border-cyan-200 dark:border-cyan-900/60'
                         : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-900/60';
 
-                    const borderColor = isOutOfStock
+                    const borderColor = isExpiredIngredient
+                        ? 'border-rose-600 dark:border-rose-500 shadow-rose-500/20'
+                        : isOutOfStock
                         ? 'border-rose-500/70 dark:border-rose-400/70'
                         : isLowStock
                         ? 'border-amber-500/70 dark:border-amber-400/70'
@@ -128,7 +133,9 @@ export const GlobalToastContainer: React.FC = () => {
                         ? 'border-cyan-500/40 dark:border-cyan-400/50'
                         : 'border-emerald-500/40 dark:border-emerald-400/50';
 
-                    const ambientGlow = isOutOfStock
+                    const ambientGlow = isExpiredIngredient
+                        ? 'bg-rose-600/30'
+                        : isOutOfStock
                         ? 'bg-rose-500/20'
                         : isLowStock
                         ? 'bg-amber-500/20'
@@ -136,13 +143,13 @@ export const GlobalToastContainer: React.FC = () => {
                         ? 'bg-amber-500/20'
                         : 'bg-emerald-500/10';
 
-                    const progressColor = isOutOfStock
+                    const progressColor = (isExpiredIngredient || isOutOfStock)
                         ? 'bg-rose-500/70'
                         : isLowStock
                         ? 'bg-amber-500/70'
                         : 'bg-emerald-500/70';
 
-                    const actionBtnColor = isOutOfStock
+                    const actionBtnColor = (isExpiredIngredient || isOutOfStock)
                         ? 'bg-rose-600 hover:bg-rose-700'
                         : isLowStock
                         ? 'bg-amber-600 hover:bg-amber-700'
@@ -167,7 +174,9 @@ export const GlobalToastContainer: React.FC = () => {
                             <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeColor} shrink-0`}>
-                                        {isOutOfStock
+                                        {isExpiredIngredient
+                                            ? '☣️ EXPIRED DISPOSAL'
+                                            : isOutOfStock
                                             ? '🚨 OUT OF STOCK'
                                             : isLowStock
                                             ? '⚠️ LOW STOCK'
@@ -180,12 +189,16 @@ export const GlobalToastContainer: React.FC = () => {
                                             : '🛎️ NEW ONLINE ORDER'}
                                     </span>
                                     <span className="text-xs sm:text-sm font-black font-mono text-gray-900 dark:text-white truncate">
-                                        {isInventoryAlert ? (item.ingredient_name || 'Inventory Item') : displayOrderNum}
+                                        {isExpiredIngredient || isInventoryAlert ? (item.ingredient_name || 'Inventory Item') : displayOrderNum}
                                     </span>
                                 </div>
 
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    {isInventoryAlert && item.current_stock !== undefined ? (
+                                    {isExpiredIngredient ? (
+                                        <span className="text-[10px] font-mono font-black text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/80 px-2 py-0.5 rounded-xl border border-rose-300 dark:border-rose-800">
+                                            {item.disposed_quantity_formatted ? `-${item.disposed_quantity_formatted}` : 'DISPOSED'}
+                                        </span>
+                                    ) : isInventoryAlert && item.current_stock !== undefined ? (
                                         <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-xl border ${isOutOfStock ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800/60' : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800/60'}`}>
                                             {item.current_stock}
                                         </span>
@@ -206,7 +219,60 @@ export const GlobalToastContainer: React.FC = () => {
                             </div>
 
                             {/* Body Details */}
-                            {isInventoryAlert ? (
+                            {isExpiredIngredient ? (
+                                <div className="text-[11px] text-muted-foreground bg-rose-50/60 dark:bg-rose-950/30 p-2.5 rounded-2xl border border-rose-200/60 dark:border-rose-900/50 mb-2.5 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-400">Ingredient:</span>
+                                        <span className="font-black text-rose-700 dark:text-rose-300 truncate max-w-45">
+                                            {item.ingredient_name || 'Expired Batch'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-400">Disposed Qty:</span>
+                                        <span className="font-black font-mono text-rose-600 dark:text-rose-400">
+                                            {item.disposed_quantity_formatted || '0'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-400">Branch:</span>
+                                        <span className="font-bold text-gray-900 dark:text-white truncate max-w-45">
+                                            📍 {item.branch_name || 'Branch'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-400">Expiry Date:</span>
+                                        <span className="font-semibold font-mono text-gray-700 dark:text-gray-300">
+                                            {item.expiration_date_formatted || 'Expired'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium text-gray-600 dark:text-gray-400">Status:</span>
+                                        <span className="font-bold text-rose-600 dark:text-rose-400 text-[10px] uppercase tracking-wide">
+                                            {item.disposal_status || 'Removed from usable inventory'}
+                                        </span>
+                                    </div>
+
+                                    {item.affected_products && item.affected_products.length > 0 && (
+                                        <div className="pt-1.5 border-t border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-300 block">
+                                                Product Availability Updated:
+                                            </span>
+                                            <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                                                {item.affected_products.map((prod, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between font-mono text-[10px] bg-white/80 dark:bg-black/50 px-2 py-0.5 rounded-lg border border-rose-200/50 dark:border-rose-900/40">
+                                                        <span className="font-semibold text-gray-800 dark:text-gray-200 truncate max-w-36">
+                                                            {prod.product_name}
+                                                        </span>
+                                                        <span className="font-black text-rose-600 dark:text-rose-400">
+                                                            {prod.previous_servings} → {prod.current_servings} serv.
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : isInventoryAlert ? (
                                 <div className="text-[11px] text-muted-foreground bg-gray-50/80 dark:bg-white/5 p-2 rounded-2xl border border-gray-100 dark:border-white/5 mb-2.5 space-y-1">
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-500 dark:text-gray-400">Ingredient:</span>
@@ -265,8 +331,8 @@ export const GlobalToastContainer: React.FC = () => {
                                     onClick={() => handleViewOrder(item)}
                                     className={`flex-1 h-8 ${actionBtnColor} active:scale-[0.98] text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5`}
                                 >
-                                    {isInventoryAlert ? <FiPackage className="size-3.5" /> : <FiEye className="size-3.5" />}
-                                    <span>{item.link_text || (isInventoryAlert ? 'VIEW INVENTORY' : 'VIEW ORDER')}</span>
+                                    {isExpiredIngredient ? <FiTrash2 className="size-3.5" /> : isInventoryAlert ? <FiPackage className="size-3.5" /> : <FiEye className="size-3.5" />}
+                                    <span>{item.link_text || (isExpiredIngredient || isInventoryAlert ? 'VIEW INVENTORY' : 'VIEW ORDER')}</span>
                                 </button>
                                 <button
                                     type="button"

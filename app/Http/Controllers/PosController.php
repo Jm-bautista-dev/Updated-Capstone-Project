@@ -30,6 +30,12 @@ class PosController extends Controller
         $user = Auth::user();
         $branchId = $user->branch_id;
 
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
+        }
+
         // Load products scoped to the cashier's branch via direct branch_id ownership
         $productsQuery = Product::with(['category', 'ingredients']);
         if ($branchId) {

@@ -47,7 +47,7 @@ class StockInController extends Controller
             'items.*.unit_cost'       => 'nullable|numeric|min:0',
             'items.*.lot_number'      => 'nullable|string|max:100',
             'items.*.batch_code'      => 'nullable|string|max:64',
-            'items.*.expiration_date' => 'nullable|date',
+            'items.*.expiration_date' => ['nullable', 'date', new \App\Rules\UnexpiredExpirationDate()],
             'items.*.expiration_type' => 'nullable|string|in:use_by,best_before,none',
             'items.*.supplier_id'     => 'nullable|exists:suppliers,id',
             'items.*.supplier_name'   => 'nullable|string|max:150',
@@ -111,6 +111,27 @@ class StockInController extends Controller
             $receivedAt = $manilaNow;
         }
 
+        // Validate expiration dates strictly per ingredient
+        foreach ($validated['items'] as $idx => $item) {
+            if ($item['type'] === 'ingredient') {
+                $ingredient = \App\Models\Ingredient::find($item['id']);
+                $expVal = app(\App\Services\InventoryExpirationService::class)->validateRestockExpirationDate(
+                    $item['expiration_date'] ?? null,
+                    $ingredient,
+                    $item['expiration_type'] ?? 'use_by'
+                );
+                if (!$expVal['valid']) {
+                    if ($lockKey) {
+                        Cache::forget($lockKey);
+                    }
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "items.{$idx}.expiration_date" => $expVal['message'],
+                        'error' => $expVal['message'],
+                    ]);
+                }
+            }
+        }
+
         // Traceable operation reference linking all batches in this mass restock
         $operationRef = !empty($validated['reference'])
             ? trim($validated['reference'])
@@ -146,7 +167,7 @@ class StockInController extends Controller
             'purchase_price'    => 'nullable|numeric|min:0',
             'lot_number'        => 'nullable|string|max:100',
             'batch_code'        => 'nullable|string|max:64',
-            'expiration_date'   => 'nullable|date',
+            'expiration_date'   => ['nullable', 'date', new \App\Rules\UnexpiredExpirationDate()],
             'expiration_type'   => 'nullable|string|in:use_by,best_before,none',
             'supplier_id'       => 'nullable|exists:suppliers,id',
             'supplier_name'     => 'nullable|string|max:150',
@@ -179,18 +200,21 @@ class StockInController extends Controller
             }
         }
 
-        // Validate expiry date requirement if ingredient demands it
+        // Validate expiry date requirement & unexpired date policy
         if ($validated['type'] === 'ingredient') {
             $ingredient = \App\Models\Ingredient::find($validated['id']);
-            if ($ingredient && $ingredient->requires_expiration_tracking && empty($validated['expiration_date']) && ($validated['expiration_type'] ?? 'use_by') !== 'none') {
-                if (!$ingredient->default_expiry_days) {
-                    if ($lockKey) {
-                        Cache::forget($lockKey);
-                    }
-                    return back()->withErrors([
-                        'expiration_date' => "Expiration date is required for '{$ingredient->name}'. Each stock-in is tracked as a separate batch so the system can prioritize ingredients with the earliest expiration dates.",
-                    ]);
+            $expVal = app(\App\Services\InventoryExpirationService::class)->validateRestockExpirationDate(
+                $validated['expiration_date'] ?? null,
+                $ingredient,
+                $validated['expiration_type'] ?? 'use_by'
+            );
+            if (!$expVal['valid']) {
+                if ($lockKey) {
+                    Cache::forget($lockKey);
                 }
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'expiration_date' => $expVal['message'],
+                ]);
             }
         }
 
@@ -223,7 +247,10 @@ class StockInController extends Controller
             if ($lockKey) {
                 Cache::forget($lockKey);
             }
-            return back()->withErrors(['error' => $e->getMessage()]);
+            $errKey = ($e instanceof \InvalidArgumentException && str_contains(strtolower($e->getMessage()), 'expiration'))
+                ? 'expiration_date'
+                : 'error';
+            return back()->withErrors([$errKey => $e->getMessage()]);
         }
     }
 }

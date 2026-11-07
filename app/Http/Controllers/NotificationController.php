@@ -357,11 +357,12 @@ class NotificationController extends Controller
                 $displayUnit = strtolower(trim($log->ingredient->unit ?? 'pcs'));
                 $displayCurrent = UnitConverter::convertFromBaseQuantity((float)$currentStock, $displayUnit);
                 $displayChange = UnitConverter::convertFromBaseQuantity(abs((float)$log->change_qty), $displayUnit);
+                $isExpired = str_contains((string) $log->reason, 'Expired');
 
                 return [
                     'id'              => 'log_' . $log->id,
                     'employee_name'   => $log->user ? $log->user->name : 'System',
-                    'action'          => $log->change_qty > 0 ? 'Added' : 'Deducted',
+                    'action'          => $isExpired ? 'Expired' : ($log->change_qty > 0 ? 'Added' : 'Deducted'),
                     'ingredient_name' => $log->ingredient->name,
                     'quantity_change' => $displayChange . ' ' . $displayUnit,
                     'remaining'       => $displayCurrent . ' ' . $displayUnit,
@@ -370,8 +371,8 @@ class NotificationController extends Controller
                     'created_at'      => $log->created_at ? $log->created_at->toIso8601String() : now()->toIso8601String(),
                     'time_ago'        => $log->created_at ? $log->created_at->diffForHumans() : 'Just now',
                     'is_unread'       => $user->last_notifications_read_at && $log->created_at ? $log->created_at->gt($user->last_notifications_read_at) : true,
-                    'type'            => 'activity',
-                    'url'             => '/inventory/activity',
+                    'type'            => $isExpired ? 'expired_ingredient' : 'activity',
+                    'url'             => '/inventory',
                 ];
             })->filter()->values();
         } catch (\Throwable $e) {

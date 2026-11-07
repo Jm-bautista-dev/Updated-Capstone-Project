@@ -35,6 +35,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
+    getBusinessTodayManila,
+    isExpirationDateExpired,
+    EXPIRED_DATE_ERROR_MESSAGE,
+} from '@/lib/inventory-expiry-validator';
+import {
     getCompatibleUnits,
     convertToBaseQuantity,
     convertFromBaseQuantity,
@@ -521,12 +526,18 @@ export function ProductIngredientRestockModal({
                 !item.row.expiration_date
             ) {
                 errs[`items.${idx}.expiration_date`] = `Expiration date is required for "${item.ingredient.name}".`;
+            } else if (
+                item.row.expiration_type !== 'none' &&
+                item.row.expiration_date &&
+                isExpirationDateExpired(item.row.expiration_date)
+            ) {
+                errs[`items.${idx}.expiration_date`] = `The expiration date for "${item.ingredient.name}" has already passed. You cannot restock expired ingredients.`;
             }
         });
 
         if (Object.keys(errs).length > 0) {
             setValidationErrors(errs);
-            setErrorMessage('Please resolve the required expiration dates before continuing.');
+            setErrorMessage('Please resolve the expiration date issues before continuing.');
             return;
         }
 
@@ -536,6 +547,14 @@ export function ProductIngredientRestockModal({
     // Submit restock operation directly to backend
     const handleSubmitRestock = async () => {
         if (!product?.id || preparedReceipts.length === 0 || submitting) return;
+
+        // Final safety check against expired items
+        for (const item of preparedReceipts) {
+            if (item.row.expiration_type !== 'none' && item.row.expiration_date && isExpirationDateExpired(item.row.expiration_date)) {
+                setErrorMessage(EXPIRED_DATE_ERROR_MESSAGE);
+                return;
+            }
+        }
 
         setSubmitting(true);
         setErrorMessage(null);
@@ -1183,11 +1202,18 @@ export function ProductIngredientRestockModal({
                                                         </Label>
                                                         <Input
                                                             type="date"
+                                                            min={getBusinessTodayManila()}
                                                             disabled={!row.included || row.expiration_type === 'none'}
                                                             value={row.expiration_date}
                                                             onChange={(e) => updateRow(ing.id, { expiration_date: e.target.value })}
-                                                            className="h-9 text-xs rounded-xl border-[#F8C8DC]/80 dark:border-white/10 px-2 font-mono"
+                                                            className={cn(
+                                                                "h-9 text-xs rounded-xl border-[#F8C8DC]/80 dark:border-white/10 px-2 font-mono",
+                                                                row.expiration_type !== 'none' && isExpirationDateExpired(row.expiration_date) && "border-rose-500 ring-rose-500/20 bg-rose-500/5 text-rose-600 font-bold"
+                                                            )}
                                                         />
+                                                        {row.expiration_type !== 'none' && isExpirationDateExpired(row.expiration_date) && (
+                                                            <p className="text-[9px] text-rose-500 font-bold">Past date</p>
+                                                        )}
                                                     </div>
 
                                                     {/* Live Resulting Stock Preview */}

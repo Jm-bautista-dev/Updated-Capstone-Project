@@ -131,9 +131,15 @@ class IngredientBatch extends Model
      * - Batches with current_quantity <= 0
      * - Batches that have passed expiration/use-by cutoff
      */
+    public static function businessTimezone(): string
+    {
+        return 'Asia/Manila';
+    }
+
     public function scopeEligibleForConsumption(Builder $query, ?Carbon $asOf = null): Builder
     {
-        $cutoff = $asOf ?: Carbon::now(config('app.timezone', 'Asia/Manila'));
+        $tz = static::businessTimezone();
+        $cutoff = $asOf ? $asOf->copy()->setTimezone($tz) : Carbon::now($tz);
 
         return $query->where('status', 'available')
                      ->where('current_quantity', '>', 0)
@@ -168,8 +174,9 @@ class IngredientBatch extends Model
             return false;
         }
 
-        $now = $asOf ?: Carbon::now(config('app.timezone', 'Asia/Manila'));
-        return $this->expiration_date->copy()->endOfDay()->lt($now);
+        $tz = static::businessTimezone();
+        $now = $asOf ? $asOf->copy()->setTimezone($tz) : Carbon::now($tz);
+        return $this->expiration_date->copy()->setTimezone($tz)->endOfDay()->lt($now);
     }
 
     /**
@@ -181,8 +188,9 @@ class IngredientBatch extends Model
             return false;
         }
 
-        $now = $asOf ?: Carbon::now(config('app.timezone', 'Asia/Manila'));
-        return $this->expiration_date->isSameDay($now) && !$this->isExpired($now);
+        $tz = static::businessTimezone();
+        $now = $asOf ? $asOf->copy()->setTimezone($tz) : Carbon::now($tz);
+        return $this->expiration_date->copy()->setTimezone($tz)->isSameDay($now) && !$this->isExpired($now);
     }
 
     /**
@@ -194,13 +202,14 @@ class IngredientBatch extends Model
             return false;
         }
 
-        $now = $asOf ?: Carbon::now(config('app.timezone', 'Asia/Manila'));
+        $tz = static::businessTimezone();
+        $now = $asOf ? $asOf->copy()->setTimezone($tz) : Carbon::now($tz);
 
         if ($this->isExpired($now) || $this->isExpiringToday($now)) {
             return false;
         }
 
-        return $this->expiration_date->lte($now->copy()->addDays($days));
+        return $this->expiration_date->copy()->setTimezone($tz)->lte($now->copy()->addDays($days));
     }
 
     /**

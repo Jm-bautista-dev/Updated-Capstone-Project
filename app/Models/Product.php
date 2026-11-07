@@ -321,6 +321,12 @@ class Product extends Model
      */
     public function dynamicAvailability(?int $branchId = null, $allBranches = null): array
     {
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking safety fallback
+        }
+
         $ingredients = $this->relationLoaded('ingredients') ? $this->ingredients : $this->ingredients()->with('stocks')->get();
 
         // 1. Direct Physical Products (No Recipe)
@@ -605,6 +611,12 @@ class Product extends Model
             return ['success' => false, 'message' => "Quantity must be greater than 0."];
         }
 
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
+        }
+
         // 1. Branch physical stock validation
         $pivot = DB::table('branch_product')
             ->where('product_id', $this->id)
@@ -638,11 +650,7 @@ class Product extends Model
 
                 if ($totalNeeded <= 0) continue;
 
-                $stockRecord = $ingredient->relationLoaded('stocks')
-                    ? $ingredient->stocks->firstWhere('branch_id', $branchId)
-                    : $ingredient->stocks()->where('branch_id', $branchId)->first();
-
-                $availableStock = $stockRecord ? (float) $stockRecord->stock : 0.0;
+                $availableStock = app(\App\Services\InventoryBatchService::class)->getAvailableEligibleStock($ingredient->id, $branchId);
 
                 if ($availableStock < $totalNeeded) {
                     $isCrossUnit = strtolower(trim($unitInput)) !== strtolower(trim($ingredient->unit));
@@ -687,6 +695,12 @@ class Product extends Model
     {
         if (empty($items)) {
             return ['success' => false, 'message' => 'No items provided for validation.'];
+        }
+
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
         }
 
         $productIds = [];
@@ -761,7 +775,8 @@ class Product extends Model
 
             $stockRow = $query->first();
 
-            $available = $stockRow ? (float) $stockRow->stock : 0.0;
+            $batchEligibleStock = app(\App\Services\InventoryBatchService::class)->getAvailableEligibleStock($ingId, $branchId);
+            $available = $stockRow ? min((float) $stockRow->stock, $batchEligibleStock) : $batchEligibleStock;
             if ($available < $req['needed']) {
                 $displayUnit = $req['display_unit'] ?? $req['unit'];
                 $isCrossUnit = strtolower(trim($displayUnit)) !== strtolower(trim($req['base_unit'] ?? $req['unit']));

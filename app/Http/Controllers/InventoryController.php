@@ -40,6 +40,12 @@ class InventoryController extends Controller
             $targetBranchName = $branch ? $branch->name : null;
         }
 
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking safety check
+        }
+
         // Load all global ingredients with their per-branch stock
         $ingredientsQuery = Ingredient::with(['stocks.branch'])->orderBy('name');
 

@@ -695,7 +695,7 @@ class ProductsController extends Controller
             'items.*.unit_cost'           => 'nullable|numeric|min:0|max:9999999',
             'items.*.lot_number'          => 'nullable|string|max:100',
             'items.*.batch_code'          => 'nullable|string|max:64',
-            'items.*.expiration_date'     => 'nullable|date',
+            'items.*.expiration_date'     => ['nullable', 'date', new \App\Rules\UnexpiredExpirationDate()],
             'items.*.expiration_type'     => 'nullable|string|in:use_by,best_before,none',
             'items.*.supplier_id'         => 'nullable|exists:suppliers,id',
             'items.*.supplier_name'       => 'nullable|string|max:150',
@@ -752,15 +752,17 @@ class ProductsController extends Controller
                 continue;
             }
 
-            // Expiration requirement
-            $expDate = !empty($item['expiration_date']) ? Carbon::parse($item['expiration_date']) : null;
+            // Expiration requirement & unexpired date policy
             $expType = !empty($item['expiration_type']) ? $item['expiration_type'] : ($ing->requires_expiration_tracking ? 'use_by' : 'none');
+            $expVal = app(\App\Services\InventoryExpirationService::class)->validateRestockExpirationDate(
+                $item['expiration_date'] ?? null,
+                $ing,
+                $expType
+            );
 
-            if ($ing->requires_expiration_tracking && !$expDate) {
-                if (!$ing->default_expiry_days) {
-                    $errors["items.{$index}.expiration_date"] = "Expiration date is required for '{$ing->name}'. Each stock-in is tracked as an individual batch for FEFO/FIFO queue priority.";
-                    continue;
-                }
+            if (!$expVal['valid']) {
+                $errors["items.{$index}.expiration_date"] = $expVal['message'];
+                continue;
             }
 
             $hasPurchasePrice = isset($item['purchase_price']) && is_numeric($item['purchase_price']) && (float)$item['purchase_price'] >= 0;
