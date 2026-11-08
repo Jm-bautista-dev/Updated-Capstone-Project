@@ -248,3 +248,4 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
         </div>
     );
 };
+
