@@ -442,12 +442,19 @@ export function validateCartBeforeCheckout(
     let hasPriceChange = false;
     const adjustedCart: PosCartItem[] = [];
 
+    // Aggregate total quantities per product to prevent multiple customized cart lines from collectively overselling
+    const totalRequestedByProduct = new Map<number, number>();
     for (const item of cart) {
-        const catalogItem = catalogProducts.find((p) => p.id === item.id);
+        totalRequestedByProduct.set(item.id, (totalRequestedByProduct.get(item.id) || 0) + (Number(item.quantity) || 0));
+    }
+
+    for (const [productId, totalQty] of totalRequestedByProduct.entries()) {
+        const catalogItem = catalogProducts.find((p) => p.id === productId);
         if (!catalogItem) {
+            const missingItem = cart.find((i) => i.id === productId);
             return {
                 isValid: false,
-                errorMessage: `"${item.name}" is no longer available in this branch. Please remove it from your cart.`,
+                errorMessage: `"${missingItem?.name || 'Item #' + productId}" is no longer available in this branch. Please remove it from your cart.`,
             };
         }
 
@@ -458,12 +465,17 @@ export function validateCartBeforeCheckout(
             };
         }
 
-        if (item.quantity > catalogItem.stock) {
+        if (totalQty > catalogItem.stock) {
             return {
                 isValid: false,
-                errorMessage: `Requested quantity for "${catalogItem.name}" (${item.quantity}) exceeds available stock (${catalogItem.stock}).`,
+                errorMessage: `Requested total quantity for "${catalogItem.name}" (${totalQty}) exceeds available stock (${catalogItem.stock}).`,
             };
         }
+    }
+
+    for (const item of cart) {
+        const catalogItem = catalogProducts.find((p) => p.id === item.id);
+        if (!catalogItem) continue;
 
         if (item.selling_price !== catalogItem.selling_price) {
             hasPriceChange = true;

@@ -535,12 +535,34 @@ class SaleService
                 $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity($eligibleStock, $unit);
                 $displayNeeded = \App\Utils\UnitConverter::convertFromBaseQuantity($totalNeeded, $unit);
 
-                throw new \Exception(
-                    "Insufficient stock in this branch. " .
-                    "Ingredient '{$stockRow->ingredient->name}': " .
-                    "need {$displayNeeded} {$unit}, " .
-                    "have {$displayStock} {$unit}."
-                );
+                // Find affected products using this ingredient to show user-friendly message
+                $affectedProducts = Product::whereHas('ingredients', function ($q) use ($ingredientId) {
+                    $q->where('ingredients.id', $ingredientId);
+                })->where(function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)
+                      ->orWhereNull('branch_id')
+                      ->orWhereHas('branches', function ($bq) use ($branchId) {
+                          $bq->where('branches.id', $branchId);
+                      });
+                })->get();
+
+                $prodNames = $affectedProducts->pluck('name')->filter()->unique()->implode(', ');
+                $maxServings = null;
+                if ($affectedProducts->isNotEmpty()) {
+                    $firstProd = $affectedProducts->first();
+                    $avail = $firstProd->dynamicAvailability($branchId);
+                    $maxServings = (int) $avail['available'];
+                }
+
+                $prefix = $prodNames ? "Checkout cannot be completed. {$prodNames} availability has changed. " : "Insufficient stock in this branch. ";
+                $msg = $prefix . "Ingredient '{$stockRow->ingredient->name}': need {$displayNeeded} {$unit}, have {$displayStock} {$unit}";
+                if ($maxServings !== null) {
+                    $msg .= " (supports {$maxServings} servings). Please adjust the quantity.";
+                } else {
+                    $msg .= ". Please adjust the quantity.";
+                }
+
+                throw new \Exception($msg);
             }
         }
     }
@@ -564,8 +586,9 @@ class SaleService
 
             if ($available < $totalNeeded) {
                 throw new \Exception(
-                    "Insufficient physical stock for '{$product->name}' in this branch. " .
-                    "Available: {$available}, Required: {$totalNeeded}."
+                    "Checkout cannot be completed. {$product->name} availability has changed. " .
+                    "Only {$available} servings are currently available in this branch. " .
+                    "Please adjust the quantity."
                 );
             }
         }

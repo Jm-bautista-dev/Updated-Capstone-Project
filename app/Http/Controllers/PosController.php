@@ -213,7 +213,20 @@ class PosController extends Controller
             'type' => 'required|string',
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.quantity' => [
+                'required',
+                'numeric',
+                'min:1',
+                'max:99999',
+                function ($attribute, $value, $fail) {
+                    if ((float) $value <= 0) {
+                        $fail('Quantity must be greater than zero.');
+                    }
+                    if ((float) $value != (int) $value) {
+                        $fail('Product quantity must be a whole number.');
+                    }
+                },
+            ],
             'items.*.selected_addons' => 'nullable|array',
             'items.*.selected_addons.*' => 'nullable',
             'total' => 'nullable|numeric|min:0|max:99999999.99',
@@ -355,5 +368,188 @@ class PosController extends Controller
                 'error' => $userMessage ?: 'Checkout failed. Please enter a valid cash amount.',
             ]);
         }
+    }
+
+    /**
+     * Real-time server-side validation of cart items against branch inventory truth.
+     * Checks recipe ingredient requirements, physical stock, and dynamic serving availability.
+     */
+    public function validateCart(Request $request)
+    {
+        $user = Auth::user();
+        $branchId = (int) ($user?->branch_id ?? 0);
+
+        if (!$branchId) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Cashier is not assigned to a branch.',
+            ], 422);
+        }
+
+        $rawItems = $request->input('items', []);
+        if (!is_array($rawItems) || empty($rawItems)) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'The items field is required.',
+            ], 422);
+        }
+
+        $normalizedItems = [];
+        foreach ($rawItems as $idx => $it) {
+            $pId = $it['id'] ?? $it['product_id'] ?? null;
+            $qty = $it['quantity'] ?? null;
+
+            if (!$pId || !is_numeric($pId)) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => "The items.{$idx}.id field is required.",
+                ], 422);
+            }
+
+            if (!is_numeric($qty) || $qty <= 0) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => "The items.{$idx}.quantity must be greater than zero.",
+                ], 422);
+            }
+
+            if (floor($qty) != $qty) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => "The items.{$idx}.quantity must be a whole number.",
+                ], 422);
+            }
+
+            $normalizedItems[] = [
+                'id' => (int) $pId,
+                'quantity' => (float) $qty,
+            ];
+        }
+
+        try {
+            app(\App\Services\InventoryExpirationService::class)->processExpiredBatches($branchId);
+        } catch (\Throwable $e) {
+            // non-blocking
+        }
+
+        $batchService = app(\App\Services\InventoryBatchService::class);
+        $productIds = array_column($normalizedItems, 'id');
+        $products = Product::with(['ingredients.stocks', 'branches'])
+            ->whereIn('id', $productIds)
+            ->get()
+            ->keyBy('id');
+
+        $ingredientRequirements = [];
+        $directRequirements = [];
+        $productTotalQty = [];
+
+        foreach ($normalizedItems as $it) {
+            $pId = (int) $it['id'];
+            $qty = (float) $it['quantity'];
+            $productTotalQty[$pId] = ($productTotalQty[$pId] ?? 0) + $qty;
+
+            /** @var Product|null $product */
+            $product = $products->get($pId);
+            if (!$product) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => "Product #{$pId} was not found.",
+                ], 422);
+            }
+
+            // Check branch accessibility
+            if ($product->branch_id !== null && (int)$product->branch_id !== $branchId) {
+                $hasBranchRelation = $product->branches->contains('id', $branchId);
+                if (!$hasBranchRelation) {
+                    return response()->json([
+                        'valid' => false,
+                        'message' => "Product '{$product->name}' is not available in your branch.",
+                    ], 422);
+                }
+            }
+
+            if ($product->ingredients->isNotEmpty()) {
+                foreach ($product->ingredients as $ingredient) {
+                    $qtyInput = (float) $ingredient->pivot->quantity_required;
+                    $unitInput = $ingredient->pivot->unit ?? $ingredient->unit;
+                    $baseNeeded = \App\Utils\UnitConverter::convertToBaseQuantityWithIngredient(
+                        $qtyInput,
+                        $unitInput,
+                        $ingredient->unit,
+                        $ingredient->avg_weight_per_piece
+                    );
+                    $ingredientRequirements[$ingredient->id] = ($ingredientRequirements[$ingredient->id] ?? 0) + ($baseNeeded * $qty);
+                }
+            } else {
+                $directRequirements[$pId] = ($directRequirements[$pId] ?? 0) + $qty;
+            }
+        }
+
+        // Validate aggregate total quantity against dynamic availability per product
+        foreach ($productTotalQty as $pId => $totalNeeded) {
+            $product = $products->get($pId);
+            if (!$product) continue;
+
+            $avail = $product->dynamicAvailability($branchId);
+            $maxAvailable = (float) ($avail['available'] ?? 0);
+            if ($totalNeeded > $maxAvailable) {
+                $limiting = !empty($avail['limiting_ingredient']) ? " (limited by {$avail['limiting_ingredient']})" : "";
+                return response()->json([
+                    'valid' => false,
+                    'product_id' => $pId,
+                    'product_name' => $product->name,
+                    'available' => $maxAvailable,
+                    'message' => "Total quantity for {$product->name} in cart is {$totalNeeded}, but only {$maxAvailable} servings available in this branch{$limiting}.",
+                ], 422);
+            }
+        }
+
+        // Validate direct stock
+        foreach ($directRequirements as $pId => $needed) {
+            $pivot = DB::table('branch_product')
+                ->where('product_id', $pId)
+                ->where('branch_id', $branchId)
+                ->first();
+            $product = $products->get($pId);
+            $avail = $pivot ? (float) $pivot->stock : (float) ($product?->stock ?? 0);
+            if ($avail < $needed) {
+                return response()->json([
+                    'valid' => false,
+                    'product_id' => $pId,
+                    'product_name' => $product?->name ?? 'Product',
+                    'available' => $avail,
+                    'message' => "Checkout cannot be completed. {$product?->name} availability has changed. Only {$avail} serving(s) currently available in this branch. Please adjust the quantity.",
+                ], 422);
+            }
+        }
+
+        // Validate ingredient requirements
+        foreach ($ingredientRequirements as $ingredientId => $needed) {
+            $eligibleStock = $batchService->getAvailableEligibleStock($ingredientId, $branchId);
+            if ($eligibleStock < $needed) {
+                $affectedProduct = $products->first(fn($p) => $p->ingredients->contains('id', $ingredientId));
+                $availServings = 0;
+                if ($affectedProduct) {
+                    $avail = $affectedProduct->dynamicAvailability($branchId);
+                    $availServings = (int) $avail['available'];
+                }
+
+                $ingredient = Ingredient::find($ingredientId);
+                $unit = $ingredient?->unit ?? 'unit(s)';
+                $displayStock = \App\Utils\UnitConverter::convertFromBaseQuantity($eligibleStock, $unit);
+
+                return response()->json([
+                    'valid' => false,
+                    'product_id' => $affectedProduct?->id,
+                    'product_name' => $affectedProduct?->name ?? 'Item',
+                    'available' => $availServings,
+                    'message' => "Checkout cannot be completed. {$affectedProduct?->name} availability has changed. Ingredient '{$ingredient?->name}' only has {$displayStock} {$unit} remaining (supports {$availServings} servings). Please adjust the quantity.",
+                ], 422);
+            }
+        }
+
+        return response()->json([
+            'valid' => true,
+        ]);
     }
 }

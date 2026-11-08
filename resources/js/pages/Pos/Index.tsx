@@ -47,6 +47,7 @@ import { PesoSign } from '@/components/ui/peso-sign';
 import { useSidebar } from '@/components/ui/sidebar';
 import AppLayout from '@/layouts/app-layout';
 import { addToOfflineQueue } from '@/lib/offline-db';
+import { PosCartQuantityInput } from '@/components/pos/PosCartQuantityInput';
 import { 
   loadAndRevalidatePosCart, 
   savePosCart, 
@@ -522,12 +523,14 @@ export default function PosIndex() {
     }
 
     setCart(prev => {
+      const totalOfProductInCart = prev.filter(item => item.id === product.id).reduce((sum, it) => sum + it.quantity, 0);
+      if (totalOfProductInCart >= product.stock) {
+        toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
+        return prev;
+      }
+
       const existing = prev.find(item => item.id === product.id && (!item.selected_addons || item.selected_addons.length === 0));
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
-          return prev;
-        }
         toast.success(`✓ Added another ${product.name}`);
         return prev.map(item => item === existing ? { ...item, quantity: item.quantity + 1 } : item);
       }
@@ -540,6 +543,12 @@ export default function PosIndex() {
     const fullProduct = products.find((p: Product) => p.id === product.id) || product;
 
     setCart(prev => {
+      const totalOfProductInCart = prev.filter(item => item.id === product.id).reduce((sum, it) => sum + it.quantity, 0);
+      if (totalOfProductInCart + qty > product.stock) {
+        toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
+        return prev;
+      }
+
       // Find matching item with identical addons
       const addonsKey = JSON.stringify(selectedAddons.map(a => ({ id: a.addon_id, qty: a.quantity })).sort((a, b) => a.id - b.id));
       const existing = prev.find(item => {
@@ -550,10 +559,6 @@ export default function PosIndex() {
 
       if (existing) {
         const newQty = existing.quantity + qty;
-        if (newQty > product.stock) {
-          toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
-          return prev;
-        }
         toast.success(`✓ Added ${qty}x ${product.name}`);
         return prev.map(item => item === existing ? { ...item, quantity: newQty } : item);
       }
@@ -577,18 +582,38 @@ export default function PosIndex() {
   const updateQuantity = (cartIndex: number, delta: number) => {
     setCart(prev => prev.map((item, idx) => {
       if (idx === cartIndex) {
+        const product = products.find((p: Product) => p.id === item.id) || item;
+        const maxStock = product?.stock ?? 0;
+        const otherQtyInCart = prev.reduce((sum, it, i) => (i !== cartIndex && it.id === item.id) ? sum + it.quantity : sum, 0);
+        const maxAllowed = Math.max(0, maxStock - otherQtyInCart);
+
         const newQty = item.quantity + delta;
-        const product = products.find((p: Product) => p.id === item.id);
-        const maxStock = product?.stock || 0;
-        
-        if (newQty > maxStock) {
-          toast.warning(`Cannot exceed available stock of ${maxStock}`);
+        if (delta > 0 && newQty > maxAllowed) {
+          toast.warning(`Cannot exceed available stock of ${maxStock} for ${item.name}.`);
           return item;
         }
-        return { ...item, quantity: Math.max(0, newQty) };
+        if (newQty < 1) {
+          return item;
+        }
+        return { ...item, quantity: newQty };
       }
       return item;
-    }).filter(item => item.quantity > 0));
+    }));
+  };
+
+  const setItemQuantity = (cartIndex: number, newQty: number) => {
+    setCart(prev => prev.map((item, idx) => {
+      if (idx === cartIndex) {
+        const product = products.find((p: Product) => p.id === item.id) || item;
+        const maxStock = product?.stock ?? 0;
+        const otherQtyInCart = prev.reduce((sum, it, i) => (i !== cartIndex && it.id === item.id) ? sum + it.quantity : sum, 0);
+        const maxAllowed = Math.max(0, maxStock - otherQtyInCart);
+
+        const validatedQty = Math.min(maxAllowed, Math.max(1, Math.floor(newQty)));
+        return { ...item, quantity: validatedQty };
+      }
+      return item;
+    }));
   };
 
   const removeFromCart = (cartIndex: number) => {
@@ -676,7 +701,11 @@ export default function PosIndex() {
     toast.info('Order reset');
   };
 
-  const handleProceedToCheckout = () => {
+  const handleProceedToCheckout = async () => {
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     if (!activeShift) {
       setAlertModal({ type: 'warning', title: 'Shift Required', message: 'You must open a shift before processing sales.' });
       setIsAlertModalOpen(true);
@@ -705,6 +734,25 @@ export default function PosIndex() {
       setCart(validation.updatedCart as unknown as CartItem[]);
     }
 
+    // Authoritative real-time backend validation check
+    try {
+      const res = await axios.post('/pos/validate-cart', {
+        items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+      });
+      if (res.data && res.data.valid === false) {
+        setAlertModal({
+          type: 'warning',
+          title: 'Stock Availability Changed',
+          message: res.data.message || 'Inventory for some items has changed. Please adjust your cart.',
+        });
+        setIsAlertModalOpen(true);
+        router.reload({ only: ['products'] });
+        return;
+      }
+    } catch {
+      // Proceed gracefully if offline
+    }
+
     if (orderType === 'delivery') {
       if (!deliveryInfo.customer_name || !deliveryInfo.customer_address) {
         setAlertModal({ type: 'warning', title: 'Missing Info', message: 'Customer name and address are required for delivery.' });
@@ -728,6 +776,10 @@ export default function PosIndex() {
 
   const confirmPayment = () => {
     if (isSubmitting) return;
+
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
 
     const validation = validateCartBeforeCheckout(cart as unknown as PosCartItem[], products as unknown as CatalogProduct[]);
     if (!validation.isValid) {
@@ -1018,6 +1070,7 @@ export default function PosIndex() {
         const errMsg = err?.error || err?.paid_amount || err?.total || Object.values(err)[0] || 'Checkout failed. Please enter a valid cash amount.';
         setAlertModal({ type: 'error', title: 'Checkout Failed', message: String(errMsg) });
         setIsAlertModalOpen(true);
+        router.reload({ only: ['products'] });
       },
       onFinish: () => {
         setIsSubmitting(false);
@@ -1545,32 +1598,31 @@ export default function PosIndex() {
                       </div>
 
                       <div className="flex items-center justify-between w-full sm:w-auto border-t sm:border-t-0 border-[#F8C8DC]/40 dark:border-[#26262A] pt-3 sm:pt-0 gap-4">
-                        {/* Quantity Controls */}
-                        <div className="flex items-center bg-[#FFF5F7] dark:bg-[#1E1E21] rounded-xl border border-[#F8C8DC]/60 dark:border-[#26262A] p-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="size-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 text-[#3D2C2E] dark:text-zinc-300"
-                            onClick={() => updateQuantity(cartIndex, -1)}
-                          >
-                            <FiMinus className="size-3.5" />
-                          </Button>
-                          <span className="w-8 text-center font-extrabold text-sm text-[#3D2C2E] dark:text-white">{item.quantity}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="size-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 text-[#3D2C2E] dark:text-zinc-300"
-                            onClick={() => updateQuantity(cartIndex, 1)}
-                          >
-                            <FiPlus className="size-3.5" />
-                          </Button>
-                        </div>
+                        {/* Quantity Controls: [ − ] [ 150 ] [ + ] */}
+                        {(() => {
+                          const catalogProd = products.find((p: Product) => p.id === item.id);
+                          const maxStock = catalogProd?.stock ?? item.stock ?? 0;
+                          const otherQtyInCart = cart.reduce((sum, it, i) => (i !== cartIndex && it.id === item.id) ? sum + it.quantity : sum, 0);
+                          return (
+                            <PosCartQuantityInput
+                              item={item}
+                              cartIndex={cartIndex}
+                              maxStock={maxStock}
+                              otherQtyInCart={otherQtyInCart}
+                              disabled={isSubmitting}
+                              onUpdateQuantity={setItemQuantity}
+                              onDelta={updateQuantity}
+                            />
+                          );
+                        })()}
 
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="size-9 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          className="size-9 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
                           onClick={() => removeFromCart(cartIndex)}
+                          title="Remove item from cart"
+                          aria-label={`Remove ${item.name} from cart`}
                         >
                           <FiTrash2 className="size-4" />
                         </Button>

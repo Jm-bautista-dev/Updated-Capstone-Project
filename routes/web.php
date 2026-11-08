@@ -176,6 +176,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['role:cashier'])->group(function () {
             Route::get('pos', [PosController::class, 'index'])->name('pos.index');
             Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+            Route::post('pos/validate-cart', [PosController::class, 'validateCart'])->name('pos.validate-cart');
             Route::post('pos/calculate-delivery-distance', [App\Http\Controllers\Api\PosDeliveryDistanceController::class, 'calculate'])->name('pos.calculate-distance');
 
             // Cashier Shift Management
