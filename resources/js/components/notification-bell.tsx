@@ -41,6 +41,23 @@ export interface NotificationItem {
     created_at?: string;
     time_ago?: string;
     url?: string;
+    batch_id?: number;
+    batch_code?: string;
+    expiration_date?: string;
+    disposal_status?: string;
+    affected_products?: Array<{
+        product_id?: number;
+        product_name?: string;
+        name?: string;
+        previous_servings?: number;
+        recalculated_servings?: number;
+    }>;
+    grouped_items?: Array<{
+        ingredient_name: string;
+        disposed_quantity_formatted: string;
+        branch_name?: string;
+        expiration_date_formatted?: string;
+    }>;
 }
 
 const alertedNotificationIds = new Set<string | number>();
@@ -155,6 +172,37 @@ const triggerLowStockToast = (notif: NotificationItem) => {
     });
 };
 
+const alertedExpiredBatchIds = new Set<string | number>();
+
+const triggerExpiredIngredientToast = (notif: NotificationItem) => {
+    const keyId = notif.id;
+    if (!keyId || alertedExpiredBatchIds.has(keyId)) return;
+
+    alertedExpiredBatchIds.add(keyId);
+    if (alertedExpiredBatchIds.size > 200) {
+        const first = alertedExpiredBatchIds.values().next().value;
+        if (first !== undefined) alertedExpiredBatchIds.delete(first);
+    }
+
+    globalNotificationManager.notify({
+        id: notif.id,
+        type: 'expired_ingredient',
+        title: 'EXPIRED INGREDIENT REMOVAL',
+        ingredient_name: notif.ingredient_name || 'Expired Batch',
+        disposed_quantity_formatted: notif.quantity_change || notif.remaining || '',
+        expiration_date_formatted: notif.expiration_date || notif.source || 'Expired',
+        branch_name: notif.branch_name || 'Branch',
+        disposal_status: notif.disposal_status || 'Removed from usable inventory.',
+        affected_products: notif.affected_products || [],
+        grouped_items: notif.grouped_items,
+        link_url: notif.url || '/inventory',
+        link_text: 'VIEW INVENTORY',
+        duration_ms: 10000,
+        auto_dismiss: true,
+        created_at: Date.now(),
+    });
+};
+
 export function NotificationBell() {
     const { auth } = usePage().props as unknown as { auth?: AuthState };
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -175,6 +223,8 @@ export function NotificationBell() {
                     triggerCancellationToast(item);
                 } else if (item.type === 'low_stock' || item.type === 'out_of_stock') {
                     triggerLowStockToast(item);
+                } else if (item.type === 'expired_ingredient') {
+                    triggerExpiredIngredientToast(item);
                 }
             }
         });
@@ -214,16 +264,18 @@ export function NotificationBell() {
         const timer = setTimeout(loadNotifications, 0);
         const interval = setInterval(loadNotifications, 5000);
 
-        const handleNewOrder = () => {
+        const handleRefresh = () => {
             loadNotifications();
         };
-        window.addEventListener('new-order-received', handleNewOrder);
+        window.addEventListener('new-order-received', handleRefresh);
+        window.addEventListener('expired-ingredient-disposed', handleRefresh);
 
         return () => {
             active = false;
             clearTimeout(timer);
             clearInterval(interval);
-            window.removeEventListener('new-order-received', handleNewOrder);
+            window.removeEventListener('new-order-received', handleRefresh);
+            window.removeEventListener('expired-ingredient-disposed', handleRefresh);
         };
     }, [auth?.user, processNotifications]);
 

@@ -35,6 +35,7 @@ class ExpiredIngredientDisposed implements ShouldBroadcastNow
     public array $affectedProducts;
     public string $type; // 'expired_ingredient'
     public string $url;
+    public ?array $groupedItems;
 
     /**
      * Create a new event instance.
@@ -43,12 +44,14 @@ class ExpiredIngredientDisposed implements ShouldBroadcastNow
      * @param float $disposedBaseQuantity
      * @param array $affectedProducts Array of ['id' => int, 'name' => string, 'previous_servings' => float, 'recalculated_servings' => float]
      * @param Carbon|null $timestamp
+     * @param array|null $groupedItems
      */
     public function __construct(
         IngredientBatch $batch,
         float $disposedBaseQuantity,
         array $affectedProducts = [],
-        ?Carbon $timestamp = null
+        ?Carbon $timestamp = null,
+        ?array $groupedItems = null
     ) {
         $tz = config('app.timezone', 'Asia/Manila');
         $now = $timestamp ? $timestamp->copy()->setTimezone($tz) : Carbon::now($tz);
@@ -82,7 +85,8 @@ class ExpiredIngredientDisposed implements ShouldBroadcastNow
         $this->status = 'Removed from usable inventory.';
         $this->affectedProducts = $affectedProducts;
         $this->type = 'expired_ingredient';
-        $this->url = '/inventory';
+        $this->url = "/inventory?branch_id={$this->branchId}&highlight={$this->ingredientId}";
+        $this->groupedItems = $groupedItems;
     }
 
     /**
@@ -92,6 +96,7 @@ class ExpiredIngredientDisposed implements ShouldBroadcastNow
     {
         return [
             new PrivateChannel("branch.{$this->branchId}"),
+            new PrivateChannel("branch.{$this->branchId}.orders"),
             new PrivateChannel("admin.orders"),
         ];
     }
@@ -126,6 +131,7 @@ class ExpiredIngredientDisposed implements ShouldBroadcastNow
             'disposal_timestamp_formatted'=> $this->disposalTimestampFormatted,
             'status'                      => $this->status,
             'affected_products'           => $this->affectedProducts,
+            'grouped_items'               => $this->groupedItems,
             'type'                        => $this->type,
             'url'                         => $this->url,
         ];

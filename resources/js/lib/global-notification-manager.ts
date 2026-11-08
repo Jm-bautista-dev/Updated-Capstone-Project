@@ -47,6 +47,12 @@ export interface GlobalNotificationItem {
         previous_servings?: number;
         recalculated_servings?: number;
     }>;
+    grouped_items?: Array<{
+        ingredient_name: string;
+        disposed_quantity_formatted: string;
+        branch_name?: string;
+        expiration_date_formatted?: string;
+    }>;
     auto_dismiss?: boolean; // default true
     duration_ms?: number; // default 5000ms
     created_at: number; // timestamp

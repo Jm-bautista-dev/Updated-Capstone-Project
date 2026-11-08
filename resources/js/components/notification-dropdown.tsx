@@ -8,7 +8,7 @@ export interface Notification {
     order_id?: number;
     order_number?: string;
     employee_name: string;
-    action: 'Added' | 'Deducted' | 'Alert' | 'Order';
+    action: 'Added' | 'Deducted' | 'Alert' | 'Order' | 'Disposed' | string;
     ingredient_name: string;
     quantity_change: string;
     remaining: string;
@@ -17,10 +17,18 @@ export interface Notification {
     created_at: string;
     time_ago: string;
     is_unread: boolean;
-    type: 'activity' | 'low_stock' | 'out_of_stock' | 'new_order' | 'cancellation_request';
+    type: 'activity' | 'low_stock' | 'out_of_stock' | 'new_order' | 'cancellation_request' | 'expired_ingredient' | 'pickup_prep_due' | string;
     fulfillment_type?: 'pickup' | 'delivery' | string;
     is_pickup?: boolean;
     url?: string;
+    expiration_date?: string;
+    affected_products?: Array<{
+        product_id?: number;
+        product_name?: string;
+        name?: string;
+        previous_servings?: number;
+        recalculated_servings?: number;
+    }>;
 }
 
 interface NotificationDropdownProps {
@@ -41,6 +49,7 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
 
     const getIcon = (source: string, type: string) => {
         if (type === 'new_order') return <FiShoppingBag className="size-4" />;
+        if (type === 'expired_ingredient') return <FiAlertTriangle className="size-4" />;
         if (type === 'out_of_stock') return <FiAlertOctagon className="size-4" />;
         if (type === 'low_stock') return <FiAlertTriangle className="size-4" />;
         const s = source.toLowerCase();
@@ -118,6 +127,7 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                         "px-4 py-3 transition-colors hover:bg-muted/30 flex gap-3",
                                         notif.is_unread && "bg-primary/5",
                                         notif.type === 'new_order' && (isPickup ? "bg-cyan-500/5 hover:bg-cyan-500/10" : "bg-emerald-500/5 hover:bg-emerald-500/10"),
+                                        notif.type === 'expired_ingredient' && "bg-rose-500/5 hover:bg-rose-500/10",
                                         notif.type === 'cancellation_request' && "bg-rose-500/5 hover:bg-rose-500/10",
                                         notif.type === 'out_of_stock' && "bg-red-500/5 hover:bg-red-500/10",
                                         notif.type === 'low_stock' && "bg-orange-500/5 hover:bg-orange-500/10"
@@ -126,6 +136,7 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                     <div className={cn(
                                         "size-8 rounded-full flex items-center justify-center shrink-0",
                                         notif.type === 'new_order' ? (isPickup ? "bg-cyan-500/20 text-cyan-600 dark:text-cyan-400" : "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400") :
+                                        notif.type === 'expired_ingredient' ? "bg-rose-500/20 text-rose-600 dark:text-rose-400" :
                                         notif.type === 'cancellation_request' ? "bg-rose-500/20 text-rose-600 dark:text-rose-400" :
                                         notif.type === 'out_of_stock' ? "bg-red-500/20 text-red-600" :
                                         notif.type === 'low_stock' ? "bg-orange-500/20 text-orange-600" :
@@ -143,13 +154,36 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                                     )}>
                                                         {notif.ingredient_name}
                                                         <span className="text-[10px] font-semibold ml-1.5 opacity-80">
-                                                            {isPickup ? '(Pickup)' : '(Delivery)'}
+                                                             {isPickup ? '(Pickup)' : '(Delivery)'}
                                                         </span>
                                                     </span>
                                                     <br />
                                                     <span className="font-medium text-foreground">
                                                         {notif.employee_name} ({notif.quantity_change})
                                                     </span>
+                                                </p>
+                                            </Link>
+                                        ) : notif.type === 'expired_ingredient' ? (
+                                            <Link href={notif.url || '/inventory'} onClick={onMarkAllAsRead} className="block group">
+                                                <p className="text-xs leading-tight">
+                                                    <span className="font-bold text-rose-600 dark:text-rose-400 group-hover:underline">
+                                                        Expired Ingredient Disposed
+                                                    </span>
+                                                    <span className="text-[9px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 rounded-full border border-rose-300 dark:border-rose-800 ml-1.5 uppercase">
+                                                        Auto-Disposed
+                                                    </span>
+                                                    <br />
+                                                    <span className="font-medium text-foreground">
+                                                        {notif.ingredient_name} ({notif.quantity_change})
+                                                    </span>
+                                                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                                                        Removed from usable inventory{notif.expiration_date ? ` • Expired ${notif.expiration_date}` : ''}
+                                                    </span>
+                                                    {Array.isArray(notif.affected_products) && notif.affected_products.length > 0 && (
+                                                        <span className="block text-[10px] text-rose-600/90 dark:text-rose-400/90 font-medium mt-0.5">
+                                                            Servings updated: {notif.affected_products.map(p => `${p.product_name || p.name} (${p.previous_servings}→${p.recalculated_servings})`).join(', ')}
+                                                        </span>
+                                                    )}
                                                 </p>
                                             </Link>
                                         ) : notif.type === 'cancellation_request' ? (
@@ -200,7 +234,7 @@ export function NotificationDropdown({ notifications, onMarkAllAsRead }: Notific
                                         )}
                                         <div className="flex items-center gap-2 mt-1">
                                             <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                                                {notif.type === 'new_order' ? (isPickup ? 'Pickup Order' : 'Delivery Order') : notif.type === 'activity' ? getSourceLabel(notif.source) : 'Alert'}
+                                                {notif.type === 'new_order' ? (isPickup ? 'Pickup Order' : 'Delivery Order') : notif.type === 'expired_ingredient' ? 'Disposal' : notif.type === 'activity' ? getSourceLabel(notif.source) : 'Alert'}
                                             </span>
                                             <span className="text-[10px] text-muted-foreground opacity-50">•</span>
                                             <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">

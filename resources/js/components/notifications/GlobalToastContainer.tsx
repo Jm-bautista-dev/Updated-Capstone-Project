@@ -261,10 +261,30 @@ export const GlobalToastContainer: React.FC = () => {
                                                 {item.affected_products.map((prod, idx) => (
                                                     <div key={idx} className="flex items-center justify-between font-mono text-[10px] bg-white/80 dark:bg-black/50 px-2 py-0.5 rounded-lg border border-rose-200/50 dark:border-rose-900/40">
                                                         <span className="font-semibold text-gray-800 dark:text-gray-200 truncate max-w-36">
-                                                            {prod.product_name}
+                                                            {prod.product_name || prod.name}
                                                         </span>
                                                         <span className="font-black text-rose-600 dark:text-rose-400">
-                                                            {prod.previous_servings} → {prod.current_servings} serv.
+                                                            {prod.previous_servings} → {(prod as Record<string, unknown>).recalculated_servings ?? (prod as Record<string, unknown>).current_servings} serv.
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {item.grouped_items && item.grouped_items.length > 0 && (
+                                        <div className="pt-1.5 border-t border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-700 dark:text-gray-300 block">
+                                                Other Batches Disposed:
+                                            </span>
+                                            <div className="space-y-1 max-h-20 overflow-y-auto pr-1">
+                                                {item.grouped_items.map((grp, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between font-mono text-[10px] bg-white/80 dark:bg-black/50 px-2 py-0.5 rounded-lg border border-rose-200/50 dark:border-rose-900/40">
+                                                        <span className="font-semibold text-gray-800 dark:text-gray-200 truncate max-w-36">
+                                                            {grp.ingredient_name}
+                                                        </span>
+                                                        <span className="font-black text-rose-600 dark:text-rose-400">
+                                                            -{grp.disposed_quantity_formatted}
                                                         </span>
                                                     </div>
                                                 ))}

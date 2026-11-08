@@ -42,6 +42,7 @@ class NotificationController extends Controller
         $prepDueNotifications      = $this->fetchPrepReminderNotifications($user, $isAdmin);
         $cancellationNotifications = $this->fetchCancellationNotifications($user, $isAdmin);
         $lowStockNotifications     = $this->fetchLowStockAlertNotifications($user, $isAdmin);
+        $expiredNotifications      = $this->fetchExpiredIngredientNotifications($user, $isAdmin);
         $ingredientNotifications   = $this->fetchIngredientNotifications($user, $isAdmin);
 
         // 2. Combine and sort notifications by created_at descending
@@ -49,6 +50,7 @@ class NotificationController extends Controller
             ->concat($prepDueNotifications)
             ->concat($cancellationNotifications)
             ->concat($lowStockNotifications)
+            ->concat($expiredNotifications)
             ->concat($ingredientNotifications)
             ->sortByDesc('created_at')
             ->values()
@@ -326,7 +328,79 @@ class NotificationController extends Controller
     }
 
     /**
-     * Fetch general ingredient log activity stream (excluding stock alerts to prevent duplicate bell items).
+     * Fetch automatic expired ingredient disposal notification stream.
+     * Queries IngredientBatchMovement records with movement_type = 'expired_removal'.
+     */
+    private function fetchExpiredIngredientNotifications($user, bool $isAdmin)
+    {
+        try {
+            $query = \App\Models\IngredientBatchMovement::with(['batch', 'ingredient', 'branch', 'user'])
+                ->where('movement_type', 'expired_removal')
+                ->latest();
+
+            if (!$isAdmin && isset($user->branch_id)) {
+                $query->where('branch_id', $user->branch_id);
+            }
+
+            return $query->limit(15)->get()->map(function ($movement) use ($user) {
+                $ingredient = $movement->ingredient;
+                $batch = $movement->batch;
+                $branch = $movement->branch;
+
+                $ingredientName = $ingredient ? $ingredient->name : 'Ingredient';
+                $branchName = $branch ? $branch->name : 'Branch';
+                $unit = strtolower(trim($movement->unit ?? $ingredient?->unit ?? 'pcs'));
+                $displayQty = UnitConverter::convertFromBaseQuantity((float)$movement->quantity_base, $unit);
+
+                // Parse metadata stored in notes if available
+                $notes = (string) $movement->notes;
+                $expDate = null;
+                $affectedProducts = [];
+                if (!empty($notes) && str_starts_with(trim($notes), '{')) {
+                    $decoded = json_decode($notes, true);
+                    if (is_array($decoded)) {
+                        $expDate = $decoded['expiration_date'] ?? null;
+                        $affectedProducts = $decoded['affected_products'] ?? [];
+                    }
+                }
+                if (!$expDate && $batch && $batch->expiration_date) {
+                    $expDate = $batch->expiration_date->format('Y-m-d');
+                }
+
+                $batchCode = $batch ? $batch->batch_code : ($movement->reference_number ?? 'BATCH');
+                $targetUrl = "/inventory?branch_id={$movement->branch_id}&highlight={$movement->ingredient_id}";
+
+                return [
+                    'id'               => 'exp_mov_' . $movement->id,
+                    'batch_id'         => $movement->batch_id,
+                    'batch_code'       => $batchCode,
+                    'ingredient_id'    => $movement->ingredient_id,
+                    'ingredient_name'  => $ingredientName,
+                    'employee_name'    => $movement->user ? $movement->user->name : 'System Automation',
+                    'action'           => 'Disposed',
+                    'quantity_change'  => $displayQty . ' ' . $unit,
+                    'remaining'        => 'Removed from inventory',
+                    'source'           => $expDate ? "Expired on {$expDate}" : "Automated Expiration Disposal",
+                    'expiration_date'  => $expDate,
+                    'disposal_status'  => 'Removed from usable inventory.',
+                    'affected_products'=> $affectedProducts,
+                    'branch_id'        => $movement->branch_id,
+                    'branch_name'      => $branchName,
+                    'created_at'       => $movement->created_at ? $movement->created_at->toIso8601String() : now()->toIso8601String(),
+                    'time_ago'         => $movement->created_at ? $movement->created_at->diffForHumans() : 'Just now',
+                    'is_unread'        => $user->last_notifications_read_at && $movement->created_at ? $movement->created_at->gt($user->last_notifications_read_at) : true,
+                    'type'             => 'expired_ingredient',
+                    'url'              => $targetUrl,
+                ];
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed fetching expired ingredient notifications: ' . $e->getMessage());
+            return collect();
+        }
+    }
+
+    /**
+     * Fetch general ingredient log activity stream (excluding stock alerts and expired removals to prevent duplicate bell items).
      */
     private function fetchIngredientNotifications($user, bool $isAdmin)
     {
@@ -335,7 +409,8 @@ class NotificationController extends Controller
                 ->where(function ($q) {
                     $q->where('reason', 'not like', '%Stock Alert%')
                       ->where('reason', 'not like', '%Out of Stock%')
-                      ->where('reason', 'not like', '%Low Stock%');
+                      ->where('reason', 'not like', '%Low Stock%')
+                      ->where('reason', 'not like', '%Expired%');
                 })
                 ->latest();
 

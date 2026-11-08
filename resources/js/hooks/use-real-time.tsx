@@ -92,6 +92,13 @@ interface RealTimeExpiredIngredientEvent {
         previous_servings?: number;
         recalculated_servings?: number;
     }>;
+    grouped_items?: Array<{
+        ingredient_name: string;
+        disposed_quantity_formatted: string;
+        branch_name?: string;
+        expiration_date_formatted?: string;
+    }>;
+    disposal_time?: string | number;
     type?: string;
     url?: string;
 }
@@ -108,7 +115,7 @@ export function useRealTime(branchId?: number | null) {
     useEffect(() => {
         const handleExpiredIngredientDisposed = (e: RealTimeExpiredIngredientEvent) => {
             console.log('Real-time: Expired Ingredient Disposed Alert Received', e);
-            const alertKey = `${e.batch_code || 'batch'}_${e.disposal_time || Date.now()}`;
+            const alertKey = `${e.batch_code || e.batch_id || 'batch'}_${e.disposal_timestamp || e.disposal_time || Date.now()}`;
             if (notifiedExpiredBatchIds.has(alertKey)) return;
             notifiedExpiredBatchIds.add(alertKey);
             if (notifiedExpiredBatchIds.size > 200) {
@@ -118,17 +125,24 @@ export function useRealTime(branchId?: number | null) {
 
             playOrderNotificationSound();
 
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('expired-ingredient-disposed', { detail: e }));
+            }
+
+            const targetUrl = e.url || (e.branch_id ? `/inventory?branch_id=${e.branch_id}` : '/inventory');
+
             globalNotificationManager.notify({
                 id: `expired_ingredient_${alertKey}`,
                 type: 'expired_ingredient',
                 title: 'EXPIRED INGREDIENT REMOVAL',
                 ingredient_name: e.ingredient_name || 'Expired Batch',
-                disposed_quantity_formatted: `${e.disposed_quantity} ${e.unit || ''}`.trim(),
-                expiration_date_formatted: e.expiration_date || 'Expired',
+                disposed_quantity_formatted: e.disposed_quantity_formatted || `${e.disposed_quantity || ''} ${e.unit || ''}`.trim(),
+                expiration_date_formatted: e.expiration_date_formatted || e.expiration_date || 'Expired',
                 branch_name: e.branch_name || 'Branch',
-                disposal_status: 'Removed from usable inventory.',
+                disposal_status: e.status || 'Removed from usable inventory.',
                 affected_products: Array.isArray(e.affected_products) ? e.affected_products : [],
-                link_url: '/inventory',
+                grouped_items: Array.isArray(e.grouped_items) ? e.grouped_items : undefined,
+                link_url: targetUrl,
                 link_text: 'VIEW INVENTORY',
                 duration_ms: 10000,
                 auto_dismiss: true,

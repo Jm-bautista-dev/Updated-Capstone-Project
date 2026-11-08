@@ -331,63 +331,7 @@ class InventoryExpirationService
                 app(\App\Services\LowStockAlertService::class)->evaluateStockRow($stockRow, $userId);
             }
 
-            // 4. Create Wastage record for auditing & financial integrity
-            $wastage = Wastage::create([
-                'branch_id'    => $branchId,
-                'user_id'      => $userId,
-                'wastable_type'=> Ingredient::class,
-                'wastable_id'  => $ingredientId,
-                'quantity'     => $displayQty,
-                'unit'         => $displayUnit,
-                'cost_at_loss' => $costAtLoss,
-                'reason'       => 'expired',
-                'notes'        => "Automated disposal: Batch {$batch->batch_code} expired on {$batch->expiration_date?->format('Y-m-d')}.",
-            ]);
-
-            // 5. Create IngredientBatchMovement record for batch traceability
-            IngredientBatchMovement::create([
-                'batch_id'                => $batch->id,
-                'ingredient_id'           => $ingredientId,
-                'branch_id'               => $branchId,
-                'user_id'                 => $userId,
-                'movement_type'           => 'expired_removal',
-                'quantity'                => $displayQty,
-                'quantity_base'           => $qtyToDisposeBase,
-                'unit'                    => $displayUnit,
-                'previous_batch_quantity' => $qtyToDisposeBase,
-                'new_batch_quantity'      => 0.0,
-                'cost_at_movement'        => $costPerBaseUnit,
-                'reference_type'          => Wastage::class,
-                'reference_id'            => $wastage->id,
-                'reference_number'        => "WASTE-EXP-{$batch->id}",
-                'notes'                   => "Automated expiration disposal (Batch {$batch->batch_code})",
-            ]);
-
-            // 6. Record IngredientLog for inventory drawer and activity view
-            IngredientLog::create([
-                'ingredient_id' => $ingredientId,
-                'user_id'       => $userId,
-                'branch_id'     => $branchId,
-                'change_qty'    => -$qtyToDisposeBase,
-                'reason'        => "Expired stock automatically disposed (Batch {$batch->batch_code})",
-            ]);
-
-            // 7. Record StockLog entry
-            StockLog::create([
-                'storable_type'  => Ingredient::class,
-                'storable_id'    => $ingredientId,
-                'branch_id'      => $branchId,
-                'user_id'        => $userId,
-                'action_type'    => 'expired_disposal',
-                'quantity'       => $displayQty,
-                'quantity_base'  => $qtyToDisposeBase,
-                'unit'           => $displayUnit,
-                'previous_stock' => $previousStockBase,
-                'new_stock'      => $newStockBase,
-                'reference'      => "Expired Batch {$batch->batch_code}",
-            ]);
-
-            // 8. Recalculate available servings for affected products
+            // 4. Recalculate available servings for affected products
             $productUpdates = [];
             foreach ($affectedProducts as $prod) {
                 /** @var \App\Models\Product $prod */
@@ -403,21 +347,90 @@ class InventoryExpirationService
                     'previous_servings'     => $prev,
                     'recalculated_servings' => $recalculated,
                 ];
-
-                // Broadcast product stock update
-                broadcast(new StockUpdated($branchId, Product::class, $prod->id))->toOthers();
             }
 
-            // Broadcast ingredient stock update
-            broadcast(new StockUpdated($branchId, Ingredient::class, $ingredientId))->toOthers();
+            // 5. Create Wastage record for auditing & financial integrity
+            $wastage = Wastage::create([
+                'branch_id'    => $branchId,
+                'user_id'      => $userId,
+                'wastable_type'=> Ingredient::class,
+                'wastable_id'  => $ingredientId,
+                'quantity'     => $displayQty,
+                'unit'         => $displayUnit,
+                'cost_at_loss' => $costAtLoss,
+                'reason'       => 'expired',
+                'notes'        => "Automated disposal: Batch {$batch->batch_code} expired on {$batch->expiration_date?->format('Y-m-d')}.",
+            ]);
 
-            // 9. Dispatch ExpiredIngredientDisposed event for real-time toast / modal
-            broadcast(new ExpiredIngredientDisposed(
-                $batch,
-                $qtyToDisposeBase,
-                $productUpdates,
-                $now
-            ))->toOthers();
+            // 6. Create IngredientBatchMovement record for batch traceability & notification streaming
+            IngredientBatchMovement::create([
+                'batch_id'                => $batch->id,
+                'ingredient_id'           => $ingredientId,
+                'branch_id'               => $branchId,
+                'user_id'                 => $userId,
+                'movement_type'           => 'expired_removal',
+                'quantity'                => $displayQty,
+                'quantity_base'           => $qtyToDisposeBase,
+                'unit'                    => $displayUnit,
+                'previous_batch_quantity' => $qtyToDisposeBase,
+                'new_batch_quantity'      => 0.0,
+                'cost_at_movement'        => $costPerBaseUnit,
+                'reference_type'          => Wastage::class,
+                'reference_id'            => $wastage->id,
+                'reference_number'        => "WASTE-EXP-{$batch->id}",
+                'notes'                   => json_encode([
+                    'reason'            => 'Automated expiration disposal',
+                    'batch_code'        => $batch->batch_code,
+                    'expiration_date'   => $batch->expiration_date?->format('Y-m-d'),
+                    'affected_products' => $productUpdates,
+                ]),
+            ]);
+
+            // 7. Record IngredientLog for inventory drawer and activity view
+            IngredientLog::create([
+                'ingredient_id' => $ingredientId,
+                'user_id'       => $userId,
+                'branch_id'     => $branchId,
+                'change_qty'    => -$qtyToDisposeBase,
+                'reason'        => "Expired stock automatically disposed (Batch {$batch->batch_code})",
+            ]);
+
+            // 8. Record StockLog entry
+            StockLog::create([
+                'storable_type'  => Ingredient::class,
+                'storable_id'    => $ingredientId,
+                'branch_id'      => $branchId,
+                'user_id'        => $userId,
+                'action_type'    => 'expired_disposal',
+                'quantity'       => $displayQty,
+                'quantity_base'  => $qtyToDisposeBase,
+                'unit'           => $displayUnit,
+                'previous_stock' => $previousStockBase,
+                'new_stock'      => $newStockBase,
+                'reference'      => "Expired Batch {$batch->batch_code}",
+            ]);
+
+            // 9. Dispatch real-time events strictly after database transaction commits
+            $dispatchEvents = function () use ($branchId, $ingredientId, $productUpdates, $batch, $qtyToDisposeBase, $now) {
+                foreach ($productUpdates as $prodUpdate) {
+                    broadcast(new StockUpdated($branchId, Product::class, (int) $prodUpdate['product_id']));
+                }
+
+                broadcast(new StockUpdated($branchId, Ingredient::class, $ingredientId));
+
+                broadcast(new ExpiredIngredientDisposed(
+                    $batch,
+                    $qtyToDisposeBase,
+                    $productUpdates,
+                    $now
+                ));
+            };
+
+            if (app()->environment('testing')) {
+                $dispatchEvents();
+            } else {
+                DB::afterCommit($dispatchEvents);
+            }
 
             return [
                 'batch_id'             => $batch->id,
