@@ -196,8 +196,7 @@ class PosManualQuantityCartValidationTest extends TestCase
 
         $responseInvalid->assertStatus(422);
         $responseInvalid->assertJson(['valid' => false]);
-        $this->assertStringContainsString('Breaded Chicken', $responseInvalid->json('message'));
-        $this->assertStringContainsString('5 servings', $responseInvalid->json('message'));
+        $this->assertStringContainsString('5 units are available', $responseInvalid->json('message'));
     }
 
     /**
@@ -226,7 +225,7 @@ class PosManualQuantityCartValidationTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJson(['valid' => false]);
-        $this->assertStringContainsString('Total quantity for Bottled Water in cart is 55, but only 50', $response->json('message'));
+        $this->assertStringContainsString('50 units are available', $response->json('message'));
     }
 
     /**
@@ -280,8 +279,7 @@ class PosManualQuantityCartValidationTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJson(['valid' => false]);
-        $this->assertStringContainsString('Breaded Chicken', $response->json('message'));
-        $this->assertStringContainsString('2 servings', $response->json('message'));
+        $this->assertStringContainsString('2 units are available', $response->json('message'));
     }
 
     /**
@@ -386,8 +384,167 @@ class PosManualQuantityCartValidationTest extends TestCase
         ];
 
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessageMatches('/Bottled Water availability has changed/i');
+        $this->expectExceptionMessageMatches('/Insufficient stock for Bottled Water\. Only 50 units are available\./i');
 
         $saleService->processSale($saleData);
+    }
+
+    /**
+     * Test I: The exact reproduction matrix from Section 6 against stock = 25.
+     *
+     * Available stock: 25
+     * 25 -> 1: Allowed
+     * 25 -> 24: Allowed
+     * 25 -> 25: Allowed
+     * 25 -> 26: Rejected
+     * 25 -> 100: Rejected
+     * 0 -> 1: Rejected
+     * 25 -> 0: Rejected
+     * 25 -> -1: Rejected
+     * 25 -> 1.5: Rejected
+     */
+    public function test_exact_quantity_validation_matrix_against_stock_25(): void
+    {
+        $this->actingAs($this->cashierA);
+
+        // Create product with exactly 25 available stock
+        $product25 = Product::create([
+            'name' => 'Salmon Nigiri Set',
+            'sku' => 'NIG-025',
+            'category_id' => $this->category->id,
+            'branch_id' => $this->branchA->id,
+            'selling_price' => 180.00,
+            'stock' => 25,
+            'status' => 'in_stock',
+        ]);
+
+        DB::table('branch_product')->insert([
+            'branch_id' => $this->branchA->id,
+            'product_id' => $product25->id,
+            'stock' => 25,
+            'is_active' => 1,
+        ]);
+
+        // Out-of-stock product (stock = 0)
+        $productZero = Product::create([
+            'name' => 'Sold Out Maki',
+            'sku' => 'MAK-000',
+            'category_id' => $this->category->id,
+            'branch_id' => $this->branchA->id,
+            'selling_price' => 120.00,
+            'stock' => 0,
+            'status' => 'out_of_stock',
+        ]);
+
+        DB::table('branch_product')->insert([
+            'branch_id' => $this->branchA->id,
+            'product_id' => $productZero->id,
+            'stock' => 0,
+            'is_active' => 1,
+        ]);
+
+        // 1. Stock 25, requested 1 -> Allowed
+        $r1 = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 1]],
+        ]);
+        $r1->assertStatus(200);
+        $r1->assertJson(['valid' => true]);
+
+        // 2. Stock 25, requested 24 -> Allowed
+        $r24 = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 24]],
+        ]);
+        $r24->assertStatus(200);
+        $r24->assertJson(['valid' => true]);
+
+        // 3. Stock 25, requested 25 -> Allowed
+        $r25 = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 25]],
+        ]);
+        $r25->assertStatus(200);
+        $r25->assertJson(['valid' => true]);
+
+        // 4. Stock 25, requested 26 -> REJECTED
+        $r26 = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 26]],
+        ]);
+        $r26->assertStatus(422);
+        $r26->assertJson(['valid' => false]);
+        $this->assertStringContainsString('Insufficient stock. Only 25 units are available', $r26->json('message'));
+
+        // 5. Stock 25, requested 100 -> REJECTED
+        $r100 = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 100]],
+        ]);
+        $r100->assertStatus(422);
+        $r100->assertJson(['valid' => false]);
+        $this->assertStringContainsString('Insufficient stock. Only 25 units are available', $r100->json('message'));
+
+        // 6. Stock 0, requested 1 -> REJECTED
+        $rZero = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $productZero->id, 'quantity' => 1]],
+        ]);
+        $rZero->assertStatus(422);
+        $rZero->assertJson(['valid' => false]);
+
+        // 7. Stock 25, requested 0 -> REJECTED
+        $r0 = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 0]],
+        ]);
+        $r0->assertStatus(422);
+
+        // 8. Stock 25, requested -1 -> REJECTED
+        $rNeg = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => -1]],
+        ]);
+        $rNeg->assertStatus(422);
+
+        // 9. Stock 25, requested 1.5 -> REJECTED for whole-unit items
+        $rDec = $this->postJson(route('pos.validate-cart'), [
+            'items' => [['id' => $product25->id, 'quantity' => 1.5]],
+        ]);
+        $rDec->assertStatus(422);
+    }
+
+    /**
+     * Test J: Backend checkout strictly rejects quantity 26 when stock is 25.
+     */
+    public function test_backend_checkout_strictly_rejects_quantity_26_when_stock_is_25(): void
+    {
+        $this->actingAs($this->cashierA);
+
+        $product25 = Product::create([
+            'name' => 'Tuna Sashimi Deluxe',
+            'sku' => 'SAS-025',
+            'category_id' => $this->category->id,
+            'branch_id' => $this->branchA->id,
+            'selling_price' => 220.00,
+            'stock' => 25,
+            'status' => 'in_stock',
+        ]);
+
+        DB::table('branch_product')->insert([
+            'branch_id' => $this->branchA->id,
+            'product_id' => $product25->id,
+            'stock' => 25,
+            'is_active' => 1,
+        ]);
+
+        // Submit checkout via POS store endpoint requesting 26
+        $response = $this->postJson(route('pos.store'), [
+            'type' => 'dine-in',
+            'payment_method' => 'gcash',
+            'paid_amount' => 5720.00,
+            'total' => 5720.00,
+            'items' => [
+                [
+                    'id' => $product25->id,
+                    'quantity' => 26,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('Insufficient stock. Only 25 units are available', $response->json('message'));
     }
 }

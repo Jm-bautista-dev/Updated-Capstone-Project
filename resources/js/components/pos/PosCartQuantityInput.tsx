@@ -47,10 +47,14 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
     const commitValue = () => {
         const trimmed = localVal.trim();
 
-        // 1. If blank or empty, revert back to previous valid quantity
+        // 1. If blank or empty, revert back to previous valid quantity or 1
         if (trimmed === '') {
-            setLocalVal(String(item.quantity));
+            toast.warning(`Quantity cannot be empty. Restoring to ${item.quantity || 1}.`);
+            setLocalVal(String(item.quantity || 1));
             setInlineError(null);
+            if (item.quantity < 1) {
+                onUpdateQuantity(cartIndex, 1);
+            }
             return;
         }
 
@@ -60,16 +64,13 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
         if (isNaN(parsed) || parsed <= 0) {
             toast.warning(`Quantity must be at least 1 for ${item.name}.`);
             setInlineError('Min: 1');
-            setLocalVal(String(item.quantity));
+            setLocalVal(String(item.quantity || 1));
             return;
         }
 
         // 3. Reject exceeding available stock
         if (parsed > maxAllowed) {
-            const errorMsg = otherQtyInCart > 0
-                ? `Insufficient stock. Only ${maxStock} available (${otherQtyInCart} in other cart lines, maximum for this line is ${maxAllowed}).`
-                : `Insufficient stock. Only ${maxAllowed} serving${maxAllowed === 1 ? '' : 's'} currently available for ${item.name}.`;
-            toast.warning(errorMsg);
+            toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
             setInlineError(`Max: ${maxAllowed}`);
             setLocalVal(String(item.quantity));
             return;
@@ -88,25 +89,75 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
         setInlineError(null);
     };
 
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text').trim();
+
+        // Strict whole-number integer digits only
+        if (!/^\d+$/.test(text)) {
+            toast.warning('Invalid quantity. Only whole numbers are accepted.');
+            setInlineError('Whole numbers only');
+            return;
+        }
+
+        const parsed = parseInt(text, 10);
+        if (parsed <= 0) {
+            toast.warning('Quantity must be at least 1.');
+            setInlineError('Min: 1');
+            return;
+        }
+
+        if (parsed > maxAllowed) {
+            toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
+            setInlineError(`Max: ${maxAllowed}`);
+            return;
+        }
+
+        setInlineError(null);
+        setLocalVal(String(parsed));
+        onUpdateQuantity(cartIndex, parsed);
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
 
         // Allow empty string temporarily so the cashier can backspace and type fresh digits
         if (val === '') {
             setLocalVal('');
-            setInlineError(null);
+            setInlineError('Required');
             return;
         }
 
         // Strict whole-number digits only (reject '-', '+', 'e', '.', letters, symbols)
         if (!/^\d+$/.test(val)) {
+            toast.warning('Only positive whole numbers are accepted.');
             return;
         }
 
         // Strip leading zeros if multi-digit (e.g., "05" -> "5")
         const sanitized = val.length > 1 && val.startsWith('0') ? String(parseInt(val, 10)) : val;
-        setLocalVal(sanitized);
+        const parsed = parseInt(sanitized, 10);
+
+        if (parsed <= 0) {
+            toast.warning('Quantity must be at least 1.');
+            setInlineError('Min: 1');
+            setLocalVal('1');
+            onUpdateQuantity(cartIndex, 1);
+            return;
+        }
+
+        // IMMEDIATE VALIDATION: Reject typing excessive quantity immediately
+        if (parsed > maxAllowed) {
+            toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
+            setInlineError(`Max: ${maxAllowed}`);
+            // Keep local input at existing valid value
+            setLocalVal(String(item.quantity));
+            return;
+        }
+
         setInlineError(null);
+        setLocalVal(sanitized);
+        onUpdateQuantity(cartIndex, parsed);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -124,7 +175,7 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
             if (item.quantity < maxAllowed) {
                 onDelta(cartIndex, 1);
             } else {
-                toast.warning(`Maximum available stock (${maxStock}) reached for ${item.name}.`);
+                toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
                 setInlineError(`Max: ${maxAllowed}`);
             }
         } else if (e.key === 'ArrowDown') {
@@ -143,7 +194,7 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
 
     const handlePlusClick = () => {
         if (item.quantity >= maxAllowed) {
-            toast.warning(`Cannot exceed available stock of ${maxStock} for ${item.name}.`);
+            toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
             setInlineError(`Max: ${maxAllowed}`);
             return;
         }
@@ -188,6 +239,7 @@ export const PosCartQuantityInput: React.FC<PosCartQuantityInputProps> = ({
                     value={localVal}
                     disabled={disabled}
                     onChange={handleChange}
+                    onPaste={handlePaste}
                     onFocus={handleFocus}
                     onBlur={commitValue}
                     onKeyDown={handleKeyDown}

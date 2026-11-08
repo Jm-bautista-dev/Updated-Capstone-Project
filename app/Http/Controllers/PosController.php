@@ -278,6 +278,35 @@ class PosController extends Controller
             $validated['delivery_info']['proof_of_delivery'] = $request->file('delivery_info.proof_of_delivery');
         }
 
+        $user = Auth::user();
+        $branchId = (int) ($user?->branch_id ?? 0);
+        if ($branchId) {
+            $productQuantities = [];
+            foreach ($validated['items'] as $it) {
+                $pId = (int) ($it['id'] ?? 0);
+                $qty = (float) ($it['quantity'] ?? 0);
+                $productQuantities[$pId] = ($productQuantities[$pId] ?? 0) + $qty;
+            }
+
+            foreach ($productQuantities as $pId => $totalRequested) {
+                $prod = Product::find($pId);
+                if ($prod) {
+                    $avail = $prod->dynamicAvailability($branchId);
+                    $maxAvail = (float) ($avail['available'] ?? 0);
+                    if ($totalRequested > $maxAvail) {
+                        $msg = "Insufficient stock. Only {$maxAvail} units are available for {$prod->name}.";
+                        if ($request->wantsJson() || $request->is('api/*')) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => $msg,
+                            ], 422);
+                        }
+                        return redirect()->back()->withErrors(['error' => $msg]);
+                    }
+                }
+            }
+        }
+
         try {
             $orderNumber = 'POS-' . strtoupper(uniqid());
             $sale = $this->saleService->processSale(array_merge($validated, [
@@ -493,13 +522,12 @@ class PosController extends Controller
             $avail = $product->dynamicAvailability($branchId);
             $maxAvailable = (float) ($avail['available'] ?? 0);
             if ($totalNeeded > $maxAvailable) {
-                $limiting = !empty($avail['limiting_ingredient']) ? " (limited by {$avail['limiting_ingredient']})" : "";
                 return response()->json([
                     'valid' => false,
                     'product_id' => $pId,
                     'product_name' => $product->name,
                     'available' => $maxAvailable,
-                    'message' => "Total quantity for {$product->name} in cart is {$totalNeeded}, but only {$maxAvailable} servings available in this branch{$limiting}.",
+                    'message' => "Insufficient stock. Only {$maxAvailable} units are available for {$product->name}.",
                 ], 422);
             }
         }
@@ -511,14 +539,14 @@ class PosController extends Controller
                 ->where('branch_id', $branchId)
                 ->first();
             $product = $products->get($pId);
-            $avail = $pivot ? (float) $pivot->stock : (float) ($product?->stock ?? 0);
+            $avail = $pivot ? (float) $pivot->stock : (($product && ($product->branch_id === null || (int)$product->branch_id === $branchId)) ? (float) ($product->stock ?? 0) : 0.0);
             if ($avail < $needed) {
                 return response()->json([
                     'valid' => false,
                     'product_id' => $pId,
                     'product_name' => $product?->name ?? 'Product',
                     'available' => $avail,
-                    'message' => "Checkout cannot be completed. {$product?->name} availability has changed. Only {$avail} serving(s) currently available in this branch. Please adjust the quantity.",
+                    'message' => "Insufficient stock. Only {$avail} units are available for " . ($product?->name ?? 'Product') . ".",
                 ], 422);
             }
         }
@@ -543,7 +571,7 @@ class PosController extends Controller
                     'product_id' => $affectedProduct?->id,
                     'product_name' => $affectedProduct?->name ?? 'Item',
                     'available' => $availServings,
-                    'message' => "Checkout cannot be completed. {$affectedProduct?->name} availability has changed. Ingredient '{$ingredient?->name}' only has {$displayStock} {$unit} remaining (supports {$availServings} servings). Please adjust the quantity.",
+                    'message' => "Insufficient stock. Only {$availServings} units are available for " . ($affectedProduct?->name ?? 'Item') . " (limiting ingredient: {$ingredient?->name}).",
                 ], 422);
             }
         }

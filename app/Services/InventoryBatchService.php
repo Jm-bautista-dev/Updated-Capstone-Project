@@ -155,10 +155,22 @@ class InventoryBatchService
 
         $now = Carbon::now(config('app.timezone', 'Asia/Manila'));
 
-        return (float) IngredientBatch::where('ingredient_id', $ingredientId)
+        $batchSum = (float) IngredientBatch::where('ingredient_id', $ingredientId)
             ->where('branch_id', $branchId)
             ->eligibleForConsumption($now)
             ->sum('current_quantity');
+
+        $stockRow = DB::table('ingredient_stocks')
+            ->where('ingredient_id', $ingredientId)
+            ->where('branch_id', $branchId)
+            ->first();
+
+        if ($stockRow) {
+            $stockTotal = max(0.0, (float) $stockRow->stock);
+            return min($stockTotal, $batchSum);
+        }
+
+        return $batchSum;
     }
 
     /**

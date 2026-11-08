@@ -394,8 +394,8 @@ export function ProductModifierModal({
                 variant="ghost"
                 size="sm"
                 className="size-8 p-0 rounded-lg hover:bg-[#FFF5F7] dark:hover:bg-zinc-800 cursor-pointer"
-                onClick={() => setQuantity((prev) => Math.min(product.stock || 99, prev + 1))}
-                disabled={quantity >= (product.stock || 99)}
+                onClick={() => setQuantity((prev) => Math.min(product.stock ?? 0, prev + 1))}
+                disabled={quantity >= (product.stock ?? 0) || (product.stock ?? 0) <= 0}
               >
                 <FiPlus className="size-3.5" />
               </Button>

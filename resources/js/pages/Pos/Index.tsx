@@ -523,13 +523,13 @@ export default function PosIndex() {
     }
 
     setCart(prev => {
-      const totalOfProductInCart = prev.filter(item => item.id === product.id).reduce((sum, it) => sum + it.quantity, 0);
+      const totalOfProductInCart = prev.filter(item => String(item.id) === String(product.id)).reduce((sum, it) => sum + it.quantity, 0);
       if (totalOfProductInCart >= product.stock) {
-        toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
+        toast.warning(`Insufficient stock. Only ${product.stock} units are available.`);
         return prev;
       }
 
-      const existing = prev.find(item => item.id === product.id && (!item.selected_addons || item.selected_addons.length === 0));
+      const existing = prev.find(item => String(item.id) === String(product.id) && (!item.selected_addons || item.selected_addons.length === 0));
       if (existing) {
         toast.success(`✓ Added another ${product.name}`);
         return prev.map(item => item === existing ? { ...item, quantity: item.quantity + 1 } : item);
@@ -540,19 +540,19 @@ export default function PosIndex() {
   };
 
   const handleConfirmModifierProduct = (product: ProductForModifier, qty: number, selectedAddons: SelectedModifier[]) => {
-    const fullProduct = products.find((p: Product) => p.id === product.id) || product;
+    const fullProduct = products.find((p: Product) => String(p.id) === String(product.id)) || product;
 
     setCart(prev => {
-      const totalOfProductInCart = prev.filter(item => item.id === product.id).reduce((sum, it) => sum + it.quantity, 0);
+      const totalOfProductInCart = prev.filter(item => String(item.id) === String(product.id)).reduce((sum, it) => sum + it.quantity, 0);
       if (totalOfProductInCart + qty > product.stock) {
-        toast.warning(`Maximum available stock (${product.stock}) reached for ${product.name}.`);
+        toast.warning(`Insufficient stock. Only ${product.stock} units are available.`);
         return prev;
       }
 
       // Find matching item with identical addons
       const addonsKey = JSON.stringify(selectedAddons.map(a => ({ id: a.addon_id, qty: a.quantity })).sort((a, b) => a.id - b.id));
       const existing = prev.find(item => {
-        if (item.id !== product.id) return false;
+        if (String(item.id) !== String(product.id)) return false;
         const itemKey = JSON.stringify((item.selected_addons || []).map(a => ({ id: a.addon_id || 0, qty: a.quantity || 1 })).sort((a, b) => a.id - b.id));
         return addonsKey === itemKey;
       });
@@ -582,14 +582,14 @@ export default function PosIndex() {
   const updateQuantity = (cartIndex: number, delta: number) => {
     setCart(prev => prev.map((item, idx) => {
       if (idx === cartIndex) {
-        const product = products.find((p: Product) => p.id === item.id) || item;
+        const product = products.find((p: Product) => String(p.id) === String(item.id)) || item;
         const maxStock = product?.stock ?? 0;
-        const otherQtyInCart = prev.reduce((sum, it, i) => (i !== cartIndex && it.id === item.id) ? sum + it.quantity : sum, 0);
+        const otherQtyInCart = prev.reduce((sum, it, i) => (i !== cartIndex && String(it.id) === String(item.id)) ? sum + it.quantity : sum, 0);
         const maxAllowed = Math.max(0, maxStock - otherQtyInCart);
 
         const newQty = item.quantity + delta;
         if (delta > 0 && newQty > maxAllowed) {
-          toast.warning(`Cannot exceed available stock of ${maxStock} for ${item.name}.`);
+          toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
           return item;
         }
         if (newQty < 1) {
@@ -602,18 +602,27 @@ export default function PosIndex() {
   };
 
   const setItemQuantity = (cartIndex: number, newQty: number) => {
-    setCart(prev => prev.map((item, idx) => {
-      if (idx === cartIndex) {
-        const product = products.find((p: Product) => p.id === item.id) || item;
-        const maxStock = product?.stock ?? 0;
-        const otherQtyInCart = prev.reduce((sum, it, i) => (i !== cartIndex && it.id === item.id) ? sum + it.quantity : sum, 0);
-        const maxAllowed = Math.max(0, maxStock - otherQtyInCart);
+    setCart(prev => {
+      const targetItem = prev[cartIndex];
+      if (!targetItem) return prev;
 
-        const validatedQty = Math.min(maxAllowed, Math.max(1, Math.floor(newQty)));
-        return { ...item, quantity: validatedQty };
+      const product = products.find((p: Product) => String(p.id) === String(targetItem.id)) || targetItem;
+      const maxStock = product?.stock ?? 0;
+      const otherQtyInCart = prev.reduce((sum, it, i) => (i !== cartIndex && String(it.id) === String(targetItem.id)) ? sum + it.quantity : sum, 0);
+      const maxAllowed = Math.max(0, maxStock - otherQtyInCart);
+
+      if (newQty > maxAllowed) {
+        toast.warning(`Insufficient stock. Only ${maxAllowed} units are available.`);
+        return prev;
       }
-      return item;
-    }));
+
+      if (newQty < 1 || !Number.isInteger(newQty)) {
+        toast.warning('Product quantity must be a whole number of at least 1.');
+        return prev;
+      }
+
+      return prev.map((item, idx) => idx === cartIndex ? { ...item, quantity: newQty } : item);
+    });
   };
 
   const removeFromCart = (cartIndex: number) => {
@@ -749,8 +758,19 @@ export default function PosIndex() {
         router.reload({ only: ['products'] });
         return;
       }
-    } catch {
-      // Proceed gracefully if offline
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status: number; data?: { message?: string } } };
+      if (axiosErr.response && axiosErr.response.status === 422) {
+        const msg = axiosErr.response.data?.message || 'Cart contains items exceeding available stock.';
+        setAlertModal({
+          type: 'warning',
+          title: 'Insufficient Stock',
+          message: msg,
+        });
+        setIsAlertModalOpen(true);
+        router.reload({ only: ['products'] });
+        return;
+      }
     }
 
     if (orderType === 'delivery') {
@@ -774,7 +794,7 @@ export default function PosIndex() {
     setKioskStep('checkout');
   };
 
-  const confirmPayment = () => {
+  const confirmPayment = async () => {
     if (isSubmitting) return;
 
     if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
@@ -796,6 +816,36 @@ export default function PosIndex() {
     }
     if (validation.updatedCart) {
       setCart(validation.updatedCart as unknown as CartItem[]);
+    }
+
+    // Real-time server-side inventory verification before submitting payment
+    try {
+      const res = await axios.post('/pos/validate-cart', {
+        items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+      });
+      if (res.data && res.data.valid === false) {
+        setAlertModal({
+          type: 'warning',
+          title: 'Stock Availability Changed',
+          message: res.data.message || 'Inventory has changed. Please adjust your cart.',
+        });
+        setIsAlertModalOpen(true);
+        router.reload({ only: ['products'] });
+        return;
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status: number; data?: { message?: string } } };
+      if (axiosErr.response && axiosErr.response.status === 422) {
+        const msg = axiosErr.response.data?.message || 'Cart contains items exceeding available stock.';
+        setAlertModal({
+          type: 'warning',
+          title: 'Insufficient Stock',
+          message: msg,
+        });
+        setIsAlertModalOpen(true);
+        router.reload({ only: ['products'] });
+        return;
+      }
     }
 
     if (paymentMethod === 'cash') {

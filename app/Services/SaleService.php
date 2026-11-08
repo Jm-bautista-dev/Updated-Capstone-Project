@@ -115,9 +115,38 @@ class SaleService
         // 2. Validate before mutation
         $force = $data['force'] ?? false;
         if (!$force) {
+            // A. Authoritative product-level availability check (recalculated under transaction)
+            $productQuantities = [];
+            foreach ($data['items'] ?? [] as $it) {
+                $pId = (int) ($it['id'] ?? $it['product_id'] ?? 0);
+                $qty = (float) ($it['quantity'] ?? 0);
+                if ($pId > 0 && $qty > 0) {
+                    $productQuantities[$pId] = ($productQuantities[$pId] ?? 0) + $qty;
+                }
+            }
+
+            foreach ($productQuantities as $productId => $totalQty) {
+                $product = $products->get($productId) ?? Product::with(['ingredients.stocks'])->find($productId);
+                if (!$product) {
+                    throw new \Exception("Product #{$productId} is not available in this branch.");
+                }
+
+                $avail = $product->dynamicAvailability($branchId);
+                $maxAvail = (float) ($avail['available'] ?? 0);
+
+                if ($totalQty > $maxAvail) {
+                    throw new \Exception(
+                        "Insufficient stock for {$product->name}. Only {$maxAvail} units are available."
+                    );
+                }
+            }
+
+            // B. Validate ingredients with lockForUpdate
             if (!empty($ingredientRequirements)) {
                 $this->validateIngredientStock($ingredientRequirements, $branchId);
             }
+
+            // C. Validate direct physical stock with lockForUpdate
             if (!empty($directRequirements)) {
                 $this->validateDirectStock($directRequirements, $branchId, $products);
             }
@@ -581,14 +610,13 @@ class SaleService
             $pivot = DB::table('branch_product')
                 ->where('product_id', $productId)
                 ->where('branch_id', $branchId)
+                ->lockForUpdate()
                 ->first();
-            $available = $pivot ? (float) $pivot->stock : (float) ($product->stock ?? 0);
+            $available = $pivot ? (float) $pivot->stock : (($product->branch_id === null || (int)$product->branch_id === $branchId) ? (float) ($product->stock ?? 0) : 0.0);
 
             if ($available < $totalNeeded) {
                 throw new \Exception(
-                    "Checkout cannot be completed. {$product->name} availability has changed. " .
-                    "Only {$available} servings are currently available in this branch. " .
-                    "Please adjust the quantity."
+                    "Insufficient stock for {$product->name}. Only {$available} units are available."
                 );
             }
         }

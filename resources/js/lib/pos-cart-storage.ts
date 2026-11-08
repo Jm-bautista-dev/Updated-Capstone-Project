@@ -449,9 +449,9 @@ export function validateCartBeforeCheckout(
     }
 
     for (const [productId, totalQty] of totalRequestedByProduct.entries()) {
-        const catalogItem = catalogProducts.find((p) => p.id === productId);
+        const catalogItem = catalogProducts.find((p) => String(p.id) === String(productId));
         if (!catalogItem) {
-            const missingItem = cart.find((i) => i.id === productId);
+            const missingItem = cart.find((i) => String(i.id) === String(productId));
             return {
                 isValid: false,
                 errorMessage: `"${missingItem?.name || 'Item #' + productId}" is no longer available in this branch. Please remove it from your cart.`,
@@ -468,13 +468,13 @@ export function validateCartBeforeCheckout(
         if (totalQty > catalogItem.stock) {
             return {
                 isValid: false,
-                errorMessage: `Requested total quantity for "${catalogItem.name}" (${totalQty}) exceeds available stock (${catalogItem.stock}).`,
+                errorMessage: `Insufficient stock. Only ${catalogItem.stock} units are available for ${catalogItem.name}.`,
             };
         }
     }
 
     for (const item of cart) {
-        const catalogItem = catalogProducts.find((p) => p.id === item.id);
+        const catalogItem = catalogProducts.find((p) => String(p.id) === String(item.id));
         if (!catalogItem) continue;
 
         if (item.selling_price !== catalogItem.selling_price) {
